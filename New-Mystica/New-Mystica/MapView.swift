@@ -62,13 +62,8 @@ struct MapView: View, NavigableView {
     
     var body: some View {
         BaseView(title: navigationTitle) {
-            ZStack {
-                // Map
-                Map(coordinateRegion: $region)
-                    .ignoresSafeArea()
-                
-                // Battle location icons
-                ForEach(battleLocations, id: \.name) { location in
+            Map(coordinateRegion: $region, annotationItems: battleLocations) { location in
+                MapAnnotation(coordinate: location.coordinate) {
                     MapBattleIcon(
                         location: location,
                         onTap: {
@@ -78,6 +73,7 @@ struct MapView: View, NavigableView {
                     )
                 }
             }
+            .ignoresSafeArea()
         }
         .overlay(
             // Battle Popup
@@ -101,7 +97,8 @@ struct MapView: View, NavigableView {
 }
 
 // MARK: - Battle Location Data Model
-struct BattleLocation {
+struct BattleLocation: Identifiable {
+    let id = UUID()
     let coordinate: CLLocationCoordinate2D
     let name: String
     let enemyType: String
@@ -130,32 +127,6 @@ struct MapBattleIcon: View {
             }
         }
         .buttonStyle(PlainButtonStyle())
-        .position(
-            x: mapCoordinateToScreenX(location.coordinate),
-            y: mapCoordinateToScreenY(location.coordinate)
-        )
-    }
-    
-    // Convert map coordinates to screen positions
-    // These are simplified calculations - in a real app you'd use proper coordinate conversion
-    private func mapCoordinateToScreenX(_ coordinate: CLLocationCoordinate2D) -> CGFloat {
-        let centerLat = 37.7749
-        let centerLon = -122.4194
-        let deltaLat = 0.1
-        let deltaLon = 0.1
-        
-        let normalizedX = (coordinate.longitude - centerLon) / deltaLon
-        return UIScreen.main.bounds.width * 0.5 + normalizedX * UIScreen.main.bounds.width * 0.4
-    }
-    
-    private func mapCoordinateToScreenY(_ coordinate: CLLocationCoordinate2D) -> CGFloat {
-        let centerLat = 37.7749
-        let centerLon = -122.4194
-        let deltaLat = 0.1
-        let deltaLon = 0.1
-        
-        let normalizedY = (coordinate.latitude - centerLat) / deltaLat
-        return UIScreen.main.bounds.height * 0.5 - normalizedY * UIScreen.main.bounds.height * 0.4
     }
 }
 
