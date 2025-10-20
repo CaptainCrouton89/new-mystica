@@ -4,7 +4,8 @@
   "private": true,
   "type": "commonjs",
   "scripts": {
-    "generate-image": "tsx generate-image.ts"
+    "generate-image": "tsx generate-image.ts",
+    "generate-raw-image": "tsx generate-raw-image.ts"
   },
   "dependencies": {
     "dotenv": "^16.4.7",
