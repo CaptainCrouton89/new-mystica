@@ -19,3 +19,6 @@ DerivedData/
 agent-responses/
 image-refs/
 scripts/output/
+
+# Wrangler/Cloudflare local state
+.wrangler/state/
