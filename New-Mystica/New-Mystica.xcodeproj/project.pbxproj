@@ -7,11 +7,11 @@
 	objects = {
 
 /* Begin PBXFileReference section */
-		28FAE7C42EA5C5A00069671F /* New-Mystica.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "New-Mystica.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		2817BD1B2EA5FD3700468184 /* New-Mystica.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "New-Mystica.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		28FAE7C62EA5C5A00069671F /* New-Mystica */ = {
+		2817BD1D2EA5FD3700468184 /* New-Mystica */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = "New-Mystica";
 			sourceTree = "<group>";
@@ -19,7 +19,7 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		28FAE7C12EA5C5A00069671F /* Frameworks */ = {
+		2817BD182EA5FD3700468184 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -29,18 +29,18 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		28FAE7BB2EA5C5A00069671F = {
+		2817BD122EA5FD3700468184 = {
 			isa = PBXGroup;
 			children = (
-				28FAE7C62EA5C5A00069671F /* New-Mystica */,
-				28FAE7C52EA5C5A00069671F /* Products */,
+				2817BD1D2EA5FD3700468184 /* New-Mystica */,
+				2817BD1C2EA5FD3700468184 /* Products */,
 			);
 			sourceTree = "<group>";
 		};
-		28FAE7C52EA5C5A00069671F /* Products */ = {
+		2817BD1C2EA5FD3700468184 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				28FAE7C42EA5C5A00069671F /* New-Mystica.app */,
+				2817BD1B2EA5FD3700468184 /* New-Mystica.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -48,64 +48,64 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		28FAE7C32EA5C5A00069671F /* New-Mystica */ = {
+		2817BD1A2EA5FD3700468184 /* New-Mystica */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 28FAE7D12EA5C5A10069671F /* Build configuration list for PBXNativeTarget "New-Mystica" */;
+			buildConfigurationList = 2817BD282EA5FD3800468184 /* Build configuration list for PBXNativeTarget "New-Mystica" */;
 			buildPhases = (
-				28FAE7C02EA5C5A00069671F /* Sources */,
-				28FAE7C12EA5C5A00069671F /* Frameworks */,
-				28FAE7C22EA5C5A00069671F /* Resources */,
+				2817BD172EA5FD3700468184 /* Sources */,
+				2817BD182EA5FD3700468184 /* Frameworks */,
+				2817BD192EA5FD3700468184 /* Resources */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				28FAE7C62EA5C5A00069671F /* New-Mystica */,
+				2817BD1D2EA5FD3700468184 /* New-Mystica */,
 			);
 			name = "New-Mystica";
 			packageProductDependencies = (
 			);
 			productName = "New-Mystica";
-			productReference = 28FAE7C42EA5C5A00069671F /* New-Mystica.app */;
+			productReference = 2817BD1B2EA5FD3700468184 /* New-Mystica.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
-		28FAE7BC2EA5C5A00069671F /* Project object */ = {
+		2817BD132EA5FD3700468184 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
 				LastSwiftUpdateCheck = 2600;
 				LastUpgradeCheck = 2600;
 				TargetAttributes = {
-					28FAE7C32EA5C5A00069671F = {
+					2817BD1A2EA5FD3700468184 = {
 						CreatedOnToolsVersion = 26.0.1;
 					};
 				};
 			};
-			buildConfigurationList = 28FAE7BF2EA5C5A00069671F /* Build configuration list for PBXProject "New-Mystica" */;
+			buildConfigurationList = 2817BD162EA5FD3700468184 /* Build configuration list for PBXProject "New-Mystica" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
 				Base,
 			);
-			mainGroup = 28FAE7BB2EA5C5A00069671F;
+			mainGroup = 2817BD122EA5FD3700468184;
 			minimizedProjectReferenceProxies = 1;
 			preferredProjectObjectVersion = 77;
-			productRefGroup = 28FAE7C52EA5C5A00069671F /* Products */;
+			productRefGroup = 2817BD1C2EA5FD3700468184 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				28FAE7C32EA5C5A00069671F /* New-Mystica */,
+				2817BD1A2EA5FD3700468184 /* New-Mystica */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		28FAE7C22EA5C5A00069671F /* Resources */ = {
+		2817BD192EA5FD3700468184 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -115,7 +115,7 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		28FAE7C02EA5C5A00069671F /* Sources */ = {
+		2817BD172EA5FD3700468184 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -125,7 +125,7 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
-		28FAE7CF2EA5C5A10069671F /* Debug */ = {
+		2817BD262EA5FD3800468184 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -178,18 +178,18 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
-				SDKROOT = macosx;
+				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 			};
 			name = Debug;
 		};
-		28FAE7D02EA5C5A10069671F /* Release */ = {
+		2817BD272EA5FD3800468184 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -236,101 +236,102 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
-				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
-				SDKROOT = macosx;
+				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
 			};
 			name = Release;
 		};
-		28FAE7D22EA5C5A10069671F /* Debug */ = {
+		2817BD292EA5FD3800468184 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 2C4VDA32CW;
-				ENABLE_APP_SANDBOX = YES;
-				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
-				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
-					"@executable_path/../Frameworks",
+					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "reindeer.New-Mystica";
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				REGISTER_APP_GROUPS = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
 		};
-		28FAE7D32EA5C5A10069671F /* Release */ = {
+		2817BD2A2EA5FD3800468184 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				COMBINE_HIDPI_IMAGES = YES;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_TEAM = 2C4VDA32CW;
-				ENABLE_APP_SANDBOX = YES;
-				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
-				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
-					"@executable_path/../Frameworks",
+					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = "reindeer.New-Mystica";
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				REGISTER_APP_GROUPS = YES;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		28FAE7BF2EA5C5A00069671F /* Build configuration list for PBXProject "New-Mystica" */ = {
+		2817BD162EA5FD3700468184 /* Build configuration list for PBXProject "New-Mystica" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				28FAE7CF2EA5C5A10069671F /* Debug */,
-				28FAE7D02EA5C5A10069671F /* Release */,
+				2817BD262EA5FD3800468184 /* Debug */,
+				2817BD272EA5FD3800468184 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		28FAE7D12EA5C5A10069671F /* Build configuration list for PBXNativeTarget "New-Mystica" */ = {
+		2817BD282EA5FD3800468184 /* Build configuration list for PBXNativeTarget "New-Mystica" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				28FAE7D22EA5C5A10069671F /* Debug */,
-				28FAE7D32EA5C5A10069671F /* Release */,
+				2817BD292EA5FD3800468184 /* Debug */,
+				2817BD2A2EA5FD3800468184 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};
-	rootObject = 28FAE7BC2EA5C5A00069671F /* Project object */;
+	rootObject = 2817BD132EA5FD3700468184 /* Project object */;
 }

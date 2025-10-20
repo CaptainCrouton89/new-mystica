@@ -1,0 +1,658 @@
+template: ~/.claude/file-templates/init-project/api-contracts.yaml
+openapi: 3.0.0
+info:
+  title: New Mystica API
+  version: 1.0.0
+  description: RESTful API for New Mystica location-based RPG game
+servers:
+  - url: https://api.mystica.app/v1
+    description: Production server
+  - url: http://localhost:3000/v1
+    description: Local development server
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Location:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        lat:
+          type: number
+          format: double
+        lng:
+          type: number
+          format: double
+        enemy_type:
+          type: string
+          enum: [helmet, armor, sword, axe, shield, amulet, ring, pet]
+        item_type:
+          type: string
+          enum: [helmet, armor, sword, axe, shield, amulet, ring, pet]
+        distance_meters:
+          type: integer
+        is_premium:
+          type: boolean
+
+    Item:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [helmet, armor, sword, axe, shield, amulet, ring]
+        description:
+          type: string
+        atk:
+          type: integer
+        def:
+          type: integer
+        hp:
+          type: integer
+        generation:
+          type: integer
+          minimum: 1
+          maximum: 3
+        is_shiny:
+          type: boolean
+        is_equipped:
+          type: boolean
+        equipped_slot:
+          type: string
+          nullable: true
+
+    Pet:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+        description:
+          type: string
+        atk:
+          type: integer
+        def:
+          type: integer
+        hp:
+          type: integer
+        generation:
+          type: integer
+        is_shiny:
+          type: boolean
+        is_active:
+          type: boolean
+
+    Enemy:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+        atk:
+          type: integer
+        def:
+          type: integer
+        hp:
+          type: integer
+        is_shiny:
+          type: boolean
+
+    CombatSession:
+      type: object
+      properties:
+        session_id:
+          type: string
+          format: uuid
+        enemy:
+          $ref: '#/components/schemas/Enemy'
+        player_stats:
+          type: object
+          properties:
+            atk:
+              type: integer
+            def:
+              type: integer
+            hp:
+              type: integer
+
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        username:
+          type: string
+          nullable: true
+        level:
+          type: integer
+        total_atk:
+          type: integer
+        total_def:
+          type: integer
+        total_hp:
+          type: integer
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        code:
+          type: integer
+
+paths:
+  /locations/nearby:
+    get:
+      summary: Get nearby spawn locations
+      description: Returns locations within specified radius sorted by distance
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: lat
+          in: query
+          required: true
+          schema:
+            type: number
+            format: double
+        - name: lng
+          in: query
+          required: true
+          schema:
+            type: number
+            format: double
+        - name: radius
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 5000
+            description: Radius in meters
+      responses:
+        '200':
+          description: List of nearby locations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  locations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Location'
+        '400':
+          description: Invalid coordinates
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /locations/{id}:
+    get:
+      summary: Get location details
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Location details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Location'
+        '404':
+          description: Location not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /combat/start:
+    post:
+      summary: Start combat encounter
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                location_id:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Combat session created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CombatSession'
+        '404':
+          description: Location not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /combat/attack:
+    post:
+      summary: Execute attack with timing
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                session_id:
+                  type: string
+                  format: uuid
+                tap_accuracy:
+                  type: number
+                  format: float
+                  minimum: 0.0
+                  maximum: 1.0
+      responses:
+        '200':
+          description: Attack result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  damage_dealt:
+                    type: integer
+                  enemy_damage:
+                    type: integer
+                  player_hp_remaining:
+                    type: integer
+                  enemy_hp_remaining:
+                    type: integer
+                  combat_status:
+                    type: string
+                    enum: [ongoing, victory, defeat]
+        '404':
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /combat/complete:
+    post:
+      summary: Complete combat and claim reward
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                session_id:
+                  type: string
+                  format: uuid
+                result:
+                  type: string
+                  enum: [victory, defeat]
+      responses:
+        '200':
+          description: Combat completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reward:
+                    oneOf:
+                      - $ref: '#/components/schemas/Item'
+                      - $ref: '#/components/schemas/Pet'
+                      - type: 'null'
+
+  /inventory:
+    get:
+      summary: Get player inventory
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Player inventory
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Item'
+                  pets:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Pet'
+
+  /equipment/equip:
+    post:
+      summary: Equip item to slot
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                item_id:
+                  type: string
+                  format: uuid
+                slot:
+                  type: string
+                  enum: [helmet, armor, weapon, shield, amulet, ring_1, ring_2]
+      responses:
+        '200':
+          description: Item equipped
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  total_stats:
+                    type: object
+                    properties:
+                      atk:
+                        type: integer
+                      def:
+                        type: integer
+                      hp:
+                        type: integer
+        '404':
+          description: Item not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /equipment/unequip:
+    post:
+      summary: Unequip item from slot
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                slot:
+                  type: string
+                  enum: [helmet, armor, weapon, shield, amulet, ring_1, ring_2]
+      responses:
+        '200':
+          description: Item unequipped
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  total_stats:
+                    type: object
+                    properties:
+                      atk:
+                        type: integer
+                      def:
+                        type: integer
+                      hp:
+                        type: integer
+
+  /pets/activate:
+    post:
+      summary: Set active pet
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                pet_id:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Pet activated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  total_stats:
+                    type: object
+                    properties:
+                      atk:
+                        type: integer
+                      def:
+                        type: integer
+                      hp:
+                        type: integer
+
+  /crafting/start:
+    post:
+      summary: Start crafting session
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                parent_item_1:
+                  type: string
+                  format: uuid
+                parent_item_2:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Crafting started
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  session_id:
+                    type: string
+                    format: uuid
+                  completion_time:
+                    type: string
+                    format: date-time
+                  duration_seconds:
+                    type: integer
+        '400':
+          description: Invalid crafting combination
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /crafting/status/{session_id}:
+    get:
+      summary: Get crafting session status
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Crafting status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  session_id:
+                    type: string
+                    format: uuid
+                  status:
+                    type: string
+                    enum: [in_progress, completed, claimed]
+                  completion_time:
+                    type: string
+                    format: date-time
+                  time_remaining_seconds:
+                    type: integer
+
+  /crafting/complete:
+    post:
+      summary: Claim completed craft
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                session_id:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Craft claimed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  child_item:
+                    oneOf:
+                      - $ref: '#/components/schemas/Item'
+                      - $ref: '#/components/schemas/Pet'
+        '400':
+          description: Crafting not complete
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /profile:
+    get:
+      summary: Get player profile
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Player profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+
+  /profile/init:
+    post:
+      summary: Initialize player profile (called after registration)
+      security:
+        - BearerAuth: []
+      responses:
+        '201':
+          description: Profile created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+
+  /ai/generate-item:
+    post:
+      summary: Generate item with AI (internal use)
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                type:
+                  type: string
+                  enum: [helmet, armor, sword, axe, shield, amulet, ring]
+                level:
+                  type: integer
+                generation:
+                  type: integer
+                  minimum: 1
+                  maximum: 3
+      responses:
+        '200':
+          description: Item generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  description:
+                    type: string
+                  stat_distribution:
+                    type: object
+                    properties:
+                      atk:
+                        type: number
+                        format: float
+                      def:
+                        type: number
+                        format: float
+                      hp:
+                        type: number
+                        format: float

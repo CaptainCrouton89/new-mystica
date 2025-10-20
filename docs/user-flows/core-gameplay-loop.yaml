@@ -1,0 +1,122 @@
+title: Core Gameplay Loop
+template: ~/.claude/file-templates/init-project/user-flows/user-flow-title.yaml
+status: draft
+last_updated: 2025-10-19
+
+key_personas:
+  - "Mobile RPG Player - Enjoys progression systems and combat strategy"
+  - "Location Explorer - Motivated by real-world discovery and collection"
+  - "Collector - Seeks rare variants and complete sets"
+
+primary_flows:
+  - name: "Exploration & Combat Flow"
+    trigger: "Player opens app and wants to discover new items/pets"
+    steps:
+      - "Player views map showing nearby location markers"
+      - "Player selects destination with desired item/enemy type"
+      - "Player navigates to physical location using map guidance"
+      - "Player arrives at location, location icon becomes active"
+      - "Player taps active location to initiate encounter"
+      - "Enemy appears with stats and type displayed"
+      - "Combat screen loads with player stats (items + pet equipped)"
+      - "Player taps timing dial to set attack multiplier"
+      - "Damage calculated and applied to enemy"
+      - "Enemy attacks back, damage applied to player"
+      - "Combat continues until player wins or loses"
+      - "On victory: defeated enemy added to inventory as item/pet"
+      - "Player returns to map view or inventory"
+    outcome: "Player collects new item/pet for their inventory"
+    edge_cases: |
+      - Player leaves location before tapping: encounter expires
+      - Player loses combat: no item collected, can retry
+      - Inventory full: prompt to discard item or manage inventory
+      - GPS signal lost: pause encounter until signal restored
+
+  - name: "Crafting Flow"
+    trigger: "Player has 2+ items of same type and generation"
+    steps:
+      - "Player opens inventory screen"
+      - "Player navigates to crafting section"
+      - "Player selects first item to craft"
+      - "System filters available items (same type, same generation)"
+      - "Player selects second item to craft"
+      - "System displays preview: parent stats, generation+1, crafting time"
+      - "Player confirms craft"
+      - "Both parent items consumed (removed from inventory)"
+      - "Crafting timer starts (duration based on generation)"
+      - "Player waits for timer or uses speed-up (if available)"
+      - "New item generated and added to inventory"
+      - "Player can equip or craft further"
+    outcome: "Player creates higher-generation item with improved stats"
+    edge_cases: |
+      - Trying to craft 3rd gen items: system blocks, shows max generation message
+      - Trying to craft different types: system filters prevent selection
+      - Trying to craft different generations: system filters prevent selection
+      - App closed during crafting: timer continues, item ready on next open
+
+  - name: "Equipment Management Flow"
+    trigger: "Player wants to optimize stats before combat"
+    steps:
+      - "Player opens inventory screen"
+      - "Player views current equipped items (helmet, armor, weapon, etc.)"
+      - "Player views total stats (ATK/DEF/HP) from equipped items + pet"
+      - "Player taps equipment slot to change"
+      - "System shows available items of that type"
+      - "Player selects new item to equip"
+      - "Stats update in real-time"
+      - "Player repeats for other slots as needed"
+      - "Player selects active pet"
+      - "Final stats displayed"
+    outcome: "Player has optimized loadout for upcoming combat"
+    edge_cases: |
+      - No items of a type: slot shows empty/default
+      - Unequipping item: stats decrease accordingly
+      - Comparing items: show stat differences before equipping
+
+secondary_flows:
+  - name: "First-Time User Onboarding"
+    trigger: "New user launches app for first time"
+    steps:
+      - "Player creates account or signs in"
+      - "Tutorial overlay explains map navigation"
+      - "Player guided to nearby starter location"
+      - "Simplified first combat with tutorial prompts"
+      - "Player wins, receives first item/pet"
+      - "Tutorial explains inventory and equipping"
+      - "Player equips first item"
+      - "Tutorial explains crafting basics"
+      - "Free access to full game"
+    outcome: "Player understands core mechanics and has starter equipment"
+    edge_cases: |
+      - Player skips tutorial: can access from settings later
+      - No nearby locations: tutorial uses virtual location
+
+  - name: "Shiny Discovery Flow"
+    trigger: "Player encounters rare shiny variant (low % chance)"
+    steps:
+      - "Player initiates normal encounter"
+      - "Shiny animation/sparkle effect plays"
+      - "Enemy displayed with shiny visual variant"
+      - "Combat proceeds normally"
+      - "On victory: shiny item/pet added to inventory"
+      - "Special notification: 'Shiny [Name] collected!'"
+      - "Shiny badge/marker visible in inventory"
+    outcome: "Player collects rare shiny variant for collection"
+    edge_cases: |
+      - Player loses shiny combat: shiny is lost, cannot retry
+      - Shiny chance: independent per encounter
+
+  - name: "Premium Item Discovery Flow"
+    trigger: "Player visits special premium item location"
+    steps:
+      - "Player sees premium item marker on map (distinct icon)"
+      - "Player navigates to single-location premium spawn"
+      - "Player taps location"
+      - "System checks premium currency balance"
+      - "Player spends premium currency to unlock encounter"
+      - "Combat proceeds with premium enemy"
+      - "On victory: premium item (overrides city stats) collected"
+    outcome: "Player obtains exclusive premium item with unique stats"
+    edge_cases: |
+      - Insufficient premium currency: prompt to purchase
+      - Premium location only spawns once per day/week

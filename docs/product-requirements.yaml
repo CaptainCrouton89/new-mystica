@@ -6,102 +6,170 @@ last_updated: 2025-10-19
 
 overview:
   project_name: "New Mystica"
-  summary: "A full-stack application combining an Express.js backend API with native iOS/macOS SwiftUI frontend. Built for [define purpose - awaiting user input]."
-  problem_statement: "[To be defined - What problem does New Mystica solve? Who are the users and what pain points do they experience?]"
+  summary: "A location-based mobile RPG where players explore real-world locations to discover enemies, collect items and pets, and engage in tactical combat. Players navigate using maps, craft powerful equipment, and build their collection through location-specific gameplay."
+  problem_statement: "Existing location-based games lack deep RPG mechanics and meaningful item progression. Players want exploration-driven gameplay that rewards both movement and strategic decision-making with persistent character growth."
 
 scope:
   in_scope:
-    - Native iOS/macOS application with SwiftUI
-    - RESTful API backend with Express.js
-    - Database persistence with Supabase (PostgreSQL)
-    - User authentication and authorization
-    - Local data persistence with SwiftData
-    - Cloud deployment via Railway
+    - Location-based enemy and item discovery via map integration
+    - Tactical combat system with timing-based mechanics
+    - Item and pet collection with rarity variants (standard/shiny)
+    - Crafting system with generational progression (up to 3rd gen)
+    - AI-generated items with stat distributions
+    - Native iOS/macOS application
+    - Backend API for data persistence and AI generation
   out_of_scope:
-    - Web frontend (mobile-only focus)
-    - Android support (iOS/macOS only)
-    - Real-time collaboration features (v1)
-    - Third-party integrations (v1)
+    - PvP combat (v1)
+    - Social/multiplayer features (v1)
+    - Trading system (v1)
+    - Android support
+    - Web frontend
 
 summary:
-  goal: "[To be defined - What is the primary goal of New Mystica?]"
+  goal: "Create an engaging location-based RPG that combines exploration, collection, and strategic combat to drive daily active play sessions"
   primary_users:
-    - "[User Persona 1 - To be defined]"
-    - "[User Persona 2 - To be defined]"
+    - "Mobile gamers (18-35) who enjoy RPG progression and collection mechanics"
+    - "Location-based game players seeking deeper gameplay than existing titles"
+    - "Collectors motivated by rare variants and crafting systems"
   key_problems_solved:
-    - "[Problem 1 - To be defined]"
-    - "[Problem 2 - To be defined]"
+    - Provides meaningful RPG progression in location-based gameplay
+    - Rewards both exploration (discovery) and strategy (combat/crafting)
+    - Offers deep item customization through AI generation and crafting
+    - Creates scarcity and value through location-specific items and shiny variants
 
 features:
   - id: "F-01"
-    description: "User Authentication - Secure user registration, login, and session management"
-    priority: "high"
+    description: "Geolocation & Map System - Google Maps integration for real-world navigation and location-based item/enemy discovery"
+    priority: "critical"
     status: "planned"
 
   - id: "F-02"
-    description: "Data Management - CRUD operations for core data entities with local and cloud sync"
-    priority: "high"
+    description: "Combat System - Timing-based combat with attack multiplier dial, stat calculations, and turn-based flow"
+    priority: "critical"
     status: "planned"
 
   - id: "F-03"
-    description: "Native Mobile UI - SwiftUI-based interface optimized for iOS/macOS"
+    description: "Items System - Equippable items with location associations, rarity variants, and stackable stat modifiers (ATK/DEF/HP)"
+    priority: "critical"
+    status: "planned"
+
+  - id: "F-04"
+    description: "Pets System - Collectible pets with location associations, shiny variants, and stat bonuses"
     priority: "high"
+    status: "planned"
+
+  - id: "F-05"
+    description: "AI Item Generation - Backend service to generate unique items with balanced stat distributions and store in database"
+    priority: "high"
+    status: "planned"
+
+  - id: "F-06"
+    description: "Crafting System - Fuse two same-type items to create child items up to 3rd generation with increasing crafting time"
+    priority: "high"
+    status: "planned"
+
+  - id: "F-07"
+    description: "User Authentication - Secure registration, login, and persistent user profiles"
+    priority: "critical"
+    status: "planned"
+
+  - id: "F-08"
+    description: "Design System - Consistent UI components (buttons, typography, colors) across all screens"
+    priority: "high"
+    status: "planned"
+
+  - id: "F-09"
+    description: "Inventory Management - View, organize, and equip collected items and pets"
+    priority: "high"
+    status: "planned"
+
+  - id: "F-10"
+    description: "Premium Items - Special single-location items available through premium currency"
+    priority: "medium"
     status: "planned"
 
 technical_constraints:
   platforms:
     - iOS 17+
-    - macOS 14+
+    - macOS 14+ (secondary)
   backend:
     - Express.js 4.16.x
-    - Node.js runtime
-    - Supabase PostgreSQL
+    - Supabase PostgreSQL for persistence
+    - AI service for item generation
+    - Google Maps API integration
   frontend:
-    - SwiftUI
-    - SwiftData for local persistence
+    - SwiftUI for native UI
+    - SwiftData for local caching
+    - CoreLocation for geolocation
   deployment:
     - Railway for backend hosting
-    - TestFlight for mobile app distribution
+    - TestFlight for mobile distribution
+  performance:
+    - Map rendering must support smooth scrolling with 100+ location markers
+    - Combat animations must run at 60fps
+    - Item generation API response time < 2s
 
 timeline:
   milestones:
-    - phase: "Phase 1 - Foundation"
-      target: "[To be defined]"
+    - phase: "Light MVP (3 days)"
+      target: "2025-10-22"
       deliverables:
-        - Core authentication system
-        - Basic data model and API
-        - Skeleton UI framework
+        - Basic map view with static locations
+        - Simple combat prototype (dial mechanic)
+        - Item data model with mock data
+        - Basic UI design system
 
-    - phase: "Phase 2 - Core Features"
-      target: "[To be defined]"
+    - phase: "Full MVP (2 weeks)"
+      target: "2025-11-05"
       deliverables:
-        - "[To be defined based on feature priorities]"
+        - Google Maps integration with real geolocation
+        - Complete combat system with stats calculation
+        - Items and pets system with equipping
+        - AI item generation backend
+        - Basic crafting (1st generation only)
+        - User authentication and profiles
 
-    - phase: "Phase 3 - Polish & Launch"
-      target: "[To be defined]"
+    - phase: "Finished Product (2 months)"
+      target: "2026-01-05"
       deliverables:
-        - Production deployment
+        - Full crafting system (up to 3rd generation)
+        - Shiny variants and rarity system
+        - Premium items with single-location spawns
+        - Polished UI/UX across all screens
+        - Performance optimization
         - App Store submission
-        - User onboarding flow
+        - Analytics and monitoring
 
 success_metrics:
-  - metric: "[To be defined - e.g., daily active users, data entries created, etc.]"
-    target: "[To be defined]"
-  - metric: "[To be defined]"
-    target: "[To be defined]"
+  - metric: "Daily Active Users (DAU)"
+    target: "1,000 DAU within first month post-launch"
+  - metric: "Session Length"
+    target: "Average 15+ minutes per session"
+  - metric: "Retention (Day 7)"
+    target: "40% D7 retention"
+  - metric: "Crafting Engagement"
+    target: "60% of active users craft at least 1 item per week"
+  - metric: "Location Visits"
+    target: "Average 3+ unique locations visited per session"
 
 notes: |
-  This PRD is based on the initial project scaffolding. The following need to be defined through user input:
+  Core gameplay loop:
+  1. Navigate to real-world location using map
+  2. Discover location-specific enemy
+  3. Engage in timing-based combat using equipped items + pet
+  4. Collect defeated enemy as item/pet
+  5. Return home to craft higher-generation items
+  6. Repeat with stronger loadout
 
-  1. What is the core purpose/domain of New Mystica? (e.g., task management, journaling, finance tracking, etc.)
-  2. Who are the target users and what are their primary use cases?
-  3. What specific problems does this solve that existing solutions don't address?
-  4. What are the priority features beyond basic auth and data management?
-  5. What is the timeline for development phases?
+  Key differentiators:
+  - Tactical combat vs passive collection
+  - Deep crafting progression (3 generations)
+  - AI-generated items ensure uniqueness
+  - Location-specific spawns create exploration goals
+  - Shiny variants add collector appeal
 
-  Current codebase state (as of 2025-10-19):
-  - Backend: Express.js scaffold with basic routing (/, /users)
-  - Frontend: SwiftUI scaffold with simple Item model (timestamp only)
-  - Database: Supabase configured but not yet integrated
-  - Authentication: Not yet implemented
-  - Deployment: Railway configured but app not yet deployed
+  Technical notes:
+  - Items generated once by AI, stored in DB (not generated per-player)
+  - Crafting limited to same type, same generation
+  - Max 3rd generation prevents infinite power creep
+  - Crafting time increases each generation to pace progression

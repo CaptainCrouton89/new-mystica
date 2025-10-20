@@ -1,0 +1,106 @@
+title: Technical Specification - Crafting System
+template: ~/.claude/file-templates/init-project/feature-spec/feature-title.yaml
+feature_id: F-06
+status: planned
+last_updated: 2025-10-19
+
+summary: "Fuse two items of same type and generation to create higher-generation child item. Crafting consumes parent items, generates child with combined stats, and requires time (increases per generation). Max generation is 3."
+
+functional_overview:
+  core_logic: "Player selects 2 items from inventory. System validates: same type, same generation, generation < 3. System calculates child stats (average or sum of parents). System starts timer (Gen1→2: 1hr, Gen2→3: 4hr). Parents consumed immediately. When timer completes, child item added to inventory."
+  data_schema: "Crafting sessions table (temporary), items table with parent references"
+  api_endpoints:
+    - "POST /crafting/start"
+    - "GET /crafting/status/:session_id"
+    - "POST /crafting/complete"
+  integration_points:
+    - "Items system (F-03) for parent/child items"
+    - "AI generation (F-05) for child item description/stats"
+    - "Push notifications for timer completion"
+
+detailed_design:
+  data_structures:
+    - name: "crafting_sessions"
+      columns:
+        - "id: UUID (PK)"
+        - "player_id: UUID (FK to users)"
+        - "parent_item_1: UUID (FK to items)"
+        - "parent_item_2: UUID (FK to items)"
+        - "child_generation: INT (parent_gen + 1)"
+        - "child_type: VARCHAR (same as parents)"
+        - "start_time: TIMESTAMP"
+        - "duration_seconds: INT (3600 for Gen1→2, 14400 for Gen2→3)"
+        - "completion_time: TIMESTAMP (start_time + duration)"
+        - "status: VARCHAR (in_progress, completed, claimed)"
+        - "child_item_id: UUID (FK to items, set on completion)"
+
+  apis:
+    - method: "POST"
+      endpoint: "/crafting/start"
+      request: "{parent_item_1: UUID, parent_item_2: UUID}"
+      response: "{session_id, completion_time, duration_seconds}"
+      errors:
+        - "400: Items not same type or generation"
+        - "400: Cannot craft Gen3+ items (max reached)"
+        - "404: Item not found or not owned"
+        - "409: Item currently equipped (unequip first)"
+
+    - method: "GET"
+      endpoint: "/crafting/status/:session_id"
+      request: "Path param: session_id (UUID)"
+      response: "{session_id, status, completion_time, time_remaining_seconds, child_item: {type, generation}}"
+      errors:
+        - "404: Session not found"
+
+    - method: "POST"
+      endpoint: "/crafting/complete"
+      request: "{session_id: UUID}"
+      response: "{child_item: {id, type, description, atk, def, hp, generation, is_shiny}}"
+      errors:
+        - "400: Crafting not yet complete"
+        - "404: Session not found"
+        - "409: Already claimed"
+
+  diagrams: |
+    Crafting Flow:
+    1. Player opens crafting UI in inventory
+    2. Player selects first item (parent 1)
+    3. System filters inventory: same type, same generation as parent 1
+    4. Player selects second item (parent 2)
+    5. System validates: generation < 3
+    6. System displays preview:
+       - Child generation: parent_gen + 1
+       - Estimated stats: (parent1 + parent2) / 2 or sum
+       - Crafting time: 1hr (Gen1→2) or 4hr (Gen2→3)
+    7. Player confirms → POST /crafting/start
+    8. Server: Delete parent items from inventory
+    9. Server: Create crafting session with timer
+    10. Server: Return session_id and completion_time
+    11. Client: Display timer UI
+    12. Background: Timer runs (app closed or open)
+    13. On completion: Server generates child item via AI (F-05)
+    14. Server: Set child_item_id, status=completed
+    15. Push notification: "Crafting complete!"
+    16. Player opens app → POST /crafting/complete
+    17. Child item added to inventory
+
+    Crafting Rules:
+    - Same type only: helmet+helmet, sword+sword (NOT helmet+sword)
+    - Same generation only: Gen1+Gen1=Gen2, Gen2+Gen2=Gen3
+    - Max generation: Cannot craft Gen3+Gen3
+    - Shiny inheritance: Child is shiny if either parent is shiny
+    - Stats calculation: TBD (average, sum, AI-generated, etc.)
+
+dependencies:
+  libraries: "Background timer (iOS BackgroundTasks), push notifications (APNs)"
+  services: "Backend crafting service, AI generation for child stats/description (F-05)"
+  data_sources: "Items table, crafting_sessions table"
+
+implementation_status:
+  notes:
+    - "Light MVP: Skip crafting (not critical for 3-day prototype)"
+    - "Full MVP: Basic crafting Gen1→Gen2 only, 1hr timer (no background, must keep app open)"
+    - "Finished: Full Gen1→2→3, background timers, push notifications, AI-generated child items, balanced stat inheritance"
+
+user_stories:
+  - US-401

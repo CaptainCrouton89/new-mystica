@@ -1,0 +1,300 @@
+# Design Specification
+# UI/UX design details, components, and interaction patterns.
+
+status: draft
+last_updated: 2025-10-19
+
+overview:
+  design_goals: "Create an immersive RPG experience with clear visual hierarchy, responsive animations, and intuitive touch interactions. Emphasize fantasy aesthetic while maintaining modern iOS design patterns. Prioritize readability for stats and combat feedback."
+  design_links:
+    - "TBD: Figma designs to be created during Full MVP phase"
+  design_system: "Custom design system built on SwiftUI, leveraging SF Symbols for icons and native iOS components for familiarity. Custom components for combat dial, stat displays, and item cards."
+
+color_palette:
+  primary:
+    - name: "Mystic Purple"
+      hex: "#7B2CBF"
+      usage: "Primary actions, CTAs, active states"
+    - name: "Deep Indigo"
+      hex: "#240046"
+      usage: "Backgrounds, headers, depth layers"
+
+  secondary:
+    - name: "Gold Accent"
+      hex: "#FFB703"
+      usage: "Highlights, shiny variants, rewards"
+    - name: "Emerald Green"
+      hex: "#06FFA5"
+      usage: "Success states, HP indicators, positive feedback"
+
+  neutral:
+    - name: "Charcoal Gray"
+      hex: "#2B2D42"
+      usage: "Card backgrounds, secondary UI elements"
+    - name: "Soft White"
+      hex: "#EDF2F4"
+      usage: "Text, icons, borders on dark backgrounds"
+
+  semantic:
+    - name: "Attack Red"
+      hex: "#EF233C"
+      usage: "ATK stats, damage numbers, enemy indicators"
+    - name: "Defense Blue"
+      hex: "#3A86FF"
+      usage: "DEF stats, shields, protection indicators"
+    - name: "Health Green"
+      hex: "#06FFA5"
+      usage: "HP stats, health bars, healing"
+
+typography:
+  display:
+    family: "SF Pro Display"
+    weight: "Bold"
+    sizes: "32pt (titles), 24pt (headings)"
+    usage: "Screen titles, combat damage numbers, feature headers"
+
+  body:
+    family: "SF Pro Text"
+    weight: "Regular / Medium"
+    sizes: "17pt (body), 15pt (secondary)"
+    usage: "Item descriptions, stats, button labels"
+
+  mono:
+    family: "SF Mono"
+    weight: "Medium"
+    sizes: "13pt"
+    usage: "Numeric stats, timers, generation indicators"
+
+layouts_components:
+  - screen: "Launch / Login Screen"
+    description: "First screen with app branding, login form, and registration option"
+    components:
+      - "App logo/title (centered, large)"
+      - "Email input field"
+      - "Password input field (secure)"
+      - "Login button (primary CTA)"
+      - "Sign Up link (text button)"
+      - "Forgot Password link (text button)"
+    notes: "Gradient background (Deep Indigo → Mystic Purple). Auto-focus email field. Show password strength indicator on registration."
+
+  - screen: "Map View (Main Screen)"
+    description: "Google Maps integration showing player location and nearby spawn points"
+    components:
+      - "Google Maps view (full screen)"
+      - "Player location marker (blue dot, pulsing)"
+      - "Spawn location markers (colored pins by type)"
+      - "Active location marker (glowing, tappable)"
+      - "Bottom sheet: selected location info"
+      - "Profile button (top-left)"
+      - "Inventory button (top-right)"
+      - "Location distance indicator (overlay on map)"
+    notes: "Map centered on player. Markers color-coded by item type (red=weapon, blue=armor, etc.). Active markers glow with animation. Bottom sheet shows enemy type, distance, and 'Start Combat' CTA."
+
+  - screen: "Combat Screen"
+    description: "Turn-based combat interface with attack dial and HP bars"
+    components:
+      - "Enemy card (top): image, name, type, stats"
+      - "Enemy HP bar (below card, animated)"
+      - "Player HP bar (bottom area, animated)"
+      - "Attack dial (center): rotating indicator, tap zone"
+      - "Player stats display (bottom): ATK/DEF/HP totals"
+      - "Damage numbers (floating, animated)"
+      - "Back button (top-left, cancels combat)"
+    notes: "Dark background for focus. Attack dial has concentric circles (center = best multiplier). Indicator rotates 2 seconds per cycle. Damage numbers float up with fade-out animation. HP bars decrease smoothly with color transition (green → yellow → red)."
+
+  - screen: "Inventory Screen"
+    description: "Grid view of collected items and pets with filtering"
+    components:
+      - "Tabs: Items / Pets"
+      - "Filter buttons: All / Equipped / By Type"
+      - "Sort dropdown: Type / Generation / Stats"
+      - "Item grid (2 columns on iPhone, 3 on iPad)"
+      - "Item card: image, name, stats, shiny badge, equipped badge"
+      - "Tap card → Detail view"
+    notes: "Shiny items have gold border + sparkle animation. Equipped items show green checkmark badge. Long-press for quick actions (equip/craft)."
+
+  - screen: "Item Detail View"
+    description: "Full-screen overlay showing item details and actions"
+    components:
+      - "Item image (large, centered)"
+      - "Item name and type"
+      - "Generation indicator (Gen 1/2/3)"
+      - "Shiny badge (if applicable)"
+      - "Stats breakdown: ATK / DEF / HP (color-coded)"
+      - "Description text (AI-generated)"
+      - "Equip button (or Unequip if equipped)"
+      - "Craft button (if 2+ same type/gen available)"
+      - "Close button (X, top-right)"
+    notes: "Modal presentation with blur background. Stats displayed as horizontal bars with numeric labels. Equip button disabled if slot occupied (show 'Unequip first' message)."
+
+  - screen: "Equipment Screen"
+    description: "Visual loadout showing all equipped items and active pet"
+    components:
+      - "Character silhouette (center)"
+      - "Equipment slots (overlay on silhouette): helmet, armor, weapon, shield, amulet, rings"
+      - "Active pet (bottom-left of character)"
+      - "Total stats display (bottom): ATK / DEF / HP"
+      - "Tap slot → Open item selector"
+    notes: "Visual representation of equipped items on character model. Empty slots show placeholder icon. Stats update in real-time when changing equipment."
+
+  - screen: "Crafting Screen"
+    description: "Item fusion interface with parent selection and timer"
+    components:
+      - "Parent item 1 selector (left)"
+      - "Parent item 2 selector (right)"
+      - "Fusion arrow/icon (center, animated)"
+      - "Preview card (bottom): child generation, estimated stats"
+      - "Crafting time indicator (1hr or 4hr)"
+      - "Confirm Craft button (primary CTA)"
+      - "Active crafts list (tab, shows in-progress timers)"
+    notes: "Parent selectors filter to same type/generation. Preview shows '???' for exact stats (revealed on completion). Timer shown as countdown (HH:MM:SS). Push notification on completion."
+
+  - screen: "Victory Screen"
+    description: "Combat completion with reward display"
+    components:
+      - "Victory banner/animation"
+      - "Reward card: item/pet image, stats, shiny badge"
+      - "Collection message: 'New [Type] collected!'"
+      - "Continue button → Returns to map"
+    notes: "Celebratory animation with confetti effect. Shiny rewards have enhanced animation (gold sparkles). Haptic feedback on victory."
+
+  - screen: "Profile Screen"
+    description: "Player stats, achievements, and settings"
+    components:
+      - "Player name/level (top)"
+      - "Total stats: ATK / DEF / HP (from equipment)"
+      - "Collection progress: items collected, shinies, combat wins"
+      - "Settings button"
+      - "Logout button"
+    notes: "Simple stat dashboard. Future: Add leaderboards, achievements."
+
+accessibility:
+  color_contrast: "WCAG AA compliant for all text (4.5:1 minimum). Combat damage numbers use high contrast (white text on dark background with border). Colorblind-friendly: Use icons + labels in addition to color-coding."
+  keyboard_navigation: "Not applicable (mobile touch-first). VoiceOver labels on all interactive elements."
+  screen_reader: "VoiceOver support: All buttons labeled, stats announced as 'Attack 50, Defense 30, Health 100'. Combat dial provides audio cue on tap. Item cards announce type, generation, shiny status."
+
+responsive_behavior: |
+  - iPhone (compact): Single column layouts, bottom sheets for details
+  - iPad (regular): Two-column inventory, side-by-side combat UI (player left, enemy right)
+  - macOS: Same as iPad layout, keyboard shortcuts (Cmd+I for inventory, Cmd+M for map, Space for attack)
+  - Orientation: Portrait optimized, landscape supported (map view stretches horizontally)
+
+interaction_specs:
+  - component: "Primary Button"
+    states:
+      - "default: Mystic Purple background, white text, 12pt corner radius"
+      - "pressed: 90% opacity, scale 0.95"
+      - "disabled: 30% opacity, no interaction"
+    animation: "scale and opacity transition 100ms ease-out"
+    notes: "Use for main CTAs (Login, Start Combat, Confirm Craft). Minimum tap target 44x44pt."
+
+  - component: "Icon Button"
+    states:
+      - "default: SF Symbol icon, Soft White color, 20pt size"
+      - "pressed: Gold Accent color, haptic feedback"
+      - "disabled: 30% opacity"
+    animation: "color transition 150ms"
+    notes: "Use for Back, Profile, Inventory actions. Positioned in nav bar corners."
+
+  - component: "Attack Dial"
+    states:
+      - "rotating: indicator sweeps 360° in 2 seconds (continuous loop)"
+      - "tapped: indicator stops, multiplier calculated, flash effect on dial"
+      - "result: damage number animates up, dial resets for enemy turn"
+    animation: "rotation animation ease-in-out, flash effect 300ms"
+    notes: "Dial has 3 concentric zones (center=gold=2x, mid=white=1.5x, outer=red=0.5x). Haptic feedback on tap (impact medium)."
+
+  - component: "HP Bar"
+    states:
+      - "full: Emerald Green (100-70%)"
+      - "medium: Gold Accent (70-30%)"
+      - "low: Attack Red (30-0%)"
+      - "animating: smooth decrease with easing"
+    animation: "width transition 500ms ease-out, color transition 300ms"
+    notes: "Display numeric HP below bar (e.g., '75 / 100'). Pulse animation when low (<30%)."
+
+  - component: "Item Card"
+    states:
+      - "default: Charcoal Gray background, rounded corners (8pt)"
+      - "equipped: green border (2pt), checkmark badge"
+      - "shiny: gold border (2pt), sparkle animation (infinite loop, 3s duration)"
+      - "pressed: scale 0.95, haptic feedback"
+    animation: "scale transition 100ms, sparkle keyframe animation"
+    notes: "Show item image (top), name (below), stats (bottom, small text). Generation badge in top-right corner."
+
+  - component: "Damage Number"
+    states:
+      - "appear: fade in from 0 → 1 opacity, move up 50pt"
+      - "critical (>50 damage): larger scale (1.5x), Attack Red color"
+      - "normal: white color, 1.0x scale"
+    animation: "opacity + translate 800ms ease-out, then fade out and remove"
+    notes: "Display above enemy on player turn, above player on enemy turn. Bold mono font (SF Mono)."
+
+  - component: "Location Marker (Map)"
+    states:
+      - "inactive: colored pin (by type), 30pt size"
+      - "active (within 50m): glowing ring animation, 40pt size, tappable"
+      - "selected: highlighted, bottom sheet appears"
+    animation: "glow pulse 1.5s infinite, scale transition 200ms"
+    notes: "Marker colors: red (weapon), blue (armor), green (pet), purple (premium). Active markers have white glow ring."
+
+  - component: "Crafting Timer"
+    states:
+      - "in_progress: countdown HH:MM:SS, updating every second"
+      - "ready: green pulse animation, 'Ready!' text"
+      - "claimed: grayed out, 'Completed' text"
+    animation: "text update instant, pulse animation 800ms infinite"
+    notes: "Show progress bar below timer (fills left to right). Push notification when timer completes."
+
+animations_timing:
+  - name: "Screen Transitions"
+    duration: "300ms"
+    easing: "ease-in-out"
+    notes: "Push (map → combat), modal (inventory → item detail)"
+
+  - name: "Micro-interactions"
+    duration: "150ms"
+    easing: "ease-out"
+    notes: "Button presses, state changes, highlights"
+
+  - name: "Combat Actions"
+    duration: "500-800ms"
+    easing: "ease-out"
+    notes: "Damage numbers, HP bar changes, dial results"
+
+  - name: "Celebrations"
+    duration: "2s"
+    easing: "spring (bounce)"
+    notes: "Victory screen, shiny reveals, level-ups"
+
+design_tokens:
+  spacing:
+    xs: "4pt"
+    sm: "8pt"
+    md: "16pt"
+    lg: "24pt"
+    xl: "32pt"
+
+  corner_radius:
+    small: "4pt"
+    medium: "8pt"
+    large: "12pt"
+    card: "16pt"
+
+  shadows:
+    light: "0 2 4 rgba(0,0,0,0.1)"
+    medium: "0 4 8 rgba(0,0,0,0.15)"
+    heavy: "0 8 16 rgba(0,0,0,0.2)"
+
+icons:
+  source: "SF Symbols (iOS native)"
+  custom: "Item type icons (helmet, sword, shield, etc.) - to be designed or sourced from asset pack"
+  notes: "Use SF Symbols for UI controls, custom icons for game items/enemies"
+
+implementation_notes: |
+  - Light MVP: Basic layouts with native iOS components, no custom animations
+  - Full MVP: Custom components (attack dial, stat bars), basic animations
+  - Finished: Polished animations, haptic feedback, accessibility, dark mode support
+  - Use SwiftUI previews for rapid iteration
+  - Extract reusable components into design system module
+  - Document component API and usage in separate file (future)

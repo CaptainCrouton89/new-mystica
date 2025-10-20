@@ -1,0 +1,294 @@
+# Data Plan
+# Defines data sources, tracking, storage, and metrics alignment.
+
+status: draft
+last_updated: 2025-10-19
+
+data_sources:
+  - source: "Supabase PostgreSQL"
+    description: "Primary database for all persistent game data: users, items, pets, locations, enemies, combat sessions, crafting sessions"
+    owner: "Backend Team"
+
+  - source: "CoreLocation (iOS)"
+    description: "Real-time GPS coordinates from player device for location tracking and proximity detection"
+    owner: "Mobile Team"
+
+  - source: "Google Maps API"
+    description: "Map tiles, geocoding, and location data for map rendering"
+    owner: "External (Google)"
+
+  - source: "AI Provider (OpenAI/Anthropic)"
+    description: "Generated item descriptions and stat distributions for unique item creation"
+    owner: "External (OpenAI/Anthropic)"
+
+  - source: "Supabase Auth"
+    description: "User authentication, session tokens, and account management"
+    owner: "External (Supabase)"
+
+event_tracking:
+  - event_name: "user_registered"
+    trigger: "When player completes registration"
+    properties:
+      - "user_id: UUID"
+      - "email: string (hashed)"
+      - "registration_source: string (organic, referral, etc.)"
+      - "timestamp: datetime"
+    destinations: ["Backend Analytics DB", "Future: Mixpanel/Amplitude"]
+
+  - event_name: "location_visited"
+    trigger: "When player arrives within 50m of location marker"
+    properties:
+      - "user_id: UUID"
+      - "location_id: UUID"
+      - "distance_meters: int"
+      - "enemy_type: string"
+      - "timestamp: datetime"
+    destinations: ["Backend Analytics DB"]
+
+  - event_name: "combat_started"
+    trigger: "When player initiates combat encounter"
+    properties:
+      - "user_id: UUID"
+      - "location_id: UUID"
+      - "enemy_id: UUID"
+      - "enemy_generation: int"
+      - "enemy_is_shiny: boolean"
+      - "player_total_stats: {atk, def, hp}"
+      - "timestamp: datetime"
+    destinations: ["Backend Analytics DB"]
+
+  - event_name: "combat_completed"
+    trigger: "When combat ends (victory or defeat)"
+    properties:
+      - "user_id: UUID"
+      - "session_id: UUID"
+      - "result: string (victory, defeat)"
+      - "turns_taken: int"
+      - "damage_dealt: int"
+      - "damage_received: int"
+      - "reward_item_id: UUID (null if defeat)"
+      - "timestamp: datetime"
+    destinations: ["Backend Analytics DB"]
+
+  - event_name: "item_equipped"
+    trigger: "When player equips item to slot"
+    properties:
+      - "user_id: UUID"
+      - "item_id: UUID"
+      - "item_type: string"
+      - "item_generation: int"
+      - "slot: string"
+      - "new_total_stats: {atk, def, hp}"
+      - "timestamp: datetime"
+    destinations: ["Backend Analytics DB"]
+
+  - event_name: "crafting_started"
+    trigger: "When player starts crafting session"
+    properties:
+      - "user_id: UUID"
+      - "session_id: UUID"
+      - "parent_item_1_id: UUID"
+      - "parent_item_2_id: UUID"
+      - "item_type: string"
+      - "parent_generation: int"
+      - "child_generation: int"
+      - "duration_seconds: int"
+      - "timestamp: datetime"
+    destinations: ["Backend Analytics DB"]
+
+  - event_name: "crafting_completed"
+    trigger: "When player claims completed craft"
+    properties:
+      - "user_id: UUID"
+      - "session_id: UUID"
+      - "child_item_id: UUID"
+      - "child_generation: int"
+      - "child_is_shiny: boolean"
+      - "timestamp: datetime"
+    destinations: ["Backend Analytics DB"]
+
+  - event_name: "shiny_collected"
+    trigger: "When player defeats shiny enemy"
+    properties:
+      - "user_id: UUID"
+      - "item_id: UUID"
+      - "item_type: string"
+      - "location_id: UUID"
+      - "timestamp: datetime"
+    destinations: ["Backend Analytics DB", "Future: Push notification trigger"]
+
+  - event_name: "session_started"
+    trigger: "When player opens app and authenticates"
+    properties:
+      - "user_id: UUID"
+      - "session_id: UUID"
+      - "device_type: string (iOS, macOS)"
+      - "app_version: string"
+      - "timestamp: datetime"
+    destinations: ["Backend Analytics DB"]
+
+  - event_name: "session_ended"
+    trigger: "When player closes app or session expires"
+    properties:
+      - "user_id: UUID"
+      - "session_id: UUID"
+      - "duration_seconds: int"
+      - "locations_visited: int"
+      - "combats_won: int"
+      - "items_collected: int"
+      - "timestamp: datetime"
+    destinations: ["Backend Analytics DB"]
+
+data_storage:
+  initial_schema: |
+    **users**
+    - id: UUID (PK)
+    - email: VARCHAR (unique)
+    - username: VARCHAR (unique, nullable)
+    - level: INT (default 1)
+    - total_atk: INT
+    - total_def: INT
+    - total_hp: INT
+    - created_at: TIMESTAMP
+    - last_login: TIMESTAMP
+
+    **locations**
+    - id: UUID (PK)
+    - lat: DECIMAL(10,8)
+    - lng: DECIMAL(11,8)
+    - city_id: UUID (FK to cities)
+    - enemy_type: VARCHAR
+    - item_type: VARCHAR
+    - spawn_radius: INT (default 50)
+    - is_premium: BOOLEAN (default false)
+    - created_at: TIMESTAMP
+
+    **items**
+    - id: UUID (PK)
+    - owner_id: UUID (FK to users, nullable for templates)
+    - type: VARCHAR (helmet, armor, sword, axe, shield, amulet, ring)
+    - description: TEXT
+    - atk: INT
+    - def: INT
+    - hp: INT
+    - generation: INT (1-3)
+    - is_shiny: BOOLEAN
+    - is_equipped: BOOLEAN
+    - equipped_slot: VARCHAR (nullable)
+    - location_id: UUID (FK to locations, nullable)
+    - parent_item_1: UUID (FK to items, nullable)
+    - parent_item_2: UUID (FK to items, nullable)
+    - created_at: TIMESTAMP
+
+    **pets**
+    - id: UUID (PK)
+    - owner_id: UUID (FK to users, nullable for templates)
+    - type: VARCHAR
+    - description: TEXT
+    - atk: INT
+    - def: INT
+    - hp: INT
+    - generation: INT (1-3)
+    - is_shiny: BOOLEAN
+    - is_active: BOOLEAN
+    - location_id: UUID (FK to locations, nullable)
+    - created_at: TIMESTAMP
+
+    **enemies** (templates, not per-player)
+    - id: UUID (PK)
+    - type: VARCHAR
+    - base_atk: INT
+    - base_def: INT
+    - base_hp: INT
+    - generation: INT (1-3)
+    - location_id: UUID (FK to locations)
+    - created_at: TIMESTAMP
+
+    **crafting_sessions**
+    - id: UUID (PK)
+    - player_id: UUID (FK to users)
+    - parent_item_1: UUID (FK to items)
+    - parent_item_2: UUID (FK to items)
+    - child_generation: INT
+    - child_type: VARCHAR
+    - start_time: TIMESTAMP
+    - duration_seconds: INT
+    - completion_time: TIMESTAMP
+    - status: VARCHAR (in_progress, completed, claimed)
+    - child_item_id: UUID (FK to items, nullable)
+
+    **analytics_events**
+    - id: UUID (PK)
+    - user_id: UUID (FK to users, nullable)
+    - event_name: VARCHAR
+    - properties: JSONB
+    - timestamp: TIMESTAMP
+    - INDEX on (event_name, timestamp)
+
+  retention_policy: |
+    - User accounts: Retain indefinitely unless user requests deletion (GDPR)
+    - Items/Pets: Retain as long as user account exists
+    - Combat sessions (Redis): Expire after 15 minutes (ephemeral)
+    - Crafting sessions: Retain for 30 days after completion (for analytics)
+    - Analytics events: Retain for 2 years, then archive or delete
+    - Logs: Retain for 90 days (Railway default)
+
+  privacy_notes: |
+    - Email addresses hashed in analytics events (never stored in plaintext outside auth system)
+    - GPS coordinates NOT stored in backend (only used for proximity calculations, then discarded)
+    - No PII collected beyond email (required for account)
+    - User can request account deletion via /profile/delete endpoint (GDPR Article 17)
+    - Data export available via /profile/export endpoint (GDPR Article 20)
+    - Row-level security (RLS) enforced in Supabase: users can only access their own data
+    - API rate limiting (100 req/min per IP) to prevent data scraping
+
+success_metrics:
+  - metric: "Daily Active Users (DAU)"
+    definition: "Unique users who opened app and authenticated in last 24 hours"
+    target: "1,000 DAU within 1 month post-launch"
+    data_source: "session_started events, GROUP BY user_id, DATE(timestamp)"
+
+  - metric: "Session Length (avg)"
+    definition: "Average duration per session in minutes"
+    target: "15+ minutes per session"
+    data_source: "session_ended events, AVG(duration_seconds / 60)"
+
+  - metric: "Retention Day 7 (D7)"
+    definition: "Percentage of users who return 7 days after registration"
+    target: "40% D7 retention"
+    data_source: "user_registered + session_started events, COUNT(users with session 7 days after registration) / COUNT(total registered)"
+
+  - metric: "Crafting Engagement"
+    definition: "Percentage of active users who craft at least 1 item per week"
+    target: "60% of active users craft weekly"
+    data_source: "crafting_started events, COUNT(DISTINCT user_id in last 7 days) / COUNT(DISTINCT user_id in session_started last 7 days)"
+
+  - metric: "Location Visits"
+    definition: "Average unique locations visited per session"
+    target: "3+ unique locations per session"
+    data_source: "location_visited events, COUNT(DISTINCT location_id) per session_id, AVG across all sessions"
+
+  - metric: "Combat Win Rate"
+    definition: "Percentage of combats ending in victory"
+    target: "70% win rate (indicates balanced difficulty)"
+    data_source: "combat_completed events, COUNT(result='victory') / COUNT(*)"
+
+  - metric: "Shiny Collection Rate"
+    definition: "Average shinies collected per user per week"
+    target: "1+ shiny per user per week (validates 5% spawn rate)"
+    data_source: "shiny_collected events, COUNT(*) / COUNT(DISTINCT user_id) in last 7 days"
+
+  - metric: "Revenue (Premium Items)"
+    definition: "Total premium currency spent on premium items"
+    target: "TBD (post-monetization implementation)"
+    data_source: "Future: premium_purchase events"
+
+dashboard_requirements:
+  - "Real-time DAU counter"
+  - "Session length histogram (distribution of session durations)"
+  - "Cohort retention table (D1, D7, D30 retention by registration cohort)"
+  - "Crafting funnel: items collected → crafting started → crafting completed"
+  - "Combat balance metrics: win rate by enemy generation, avg turns per combat"
+  - "Location heatmap: most visited locations (validate spawn distribution)"
+  - "Item economy: total items by type/generation, crafting velocity (items crafted per day)"
+  - "Shiny drop verification: actual shiny rate vs expected 5%"

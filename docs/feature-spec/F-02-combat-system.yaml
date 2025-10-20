@@ -1,0 +1,100 @@
+title: Technical Specification - Combat System
+template: ~/.claude/file-templates/init-project/feature-spec/feature-title.yaml
+feature_id: F-02
+status: planned
+last_updated: 2025-10-19
+
+summary: "Turn-based combat with timing-based attack mechanic. Player taps moving dial to optimize damage multiplier. Stats calculated from equipped items + pet. Enemy counterattacks after player turn. Combat ends when either HP reaches 0."
+
+functional_overview:
+  core_logic: "Initiate combat when player taps active location. Load enemy data for location. Display attack dial with moving indicator. On tap, stop indicator and calculate multiplier based on distance from center. Apply damage: (player_ATK * multiplier) - enemy_DEF. Enemy counterattacks: (enemy_ATK) - player_DEF. Repeat until winner determined."
+  data_schema: "Combat sessions (temporary), enemies table, player stats (derived from equipment)"
+  api_endpoints:
+    - "POST /combat/start"
+    - "POST /combat/attack"
+    - "POST /combat/complete"
+  integration_points:
+    - "Items system (F-03) for player stats"
+    - "Pets system (F-04) for pet bonus"
+    - "Location system (F-01) for enemy spawn"
+
+detailed_design:
+  data_structures:
+    - name: "enemies"
+      columns:
+        - "id: UUID (PK)"
+        - "type: VARCHAR (helmet, armor, sword, pet, etc.)"
+        - "base_atk: INT"
+        - "base_def: INT"
+        - "base_hp: INT"
+        - "generation: INT (1-3)"
+        - "is_shiny: BOOLEAN"
+        - "location_id: UUID (FK to locations)"
+        - "created_at: TIMESTAMP"
+
+    - name: "combat_sessions (in-memory/cache)"
+      columns:
+        - "session_id: UUID (PK)"
+        - "player_id: UUID (FK)"
+        - "enemy_id: UUID (FK)"
+        - "player_hp: INT (current)"
+        - "enemy_hp: INT (current)"
+        - "turn_count: INT"
+        - "created_at: TIMESTAMP"
+
+  apis:
+    - method: "POST"
+      endpoint: "/combat/start"
+      request: "{location_id: UUID}"
+      response: "{session_id, enemy: {id, type, atk, def, hp, is_shiny}, player_stats: {atk, def, hp}}"
+      errors:
+        - "404: Location not found or no enemy at location"
+        - "401: Unauthorized"
+
+    - method: "POST"
+      endpoint: "/combat/attack"
+      request: "{session_id: UUID, tap_accuracy: FLOAT (0.0-1.0)}"
+      response: "{damage_dealt, player_hp_remaining, enemy_hp_remaining, enemy_damage, combat_status: 'ongoing|victory|defeat'}"
+      errors:
+        - "404: Session not found or expired"
+        - "400: Invalid tap_accuracy"
+
+    - method: "POST"
+      endpoint: "/combat/complete"
+      request: "{session_id: UUID, result: 'victory|defeat'}"
+      response: "{reward: {item_id, type, stats, is_shiny}} (null if defeat)"
+      errors:
+        - "404: Session not found"
+
+  diagrams: |
+    Combat Flow:
+    1. Player taps active location
+    2. Client: POST /combat/start → Get enemy + player stats
+    3. Display combat UI: enemy image, stats, HP bars
+    4. Player's turn: Show attack dial (SwiftUI animation)
+    5. Player taps → Calculate tap_accuracy (0.0 = edge, 1.0 = center)
+    6. Client: POST /combat/attack with tap_accuracy
+    7. Server: Calculate multiplier = 0.5 + (1.5 * accuracy)
+    8. Server: damage = (player_ATK * multiplier) - enemy_DEF (min 1)
+    9. Server: enemy_damage = enemy_ATK - player_DEF (min 1)
+    10. Server: Update HPs, return status
+    11. Client: Display damage numbers, update HP bars
+    12. If ongoing: Repeat from step 4
+    13. If victory/defeat: POST /combat/complete
+    14. Display result screen with reward (if victory)
+
+dependencies:
+  libraries: "SwiftUI for animations, Haptic feedback (UIImpactFeedbackGenerator)"
+  services: "Backend combat logic, stat calculation service"
+  data_sources: "Player equipment from F-03, active pet from F-04, enemy data from locations"
+
+implementation_status:
+  notes:
+    - "Light MVP: Simple dial prototype (no backend), hardcoded stats, local damage calculation"
+    - "Full MVP: Backend combat sessions, real stat calculation, enemy/player HP persistence"
+    - "Finished: Polished animations, sound effects, balanced difficulty curve, combat analytics"
+
+user_stories:
+  - US-201
+  - US-202
+  - US-203
