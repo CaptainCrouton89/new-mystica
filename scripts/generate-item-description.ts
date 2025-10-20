@@ -19,6 +19,7 @@ Your description should:
 - Avoid describing artistic style, lighting, or mood.
 - Use clear and minimal language; do not add details beyond what the item and materials imply.
 - Ensure the description is visual and straightforward—suitable for generating a slightly cartoonish game asset using an image generation model.
+- **Deeply integrate the materials into the item's form itself**—the materials should transform or become the item's structure, not just be attached or placed on/in it. For example: a cactus blender should have the blender body shaped like a cactus with spines and segments, not cacti inside a normal blender; a Pepe sword should have a blade that is green and frog-like with bulging eyes as part of its form, not just Pepe's head as a hilt decoration.
 
 Your name should:
 - Be concise, evocative, and fitting for a fantasy or crafting game item.
@@ -28,8 +29,8 @@ Your name should:
 
 Guidelines:
 1. Interpret the item and its materials.
-2. Reason about the most logical appearance and arrangement of materials on the item.
-3. Formulate a concise, purely visual two-sentence description focused only on physical features, components, and arrangement.
+2. Reason about how the materials can fundamentally transform or become the item itself—think of fusion and metamorphosis, not decoration or containment.
+3. Formulate a concise, purely visual two-sentence description focused only on physical features, components, and arrangement, emphasizing how the material's characteristics are embodied in the item's core structure.
 4. Invent a suitable, imaginative name for the item that reflects both its type and the provided materials.
 5. Do not mention style, background, action, or storytelling details.
 6. Make the description slightly minimalistic, omitting embellishments or details not clearly derived from the item and materials.

@@ -35,17 +35,18 @@ Mystica uses Cloudflare R2 object storage to host reference images for the AI im
   ```
 
 ### Access Configuration
-**Current Status:** Private bucket (no public access configured)
+**Current Status:** ✅ Public access enabled via R2.dev subdomain
 
-**To Enable Public Access:**
-1. In Cloudflare Dashboard → R2 → `mystica-assets`
-2. Go to Settings → Public Access
-3. Enable "Allow Access" for public reads
-4. Configure custom domain (recommended) or use R2.dev subdomain
+**Public URL Base:** `https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/`
+
+**Enabled via Wrangler CLI:**
+```bash
+wrangler r2 bucket dev-url enable mystica-assets -y
+```
 
 **Public URL Format:**
-- With custom domain: `https://assets.mystica.app/image-refs/IMG_0821.png`
-- With R2.dev: `https://pub-[hash].r2.dev/image-refs/IMG_0821.png`
+- **R2.dev (active):** `https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/IMG_0821.png`
+- With custom domain (future): `https://assets.mystica.app/image-refs/IMG_0821.png`
 
 ## Setup Instructions
 
@@ -153,19 +154,23 @@ const validateReferenceImages = (imageUrls: string[]): string[] => {
 
 **Using R2-hosted reference images:**
 ```bash
-# With public R2 URLs (once public access is configured)
-pnpm generate-image --type "Magic Wand" --materials "wood,crystal" \
-  -r "https://pub-[hash].r2.dev/image-refs/IMG_0821.png,https://pub-[hash].r2.dev/image-refs/IMG_4317.png"
+# With R2.dev public URLs (current setup)
+npx tsx scripts/generate-image.ts --type "Magic Wand" --materials "wood,crystal" \
+  -r "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/IMG_0821.png,https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/IMG_4317.png"
 
-# With custom domain (recommended)
-pnpm generate-image --type "Fire Staff" --materials "wood,ruby" \
+# With all reference images
+npx tsx scripts/generate-image.ts --type "Fire Staff" --materials "wood,ruby" --provider gemini \
+  -r "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/IMG_0821.png,https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/IMG_2791.png,https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/IMG_4317.png,https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/IMG_5508.png,https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/IMG_9455.png"
+
+# With custom domain (future setup)
+npx tsx scripts/generate-image.ts --type "Ice Shield" --materials "crystal,steel" \
   -r "https://assets.mystica.app/image-refs/IMG_0821.png"
 ```
 
 **Error handling for invalid URLs:**
 ```bash
-# This will fail with validation error
-pnpm generate-image --type "Ice Shield" --materials "crystal,steel" \
+# This will fail with validation error (local paths not supported)
+npx tsx scripts/generate-image.ts --type "Ice Shield" --materials "crystal,steel" \
   -r "docs/image-refs/IMG_0821.png"
 # Error: Invalid reference image URL: docs/image-refs/IMG_0821.png. Only HTTP/HTTPS URLs are supported.
 ```
@@ -341,14 +346,14 @@ If you have scripts using local file paths, update them to use R2 URLs:
 
 **Before:**
 ```bash
-pnpm generate-image --type "Magic Wand" --materials "wood,crystal" \
+npx tsx scripts/generate-image.ts --type "Magic Wand" --materials "wood,crystal" \
   -r "docs/image-refs/IMG_0821.png"
 ```
 
 **After:**
 ```bash
-pnpm generate-image --type "Magic Wand" --materials "wood,crystal" \
-  -r "https://assets.mystica.app/image-refs/IMG_0821.png"
+npx tsx scripts/generate-image.ts --type "Magic Wand" --materials "wood,crystal" --provider gemini \
+  -r "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/IMG_0821.png"
 ```
 
 ### Batch URL Conversion
@@ -356,26 +361,31 @@ Create a mapping file for easy reference:
 
 ```json
 {
-  "IMG_0821.png": "https://assets.mystica.app/image-refs/IMG_0821.png",
-  "IMG_2791.png": "https://assets.mystica.app/image-refs/IMG_2791.png",
-  "IMG_4317.png": "https://assets.mystica.app/image-refs/IMG_4317.png",
-  "IMG_5508.png": "https://assets.mystica.app/image-refs/IMG_5508.png",
-  "IMG_9455.png": "https://assets.mystica.app/image-refs/IMG_9455.png",
-  "archive/IMG_3838.png": "https://assets.mystica.app/image-refs/archive/IMG_3838.png",
-  "archive/IMG_5858.png": "https://assets.mystica.app/image-refs/archive/IMG_5858.png"
+  "IMG_0821.png": "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/IMG_0821.png",
+  "IMG_2791.png": "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/IMG_2791.png",
+  "IMG_4317.png": "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/IMG_4317.png",
+  "IMG_5508.png": "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/IMG_5508.png",
+  "IMG_9455.png": "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/IMG_9455.png"
 }
+```
+
+**All References (for copy-paste in commands):**
+```
+https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/IMG_0821.png,https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/IMG_2791.png,https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/IMG_4317.png,https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/IMG_5508.png,https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/IMG_9455.png
 ```
 
 ## Next Steps
 
-1. **Configure Public Access:** Set up custom domain for clean URLs
-2. **Update Documentation:** Update any scripts or docs referencing local files
-3. **CI/CD Integration:** Add R2 upload steps to deployment pipeline
-4. **Monitoring:** Set up alerts for R2 usage and costs
-5. **Backup Strategy:** Implement automated backups of reference images
+1. ✅ **Public Access Configured:** R2.dev subdomain enabled (`pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev`)
+2. ✅ **Reference Images Uploaded:** All 5 images in `image-refs/` directory
+3. **Configure Custom Domain:** Set up `assets.mystica.app` for cleaner URLs (optional)
+4. **CI/CD Integration:** Add R2 upload steps to deployment pipeline
+5. **Monitoring:** Set up alerts for R2 usage and costs
+6. **Backup Strategy:** Implement automated backups of reference images
 
 ## Related Documentation
 
+- [AI Image Generation Workflow](../ai-image-generation-workflow.md) - Complete workflow with examples
 - [Replicate Image Generation](./replicate.md) - AI image generation service
 - [Gemini Image Generation](./gemini-image-generation.md) - Google's image generation model
 - `scripts/generate-image.ts` - Main image generation script
