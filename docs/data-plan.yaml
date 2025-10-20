@@ -2,7 +2,7 @@
 # Defines data sources, tracking, storage, and metrics alignment.
 
 status: draft
-last_updated: 2025-10-19
+last_updated: 2025-10-20
 
 data_sources:
   - source: "Supabase PostgreSQL"
@@ -17,9 +17,9 @@ data_sources:
     description: "Map tiles, geocoding, and location data for map rendering"
     owner: "External (Google)"
 
-  - source: "AI Provider (OpenAI/Anthropic)"
-    description: "Generated item descriptions and stat distributions for unique item creation"
-    owner: "External (OpenAI/Anthropic)"
+  - source: "Materials Seed Data"
+    description: "Pre-defined material library (~20 materials) with stat modifiers and metadata"
+    owner: "Game Design Team"
 
   - source: "Supabase Auth"
     description: "User authentication, session tokens, and account management"
@@ -82,37 +82,47 @@ event_tracking:
       - "timestamp: datetime"
     destinations: ["Backend Analytics DB"]
 
-  - event_name: "crafting_started"
-    trigger: "When player starts crafting session"
-    properties:
-      - "user_id: UUID"
-      - "session_id: UUID"
-      - "parent_item_1_id: UUID"
-      - "parent_item_2_id: UUID"
-      - "item_type: string"
-      - "parent_generation: int"
-      - "child_generation: int"
-      - "duration_seconds: int"
-      - "timestamp: datetime"
-    destinations: ["Backend Analytics DB"]
-
-  - event_name: "crafting_completed"
-    trigger: "When player claims completed craft"
-    properties:
-      - "user_id: UUID"
-      - "session_id: UUID"
-      - "child_item_id: UUID"
-      - "child_generation: int"
-      - "child_is_shiny: boolean"
-      - "timestamp: datetime"
-    destinations: ["Backend Analytics DB"]
-
-  - event_name: "shiny_collected"
-    trigger: "When player defeats shiny enemy"
+  - event_name: "material_applied"
+    trigger: "When player applies material to item"
     properties:
       - "user_id: UUID"
       - "item_id: UUID"
-      - "item_type: string"
+      - "material_id: string"
+      - "is_shiny: boolean"
+      - "material_index: int (0-2)"
+      - "new_item_stats: object"
+      - "timestamp: datetime"
+    destinations: ["Backend Analytics DB"]
+
+  - event_name: "material_replaced"
+    trigger: "When player replaces material on item"
+    properties:
+      - "user_id: UUID"
+      - "item_id: UUID"
+      - "old_material_id: string"
+      - "new_material_id: string"
+      - "new_is_shiny: boolean"
+      - "gold_spent: int"
+      - "timestamp: datetime"
+    destinations: ["Backend Analytics DB"]
+
+  - event_name: "item_upgraded"
+    trigger: "When player spends gold to level up item"
+    properties:
+      - "user_id: UUID"
+      - "item_id: UUID"
+      - "old_level: int"
+      - "new_level: int"
+      - "gold_spent: int"
+      - "new_vanity_level: int"
+      - "timestamp: datetime"
+    destinations: ["Backend Analytics DB"]
+
+  - event_name: "shiny_material_collected"
+    trigger: "When player receives shiny material from combat"
+    properties:
+      - "user_id: UUID"
+      - "material_id: string"
       - "location_id: UUID"
       - "timestamp: datetime"
     destinations: ["Backend Analytics DB", "Future: Push notification trigger"]
@@ -139,156 +149,553 @@ event_tracking:
       - "timestamp: datetime"
     destinations: ["Backend Analytics DB"]
 
-data_storage:
-  initial_schema: |
-    **users**
-    - id: UUID (PK)
-    - email: VARCHAR (unique)
-    - username: VARCHAR (unique, nullable)
-    - level: INT (default 1)
-    - total_atk: INT
-    - total_def: INT
-    - total_hp: INT
+  - event_name: "pet_personality_assigned"
+    trigger: "When player assigns or changes pet personality (F-11)"
+    properties:
+      - "user_id: UUID"
+      - "pet_item_id: UUID"
+      - "personality_type: string (sassy, encouraging, analytical, etc.)"
+      - "custom_name: string (nullable)"
+      - "previous_personality: string (nullable, if changing)"
+      - "timestamp: datetime"
+    destinations: ["Backend Analytics DB"]
+
+  - event_name: "pet_chatter_generated"
+    trigger: "When pet generates dialogue during combat (F-11)"
+    properties:
+      - "user_id: UUID"
+      - "session_id: UUID"
+      - "pet_item_id: UUID"
+      - "personality_type: string"
+      - "event_type: string (player_attack, enemy_attack, victory, etc.)"
+      - "dialogue_text: string (generated dialogue)"
+      - "generation_time_ms: int (AI latency)"
+      - "was_ai_generated: boolean (true if AI, false if fallback phrase)"
+      - "turn_number: int"
+      - "timestamp: datetime"
+    destinations: ["Backend Analytics DB"]
+
+  - event_name: "pet_chatter_displayed"
+    trigger: "When pet dialogue is shown to player in UI (F-11)"
+    properties:
+      - "user_id: UUID"
+      - "session_id: UUID"
+      - "dialogue_id: UUID (reference to combat_chatter_log)"
+      - "display_duration_ms: int (how long shown on screen)"
+      - "timestamp: datetime"
+    destinations: ["Backend Analytics DB"]
+
+  - event_name: "enemy_chatter_generated"
+    trigger: "When enemy generates trash-talk during combat (F-12)"
+    properties:
+      - "user_id: UUID"
+      - "session_id: UUID"
+      - "enemy_type: string (spray_paint_goblin, goopy_floating_eye, etc.)"
+      - "dialogue_tone: string (aggressive, sarcastic, condescending, etc.)"
+      - "event_type: string (combat_start, player_hit, player_miss, etc.)"
+      - "dialogue_text: string (generated trash-talk)"
+      - "generation_time_ms: int (AI latency)"
+      - "was_ai_generated: boolean (true if AI, false if fallback taunt)"
+      - "turn_number: int"
+      - "player_context: object {attempts, victories, defeats, current_streak}"
+      - "timestamp: datetime"
+    destinations: ["Backend Analytics DB"]
+
+  - event_name: "enemy_chatter_displayed"
+    trigger: "When enemy dialogue is shown to player in UI (F-12)"
+    properties:
+      - "user_id: UUID"
+      - "session_id: UUID"
+      - "dialogue_id: UUID (reference to enemy_chatter_log)"
+      - "display_duration_ms: int (how long shown on screen)"
+      - "timestamp: datetime"
+    destinations: ["Backend Analytics DB"]
+
+  - event_name: "combat_history_updated"
+    trigger: "When player combat history is updated after combat (F-12)"
+    properties:
+      - "user_id: UUID"
+      - "location_id: UUID"
+      - "combat_result: string (victory, defeat)"
+      - "new_attempts: int"
+      - "new_victories: int"
+      - "new_defeats: int"
+      - "new_current_streak: int"
+      - "previous_streak: int"
+      - "timestamp: datetime"
+    destinations: ["Backend Analytics DB"]
+
+database_schema:
+  core_entities: |
+    **Users** (F-07 Authentication)
+    - id: UUID (PK, Supabase Auth UUID)
+    - email: VARCHAR (unique, from Supabase Auth)
     - created_at: TIMESTAMP
     - last_login: TIMESTAMP
+    - vanity_level: INT (cached sum of all equipped item levels)
+    - gold_balance: INT (currency, default 500)
+    - avg_item_level: DECIMAL (cached average of equipped items for enemy scaling)
+    - INDEX on (id, last_login)
 
-    **locations**
+    **ItemTypes** (seed data, ~20 items, F-03 Base Items & Equipment)
     - id: UUID (PK)
-    - lat: DECIMAL(10,8)
-    - lng: DECIMAL(11,8)
-    - city_id: UUID (FK to cities)
-    - enemy_type: VARCHAR
-    - item_type: VARCHAR
-    - spawn_radius: INT (default 50)
-    - is_premium: BOOLEAN (default false)
+    - name: VARCHAR (Enormous Key, Shiny Coin, Halo, Cupcake, Jar of Jelly, A Rose, Gatling Gun, Sword, Umbrella, Dog, Dragon, Unicorn, Lil Buddy, Robot)
+    - category: VARCHAR (weapon, helmet, armor, amulet, ring, pet)
+    - base_stats_normalized: JSON {attack: 0.4, defense: 0.3, accuracy: 0.2, health: 0.1} (sum = 1.0)
+    - rarity: VARCHAR (common, uncommon, rare, epic, legendary)
+    - description: TEXT (whimsical descriptions)
+    - appearance_data: JSON (sprite info, colors, animations)
     - created_at: TIMESTAMP
+    - INDEX on (category, rarity)
 
-    **items**
+    **Items** (player-owned instances, F-03/F-06)
     - id: UUID (PK)
-    - owner_id: UUID (FK to users, nullable for templates)
-    - type: VARCHAR (helmet, armor, sword, axe, shield, amulet, ring)
+    - user_id: UUID (FK to Users)
+    - item_type_id: UUID (FK to ItemTypes)
+    - level: INT (default 1, upgraded via F-06)
+    - current_stats: JSON (calculated: base_stats * level + material modifiers)
+    - applied_material_slots: JSON ARRAY [material_instance_id_1, material_instance_id_2, material_instance_id_3] (max 3, FK to MaterialInstances)
+    - equipped: BOOLEAN (default false)
+    - created_at: TIMESTAMP
+    - INDEX on (user_id, equipped)
+    - INDEX on (user_id, item_type_id)
+
+    **UserUnlockedItemTypes** (F-03, tracking what players can craft/receive)
+    - user_id: UUID (PK, FK to Users)
+    - item_type_id: UUID (PK, FK to ItemTypes)
+    - unlocked_at: TIMESTAMP
+    - unlock_source: VARCHAR (combat_drop, starter_item, special_event)
+    - UNIQUE (user_id, item_type_id)
+
+    **Materials** (seed data, ~20 materials, F-04 Materials System)
+    - id: UUID (PK)
+    - name: VARCHAR (Coffee, Gum, Feather, Propeller, Rainbow, Bubble, Slime, Diamond, Sparkles, A Cloud, Lava, Colorful Ribbon, Button, Candle, Pizza)
+    - stat_modifiers: JSON {attack: -0.1, defense: +0.1, accuracy: 0, health: 0} (sum = 0, zero-sum modifications)
+    - rarity: VARCHAR (common, uncommon, rare, epic, legendary)
     - description: TEXT
-    - atk: INT
-    - def: INT
-    - hp: INT
-    - generation: INT (1-3)
-    - is_shiny: BOOLEAN
-    - is_equipped: BOOLEAN
-    - equipped_slot: VARCHAR (nullable)
-    - location_id: UUID (FK to locations, nullable)
-    - parent_item_1: UUID (FK to items, nullable)
-    - parent_item_2: UUID (FK to items, nullable)
     - created_at: TIMESTAMP
+    - INDEX on (rarity)
 
-    **pets**
+    **MaterialInstances** (player-owned materials, F-04/F-05)
     - id: UUID (PK)
-    - owner_id: UUID (FK to users, nullable for templates)
-    - type: VARCHAR
+    - user_id: UUID (FK to Users)
+    - material_id: UUID (FK to Materials)
+    - is_shiny: BOOLEAN (5% drop rate, 1.2x stat effectiveness)
+    - applied_to_item_id: UUID (nullable, FK to Items when applied)
+    - created_at: TIMESTAMP
+    - INDEX on (user_id, material_id)
+    - INDEX on (applied_to_item_id) for quick lookup
+
+    **Pets** (extends Items where category=pet, F-11 Pet Personality System)
+    - item_id: UUID (PK, FK to Items where ItemTypes.category='pet')
+    - personality_id: UUID (nullable, FK to PetPersonalities)
+    - custom_name: VARCHAR (nullable, player-given name)
+    - chatter_history: JSONB (recent dialogue for context)
+    - INDEX on (item_id, personality_id)
+
+    **PetPersonalities** (seed data, F-11)
+    - id: UUID (PK)
+    - personality_type: VARCHAR (UNIQUE: sassy, encouraging, analytical, chaotic, stoic, trash_talker)
+    - display_name: VARCHAR (Sassy, Encouraging, Analytical, Chaotic, Stoic, Trash Talker)
     - description: TEXT
-    - atk: INT
-    - def: INT
-    - hp: INT
-    - generation: INT (1-3)
-    - is_shiny: BOOLEAN
-    - is_active: BOOLEAN
-    - location_id: UUID (FK to locations, nullable)
+    - traits: JSON ARRAY (e.g., ['witty', 'sarcastic', 'confident'])
+    - base_dialogue_style: TEXT (AI prompt template)
+    - example_phrases: JSON ARRAY (fallback dialogue samples)
+    - verbosity: VARCHAR (terse, moderate, verbose)
+
+    **EnemyTypes** (seed data, F-12 Enemy AI Personality System)
+    - id: UUID (PK)
+    - name: VARCHAR (Spray Paint Goblin, Goopy Floating Eye, Ferral Unicorn, Bipedal Deer, Politician)
+    - base_stats: JSON {attack: 100, defense: 80, accuracy: 0.7, health: 200} (scaled per combat)
+    - ai_personality_traits: JSON ARRAY (['arrogant', 'street-smart', 'artistic'])
+    - dialogue_tone: VARCHAR (aggressive, sarcastic, condescending, chaotic, political)
+    - base_dialogue_prompt: TEXT (AI system prompt template)
+    - example_taunts: JSON ARRAY (fallback phrases)
+    - verbosity: VARCHAR (terse, moderate, verbose)
+    - appearance_data: JSON (sprite info, animations)
+    - INDEX on (name)
+
+    **PlayerCombatHistory** (F-12, tracks performance per location)
+    - user_id: UUID (PK, FK to Users)
+    - location_id: UUID (PK, FK to Locations)
+    - total_attempts: INT (total combat attempts at this location)
+    - victories: INT (total wins)
+    - defeats: INT (total losses)
+    - current_streak: INT (consecutive wins, reset on loss)
+    - longest_streak: INT (best streak ever at this location)
+    - last_attempt: TIMESTAMP
+    - UNIQUE (user_id, location_id)
+
+    **Locations** (spawn points for combat encounters)
+    - id: UUID (PK)
+    - name: VARCHAR (generated descriptive names for markers)
+    - lat: DECIMAL (latitude, 6 decimal places)
+    - lng: DECIMAL (longitude, 6 decimal places)
+    - location_type: VARCHAR (library, gym, park, coffee_shop, restaurant, school, etc.)
+    - state_code: VARCHAR (US state code: CA, NY, TX, etc.)
+    - country_code: VARCHAR (ISO country code: USA, CAN, etc.)
     - created_at: TIMESTAMP
+    - INDEX on (lat, lng) via PostGIS for geospatial queries
+    - INDEX on (location_type)
 
-    **enemies** (templates, not per-player)
+    **EnemyPools** (level-aware pool system for enemy spawn assignment)
     - id: UUID (PK)
-    - type: VARCHAR
-    - base_atk: INT
-    - base_def: INT
-    - base_hp: INT
-    - generation: INT (1-3)
-    - location_id: UUID (FK to locations)
+    - name: VARCHAR (descriptive pool name: "Level 10 Library Enemies")
+    - combat_level: INT (required - pools are level-specific)
+    - filter_type: VARCHAR (universal | location_type | state | country | lat_range | lng_range)
+    - filter_value: VARCHAR (nullable - specific filter criteria)
+      Examples:
+      * universal: filter_value = null (applies everywhere)
+      * location_type: filter_value = "library" (matches locations.location_type)
+      * state: filter_value = "CA" (matches locations.state_code)
+      * country: filter_value = "USA" (matches locations.country_code)
+      * lat_range: filter_value = "30-40N" (latitude range matching)
+      * lng_range: filter_value = "120-130W" (longitude range matching)
     - created_at: TIMESTAMP
+    - INDEX on (combat_level, filter_type)
+    - UNIQUE (name) to prevent duplicate pool definitions
 
-    **crafting_sessions**
+    **EnemyPoolMembers** (what enemies belong to each pool)
     - id: UUID (PK)
-    - player_id: UUID (FK to users)
-    - parent_item_1: UUID (FK to items)
-    - parent_item_2: UUID (FK to items)
-    - child_generation: INT
-    - child_type: VARCHAR
-    - start_time: TIMESTAMP
-    - duration_seconds: INT
-    - completion_time: TIMESTAMP
-    - status: VARCHAR (in_progress, completed, claimed)
-    - child_item_id: UUID (FK to items, nullable)
+    - enemy_pool_id: UUID (FK to EnemyPools)
+    - enemy_type_id: UUID (FK to EnemyTypes)
+    - spawn_weight: INT (relative weight for random selection, default 100)
+    - created_at: TIMESTAMP
+    - INDEX on (enemy_pool_id)
+    - UNIQUE (enemy_pool_id, enemy_type_id) to prevent duplicates
 
-    **analytics_events**
+    **LootPools** (level-aware pool system for material/item drops)
     - id: UUID (PK)
-    - user_id: UUID (FK to users, nullable)
+    - name: VARCHAR (descriptive pool name: "Level 10 Library Loot")
+    - combat_level: INT (required - pools are level-specific)
+    - filter_type: VARCHAR (universal | location_type | state | country | lat_range | lng_range)
+    - filter_value: VARCHAR (nullable - specific filter criteria, same format as EnemyPools)
+    - created_at: TIMESTAMP
+    - INDEX on (combat_level, filter_type)
+    - UNIQUE (name) to prevent duplicate pool definitions
+
+    **LootPoolEntries** (what loot belongs to each pool)
+    - id: UUID (PK)
+    - loot_pool_id: UUID (FK to LootPools)
+    - lootable_type: VARCHAR (material | item_type)
+    - lootable_id: UUID (FK to Materials.id or ItemTypes.id based on lootable_type)
+    - drop_weight: INT (relative weight for random selection, default 100)
+    - shiny_rate_override: DECIMAL (nullable, overrides default 5% for materials)
+    - created_at: TIMESTAMP
+    - INDEX on (loot_pool_id)
+    - INDEX on (lootable_type, lootable_id)
+
+    **CombatSessions** (F-02, stored in Redis with 15min TTL for active sessions)
+    - id: UUID (PK)
+    - user_id: UUID (FK to Users)
+    - location_id: UUID (FK to Locations)
+    - combat_level: INT (determined by player's avg_item_level)
+    - enemy_type_id: UUID (FK to EnemyTypes, selected from matching EnemyPools)
+    - applied_enemy_pools: JSON ARRAY (pool IDs that matched for enemy selection)
+    - applied_loot_pools: JSON ARRAY (pool IDs that will be used for loot drops)
+    - player_equipped_items_snapshot: JSON (stats at combat start)
+    - combat_log: JSON ARRAY (turn-by-turn actions and damage)
+    - outcome: VARCHAR (nullable: victory, defeat, abandoned)
+    - rewards: JSON ARRAY (items/materials awarded on victory)
+    - created_at: TIMESTAMP
+    - updated_at: TIMESTAMP
+
+  analytics_tables: |
+    **CombatChatterLog** (F-11 Pet Personality analytics)
+    - id: UUID (PK)
+    - session_id: UUID (FK to CombatSessions)
+    - pet_item_id: UUID (FK to Items)
+    - event_type: VARCHAR (player_attack, enemy_attack, critical_hit, victory, defeat)
+    - combat_context: JSON {turn_number, player_hp_pct, enemy_hp_pct, last_damage}
+    - generated_dialogue: TEXT
+    - personality_type: VARCHAR
+    - generation_time_ms: INT
+    - was_ai_generated: BOOLEAN
+    - timestamp: TIMESTAMP
+    - INDEX on (session_id, timestamp)
+    - INDEX on (personality_type, event_type)
+
+    **EnemyChatterLog** (F-12 Enemy AI analytics)
+    - id: UUID (PK)
+    - session_id: UUID (FK to CombatSessions)
+    - enemy_type_id: UUID (FK to EnemyTypes)
+    - event_type: VARCHAR (combat_start, player_hit, player_miss, enemy_hit, low_player_hp, near_victory, defeat, victory)
+    - combat_context: JSON {turn_number, player_hp_pct, enemy_hp_pct, last_action, damage}
+    - player_metadata: JSON {attempts, victories, defeats, current_streak}
+    - generated_dialogue: TEXT
+    - dialogue_tone: VARCHAR
+    - generation_time_ms: INT
+    - was_ai_generated: BOOLEAN
+    - timestamp: TIMESTAMP
+    - INDEX on (session_id, timestamp)
+    - INDEX on (enemy_type_id, event_type)
+
+    **AnalyticsEvents** (general event tracking)
+    - id: UUID (PK)
+    - user_id: UUID (FK to Users, nullable)
     - event_name: VARCHAR
     - properties: JSONB
     - timestamp: TIMESTAMP
     - INDEX on (event_name, timestamp)
 
+  seed_data_notes: |
+    **ItemTypes Examples:**
+    - Weapons: Enormous Key, Gatling Gun, Sword, Umbrella (whimsical but recognizable)
+    - Armor: Halo (helmet), protective items with magical/mundane themes
+    - Accessories: Shiny Coin (amulet), A Rose (ring), Cupcake, Jar of Jelly
+    - Pets: Dog, Dragon, Unicorn, Lil Buddy, Robot (each with distinct personalities)
+
+    **Materials Examples:**
+    - Common: Coffee (+energy/-defense), Gum (sticky effects), Button (small modifier)
+    - Rare: Rainbow (balanced stats), Diamond (+defense/-speed), Lava (+attack/-accuracy)
+    - Legendary: A Cloud (ethereal effects), Colorful Ribbon (aesthetic + stats)
+
+    **Enemy Types Examples:**
+    - Spray Paint Goblin: Street-smart, artistic, sarcastic dialogue
+    - Goopy Floating Eye: All-seeing, ominous, condescending tone
+    - Ferral Unicorn: Wild, unpredictable, chaotic personality
+    - Bipedal Deer: Forest-wise, territorial, moderate aggression
+    - Politician: Manipulative, eloquent, verbose political speak
+
+    **Pool System Examples:**
+
+    **EnemyPools:**
+    - {id: uuid-1, name: "Level 10 Universal Enemies", combat_level: 10, filter_type: "universal", filter_value: null}
+    - {id: uuid-2, name: "Level 10 Library Enemies", combat_level: 10, filter_type: "location_type", filter_value: "library"}
+    - {id: uuid-3, name: "Level 10 California Enemies", combat_level: 10, filter_type: "state", filter_value: "CA"}
+    - {id: uuid-4, name: "Level 10 USA Enemies", combat_level: 10, filter_type: "country", filter_value: "USA"}
+    - {id: uuid-5, name: "Level 15 Library Enemies", combat_level: 15, filter_type: "location_type", filter_value: "library"}
+    - {id: uuid-6, name: "Level 10 North America Lat", combat_level: 10, filter_type: "lat_range", filter_value: "30-50N"}
+
+    **EnemyPoolMembers:**
+    - {enemy_pool_id: uuid-1, enemy_type_id: spray_paint_goblin_id, spawn_weight: 100}
+    - {enemy_pool_id: uuid-1, enemy_type_id: goopy_floating_eye_id, spawn_weight: 80}
+    - {enemy_pool_id: uuid-2, enemy_type_id: politician_id, spawn_weight: 150} // Higher weight in libraries
+    - {enemy_pool_id: uuid-3, enemy_type_id: ferral_unicorn_id, spawn_weight: 120} // California-specific
+
+    **LootPools:**
+    - {id: uuid-10, name: "Level 10 Universal Loot", combat_level: 10, filter_type: "universal", filter_value: null}
+    - {id: uuid-11, name: "Level 10 Library Loot", combat_level: 10, filter_type: "location_type", filter_value: "library"}
+    - {id: uuid-12, name: "Level 10 California Loot", combat_level: 10, filter_type: "state", filter_value: "CA"}
+    - {id: uuid-13, name: "Level 10 Coffee Shop Loot", combat_level: 10, filter_type: "location_type", filter_value: "coffee_shop"}
+
+    **LootPoolEntries:**
+    - {loot_pool_id: uuid-10, lootable_type: "material", lootable_id: iron_material_id, drop_weight: 100, shiny_rate_override: null}
+    - {loot_pool_id: uuid-11, lootable_type: "material", lootable_id: paper_material_id, drop_weight: 200, shiny_rate_override: null} // Books/paper in libraries
+    - {loot_pool_id: uuid-11, lootable_type: "item_type", lootable_id: enormous_key_id, drop_weight: 50, shiny_rate_override: null} // Rare book-themed items
+    - {loot_pool_id: uuid-13, lootable_type: "material", lootable_id: coffee_material_id, drop_weight: 300, shiny_rate_override: 0.15} // 15% shiny rate for coffee
+
+    **Example Combat Query (Level 10 library in California):**
+    Location: {location_type: "library", state_code: "CA", country_code: "USA", lat: 37.7, lng: -122.4}
+    Combat Level: 10
+
+    Matching EnemyPools:
+    - uuid-1 (Universal Level 10)
+    - uuid-2 (Library Level 10)
+    - uuid-3 (California Level 10)
+    - uuid-4 (USA Level 10)
+    - uuid-6 (North America Lat Level 10, if 37.7 is in 30-50N range)
+
+    Combined Enemy Selection:
+    - spray_paint_goblin: weight 100 (from universal)
+    - goopy_floating_eye: weight 80 (from universal)
+    - politician: weight 150 (from library)
+    - ferral_unicorn: weight 120 (from California)
+    // Weighted random selection from this combined pool
+
+    Matching LootPools:
+    - uuid-10 (Universal Level 10)
+    - uuid-11 (Library Level 10)
+    - uuid-12 (California Level 10)
+    // Combined loot table for drops
+
+  data_relationships: |
+    **Core Ownership Chain:**
+    Users → Items (via user_id) → ItemTypes (via item_type_id)
+    Users → MaterialInstances (via user_id) → Materials (via material_id)
+    Items ← MaterialInstances (via applied_to_item_id, nullable)
+
+    **Location & Pool System:**
+    Locations → CombatSessions (spawn point selection)
+    EnemyPools → EnemyPoolMembers → EnemyTypes (pool-based enemy assignment)
+    LootPools → LootPoolEntries → Materials|ItemTypes (pool-based loot drops)
+    Locations.{location_type, state_code, country_code, lat, lng} → EnemyPools.{filter_type, filter_value} (pool matching logic)
+
+    **Combat Flow:**
+    Users → CombatSessions → EnemyTypes (selected via EnemyPools)
+    Users → PlayerCombatHistory (per location performance tracking)
+    CombatSessions → CombatChatterLog (pet dialogue)
+    CombatSessions → EnemyChatterLog (enemy trash-talk)
+    CombatSessions.applied_enemy_pools → EnemyPools (which pools were used for enemy selection)
+    CombatSessions.applied_loot_pools → LootPools (which pools will be used for loot drops)
+
+    **Pet System:**
+    Items (where category='pet') → Pets → PetPersonalities
+    Pets → CombatChatterLog (dialogue generation)
+
+    **Unlocks & Progression:**
+    Users → UserUnlockedItemTypes → ItemTypes (what can be obtained)
+    Items.level progression via F-06 Item Upgrade System
+    MaterialInstances.is_shiny (5% drop rate, 1.2x effectiveness)
+
+    **Pool Query Logic:**
+    At combat initialization:
+    1. Get Location.{location_type, state_code, country_code, lat, lng}
+    2. Get player's combat_level from avg_item_level
+    3. Query EnemyPools WHERE:
+       - combat_level = player_combat_level AND
+       - (filter_type = 'universal' AND filter_value IS NULL) OR
+       - (filter_type = 'location_type' AND filter_value = Location.location_type) OR
+       - (filter_type = 'state' AND filter_value = Location.state_code) OR
+       - (filter_type = 'country' AND filter_value = Location.country_code) OR
+       - (filter_type = 'lat_range' AND Location.lat BETWEEN parsed_range) OR
+       - (filter_type = 'lng_range' AND Location.lng BETWEEN parsed_range)
+    4. UNION all matching EnemyPoolMembers, aggregate by enemy_type_id with SUM(spawn_weight)
+    5. Weighted random selection of enemy_type_id for combat
+    6. Repeat same logic for LootPools → LootPoolEntries for loot drop determination
+
+  constraints_and_indexes: |
+    **Primary Constraints:**
+    - Users.id matches Supabase Auth UUID (managed by Supabase)
+    - Items.applied_material_slots max 3 elements (enforced in application)
+    - Materials.stat_modifiers sum = 0 (zero-sum modifications)
+    - ItemTypes.base_stats_normalized sum = 1.0 (balanced base stats)
+    - CombatSessions Redis TTL = 15 minutes (ephemeral active combat)
+
+    **Performance Indexes:**
+    - Items: (user_id, equipped) for inventory queries
+    - Items: (user_id, item_type_id) for duplicate detection
+    - MaterialInstances: (user_id, material_id) for material inventory
+    - MaterialInstances: (applied_to_item_id) for quick item material lookup
+    - PlayerCombatHistory: (user_id, location_id) unique constraint
+    - CombatChatterLog: (session_id, timestamp) for combat dialogue timeline
+    - EnemyChatterLog: (session_id, timestamp) for enemy dialogue timeline
+    - AnalyticsEvents: (event_name, timestamp) for metrics queries
+    - Locations: (lat, lng) PostGIS spatial index for geospatial queries
+    - Locations: (location_type) for pool filtering
+    - EnemyPools: (combat_level, filter_type) for pool query optimization
+    - EnemyPoolMembers: (enemy_pool_id) for pool member lookup
+    - LootPools: (combat_level, filter_type) for pool query optimization
+    - LootPoolEntries: (loot_pool_id) for pool entry lookup
+    - LootPoolEntries: (lootable_type, lootable_id) for reverse lookups
+
+    **Foreign Key Relationships:**
+    - All user_id fields → Users.id (CASCADE DELETE for GDPR compliance)
+    - Items.item_type_id → ItemTypes.id (RESTRICT, seed data)
+    - MaterialInstances.material_id → Materials.id (RESTRICT, seed data)
+    - MaterialInstances.applied_to_item_id → Items.id (SET NULL on item deletion)
+    - Pets.item_id → Items.id (CASCADE DELETE)
+    - Pets.personality_id → PetPersonalities.id (SET NULL, personality can be unassigned)
+    - CombatSessions.location_id → Locations.id (RESTRICT, locations are persistent)
+    - CombatSessions.enemy_type_id → EnemyTypes.id (RESTRICT, seed data)
+    - EnemyPoolMembers.enemy_pool_id → EnemyPools.id (CASCADE DELETE)
+    - EnemyPoolMembers.enemy_type_id → EnemyTypes.id (RESTRICT, seed data)
+    - LootPoolEntries.loot_pool_id → LootPools.id (CASCADE DELETE)
+    - LootPoolEntries.lootable_id → Materials.id|ItemTypes.id (RESTRICT, depends on lootable_type)
+    - PlayerCombatHistory.location_id → Locations.id (CASCADE DELETE if location removed)
+
+  migration_considerations: |
+    **Schema Evolution:**
+    - Start with minimal tables for MVP: Users, ItemTypes, Items, Materials, MaterialInstances
+    - Add Locations table when geolocation features (F-01) are implemented
+    - Add pool system tables (EnemyPools, EnemyPoolMembers, LootPools, LootPoolEntries) when level-aware spawning is needed
+    - Add pet system tables when F-11 is implemented
+    - Add enemy AI tables when F-12 is implemented
+    - Analytics tables can be added incrementally as events are defined
+
+    **Data Seeding Priority:**
+    1. ItemTypes (required for any item creation)
+    2. Materials (required for material drops)
+    3. Locations (required for spawn points)
+    4. EnemyTypes (required for combat enemies)
+    5. EnemyPools + EnemyPoolMembers (required for level-aware enemy spawning)
+    6. LootPools + LootPoolEntries (required for location-specific loot drops)
+    7. PetPersonalities (required for F-11)
+
+    **Performance Considerations:**
+    - Items table will be largest (thousands per user)
+    - MaterialInstances will have high insert/update frequency (F-05 drops)
+    - CombatSessions in Redis avoids PostgreSQL load during active combat
+    - Locations table optimized with PostGIS spatial indexes for fast proximity queries
+    - Pool query logic optimized with composite indexes on (combat_level, filter_type)
+    - Pool member tables pre-computed for fast weighted random selection
+    - Analytics tables designed for time-series queries with timestamp indexes
+
+data_storage:
+  legacy_notes: |
+    The schema above represents the comprehensive database design.
+    The following legacy schema definitions are preserved for reference:
+
+    **pet_personalities** (seed data, F-11)
+    - personality_type: VARCHAR (PK: sassy, encouraging, analytical, chaotic, stoic, trash_talker)
+    - display_name: VARCHAR
+    - description: TEXT
+    - traits: JSON ARRAY (e.g., ['witty', 'sarcastic', 'confident'])
+    - base_dialogue_style: TEXT (AI prompt template)
+    - example_phrases: JSON ARRAY (fallback dialogue samples)
+    - verbosity: VARCHAR (terse, moderate, verbose)
+
+    **player_pet_personalities** (F-11)
+    - item_id: UUID (PK, FK to player_items where base_type='pet')
+    - personality_type: VARCHAR (FK to pet_personalities.personality_type)
+    - custom_name: VARCHAR (nullable, player-given pet name)
+    - created_at: TIMESTAMP
+    - INDEX on (item_id)
+
+    **combat_chatter_log** (analytics for F-11)
+    - id: UUID (PK)
+    - session_id: UUID (FK to combat_sessions)
+    - pet_item_id: UUID (FK to player_items)
+    - event_type: VARCHAR (player_attack, enemy_attack, critical_hit, etc.)
+    - combat_context: JSON {turn_number, player_hp_pct, enemy_hp_pct, last_damage}
+    - generated_dialogue: TEXT
+    - personality_type: VARCHAR
+    - generation_time_ms: INT
+    - was_ai_generated: BOOLEAN
+    - timestamp: TIMESTAMP
+    - INDEX on (session_id, timestamp)
+    - INDEX on (personality_type, event_type) for analytics
+
+    **enemy_types** (seed data for F-12)
+    - type: VARCHAR (PK: spray_paint_goblin, goopy_floating_eye, ferral_unicorn, bipedal_deer, politician)
+    - display_name: VARCHAR
+    - personality_traits: JSON ARRAY (e.g., ['arrogant', 'street-smart', 'artistic'])
+    - dialogue_tone: VARCHAR (aggressive, sarcastic, condescending, chaotic, political)
+    - verbosity: VARCHAR (terse, moderate, verbose)
+    - base_dialogue_prompt: TEXT (AI system prompt template)
+    - example_taunts: JSON ARRAY (fallback phrases)
+
+    **player_combat_history** (F-12)
+    - player_id: UUID (PK, FK to users)
+    - location_id: UUID (PK, FK to locations)
+    - attempts: INT (total combat attempts at this location)
+    - victories: INT (total wins)
+    - defeats: INT (total losses)
+    - last_attempt: TIMESTAMP
+    - current_streak: INT (consecutive wins, reset on loss)
+    - longest_streak: INT (best streak ever at this location)
+    - UNIQUE (player_id, location_id)
+    - INDEX on (player_id, location_id)
+
+    **enemy_chatter_log** (analytics for F-12)
+    - id: UUID (PK)
+    - session_id: UUID (FK to combat_sessions)
+    - enemy_type: VARCHAR (FK to enemy_types.type)
+    - event_type: VARCHAR (combat_start, player_hit, player_miss, enemy_hit, low_player_hp, near_victory, defeat, victory)
+    - combat_context: JSON {turn_number, player_hp_pct, enemy_hp_pct, last_action, damage}
+    - player_metadata: JSON {attempts, victories, defeats, current_streak}
+    - generated_dialogue: TEXT
+    - dialogue_tone: VARCHAR
+    - generation_time_ms: INT
+    - was_ai_generated: BOOLEAN
+    - timestamp: TIMESTAMP
+    - INDEX on (session_id, timestamp)
+    - INDEX on (enemy_type, event_type) for analytics
+
   retention_policy: |
     - User accounts: Retain indefinitely unless user requests deletion (GDPR)
-    - Items/Pets: Retain as long as user account exists
+    - Player items: Retain as long as user account exists
+    - Player materials: Retain as long as user account exists
     - Combat sessions (Redis): Expire after 15 minutes (ephemeral)
-    - Crafting sessions: Retain for 30 days after completion (for analytics)
     - Analytics events: Retain for 2 years, then archive or delete
     - Logs: Retain for 90 days (Railway default)
-
-  privacy_notes: |
-    - Email addresses hashed in analytics events (never stored in plaintext outside auth system)
-    - GPS coordinates NOT stored in backend (only used for proximity calculations, then discarded)
-    - No PII collected beyond email (required for account)
-    - User can request account deletion via /profile/delete endpoint (GDPR Article 17)
-    - Data export available via /profile/export endpoint (GDPR Article 20)
-    - Row-level security (RLS) enforced in Supabase: users can only access their own data
-    - API rate limiting (100 req/min per IP) to prevent data scraping
-
-success_metrics:
-  - metric: "Daily Active Users (DAU)"
-    definition: "Unique users who opened app and authenticated in last 24 hours"
-    target: "1,000 DAU within 1 month post-launch"
-    data_source: "session_started events, GROUP BY user_id, DATE(timestamp)"
-
-  - metric: "Session Length (avg)"
-    definition: "Average duration per session in minutes"
-    target: "15+ minutes per session"
-    data_source: "session_ended events, AVG(duration_seconds / 60)"
-
-  - metric: "Retention Day 7 (D7)"
-    definition: "Percentage of users who return 7 days after registration"
-    target: "40% D7 retention"
-    data_source: "user_registered + session_started events, COUNT(users with session 7 days after registration) / COUNT(total registered)"
-
-  - metric: "Crafting Engagement"
-    definition: "Percentage of active users who craft at least 1 item per week"
-    target: "60% of active users craft weekly"
-    data_source: "crafting_started events, COUNT(DISTINCT user_id in last 7 days) / COUNT(DISTINCT user_id in session_started last 7 days)"
-
-  - metric: "Location Visits"
-    definition: "Average unique locations visited per session"
-    target: "3+ unique locations per session"
-    data_source: "location_visited events, COUNT(DISTINCT location_id) per session_id, AVG across all sessions"
-
-  - metric: "Combat Win Rate"
-    definition: "Percentage of combats ending in victory"
-    target: "70% win rate (indicates balanced difficulty)"
-    data_source: "combat_completed events, COUNT(result='victory') / COUNT(*)"
-
-  - metric: "Shiny Collection Rate"
-    definition: "Average shinies collected per user per week"
-    target: "1+ shiny per user per week (validates 5% spawn rate)"
-    data_source: "shiny_collected events, COUNT(*) / COUNT(DISTINCT user_id) in last 7 days"
-
-  - metric: "Revenue (Premium Items)"
-    definition: "Total premium currency spent on premium items"
-    target: "TBD (post-monetization implementation)"
-    data_source: "Future: premium_purchase events"
-
-dashboard_requirements:
-  - "Real-time DAU counter"
-  - "Session length histogram (distribution of session durations)"
-  - "Cohort retention table (D1, D7, D30 retention by registration cohort)"
-  - "Crafting funnel: items collected → crafting started → crafting completed"
-  - "Combat balance metrics: win rate by enemy generation, avg turns per combat"
-  - "Location heatmap: most visited locations (validate spawn distribution)"
-  - "Item economy: total items by type/generation, crafting velocity (items crafted per day)"
-  - "Shiny drop verification: actual shiny rate vs expected 5%"

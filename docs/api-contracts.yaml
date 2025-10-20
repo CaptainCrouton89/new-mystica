@@ -2,8 +2,8 @@ template: ~/.claude/file-templates/init-project/api-contracts.yaml
 openapi: 3.0.0
 info:
   title: New Mystica API
-  version: 1.0.0
-  description: RESTful API for New Mystica location-based RPG game
+  version: 2.1.0
+  description: RESTful API for New Mystica location-based RPG with material-based item system, pet personalities (F-11), and enemy AI personalities (F-12)
 servers:
   - url: https://api.mystica.app/v1
     description: Production server
@@ -24,91 +24,177 @@ components:
         id:
           type: string
           format: uuid
+        name:
+          type: string
+          description: Generated descriptive name for marker
         lat:
           type: number
           format: double
         lng:
           type: number
           format: double
-        enemy_type:
+        location_type:
           type: string
-          enum: [helmet, armor, sword, axe, shield, amulet, ring, pet]
-        item_type:
+          description: Type of location (library, gym, park, coffee_shop, etc.)
+        state_code:
           type: string
-          enum: [helmet, armor, sword, axe, shield, amulet, ring, pet]
+          description: US state code (CA, NY, TX, etc.)
+        country_code:
+          type: string
+          description: ISO country code (USA, CAN, etc.)
+        enemy_level:
+          type: integer
+          description: Dynamically set to player avg item level
+        material_drop_pool:
+          type: array
+          items:
+            type: string
+          description: Array of material IDs that can drop here (deprecated - use LootPools)
         distance_meters:
           type: integer
-        is_premium:
-          type: boolean
 
-    Item:
+    BaseItem:
+      type: object
+      description: Template for item types (not per-player)
+      properties:
+        type:
+          type: string
+          enum: [sword, helmet, armor, amulet, ring, pet]
+        slot:
+          type: string
+          enum: [weapon, head, body, amulet, ring, pet]
+        base_stats:
+          type: object
+          properties:
+            atkPower:
+              type: number
+              format: float
+            atkAccuracy:
+              type: number
+              format: float
+            defPower:
+              type: number
+              format: float
+            defAccuracy:
+              type: number
+              format: float
+          description: Normalized stats that sum to 1.0
+        description:
+          type: string
+        icon_url:
+          type: string
+
+    PlayerItem:
       type: object
       properties:
         id:
           type: string
           format: uuid
-        type:
+        base_type:
           type: string
-          enum: [helmet, armor, sword, axe, shield, amulet, ring]
-        description:
-          type: string
-        atk:
-          type: integer
-        def:
-          type: integer
-        hp:
-          type: integer
-        generation:
+          enum: [sword, helmet, armor, amulet, ring, pet]
+        level:
           type: integer
           minimum: 1
-          maximum: 3
-        is_shiny:
-          type: boolean
+        applied_materials:
+          type: array
+          items:
+            type: string
+          maxItems: 3
+          description: Array of material IDs (max 3)
+        computed_stats:
+          type: object
+          properties:
+            atkPower:
+              type: number
+            atkAccuracy:
+              type: number
+            defPower:
+              type: number
+            defAccuracy:
+              type: number
+          description: Final stats after materials and level scaling
         is_equipped:
           type: boolean
         equipped_slot:
           type: string
           nullable: true
 
-    Pet:
+    Material:
+      type: object
+      description: Material template (seed data)
+      properties:
+        id:
+          type: string
+          example: "iron"
+        name:
+          type: string
+          example: "Iron"
+        description:
+          type: string
+        stat_modifiers:
+          type: object
+          properties:
+            atkPower:
+              type: number
+              format: float
+            atkAccuracy:
+              type: number
+              format: float
+            defPower:
+              type: number
+              format: float
+            defAccuracy:
+              type: number
+              format: float
+          description: Modifiers that sum to 0
+        rarity:
+          type: string
+          enum: [common, uncommon, rare, epic]
+        theme:
+          type: string
+          enum: [defensive, offensive, balanced, exotic]
+
+    PlayerMaterial:
       type: object
       properties:
         id:
           type: string
           format: uuid
-        type:
+        material_id:
           type: string
-        description:
+        name:
           type: string
-        atk:
-          type: integer
-        def:
-          type: integer
-        hp:
-          type: integer
-        generation:
-          type: integer
         is_shiny:
           type: boolean
-        is_active:
-          type: boolean
+          description: Shiny materials have 1.2x stat effectiveness
+        quantity:
+          type: integer
 
     Enemy:
       type: object
       properties:
-        id:
-          type: string
-          format: uuid
-        type:
-          type: string
-        atk:
+        level:
           type: integer
-        def:
+        stats:
+          type: object
+          properties:
+            atkPower:
+              type: number
+            atkAccuracy:
+              type: number
+            defPower:
+              type: number
+            defAccuracy:
+              type: number
+        gold_min:
           type: integer
-        hp:
+        gold_max:
           type: integer
-        is_shiny:
-          type: boolean
+        material_drop_pool:
+          type: array
+          items:
+            type: string
 
     CombatSession:
       type: object
@@ -121,12 +207,30 @@ components:
         player_stats:
           type: object
           properties:
-            atk:
-              type: integer
-            def:
-              type: integer
-            hp:
-              type: integer
+            atkPower:
+              type: number
+            atkAccuracy:
+              type: number
+            defPower:
+              type: number
+            defAccuracy:
+              type: number
+
+    CombatRewards:
+      type: object
+      properties:
+        gold:
+          type: integer
+        material:
+          type: object
+          nullable: true
+          properties:
+            material_id:
+              type: string
+            name:
+              type: string
+            is_shiny:
+              type: boolean
 
     UserProfile:
       type: object
@@ -140,14 +244,135 @@ components:
         username:
           type: string
           nullable: true
-        level:
+        vanity_level:
           type: integer
-        total_atk:
+          description: Derived from total item levels
+        gold:
           type: integer
-        total_def:
+        total_stats:
+          type: object
+          properties:
+            atkPower:
+              type: number
+            atkAccuracy:
+              type: number
+            defPower:
+              type: number
+            defAccuracy:
+              type: number
+
+    PetPersonality:
+      type: object
+      description: Pet personality template (seed data) for F-11
+      properties:
+        personality_type:
+          type: string
+          enum: [sassy, encouraging, analytical, chaotic, stoic, trash_talker]
+        display_name:
+          type: string
+        description:
+          type: string
+        traits:
+          type: array
+          items:
+            type: string
+          example: ["witty", "sarcastic", "confident"]
+        example_phrases:
+          type: array
+          items:
+            type: string
+        verbosity:
+          type: string
+          enum: [terse, moderate, verbose]
+
+    CombatChatter:
+      type: object
+      description: AI-generated pet dialogue for F-11
+      properties:
+        dialogue:
+          type: string
+          example: "Ha! Nice hit, but that Spray Paint Goblin is still uglier than my morning breath!"
+        personality_type:
+          type: string
+        generation_time_ms:
           type: integer
-        total_hp:
+
+    EnemyType:
+      type: object
+      description: Enemy personality type definition for F-12
+      properties:
+        type:
+          type: string
+          enum: [spray_paint_goblin, goopy_floating_eye, ferral_unicorn, bipedal_deer, politician]
+        display_name:
+          type: string
+          example: "Spray Paint Goblin"
+        personality_traits:
+          type: array
+          items:
+            type: string
+          example: ["arrogant", "street-smart", "artistic"]
+        dialogue_tone:
+          type: string
+          enum: [aggressive, sarcastic, condescending, chaotic, political]
+        verbosity:
+          type: string
+          enum: [terse, moderate, verbose]
+        example_taunts:
+          type: array
+          items:
+            type: string
+          example: ["Too slow!", "Call that art?", "Graffiti > your fighting style"]
+
+    EnemyChatter:
+      type: object
+      description: AI-generated enemy trash-talk for F-12
+      properties:
+        dialogue:
+          type: string
+          example: "Ha! Call that a hit? I've been tickled harder by a feather!"
+        enemy_type:
+          type: string
+        dialogue_tone:
+          type: string
+          enum: [aggressive, sarcastic, condescending, chaotic, political]
+        generation_time_ms:
           type: integer
+        player_context_used:
+          type: object
+          properties:
+            attempts:
+              type: integer
+            victories:
+              type: integer
+            defeats:
+              type: integer
+            current_streak:
+              type: integer
+
+    PlayerCombatHistory:
+      type: object
+      description: Player's combat history at a specific location for F-12
+      properties:
+        location_id:
+          type: string
+          format: uuid
+        attempts:
+          type: integer
+        victories:
+          type: integer
+        defeats:
+          type: integer
+        win_rate:
+          type: number
+          format: float
+        current_streak:
+          type: integer
+        longest_streak:
+          type: integer
+        last_attempt:
+          type: string
+          format: date-time
 
     Error:
       type: object
@@ -163,7 +388,6 @@ paths:
   /locations/nearby:
     get:
       summary: Get nearby spawn locations
-      description: Returns locations within specified radius sorted by distance
       security:
         - BearerAuth: []
       parameters:
@@ -172,20 +396,16 @@ paths:
           required: true
           schema:
             type: number
-            format: double
         - name: lng
           in: query
           required: true
           schema:
             type: number
-            format: double
         - name: radius
           in: query
-          required: false
           schema:
             type: integer
             default: 5000
-            description: Radius in meters
       responses:
         '200':
           description: List of nearby locations
@@ -198,44 +418,6 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/Location'
-        '400':
-          description: Invalid coordinates
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        '401':
-          description: Unauthorized
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-
-  /locations/{id}:
-    get:
-      summary: Get location details
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      responses:
-        '200':
-          description: Location details
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Location'
-        '404':
-          description: Location not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
 
   /combat/start:
     post:
@@ -259,12 +441,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CombatSession'
-        '404':
-          description: Location not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
 
   /combat/attack:
     post:
@@ -281,11 +457,12 @@ paths:
                 session_id:
                   type: string
                   format: uuid
-                tap_accuracy:
+                attack_accuracy:
                   type: number
                   format: float
                   minimum: 0.0
                   maximum: 1.0
+                  description: How close tap was to dial center (0=edge, 1=center)
       responses:
         '200':
           description: Attack result
@@ -295,26 +472,57 @@ paths:
                 type: object
                 properties:
                   damage_dealt:
-                    type: integer
-                  enemy_damage:
-                    type: integer
+                    type: number
                   player_hp_remaining:
-                    type: integer
+                    type: number
                   enemy_hp_remaining:
-                    type: integer
+                    type: number
                   combat_status:
                     type: string
                     enum: [ongoing, victory, defeat]
-        '404':
-          description: Session not found
+
+  /combat/defend:
+    post:
+      summary: Execute defense with timing
+      description: Enemy's turn - player defends with dial timing
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                session_id:
+                  type: string
+                  format: uuid
+                defense_accuracy:
+                  type: number
+                  format: float
+                  minimum: 0.0
+                  maximum: 1.0
+      responses:
+        '200':
+          description: Defense result
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Error'
+                type: object
+                properties:
+                  damage_blocked:
+                    type: number
+                  damage_taken:
+                    type: number
+                  player_hp_remaining:
+                    type: number
+                  combat_status:
+                    type: string
+                    enum: [ongoing, victory, defeat]
 
   /combat/complete:
     post:
-      summary: Complete combat and claim reward
+      summary: Complete combat and claim rewards
       security:
         - BearerAuth: []
       requestBody:
@@ -332,21 +540,29 @@ paths:
                   enum: [victory, defeat]
       responses:
         '200':
-          description: Combat completed
+          description: Combat completed with rewards
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  reward:
-                    oneOf:
-                      - $ref: '#/components/schemas/Item'
-                      - $ref: '#/components/schemas/Pet'
-                      - type: 'null'
+                  result:
+                    type: string
+                  rewards:
+                    $ref: '#/components/schemas/CombatRewards'
+                  updated_balance:
+                    type: object
+                    properties:
+                      gold:
+                        type: integer
+                      materials:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/PlayerMaterial'
 
   /inventory:
     get:
-      summary: Get player inventory
+      summary: Get player inventory (all items)
       security:
         - BearerAuth: []
       responses:
@@ -360,11 +576,47 @@ paths:
                   items:
                     type: array
                     items:
-                      $ref: '#/components/schemas/Item'
-                  pets:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/Pet'
+                      $ref: '#/components/schemas/PlayerItem'
+
+  /equipment:
+    get:
+      summary: Get equipped items (6 slots)
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Equipped items and total stats
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  slots:
+                    type: object
+                    properties:
+                      weapon:
+                        $ref: '#/components/schemas/PlayerItem'
+                      head:
+                        $ref: '#/components/schemas/PlayerItem'
+                      body:
+                        $ref: '#/components/schemas/PlayerItem'
+                      amulet:
+                        $ref: '#/components/schemas/PlayerItem'
+                      ring:
+                        $ref: '#/components/schemas/PlayerItem'
+                      pet:
+                        $ref: '#/components/schemas/PlayerItem'
+                  total_stats:
+                    type: object
+                    properties:
+                      atkPower:
+                        type: number
+                      atkAccuracy:
+                        type: number
+                      defPower:
+                        type: number
+                      defAccuracy:
+                        type: number
 
   /equipment/equip:
     post:
@@ -381,9 +633,6 @@ paths:
                 item_id:
                   type: string
                   format: uuid
-                slot:
-                  type: string
-                  enum: [helmet, armor, weapon, shield, amulet, ring_1, ring_2]
       responses:
         '200':
           description: Item equipped
@@ -394,21 +643,10 @@ paths:
                 properties:
                   success:
                     type: boolean
+                  slot:
+                    type: string
                   total_stats:
                     type: object
-                    properties:
-                      atk:
-                        type: integer
-                      def:
-                        type: integer
-                      hp:
-                        type: integer
-        '404':
-          description: Item not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
 
   /equipment/unequip:
     post:
@@ -424,7 +662,7 @@ paths:
               properties:
                 slot:
                   type: string
-                  enum: [helmet, armor, weapon, shield, amulet, ring_1, ring_2]
+                  enum: [weapon, head, body, amulet, ring, pet]
       responses:
         '200':
           description: Item unequipped
@@ -435,21 +673,53 @@ paths:
                 properties:
                   success:
                     type: boolean
-                  total_stats:
-                    type: object
-                    properties:
-                      atk:
-                        type: integer
-                      def:
-                        type: integer
-                      hp:
-                        type: integer
 
-  /pets/activate:
-    post:
-      summary: Set active pet
+  /materials:
+    get:
+      summary: Get all material templates (library)
+      responses:
+        '200':
+          description: All available materials
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  materials:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Material'
+
+  /materials/owned:
+    get:
+      summary: Get player's owned materials
       security:
         - BearerAuth: []
+      responses:
+        '200':
+          description: Owned materials with quantities
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  materials:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PlayerMaterial'
+
+  /items/{item_id}/apply-material:
+    post:
+      summary: Apply material to item
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: item_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
       requestBody:
         required: true
         content:
@@ -457,12 +727,12 @@ paths:
             schema:
               type: object
               properties:
-                pet_id:
+                player_material_id:
                   type: string
                   format: uuid
       responses:
         '200':
-          description: Pet activated
+          description: Material applied
           content:
             application/json:
               schema:
@@ -470,21 +740,27 @@ paths:
                 properties:
                   success:
                     type: boolean
-                  total_stats:
-                    type: object
-                    properties:
-                      atk:
-                        type: integer
-                      def:
-                        type: integer
-                      hp:
-                        type: integer
+                  item:
+                    $ref: '#/components/schemas/PlayerItem'
+        '400':
+          description: Max 3 materials already applied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
-  /crafting/start:
+  /items/{item_id}/replace-material:
     post:
-      summary: Start crafting session
+      summary: Replace existing material with new one (costs gold)
       security:
         - BearerAuth: []
+      parameters:
+        - name: item_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
       requestBody:
         required: true
         content:
@@ -492,42 +768,36 @@ paths:
             schema:
               type: object
               properties:
-                parent_item_1:
-                  type: string
-                  format: uuid
-                parent_item_2:
+                old_material_index:
+                  type: integer
+                  minimum: 0
+                  maximum: 2
+                  description: Index of material to replace (0-2)
+                new_player_material_id:
                   type: string
                   format: uuid
       responses:
         '200':
-          description: Crafting started
+          description: Material replaced
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  session_id:
-                    type: string
-                    format: uuid
-                  completion_time:
-                    type: string
-                    format: date-time
-                  duration_seconds:
+                  success:
+                    type: boolean
+                  gold_spent:
                     type: integer
-        '400':
-          description: Invalid crafting combination
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+                  item:
+                    $ref: '#/components/schemas/PlayerItem'
 
-  /crafting/status/{session_id}:
+  /items/{item_id}/upgrade-cost:
     get:
-      summary: Get crafting session status
+      summary: Get cost to upgrade item to next level
       security:
         - BearerAuth: []
       parameters:
-        - name: session_id
+        - name: item_id
           in: path
           required: true
           schema:
@@ -535,27 +805,85 @@ paths:
             format: uuid
       responses:
         '200':
-          description: Crafting status
+          description: Upgrade cost info
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  session_id:
-                    type: string
-                    format: uuid
-                  status:
-                    type: string
-                    enum: [in_progress, completed, claimed]
-                  completion_time:
-                    type: string
-                    format: date-time
-                  time_remaining_seconds:
+                  current_level:
+                    type: integer
+                  next_level:
+                    type: integer
+                  gold_cost:
+                    type: integer
+                  player_gold:
+                    type: integer
+                  can_afford:
+                    type: boolean
+
+  /items/{item_id}/upgrade:
+    post:
+      summary: Upgrade item to next level (spend gold)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: item_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Item upgraded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  item:
+                    $ref: '#/components/schemas/PlayerItem'
+                  gold_spent:
+                    type: integer
+                  new_gold_balance:
+                    type: integer
+                  new_vanity_level:
                     type: integer
 
-  /crafting/complete:
+  /profile:
+    get:
+      summary: Get player profile
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Player profile with stats
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+
+  /profile/init:
     post:
-      summary: Claim completed craft
+      summary: Initialize new player profile (after registration)
+      description: Creates starting inventory (6 level-1 items, 500 gold)
+      security:
+        - BearerAuth: []
+      responses:
+        '201':
+          description: Profile created with starter items
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+
+  /combat/pet-chatter:
+    post:
+      summary: Generate pet dialogue for combat event (F-11)
+      description: AI-powered pet personality system generates contextual trash-talk based on combat events
       security:
         - BearerAuth: []
       requestBody:
@@ -568,54 +896,103 @@ paths:
                 session_id:
                   type: string
                   format: uuid
+                event_type:
+                  type: string
+                  enum: [player_attack, player_defense, enemy_attack, enemy_defense, critical_hit, miss, victory, defeat]
+                event_details:
+                  type: object
+                  properties:
+                    damage:
+                      type: integer
+                    accuracy:
+                      type: number
+                      format: float
+                    is_critical:
+                      type: boolean
+                    turn_number:
+                      type: integer
       responses:
         '200':
-          description: Craft claimed
+          description: Generated pet dialogue
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CombatChatter'
+        '400':
+          description: Invalid event_type
+        '404':
+          description: Combat session not found or no pet equipped
+        '503':
+          description: AI service unavailable (fallback to canned phrases)
+
+  /pets/personalities:
+    get:
+      summary: Get available pet personality types (F-11)
+      description: Returns list of personality types players can assign to their pets
+      responses:
+        '200':
+          description: List of personality types
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  child_item:
-                    oneOf:
-                      - $ref: '#/components/schemas/Item'
-                      - $ref: '#/components/schemas/Pet'
-        '400':
-          description: Crafting not complete
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
+                  personalities:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PetPersonality'
 
-  /profile:
-    get:
-      summary: Get player profile
+  /pets/{pet_id}/personality:
+    put:
+      summary: Assign personality to player's pet (F-11)
       security:
         - BearerAuth: []
+      parameters:
+        - name: pet_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                personality_type:
+                  type: string
+                  enum: [sassy, encouraging, analytical, chaotic, stoic, trash_talker]
+                custom_name:
+                  type: string
+                  nullable: true
       responses:
         '200':
-          description: Player profile
+          description: Personality assigned
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserProfile'
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  pet_id:
+                    type: string
+                  personality_type:
+                    type: string
+                  custom_name:
+                    type: string
+                    nullable: true
+        '400':
+          description: Invalid personality_type
+        '404':
+          description: Pet not found or not owned by player
 
-  /profile/init:
+  /combat/enemy-chatter:
     post:
-      summary: Initialize player profile (called after registration)
-      security:
-        - BearerAuth: []
-      responses:
-        '201':
-          description: Profile created
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/UserProfile'
-
-  /ai/generate-item:
-    post:
-      summary: Generate item with AI (internal use)
+      summary: Generate enemy trash-talk for combat event (F-12)
+      description: AI-powered enemy personality system generates contextual trash-talk based on enemy type, combat state, and player history
       security:
         - BearerAuth: []
       requestBody:
@@ -625,34 +1002,80 @@ paths:
             schema:
               type: object
               properties:
-                type:
+                session_id:
                   type: string
-                  enum: [helmet, armor, sword, axe, shield, amulet, ring]
-                level:
-                  type: integer
-                generation:
-                  type: integer
-                  minimum: 1
-                  maximum: 3
+                  format: uuid
+                event_type:
+                  type: string
+                  enum: [combat_start, player_hit, player_miss, enemy_hit, low_player_hp, near_victory, defeat, victory]
+                event_details:
+                  type: object
+                  properties:
+                    damage:
+                      type: integer
+                    accuracy:
+                      type: number
+                      format: float
+                    is_critical:
+                      type: boolean
+                    turn_number:
+                      type: integer
+                    player_hp_pct:
+                      type: number
+                      format: float
+                    enemy_hp_pct:
+                      type: number
+                      format: float
       responses:
         '200':
-          description: Item generated
+          description: Generated enemy dialogue
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EnemyChatter'
+        '400':
+          description: Invalid event_type
+        '404':
+          description: Combat session not found or expired
+        '503':
+          description: AI service unavailable (fallback to example taunt with was_ai_generated=false)
+
+  /enemies/types:
+    get:
+      summary: Get available enemy types with personality traits (F-12)
+      description: Returns list of enemy types players can encounter with their personality characteristics
+      responses:
+        '200':
+          description: List of enemy types
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  description:
-                    type: string
-                  stat_distribution:
-                    type: object
-                    properties:
-                      atk:
-                        type: number
-                        format: float
-                      def:
-                        type: number
-                        format: float
-                      hp:
-                        type: number
-                        format: float
+                  enemy_types:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/EnemyType'
+
+  /players/combat-history/{location_id}:
+    get:
+      summary: Get player's combat history at specific location (F-12)
+      description: Returns player's performance metrics at a location (used for enemy AI context)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: location_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Combat history at location
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayerCombatHistory'
+        '404':
+          description: Location not found (returns zeroed stats if player never attempted)
