@@ -1,0 +1,153 @@
+title: Technical Specification - Materials System
+template: ~/.claude/file-templates/init-project/feature-spec/feature-title.yaml
+feature_id: F-04
+status: planned
+last_updated: 2025-10-19
+
+summary: "Collectible materials that modify item stats. Each material has stat modifiers (±0.1-0.3 that sum to 0). Max 3 materials per item. Materials can be normal or shiny (1.2x effectiveness). Materials are replaceable for gold cost."
+
+functional_overview:
+  core_logic: "Materials are items in player inventory. Apply material to equipped item (consumes material, adds to item's applied_materials array). Material modifiers shift item's normalized stats. Max 3 materials per item. Replacing material costs gold and destroys old material. Shiny materials have 1.2x stat modifier effectiveness."
+  data_schema: "materials table (seed data), player_materials table (owned materials), player_items.applied_materials JSON array"
+  api_endpoints:
+    - "GET /materials"
+    - "GET /materials/owned"
+    - "POST /items/:item_id/apply-material"
+    - "POST /items/:item_id/replace-material"
+  integration_points:
+    - "Base items (F-03) receive material modifications"
+    - "Drop system (F-05) awards materials from combat"
+    - "Combat stat calculation uses materialed items"
+
+detailed_design:
+  data_structures:
+    - name: "materials (seed data, 50 materials)"
+      columns:
+        - "id: VARCHAR (PK, e.g., 'coffee', 'cocaine', 'diamond', 'lube')"
+        - "name: VARCHAR ('Coffee', 'Cocaine', 'Diamond', 'Lube')"
+        - "description: TEXT ('Jittery energy increases attack but reduces accuracy')"
+        - "stat_modifiers: JSON {atkPower: +0.10, atkAccuracy: -0.05, defPower: -0.05, defAccuracy: 0} (must sum to 0)"
+        - "rarity: VARCHAR (common: 20, uncommon: 15, rare: 10, epic: 5)"
+        - "theme: VARCHAR (defensive, offensive, balanced, precision, chaotic)"
+
+    - name: "player_materials"
+      columns:
+        - "id: UUID (PK)"
+        - "owner_id: UUID (FK to users)"
+        - "material_id: VARCHAR (FK to materials.id)"
+        - "is_shiny: BOOLEAN (1.2x stat effectiveness)"
+        - "quantity: INT (stackable, can own multiple of same material)"
+        - "created_at: TIMESTAMP"
+
+  apis:
+    - method: "GET"
+      endpoint: "/materials"
+      request: "No auth required (library of all materials)"
+      response: "{materials: [{id, name, description, stat_modifiers, rarity, theme}]}"
+      errors: []
+
+    - method: "GET"
+      endpoint: "/materials/owned"
+      request: "Header: Authorization Bearer token"
+      response: "{materials: [{id, material_id, name, is_shiny, quantity}]}"
+      errors:
+        - "401: Unauthorized"
+
+    - method: "POST"
+      endpoint: "/items/:item_id/apply-material"
+      request: "{player_material_id: UUID}"
+      response: "{success: true, item: {id, base_type, level, applied_materials, computed_stats}}"
+      errors:
+        - "400: Item already has 3 materials (max reached)"
+        - "404: Item or material not found"
+        - "400: Material not owned or quantity = 0"
+
+    - method: "POST"
+      endpoint: "/items/:item_id/replace-material"
+      request: "{old_material_index: INT (0-2), new_player_material_id: UUID, gold_cost: INT}"
+      response: "{success: true, gold_spent: INT, item: {updated item}}"
+      errors:
+        - "400: Insufficient gold"
+        - "400: Invalid material index"
+        - "404: Item or new material not found"
+
+  diagrams: |
+    Material Application Flow:
+    1. Player views item detail screen
+    2. Player taps "Apply Material" button
+    3. System shows owned materials (filtered: only materials not already on item)
+    4. Player selects material
+    5. System validates: item.applied_materials.length < 3
+    6. System consumes material from player_materials (decrement quantity)
+    7. System adds material_id to item.applied_materials array
+    8. System recalculates item stats (base + all material modifiers × level)
+    9. Client displays updated item stats
+
+    Material Replacement Flow:
+    1. Player views item with 3 materials already applied
+    2. Player taps "Replace Material" button
+    3. System shows applied materials with "Replace" buttons
+    4. Player selects material to replace
+    5. Player selects new material from owned materials
+    6. System displays gold cost (e.g., 100 × item level)
+    7. Player confirms
+    8. System validates sufficient gold
+    9. System deducts gold, removes old material (destroyed), adds new material
+    10. System recalculates item stats
+    11. Client displays updated item and gold balance
+
+    Stat Modifier Combination:
+    Base item: {atkPower: 0.4, atkAccuracy: 0.2, defPower: 0.3, defAccuracy: 0.1}
+    Material 1: {atkPower: -0.1, atkAccuracy: 0, defPower: +0.1, defAccuracy: 0}
+    Material 2: {atkPower: +0.2, atkAccuracy: -0.1, defPower: -0.1, defAccuracy: 0}
+    Material 3: {atkPower: 0, atkAccuracy: +0.1, defPower: 0, defAccuracy: 0}
+
+    Combined = base + sum(material modifiers)
+    {atkPower: 0.4-0.1+0.2+0 = 0.5, atkAccuracy: 0.2+0-0.1+0.1 = 0.2, defPower: 0.3+0.1-0.1+0 = 0.3, defAccuracy: 0.1}
+
+    Shiny material example (Material 1 is shiny):
+    Material 1 (shiny): modifiers × 1.2 = {atkPower: -0.12, defPower: +0.12}
+    Combined: {atkPower: 0.4-0.12+0.2 = 0.48, atkAccuracy: 0.2-0.1+0.1 = 0.2, defPower: 0.3+0.12-0.1 = 0.32, defAccuracy: 0.1}
+
+dependencies:
+  libraries: "None"
+  services: "Backend materials API, stat calculation service"
+  data_sources: "Materials seed data (JSON file), player_materials table, player_items table"
+
+implementation_status:
+  notes:
+    - "Light MVP: Hardcode 10 common materials, local stat calculation, simple apply (no replace)"
+    - "Full MVP: Backend API, 50 materials seed data across all rarities, material replacement, shiny materials (5% drop rate, 1.2x effectiveness), quantity tracking"
+    - "Finished: Visual effects for shiny materials, material preview before apply, undo last material (grace period), material trading/gifting"
+    - "Materials range from tame (Coffee, Gum, Paper) to edgy (Cocaine, Lube) to extreme (Diamond, Plasma, Lightning)"
+
+seed_data_example: |
+  Full seed data available in: docs/seed-data-materials.json
+
+  50 materials organized by rarity and theme:
+
+  COMMON (20 materials) - Small modifiers (±0.05 to ±0.10):
+  Coffee, Gum, Feather, Button, Candle, Pizza, Mushroom, Cactus, Sea Shell, Coral,
+  Wood, Paper, Fabric, Rubber, Plastic, Glass, Sand, Foam, Cotton, Dirt
+
+  UNCOMMON (15 materials) - Moderate modifiers (±0.08 to ±0.15):
+  Matcha Powder, Bubble, Slime, Propeller, Magnet, Colorful Ribbon, Sparkles, Comet,
+  Star, Flame, Denim, Chrome, Latex, Ice, A Cloud
+
+  RARE (10 materials) - Large modifiers (±0.15 to ±0.25), includes edgy content:
+  Rainbow, Lava, Ghost, Shadow, Goo, Cocaine, Lube, Void, Glitter, Neon Sign
+
+  EPIC (5 materials) - Extreme modifiers (±0.20 to ±0.30), highly unbalanced:
+  Diamond, Lightning, Laser Beam, Stardust, Plasma
+
+  Examples:
+  - Cocaine (Rare): {atkPower: +0.20, atkAccuracy: +0.15, defPower: -0.25, defAccuracy: -0.10} (extreme offense, severe defense penalty)
+  - Diamond (Epic): {atkPower: -0.25, atkAccuracy: -0.05, defPower: +0.25, defAccuracy: +0.05} (ultimate defense tank)
+  - Plasma (Epic): {atkPower: +0.28, atkAccuracy: +0.15, defPower: -0.30, defAccuracy: -0.13} (glass cannon offensive)
+  - Lube (Rare): {atkPower: -0.20, atkAccuracy: +0.05, defPower: -0.05, defAccuracy: +0.20} (evasion specialist)
+
+  All modifiers sum to 0 (zero-sum trade-offs)
+
+user_stories:
+  - US-303 (new: Apply Material to Item)
+  - US-304 (new: Replace Material on Item)

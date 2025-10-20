@@ -1,0 +1,117 @@
+title: Technical Specification - Base Items & Equipment System
+template: ~/.claude/file-templates/init-project/feature-spec/feature-title.yaml
+feature_id: F-03
+status: planned
+last_updated: 2025-10-19
+
+summary: "8 equipment slots (weapon, shield, head, armor, feet, accessory_1, accessory_2, pet) with normalized stat blocks. Base items have stats that sum to 1.0, modified by materials and scaled by level. Players start with 8 level-1 base items (one per slot)."
+
+functional_overview:
+  core_logic: "Each player has 8 equipment slots. Base items have normalized stats {atkPower, atkAccuracy, defPower, defAccuracy} summing to 1.0. Materials modify these stats (±0.05-0.30). Item level multiplies base stats. Total player stats = sum of all 8 equipped items."
+  data_schema: "player_items table with base_type, level, applied_materials[], is_equipped, equipped_slot"
+  api_endpoints:
+    - "GET /inventory"
+    - "GET /equipment"
+    - "POST /equipment/equip"
+    - "POST /equipment/unequip"
+  integration_points:
+    - "Materials system (F-04) for stat modifications"
+    - "Combat system (F-02) reads player total stats"
+    - "Upgrade system (F-06) increases item levels"
+
+detailed_design:
+  data_structures:
+    - name: "base_items (seed data, ~26 items across 8 slots)"
+      columns:
+        - "id: VARCHAR (PK, e.g., 'gatling_gun', 'umbrella', 'halo')"
+        - "name: VARCHAR ('Gatling Gun', 'Umbrella', 'Halo')"
+        - "slot: VARCHAR (weapon, shield, head, armor, feet, accessory, pet)"
+        - "base_stats: JSON {atkPower: 0.5, atkAccuracy: 0.15, defPower: 0.2, defAccuracy: 0.15} (sums to 1.0)"
+        - "description: TEXT"
+        - "rarity: VARCHAR (common, uncommon, rare, epic)"
+
+    - name: "player_items"
+      columns:
+        - "id: UUID (PK)"
+        - "owner_id: UUID (FK to users)"
+        - "base_type: VARCHAR (FK to base_items.type)"
+        - "level: INT (default 1, scales stats)"
+        - "applied_materials: JSON ARRAY [material_id1, material_id2, material_id3] (max 3)"
+        - "is_equipped: BOOLEAN"
+        - "equipped_slot: VARCHAR (weapon, head, body, amulet, ring, pet)"
+        - "created_at: TIMESTAMP"
+
+  apis:
+    - method: "GET"
+      endpoint: "/inventory"
+      request: "Header: Authorization Bearer token"
+      response: "{items: [{id, base_type, level, applied_materials, computed_stats, is_equipped}]}"
+      errors:
+        - "401: Unauthorized"
+
+    - method: "GET"
+      endpoint: "/equipment"
+      request: "Header: Authorization Bearer token"
+      response: "{slots: {weapon: item_obj, shield: item_obj, head: item_obj, armor: item_obj, feet: item_obj, accessory_1: item_obj, accessory_2: item_obj, pet: item_obj}, total_stats: {atkPower, atkAccuracy, defPower, defAccuracy}}"
+      errors:
+        - "401: Unauthorized"
+
+    - method: "POST"
+      endpoint: "/equipment/equip"
+      request: "{item_id: UUID}"
+      response: "{success: true, slot: 'weapon', total_stats: {atkPower, atkAccuracy, defPower, defAccuracy}}"
+      errors:
+        - "400: Item already equipped"
+        - "400: Slot occupied (unequip first or auto-swap)"
+        - "404: Item not found"
+
+    - method: "POST"
+      endpoint: "/equipment/unequip"
+      request: "{slot: VARCHAR}"
+      response: "{success: true, total_stats: {atkPower, atkAccuracy, defPower, defAccuracy}}"
+      errors:
+        - "400: Slot already empty"
+
+  diagrams: |
+    Stat Calculation Flow:
+    1. Get base item stats (normalized to 1.0)
+    2. Apply each material modifier (±0.1-0.3, sum to 0)
+       - For shiny materials: multiply modifier by 1.2
+    3. Multiply by item level
+    4. Result = item's final stats
+
+    Example:
+    Base Sword: {atkPower: 0.4, atkAccuracy: 0.2, defPower: 0.3, defAccuracy: 0.1}
+    + Iron Material: {atkPower: -0.1, atkAccuracy: 0, defPower: +0.1, defAccuracy: 0}
+    + Flame Material: {atkPower: +0.2, atkAccuracy: 0, defPower: -0.2, defAccuracy: 0}
+    = Modified: {atkPower: 0.5, atkAccuracy: 0.2, defPower: 0.2, defAccuracy: 0.1}
+    × Level 5
+    = Final: {atkPower: 2.5, atkAccuracy: 1.0, defPower: 1.0, defAccuracy: 0.5}
+
+    Player Total Stats:
+    Sum stats from all 8 equipped items (weapon + shield + head + armor + feet + accessory_1 + accessory_2 + pet)
+
+    Equipment Slot Distribution:
+    - Weapon (3 types): Offensive focus (high atkPower, atkAccuracy)
+    - Shield (3 types): Defensive focus (high defPower, defAccuracy)
+    - Head (3 types): Balanced awareness
+    - Armor (3 types): Defensive focus (covers body/chest/legs)
+    - Feet (3 types): Mobility/balanced
+    - Accessory (6 types): Utility/mixed stats
+    - Pet (5 types): Support with personality system (F-11)
+
+dependencies:
+  libraries: "None (SwiftUI for UI)"
+  services: "Backend inventory and equipment services"
+  data_sources: "PostgreSQL player_items table, base_items seed data, materials table (F-04)"
+
+implementation_status:
+  notes:
+    - "Light MVP: Hardcode 8 base items (one per slot), local stat calculation, simple equip/unequip"
+    - "Full MVP: Backend API with 26 base items, database persistence, material integration, stat formulas"
+    - "Finished: Multiple base types per slot, visual customization, item tooltips, compare items UI"
+    - "Seed data includes: 3 weapons, 3 shields, 3 head items, 3 armor pieces, 3 footwear, 6 accessories, 5 pets"
+
+user_stories:
+  - US-301
+  - US-302

@@ -17,6 +17,7 @@ functional_overview:
     - "Items system (F-03) for player stats"
     - "Pets system (F-04) for pet bonus"
     - "Location system (F-01) for enemy spawn"
+    - "Pool System: Enemy selection via EnemyPools based on combat level and location attributes"
 
 detailed_design:
   data_structures:
