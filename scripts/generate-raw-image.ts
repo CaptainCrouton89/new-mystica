@@ -12,6 +12,11 @@ const CONFIG = {
   provider: 'gemini' as const,
   model: 'google/nano-banana',
   defaultReferenceImages: [
+    'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/ref-1.png',
+    'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/ref-2.png',
+    'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/ref-3.png',
+    'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/ref-4.png',
+    'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/ref-5.png',
     'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/IMG_0821.png',
     'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/IMG_2791.png',
     'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/IMG_4317.png',
@@ -55,6 +60,7 @@ Line & Form
     •    Outlines: Bold, uniform, and clean to carve a strong silhouette; no sketchy linework.
     •    Proportions: Chunky, simplified, and slightly exaggerated shapes for instant readability.
     •    Texture: Suggestive, not photoreal—hint at materials (wood grain, brushed metal, facets) with tidy, deliberate marks.
+    •    Simplicity: Keep the object itself straightforward—no unnecessary gems, ornaments, or extra decorative elements added to the item.
 
 Shading & Depth
     •    Render Style: Hybrid cel + soft gradients; sharp edge transitions only where they improve clarity.
