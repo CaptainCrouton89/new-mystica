@@ -12,39 +12,44 @@ overview:
 
 color_palette:
   primary:
-    - name: "Mystic Purple"
-      hex: "#7B2CBF"
-      usage: "Primary actions, CTAs, active states"
-    - name: "Deep Indigo"
-      hex: "#240046"
-      usage: "Backgrounds, headers, depth layers"
+    - name: "Dark Gray"
+      hex: "#1A1A1A"
+      usage: "Primary background, main containers"
+    - name: "Charcoal Gray"
+      hex: "#2F2F2F"
+      usage: "Secondary backgrounds, cards, depth layers"
 
   secondary:
-    - name: "Gold Accent"
-      hex: "#FFB703"
-      usage: "Highlights, shiny variants, rewards"
-    - name: "Emerald Green"
-      hex: "#06FFA5"
-      usage: "Success states, HP indicators, positive feedback"
+    - name: "Neon Pink"
+      hex: "#FF1493"
+      usage: "Primary accent, CTAs, active states, highlights"
+    - name: "Neon Blue"
+      hex: "#00BFFF"
+      usage: "Secondary accent, interactive elements, success states"
 
   neutral:
-    - name: "Charcoal Gray"
-      hex: "#2B2D42"
-      usage: "Card backgrounds, secondary UI elements"
-    - name: "Soft White"
-      hex: "#EDF2F4"
-      usage: "Text, icons, borders on dark backgrounds"
+    - name: "Light Gray"
+      hex: "#E5E5E5"
+      usage: "Primary text, borders on dark backgrounds"
+    - name: "White"
+      hex: "#FFFFFF"
+      usage: "High contrast text, icons"
+
+  interactive:
+    - name: "Bright Pink"
+      hex: "#FF69B4"
+      usage: "Hover states, pressed buttons, interactive feedback"
+    - name: "Bright Blue"
+      hex: "#1E90FF"
+      usage: "Hover states, secondary interactive elements"
 
   semantic:
-    - name: "Attack Red"
-      hex: "#EF233C"
-      usage: "ATK stats, damage numbers, enemy indicators"
-    - name: "Defense Blue"
-      hex: "#3A86FF"
-      usage: "DEF stats, shields, protection indicators"
-    - name: "Health Green"
-      hex: "#06FFA5"
-      usage: "HP stats, health bars, healing"
+    - name: "Secondary Text"
+      hex: "#B0B0B0"
+      usage: "Secondary text, captions, disabled states"
+    - name: "Error Pink"
+      hex: "#FF1493"
+      usage: "Error states, warnings, negative feedback"
 
 typography:
   display:

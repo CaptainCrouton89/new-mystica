@@ -58,6 +58,8 @@ struct ContentView: View {
                     Spacer()
                 }
             }
+        case .battle:
+            BattleView()
         }
     }
 }

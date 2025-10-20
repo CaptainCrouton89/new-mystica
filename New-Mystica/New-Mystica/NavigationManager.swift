@@ -15,6 +15,7 @@ enum NavigationDestination: Hashable {
     case collection
     case settings
     case profile
+    case battle
     
     var title: String {
         switch self {
@@ -28,6 +29,8 @@ enum NavigationDestination: Hashable {
             return "Settings"
         case .profile:
             return "Profile"
+        case .battle:
+            return "Battle"
         }
     }
 }
@@ -38,6 +41,7 @@ class NavigationManager: ObservableObject {
     @Published var navigationPath = NavigationPath()
     @Published var currentDestination: NavigationDestination = .mainMenu
     @Published var viewHistory: [NavigationDestination] = [.mainMenu]
+    @Published var currentBattleEnemy: String = "Shadow Wolf"
     
     private let maxHistorySize = 10
     
@@ -64,6 +68,12 @@ class NavigationManager: ObservableObject {
         } else {
             print("NavigationManager: Already at \(destination.title), skipping navigation")
         }
+    }
+    
+    /// Navigate to battle with specific enemy
+    func navigateToBattle(with enemyType: String) {
+        currentBattleEnemy = enemyType
+        navigateTo(.battle)
     }
     
     /// Navigate back to the previous view

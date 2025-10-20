@@ -29,17 +29,35 @@ All colors are defined in `UI/Colors/Colors.swift` as static extensions:
 
 ```swift
 // Core Colors
-.mysticaDarkBrown    // #2D1810 - Primary background
-.mysticaLightBrown   // #8B4513 - Accent elements
-.mysticaDarkGray     // #1A1A1A - Text, borders
+.primary              // #1A1A1A - Primary background
+.secondary            // #2F2F2F - Secondary backgrounds
+.tertiary             // #E5E5E5 - Primary text
 
-// Extended Palette
-.mysticaWarmBrown    // #A0522D - Interactive states
-.mysticaSoftBrown    // #D2B48C - Light text
-.mysticaCharcoal     // #2F2F2F - Secondary backgrounds
-.mysticaLightGray    // #E5E5E5 - Primary text
-.mysticaAccentGold   // #DAA520 - Special highlights
-.mysticaErrorRed     // #8B0000 - Error states
+// Accent Colors
+.accent               // #FF1493 - Primary accent
+.accentSecondary      // #00BFFF - Secondary accent
+.accentInteractive    // #FF69B4 - Interactive states
+.accentSecondaryInteractive // #1E90FF - Secondary interactive states
+
+// Text Colors
+.textPrimary          // #FFFFFF - High contrast text
+.textSecondary        // #B0B0B0 - Secondary text
+
+// Semantic Colors
+.alert                // #FF1493 - Alert/Error states
+.success              // #00BFFF - Success states
+.warning              // #FF69B4 - Warning states
+.info                 // #1E90FF - Info states
+
+// Background Colors
+.backgroundPrimary    // #1A1A1A - Primary background
+.backgroundSecondary  // #2F2F2F - Secondary background
+.backgroundCard       // #2F2F2F - Card backgrounds
+
+// Border Colors
+.borderPrimary        // #FF1493 - Primary borders
+.borderSecondary      // #00BFFF - Secondary borders
+.borderSubtle         // #B0B0B0 - Subtle borders
 ```
 
 ### Usage Pattern
@@ -47,12 +65,12 @@ All colors are defined in `UI/Colors/Colors.swift` as static extensions:
 ```swift
 VStack {
     // Primary background
-    .background(Color.mysticaDarkBrown)
+    .background(Color.backgroundPrimary)
 
     // Text hierarchy
-    TitleText("Title")           // .mysticaLightGray
-    NormalText("Body text")      // .mysticaSoftBrown
-    SmallText("Caption")         // .mysticaLightBrown
+    TitleText("Title")           // .textPrimary
+    NormalText("Body text")      // .textSecondary
+    SmallText("Caption")         // .textSecondary
 }
 ```
 
@@ -72,7 +90,7 @@ TitleText("Smaller Title", size: 24)
 
 - Default size: 30pt
 - Font: Impact (Bold Arcade/Retro)
-- Color: `.mysticaLightGray`
+- Color: `.textPrimary`
 - Features: Text shadow, kerning, multi-line support
 
 ### NormalText

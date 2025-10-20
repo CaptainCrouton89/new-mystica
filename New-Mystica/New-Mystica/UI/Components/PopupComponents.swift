@@ -6,6 +6,7 @@ struct ItemDetailPopup: View {
     let isPresented: Binding<Bool>
     
     @State private var isAnimating = false
+    @EnvironmentObject private var audioManager: AudioManager
     
     var body: some View {
         ZStack {
@@ -23,18 +24,19 @@ struct ItemDetailPopup: View {
                     Spacer()
                     
                     Button {
+                        audioManager.playCancelClick()
                         dismissPopup()
                     } label: {
                         Image(systemName: "xmark")
                             .font(.system(size: 18, weight: .medium))
-                            .foregroundColor(Color.mysticaSoftBrown)
+                            .foregroundColor(Color.textSecondary)
                             .frame(width: 32, height: 32)
                             .background(
                                 Circle()
-                                    .fill(Color.mysticaDarkBrown)
+                                    .fill(Color.backgroundPrimary)
                                     .overlay(
                                         Circle()
-                                            .stroke(Color.mysticaLightBrown, lineWidth: 1)
+                                            .stroke(Color.accent, lineWidth: 1)
                                     )
                             )
                     }
@@ -52,7 +54,7 @@ struct ItemDetailPopup: View {
                     
                     Image(systemName: item.imageName)
                         .font(.system(size: 64, weight: .medium))
-                        .foregroundColor(.white)
+                        .foregroundColor(Color.textPrimary)
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 16)
@@ -66,12 +68,12 @@ struct ItemDetailPopup: View {
                     // Rarity badge
                     Text(item.rarity)
                         .font(.custom("Impact", size: 14))
-                        .foregroundColor(Color.mysticaAccentGold)
+                        .foregroundColor(Color.accentSecondary)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
                         .background(
                             RoundedRectangle(cornerRadius: 12)
-                                .fill(Color.mysticaCharcoal)
+                                .fill(Color.backgroundCard)
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 12)
                                         .stroke(getRarityColor(), lineWidth: 2)
@@ -89,10 +91,10 @@ struct ItemDetailPopup: View {
             }
             .background(
                 RoundedRectangle(cornerRadius: 20)
-                    .fill(Color.mysticaDarkBrown)
+                    .fill(Color.backgroundPrimary)
                     .overlay(
                         RoundedRectangle(cornerRadius: 20)
-                            .stroke(Color.mysticaLightBrown, lineWidth: 2)
+                            .stroke(Color.accent, lineWidth: 2)
                     )
             )
             .padding(.horizontal, 32)
@@ -119,15 +121,15 @@ struct ItemDetailPopup: View {
     private func getRarityColor() -> Color {
         switch item.rarity {
         case "Common":
-            return Color.mysticaDarkGray
+            return Color.borderSubtle
         case "Rare":
-            return Color.blue
+            return Color.accentSecondary
         case "Epic":
-            return Color.purple
+            return Color.accent
         case "Legendary":
-            return Color.mysticaAccentGold
+            return Color.accentSecondary
         default:
-            return Color.mysticaDarkGray
+            return Color.borderSubtle
         }
     }
 }
@@ -140,6 +142,7 @@ struct GenericPopup: View {
     let isPresented: Binding<Bool>
     
     @State private var isAnimating = false
+    @EnvironmentObject private var audioManager: AudioManager
     
     var body: some View {
         ZStack {
@@ -157,18 +160,19 @@ struct GenericPopup: View {
                     Spacer()
                     
                     Button {
+                        audioManager.playCancelClick()
                         dismissPopup()
                     } label: {
                         Image(systemName: "xmark")
                             .font(.system(size: 18, weight: .medium))
-                            .foregroundColor(Color.mysticaSoftBrown)
+                            .foregroundColor(Color.textSecondary)
                             .frame(width: 32, height: 32)
                             .background(
                                 Circle()
-                                    .fill(Color.mysticaDarkBrown)
+                                    .fill(Color.backgroundPrimary)
                                     .overlay(
                                         Circle()
-                                            .stroke(Color.mysticaLightBrown, lineWidth: 1)
+                                            .stroke(Color.accent, lineWidth: 1)
                                     )
                             )
                     }
@@ -180,13 +184,13 @@ struct GenericPopup: View {
                 // Image
                 ZStack {
                     RoundedRectangle(cornerRadius: 16)
-                        .fill(Color.mysticaCharcoal)
+                        .fill(Color.backgroundCard)
                         .frame(height: 200)
                         .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 4)
                     
                     Image(systemName: imageName)
                         .font(.system(size: 64, weight: .medium))
-                        .foregroundColor(Color.mysticaSoftBrown)
+                        .foregroundColor(Color.textSecondary)
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 16)
@@ -208,10 +212,10 @@ struct GenericPopup: View {
             }
             .background(
                 RoundedRectangle(cornerRadius: 20)
-                    .fill(Color.mysticaDarkBrown)
+                    .fill(Color.backgroundPrimary)
                     .overlay(
                         RoundedRectangle(cornerRadius: 20)
-                            .stroke(Color.mysticaLightBrown, lineWidth: 2)
+                            .stroke(Color.accent, lineWidth: 2)
                     )
             )
             .padding(.horizontal, 32)
@@ -246,6 +250,7 @@ struct ActionPopup: View {
     let onAction: () -> Void
     
     @State private var isAnimating = false
+    @EnvironmentObject private var audioManager: AudioManager
     
     var body: some View {
         ZStack {
@@ -263,18 +268,19 @@ struct ActionPopup: View {
                     Spacer()
                     
                     Button {
+                        audioManager.playCancelClick()
                         dismissPopup()
                     } label: {
                         Image(systemName: "xmark")
                             .font(.system(size: 18, weight: .medium))
-                            .foregroundColor(Color.mysticaSoftBrown)
+                            .foregroundColor(Color.textSecondary)
                             .frame(width: 32, height: 32)
                             .background(
                                 Circle()
-                                    .fill(Color.mysticaDarkBrown)
+                                    .fill(Color.backgroundPrimary)
                                     .overlay(
                                         Circle()
-                                            .stroke(Color.mysticaLightBrown, lineWidth: 1)
+                                            .stroke(Color.accent, lineWidth: 1)
                                     )
                             )
                     }
@@ -286,13 +292,13 @@ struct ActionPopup: View {
                 // Image
                 ZStack {
                     RoundedRectangle(cornerRadius: 16)
-                        .fill(Color.mysticaCharcoal)
+                        .fill(Color.backgroundCard)
                         .frame(height: 200)
                         .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 4)
                     
                     Image(systemName: imageName)
                         .font(.system(size: 64, weight: .medium))
-                        .foregroundColor(Color.mysticaSoftBrown)
+                        .foregroundColor(Color.textSecondary)
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 16)
@@ -313,20 +319,21 @@ struct ActionPopup: View {
                 
                 // Action button
                 Button {
+                    audioManager.playBattleClick()
                     onAction()
                     dismissPopup()
                 } label: {
                     Text(buttonText)
                         .font(.custom("Impact", size: 18))
-                        .foregroundColor(.white)
+                        .foregroundColor(Color.textPrimary)
                         .frame(maxWidth: .infinity)
                         .frame(height: 50)
                         .background(
                             RoundedRectangle(cornerRadius: 12)
-                                .fill(Color.mysticaAccentGold)
+                                .fill(Color.accentSecondary)
                                 .overlay(
                                     RoundedRectangle(cornerRadius: 12)
-                                        .stroke(Color.mysticaSoftBrown, lineWidth: 2)
+                                        .stroke(Color.textSecondary, lineWidth: 2)
                                 )
                         )
                 }
@@ -337,10 +344,10 @@ struct ActionPopup: View {
             }
             .background(
                 RoundedRectangle(cornerRadius: 20)
-                    .fill(Color.mysticaDarkBrown)
+                    .fill(Color.backgroundPrimary)
                     .overlay(
                         RoundedRectangle(cornerRadius: 20)
-                            .stroke(Color.mysticaLightBrown, lineWidth: 2)
+                            .stroke(Color.accent, lineWidth: 2)
                     )
             )
             .padding(.horizontal, 32)
@@ -388,7 +395,7 @@ struct BattlePopup: View {
 
 #Preview {
     ZStack {
-        Color.mysticaDarkBrown.ignoresSafeArea()
+        Color.backgroundPrimary.ignoresSafeArea()
         
         VStack(spacing: 20) {
             // Generic ActionPopup example

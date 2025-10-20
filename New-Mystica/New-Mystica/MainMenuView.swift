@@ -9,11 +9,12 @@ import SwiftUI
 
 struct MainMenuView: View {
     @EnvironmentObject private var navigationManager: NavigationManager
+    @EnvironmentObject private var audioManager: AudioManager
     
     var body: some View {
             ZStack {
                 // Background
-                Color.mysticaDarkBrown
+                Color.backgroundPrimary
                     .ignoresSafeArea()
                 
                 VStack(spacing: 40) {
@@ -21,11 +22,12 @@ struct MainMenuView: View {
                     
                     // Title
                     VStack(spacing: 16) {
-                        TitleText("Mystica")
-                            .font(.custom("Impact", size: 48))
+                        Image("mystica_logo")
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(maxWidth: 400, maxHeight: 200)
                         
-                        NormalText("Your Adventure Awaits")
-                            .font(.custom("Impact", size: 18))
+
                     }
                     
                     Spacer()
@@ -33,25 +35,27 @@ struct MainMenuView: View {
                     // Menu Options
                     VStack(spacing: 24) {
                         Button {
+                            audioManager.playMenuButtonClick()
                             navigationManager.navigateTo(.map)
                         } label: {
                             MenuOptionView(
                                 title: "Map",
                                 subtitle: "Explore the world",
                                 icon: "map.fill",
-                                gradientColors: [Color.mysticaLightBrown, Color.mysticaWarmBrown]
+                                gradientColors: [Color.accent, Color.accentInteractive]
                             )
                         }
                         .buttonStyle(PlainButtonStyle())
                         
                         Button {
+                            audioManager.playMenuButtonClick()
                             navigationManager.navigateTo(.collection)
                         } label: {
                             MenuOptionView(
                                 title: "Collection",
                                 subtitle: "View your items",
                                 icon: "square.grid.3x3.fill",
-                                gradientColors: [Color.mysticaAccentGold, Color.mysticaLightBrown]
+                                gradientColors: [Color.accentSecondary, Color.accent]
                             )
                         }
                         .buttonStyle(PlainButtonStyle())
@@ -98,11 +102,11 @@ struct MenuOptionView: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
                     .font(.custom("Impact", size: 22))
-                    .foregroundColor(Color.mysticaLightGray)
+                    .foregroundColor(Color.textPrimary)
                 
                 Text(subtitle)
                     .font(.custom("Impact", size: 16))
-                    .foregroundColor(Color.mysticaSoftBrown)
+                    .foregroundColor(Color.textSecondary)
             }
             
             Spacer()
@@ -110,15 +114,15 @@ struct MenuOptionView: View {
             // Arrow
             Image(systemName: "chevron.right")
                 .font(.system(size: 16, weight: .medium))
-                .foregroundColor(Color.mysticaLightBrown)
+                .foregroundColor(Color.accent)
         }
         .padding(24)
         .background(
             RoundedRectangle(cornerRadius: 16)
-                .fill(Color.mysticaCharcoal)
+                .fill(Color.backgroundCard)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.mysticaDarkGray, lineWidth: 1)
+                        .stroke(Color.borderSubtle, lineWidth: 1)
                 )
         )
     }

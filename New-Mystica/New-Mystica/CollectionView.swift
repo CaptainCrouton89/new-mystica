@@ -9,6 +9,7 @@ import SwiftUI
 
 struct CollectionView: View, NavigableView {
     @EnvironmentObject private var navigationManager: NavigationManager
+    @EnvironmentObject private var audioManager: AudioManager
     @State private var selectedItem: CollectionItem? = nil
     @State private var showItemPopup = false
     
@@ -39,6 +40,7 @@ struct CollectionView: View, NavigableView {
                     ForEach(dummyItems) { item in
                         CollectionItemView(item: item)
                             .onTapGesture {
+                                audioManager.playMenuButtonClick()
                                 selectedItem = item
                                 showItemPopup = true
                             }
@@ -89,18 +91,18 @@ struct CollectionItemView: View {
             // Item Name
             Text(item.name)
                 .font(.custom("Impact", size: 14))
-                .foregroundColor(Color.mysticaLightGray)
+                .foregroundColor(Color.textPrimary)
                 .lineLimit(1)
             
             // Rarity Badge
             Text(item.rarity)
                 .font(.custom("Impact", size: 10))
-                .foregroundColor(Color.mysticaSoftBrown)
+                .foregroundColor(Color.textSecondary)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 2)
                 .background(
                     RoundedRectangle(cornerRadius: 8)
-                        .fill(Color.mysticaCharcoal)
+                        .fill(Color.backgroundCard)
                 )
         }
     }
@@ -108,15 +110,15 @@ struct CollectionItemView: View {
     private func getRarityColor() -> Color {
         switch item.rarity {
         case "Common":
-            return Color.mysticaDarkGray
+            return Color.borderSubtle
         case "Rare":
-            return Color.blue
+            return Color.accentSecondary
         case "Epic":
-            return Color.purple
+            return Color.accent
         case "Legendary":
-            return Color.mysticaAccentGold
+            return Color.accentSecondary
         default:
-            return Color.mysticaDarkGray
+            return Color.borderSubtle
         }
     }
 }

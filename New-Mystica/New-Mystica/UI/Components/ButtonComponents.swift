@@ -8,6 +8,7 @@ struct IconButton: View {
     let isDisabled: Bool
     
     @State private var isPressed = false
+    @EnvironmentObject private var audioManager: AudioManager
     
     init(icon: String, size: CGFloat = 44, isDisabled: Bool = false, action: @escaping () -> Void) {
         self.icon = icon
@@ -19,20 +20,21 @@ struct IconButton: View {
     var body: some View {
         Button {
             if !isDisabled {
+                audioManager.playMenuButtonClick()
                 action()
             }
         } label: {
             Image(systemName: icon)
                 .font(.system(size: 20, weight: .medium))
-                .foregroundColor(isDisabled ? Color.mysticaLightBrown : Color.mysticaSoftBrown)
+                .foregroundColor(isDisabled ? Color.textSecondary : Color.textSecondary)
                 .frame(width: size, height: size)
                 .background(
                     RoundedRectangle(cornerRadius: 8)
-                        .fill(isDisabled ? Color.mysticaCharcoal : (isPressed ? Color.mysticaDarkGray : Color.mysticaDarkBrown))
+                        .fill(isDisabled ? Color.backgroundSecondary : (isPressed ? Color.borderSubtle : Color.backgroundPrimary))
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 8)
-                        .stroke(isDisabled ? Color.mysticaDarkGray : (isPressed ? Color.mysticaWarmBrown : Color.mysticaLightBrown), lineWidth: 1)
+                        .stroke(isDisabled ? Color.borderSubtle : (isPressed ? Color.accentInteractive : Color.accent), lineWidth: 1)
                 )
         }
         .buttonStyle(PlainButtonStyle())
@@ -54,6 +56,7 @@ struct TextButton: View {
     let isDisabled: Bool
     
     @State private var isPressed = false
+    @EnvironmentObject private var audioManager: AudioManager
     
     init(_ title: String, height: CGFloat = 48, isDisabled: Bool = false, action: @escaping () -> Void) {
         self.title = title
@@ -65,17 +68,18 @@ struct TextButton: View {
     var body: some View {
         Button {
             if !isDisabled {
+                audioManager.playMenuButtonClick()
                 action()
             }
         } label: {
             Text(title)
                 .font(.custom("Impact", size: 17))
-                .foregroundColor(isDisabled ? Color.mysticaLightBrown : Color.mysticaLightGray)
+                .foregroundColor(isDisabled ? Color.textSecondary : Color.textPrimary)
                 .frame(maxWidth: .infinity)
                 .frame(height: height)
                 .background(
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(isDisabled ? Color.mysticaCharcoal : (isPressed ? Color.mysticaWarmBrown : Color.mysticaLightBrown))
+                        .fill(isDisabled ? Color.backgroundSecondary : (isPressed ? Color.accentInteractive : Color.accent))
                 )
         }
         .buttonStyle(PlainButtonStyle())
@@ -96,6 +100,7 @@ struct BackButton: View {
     let isDisabled: Bool
     
     @State private var isPressed = false
+    @EnvironmentObject private var audioManager: AudioManager
     
     init(size: CGFloat = 40, isDisabled: Bool = false, action: @escaping () -> Void) {
         self.size = size
@@ -106,20 +111,21 @@ struct BackButton: View {
     var body: some View {
         Button {
             if !isDisabled {
+                audioManager.playBackButtonClick()
                 action()
             }
         } label: {
             Image(systemName: "chevron.left")
                 .font(.system(size: 16, weight: .medium))
-                .foregroundColor(isDisabled ? Color.mysticaLightBrown : Color.mysticaSoftBrown)
+                .foregroundColor(isDisabled ? Color.textSecondary : Color.textSecondary)
                 .frame(width: size, height: size)
                 .background(
                     Circle()
-                        .fill(isPressed ? Color.mysticaDarkBrown : Color.clear)
+                        .fill(isPressed ? Color.backgroundPrimary : Color.clear)
                 )
                 .overlay(
                     Circle()
-                        .stroke(isDisabled ? Color.mysticaDarkGray : (isPressed ? Color.mysticaWarmBrown : Color.mysticaLightBrown), lineWidth: 1)
+                        .stroke(isDisabled ? Color.borderSubtle : (isPressed ? Color.accentInteractive : Color.accent), lineWidth: 1)
                 )
         }
         .buttonStyle(PlainButtonStyle())
