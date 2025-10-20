@@ -9,6 +9,8 @@ import SwiftUI
 
 struct CollectionView: View, NavigableView {
     @EnvironmentObject private var navigationManager: NavigationManager
+    @State private var selectedItem: CollectionItem? = nil
+    @State private var showItemPopup = false
     
     var navigationTitle: String { "Collection" }
     
@@ -18,7 +20,8 @@ struct CollectionView: View, NavigableView {
             id: index,
             name: "Item \(index)",
             imageName: "photo.fill",
-            rarity: ["Common", "Rare", "Epic", "Legendary"].randomElement() ?? "Common"
+            rarity: ["Common", "Rare", "Epic", "Legendary"].randomElement() ?? "Common",
+            description: "This is a detailed description of Item \(index). It has been carefully crafted and holds special properties that make it valuable to collectors and adventurers alike."
         )
     }
     
@@ -35,12 +38,27 @@ struct CollectionView: View, NavigableView {
                 LazyVGrid(columns: columns, spacing: 16) {
                     ForEach(dummyItems) { item in
                         CollectionItemView(item: item)
+                            .onTapGesture {
+                                selectedItem = item
+                                showItemPopup = true
+                            }
                     }
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 24)
             }
         }
+        .overlay(
+            // Item Detail Popup
+            Group {
+                if showItemPopup, let item = selectedItem {
+                    ItemDetailPopup(
+                        item: item,
+                        isPresented: $showItemPopup
+                    )
+                }
+            }
+        )
     }
 }
 
@@ -49,6 +67,7 @@ struct CollectionItem: Identifiable {
     let name: String
     let imageName: String
     let rarity: String
+    let description: String
 }
 
 struct CollectionItemView: View {
