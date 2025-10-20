@@ -124,25 +124,30 @@ check_yaml_field() {
     local file="$1"
     local field="$2"
     local label="$3"
-    
+
     if [[ ! -f "$file" ]]; then
         return 1
     fi
-    
+
+    # Match field at any indentation level
     local value=$(awk -v field="$field" '
-        /^[a-z_]+:/ && $1 == field":" {
-            gsub(/^[a-z_]+: /, "")
+        $0 ~ "^[ \t]*" field ":" {
+            # Extract value after field name and colon
+            sub("^[ \t]*" field ":[ \t]*", "")
+            # Remove surrounding quotes if present
             gsub(/^"/, ""); gsub(/"$/, "")
+            # Trim whitespace
+            gsub(/^[ \t]+/, ""); gsub(/[ \t]+$/, "")
             print
             exit
         }
     ' "$file")
-    
+
     if [[ -z "$value" || "$value" == '""' ]]; then
         log_warn "$label: '$field' is empty in $(basename "$file")"
         return 1
     fi
-    
+
     return 0
 }
 
