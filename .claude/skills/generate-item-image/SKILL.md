@@ -75,9 +75,27 @@ OPENAI_API_KEY=your_key
 
 R2 bucket `mystica-assets` already configured at `https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/`
 
+## R2 Management
+
+**Quick Upload:**
+```bash
+cd docs/image-refs
+
+# Upload all images to R2 (remote)
+for file in IMG_*.png; do
+  wrangler r2 object put "mystica-assets/image-refs/$file" --file="$file" --remote
+done
+
+# Verify uploads
+curl -I "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/IMG_0821.png"
+```
+
+**Complete R2 Guide:** See the **Wrangler R2 Guide** skill - Comprehensive Wrangler CLI reference with all bucket operations, CORS config, troubleshooting, and cost info.
+
 ## Advanced Reference
 
-- **Workflow details:** `docs/ai-image-generation-workflow.md`
-- **R2 management:** `docs/external/r2-image-hosting.md`
-- **Script source:** `scripts/generate-image.ts`
-- **Description generator:** `scripts/generate-item-description.ts`
+- **R2 CLI Guide:** Wrangler R2 Guide skill (complete Wrangler reference)
+- **R2 Setup Details:** `docs/external/r2-image-hosting.md` (integration guide)
+- **Workflow Details:** `docs/ai-image-generation-workflow.md`
+- **Script Source:** `scripts/generate-image.ts`
+- **Description Generator:** `scripts/generate-item-description.ts`
