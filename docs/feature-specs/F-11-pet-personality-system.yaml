@@ -2,7 +2,7 @@ title: Technical Specification - Pet Personality System
 template: ~/.claude/file-templates/init-project/feature-spec/feature-title.yaml
 feature_id: F-11
 status: planned
-last_updated: 2025-10-19
+last_updated: 2025-10-20
 
 summary: "AI-powered dynamic pet personalities that generate contextual trash-talk and commentary during combat. Each pet has personality traits that influence their dialogue style. The AI observes combat events (attacks, defenses, critical hits, misses) and generates personality-appropriate chatter in real-time."
 
@@ -220,6 +220,5 @@ implementation_status:
     - "Finished: Custom pet names, personality unlock system (rare personalities from special pets), A/B test dialogue frequency, multilingual support"
 
 user_stories:
-  - US-TBD (Assign personality to pet)
-  - US-TBD (View pet dialogue during combat)
-  - US-TBD (Change pet personality)
+  - "US-TBD: Create user stories for pet personality assignment and combat chatter viewing"
+  - "Related to US-201 (Initiate Combat) and US-202 (Execute Attack) for combat integration"

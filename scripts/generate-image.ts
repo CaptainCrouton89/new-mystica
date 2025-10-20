@@ -1,0 +1,459 @@
+import * as dotenv from 'dotenv';
+import * as fs from 'fs';
+import * as path from 'path';
+import Replicate from 'replicate';
+import { generateItemDescription } from './generate-item-description.js';
+
+// Load environment variables from .env.local
+dotenv.config({ path: '.env.local', override: true });
+
+type Provider = 'gemini' | 'seedream-4';
+type AspectRatio = '1:1' | '2:3' | '3:2' | '4:3' | '9:16' | '16:9';
+
+interface GenerateImageOptions {
+  itemName?: string;
+  itemDescription?: string;
+  itemType?: string;
+  materials?: string[];
+  provider?: Provider;
+  providers?: Provider[];
+  outputPath?: string;
+  aspectRatio?: AspectRatio;
+  referenceImages?: string[];
+  outputFormat?: 'jpg' | 'png';
+}
+
+function buildPrompt(itemName: string, itemDescription: string, aspectRatio: AspectRatio = '1:1'): string {
+  return `Create a single, center-framed ${aspectRatio} item:
+
+"${itemName}: ${itemDescription}"
+
+This illustration in a polished, high-detail "chibi"/super-deformed aesthetic typical of mobile RPGs and CCGs.
+
+Core Look
+    •    Color: Vivid, high-saturation palette; punchy local colors with clean hue separation. Keep values readable; avoid muddy midtones.
+    •    Lighting: Clear, soft key light with gentle fill; minimal deep shadow. Add a crisp rim light to separate from the background.
+    •    Glow & Highlights: Tasteful outer glow/halo to signal rarity or power. Use tight, glossy specular highlights on hard materials; soft bloom on emissive parts.
+
+Line & Form
+    •    Outlines: Bold, uniform, and clean to carve a strong silhouette; no sketchy linework.
+    •    Proportions: Chunky, simplified, and slightly exaggerated shapes for instant readability.
+    •    Texture: Suggestive, not photoreal—hint at materials (wood grain, brushed metal, facets) with tidy, deliberate marks.
+
+Shading & Depth
+    •    Render Style: Hybrid cel + soft gradients; sharp edge transitions only where they improve clarity.
+    •    Volume: Strong sense of 3D mass via light, occlusion, and controlled contrast; default to a subtle 3/4 view.
+
+Composition & Background
+    •    Framing: Single hero object, centered; crop to emphasize silhouette.
+    •    Background: Simple radial gradient or soft vignette; optional light particle specks. No props or scene unless specified.
+    •    Polish: Soft contact shadow beneath item; no text, watermarks, borders, or logos.`;
+}
+
+async function generateImageWithReplicate(
+  model: string,
+  options: GenerateImageOptions
+): Promise<string> {
+  const apiToken = process.env.REPLICATE_API_TOKEN;
+
+  if (!apiToken) {
+    throw new Error('REPLICATE_API_TOKEN not found in .env.local');
+  }
+
+  const replicate = new Replicate({ auth: apiToken });
+
+  let modelName: string;
+  if (!options.itemName || !options.itemDescription) {
+    throw new Error('Name and description are required');
+  }
+
+  const prompt = buildPrompt(options.itemName, options.itemDescription, options.aspectRatio);
+  const input: Record<string, unknown> = { prompt };
+
+  // Validate reference image URLs
+  const validateReferenceImages = (imageUrls: string[]): string[] => {
+    console.log(`Validating ${imageUrls.length} reference image URL(s)...`);
+
+    for (const url of imageUrls) {
+      if (!url.startsWith('http://') && !url.startsWith('https://')) {
+        throw new Error(`Invalid reference image URL: ${url}. Only HTTP/HTTPS URLs are supported.`);
+      }
+      console.log(`  ✓ ${url}`);
+    }
+
+    return imageUrls;
+  };
+
+  if (model === 'gemini') {
+    modelName = 'google/nano-banana';
+    console.log(`🎨 Generating with ${modelName} (Nano Banana)...`);
+
+    // Nano Banana parameters
+    if (options.aspectRatio) {
+      input.aspect_ratio = options.aspectRatio;
+    }
+
+    input.output_format = options.outputFormat || 'png';
+
+    // Add reference images if provided
+    if (options.referenceImages && options.referenceImages.length > 0) {
+      input.image_input = validateReferenceImages(options.referenceImages);
+    }
+  } else if (model === 'seedream-4') {
+    modelName = 'bytedance/seedream-4';
+    console.log(`🎨 Generating with ${modelName}...`);
+
+    // Seedream-specific parameters
+    input.width = 1024;
+    input.height = 1024;
+    input.max_images = 1;
+    input.sequential_image_generation = 'disabled';
+
+    // Add reference images if provided
+    if (options.referenceImages && options.referenceImages.length > 0) {
+      input.image_input = validateReferenceImages(options.referenceImages);
+    }
+  } else {
+    throw new Error(`Unknown provider: ${model}. Use 'gemini' or 'seedream-4'`);
+  }
+
+  // Run prediction
+  const output = await replicate.run(modelName as `${string}/${string}`, { input }) as any;
+
+  // Handle output - both Nano Banana and Seedream return objects with url() method
+  let imageUrl: string;
+
+  if (typeof output?.url === 'function') {
+    // Nano Banana returns object with url() method
+    imageUrl = output.url();
+  } else if (Array.isArray(output) && output.length > 0) {
+    // Seedream returns array of objects with url() method
+    imageUrl = typeof output[0].url === 'function' ? output[0].url() : output[0];
+  } else {
+    throw new Error('No image returned from Replicate');
+  }
+
+  if (!imageUrl) {
+    throw new Error('No image URL returned from Replicate');
+  }
+
+  // Download image from URL
+  console.log('⬇️  Downloading image from Replicate...');
+  const response = await fetch(imageUrl);
+
+  if (!response.ok) {
+    throw new Error(`Failed to download image: ${response.statusText}`);
+  }
+
+  const arrayBuffer = await response.arrayBuffer();
+  const buffer = Buffer.from(arrayBuffer);
+
+  // Convert to base64
+  return buffer.toString('base64');
+}
+
+async function generateImageSingle(
+  provider: Provider,
+  options: GenerateImageOptions,
+  timestamp: number
+): Promise<{ provider: Provider; path: string }> {
+  console.log(`\n🎨 Generating with ${provider}...`);
+
+  try {
+    // All providers now use Replicate
+    const imageBase64 = await generateImageWithReplicate(provider, options);
+
+    // Decode base64 and save
+    const buffer = Buffer.from(imageBase64, 'base64');
+
+    const outputPath = options.outputPath || path.join(
+      'scripts',
+      'output',
+      `${provider}-${timestamp}.${options.outputFormat || 'png'}`
+    );
+
+    // Ensure output directory exists
+    const outputDir = path.dirname(outputPath);
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true });
+    }
+
+    fs.writeFileSync(outputPath, buffer);
+
+    console.log(`✅ [${provider}] Image saved to: ${outputPath}`);
+
+    // Show cost information
+    if (provider === 'gemini') {
+      console.log(`💰 [${provider}] Cost: Variable (Replicate per-second billing)`);
+    } else if (provider === 'seedream-4') {
+      console.log(`💰 [${provider}] Cost: Variable (Replicate per-second billing)`);
+    }
+
+    return { provider, path: outputPath };
+
+  } catch (error) {
+    if (error instanceof Error) {
+      console.error(`❌ [${provider}] Error:`, error.message);
+      throw error;
+    }
+    throw new Error('Unknown error occurred');
+  }
+}
+
+async function generateImage(options: GenerateImageOptions): Promise<void> {
+  let itemName: string;
+  let itemDescription: string;
+
+  // Generate item name and description if itemType and materials are provided
+  if (options.itemType && options.materials) {
+    console.log('🤖 Generating item name and description using AI...');
+    console.log(`Item Type: ${options.itemType}`);
+    console.log(`Materials: ${options.materials.join(', ')}`);
+
+    const generated = await generateItemDescription({
+      itemType: options.itemType,
+      materials: options.materials
+    });
+
+    itemName = generated.name;
+    itemDescription = generated.description;
+
+    console.log(`\n✅ Generated Name: ${itemName}`);
+    console.log(`✅ Generated Description: ${itemDescription}\n`);
+  } else if (options.itemName && options.itemDescription) {
+    // Use provided name and description
+    itemName = options.itemName;
+    itemDescription = options.itemDescription;
+  } else {
+    throw new Error('Either provide (itemType + materials) or (itemName + itemDescription)');
+  }
+
+  console.log('Item Name:', itemName);
+  console.log('Description:', itemDescription);
+  console.log('Aspect Ratio:', options.aspectRatio || '1:1');
+
+  // Determine which providers to use
+  const providers: Provider[] = options.providers
+    ? options.providers
+    : options.provider
+    ? [options.provider]
+    : ['gemini'];
+
+  console.log(`Providers: ${providers.join(', ')}`);
+
+  // Validate reference images
+  if (options.referenceImages && options.referenceImages.length > 0) {
+    console.log(`Reference images: ${options.referenceImages.length}`);
+  }
+
+  const timestamp = Date.now();
+
+  try {
+    if (providers.length === 1) {
+      // Single provider - sequential
+      await generateImageSingle(providers[0], { ...options, itemName, itemDescription }, timestamp);
+    } else {
+      // Multiple providers - parallel generation
+      console.log(`\n🚀 Starting parallel generation with ${providers.length} providers...\n`);
+
+      const results = await Promise.allSettled(
+        providers.map(provider => generateImageSingle(provider, { ...options, itemName, itemDescription }, timestamp))
+      );
+
+      // Summary
+      console.log('\n' + '='.repeat(60));
+      console.log('GENERATION SUMMARY');
+      console.log('='.repeat(60));
+
+      const successful = results.filter(r => r.status === 'fulfilled');
+      const failed = results.filter(r => r.status === 'rejected');
+
+      console.log(`\n✅ Successful: ${successful.length}/${providers.length}`);
+      successful.forEach((result) => {
+        if (result.status === 'fulfilled') {
+          console.log(`   • ${result.value.provider}: ${result.value.path}`);
+        }
+      });
+
+      if (failed.length > 0) {
+        console.log(`\n❌ Failed: ${failed.length}/${providers.length}`);
+        failed.forEach((result, index) => {
+          if (result.status === 'rejected') {
+            const provider = providers[successful.length + index];
+            console.log(`   • ${provider}: ${result.reason}`);
+          }
+        });
+      }
+
+      console.log('\n' + '='.repeat(60));
+    }
+
+  } catch (error) {
+    if (error instanceof Error) {
+      console.error('❌ Fatal error:', error.message);
+      throw error;
+    }
+    throw new Error('Unknown error occurred');
+  }
+}
+
+
+// CLI interface
+async function main(): Promise<void> {
+  const args = process.argv.slice(2);
+
+  if (args.length < 1 || args.includes('--help') || args.includes('-h')) {
+    console.log(`
+Mystica Item Image Generator
+
+Usage (AI-Generated):
+  pnpm generate-image --type "Item Type" --materials "material1,material2,material3" [options]
+
+Usage (Manual):
+  pnpm generate-image "Item Name" "Item Description" [options]
+
+Options:
+  -t, --type TYPE           Item type (e.g., "Magic Wand", "Robot Dog") - triggers AI generation
+  -m, --materials MAT,...   1-3 materials (comma-separated) - required with --type
+  -p, --provider PROVIDER   Single provider: gemini, seedream-4 (default: gemini)
+  --providers PROVIDER,...  Multiple providers (comma-separated, runs in parallel)
+  --all                     Use all providers (gemini, seedream-4)
+  -r, --reference URL,...   Reference image URLs for style (comma-separated URLs)
+  -o, --output PATH         Output file path (single provider only)
+  -a, --aspect-ratio RATIO  Aspect ratio: 1:1, 2:3, 3:2, 4:3, 9:16, 16:9 (default: 1:1)
+  -f, --format FORMAT       Output format: jpg, png (default: png)
+  -h, --help                Show this help message
+
+Providers:
+  gemini       Google Nano Banana (Gemini 2.5 Flash) - Best for style reference & consistency
+  seedream-4   ByteDance Seedream 4 - Advanced style transfer with reference images
+
+Examples:
+  # Generate with AI (automatic name & description)
+  pnpm generate-image --type "Magic Wand" --materials "wood,crystal"
+  pnpm generate-image --type "Robot Dog" --materials "metal,screws,plastic"
+  pnpm generate-image --type "Amulet" --materials "hello kitty,wizard hat,matcha powder"
+
+  # Generate with manual name and description
+  pnpm generate-image "Kitty Pepe Blade" "The sword has a sleek metal blade"
+
+  # AI generation with style reference URLs
+  pnpm generate-image --type "Fire Staff" --materials "wood,ruby" -r https://example.com/ref1.png,https://example.com/ref2.png
+
+  # Compare providers with AI generation
+  pnpm generate-image --type "Ice Shield" --materials "crystal,steel" --all
+
+  # Custom aspect ratio
+  pnpm generate-image --type "Banner Flag" --materials "silk,gold" -a 2:3
+
+Environment Variables Required:
+  REPLICATE_API_TOKEN  Get from https://replicate.com
+  OPENAI_API_KEY       Get from https://openai.com (for AI generation)
+
+Cost Estimates:
+  Image generation: Variable (Replicate per-second billing)
+  AI description: ~$0.0001-0.0005 per generation (GPT-4.1-mini)
+
+Note: All images use the Mystica chibi/super-deformed item template
+`);
+    process.exit(0);
+  }
+
+  const options: GenerateImageOptions = {};
+
+  // Check if first arg is a flag or a positional argument
+  const firstArgIsFlag = args[0].startsWith('-');
+
+  if (!firstArgIsFlag && args.length >= 2) {
+    // Manual mode: first two args are name and description
+    options.itemName = args[0];
+    options.itemDescription = args[1];
+  }
+
+  // Parse arguments
+  const startIndex = firstArgIsFlag ? 0 : 2;
+  for (let i = startIndex; i < args.length; i++) {
+    const arg = args[i];
+
+    if ((arg === '-t' || arg === '--type') && args[i + 1]) {
+      options.itemType = args[++i];
+    } else if ((arg === '-m' || arg === '--materials') && args[i + 1]) {
+      const materialsStr = args[++i];
+      options.materials = materialsStr.split(',').map(m => m.trim());
+
+      if (options.materials.length < 1 || options.materials.length > 3) {
+        console.error('❌ Materials must contain between 1 and 3 items');
+        process.exit(1);
+      }
+    } else if ((arg === '-p' || arg === '--provider') && args[i + 1]) {
+      const provider = args[++i] as Provider;
+      if (!['gemini', 'seedream-4'].includes(provider)) {
+        console.error('Invalid provider. Choose: gemini or seedream-4');
+        process.exit(1);
+      }
+      options.provider = provider;
+    } else if (arg === '--providers' && args[i + 1]) {
+      const providersStr = args[++i];
+      const providers = providersStr.split(',').map(p => p.trim()) as Provider[];
+
+      // Validate all providers
+      for (const provider of providers) {
+        if (!['gemini', 'seedream-4'].includes(provider)) {
+          console.error(`Invalid provider: ${provider}. Choose: gemini or seedream-4`);
+          process.exit(1);
+        }
+      }
+
+      options.providers = providers;
+    } else if (arg === '--all') {
+      options.providers = ['gemini', 'seedream-4'];
+    } else if ((arg === '-r' || arg === '--reference') && args[i + 1]) {
+      const referencesStr = args[++i];
+      options.referenceImages = referencesStr.split(',').map(p => p.trim());
+    } else if ((arg === '-o' || arg === '--output') && args[i + 1]) {
+      options.outputPath = args[++i];
+    } else if ((arg === '-a' || arg === '--aspect-ratio') && args[i + 1]) {
+      options.aspectRatio = args[++i] as AspectRatio;
+    } else if ((arg === '-f' || arg === '--format') && args[i + 1]) {
+      const format = args[++i];
+      if (format !== 'jpg' && format !== 'png') {
+        console.error('Invalid format. Choose: jpg or png');
+        process.exit(1);
+      }
+      options.outputFormat = format;
+    }
+  }
+
+  // Validate custom output path only with single provider
+  if (options.outputPath && (options.providers && options.providers.length > 1)) {
+    console.error('❌ Custom output path (-o) cannot be used with multiple providers');
+    process.exit(1);
+  }
+
+  // Validate that we have either (itemType + materials) or (itemName + itemDescription)
+  const hasAiInputs = options.itemType && options.materials;
+  const hasManualInputs = options.itemName && options.itemDescription;
+
+  if (!hasAiInputs && !hasManualInputs) {
+    console.error('❌ Either provide --type and --materials (AI mode) or "Item Name" "Description" (manual mode)');
+    process.exit(1);
+  }
+
+  if (hasAiInputs && hasManualInputs) {
+    console.error('❌ Cannot use both AI mode (--type/--materials) and manual mode (name/description) simultaneously');
+    process.exit(1);
+  }
+
+  await generateImage(options);
+}
+
+export { generateImage };
+export type { GenerateImageOptions };
+
+// Run CLI when executed directly
+(async () => {
+  await main().catch(error => {
+    console.error('Fatal error:', error);
+    process.exit(1);
+  });
+})();

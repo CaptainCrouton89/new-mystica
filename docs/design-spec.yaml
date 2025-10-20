@@ -2,7 +2,7 @@
 # UI/UX design details, components, and interaction patterns.
 
 status: draft
-last_updated: 2025-10-19
+last_updated: 2025-10-20
 
 overview:
   design_goals: "Create an immersive RPG experience with clear visual hierarchy, responsive animations, and intuitive touch interactions. Emphasize fantasy aesthetic while maintaining modern iOS design patterns. Prioritize readability for stats and combat feedback."

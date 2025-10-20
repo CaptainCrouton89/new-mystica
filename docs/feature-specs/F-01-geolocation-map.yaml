@@ -2,7 +2,7 @@ title: Technical Specification - Geolocation & Map System
 template: ~/.claude/file-templates/init-project/feature-spec/feature-title.yaml
 feature_id: F-01
 status: planned
-last_updated: 2025-10-19
+last_updated: 2025-10-20
 
 summary: "Integrate Google Maps to display player location and nearby enemy spawn points. Enable location-based discovery by tracking GPS position and calculating proximity to spawn locations."
 
@@ -24,9 +24,10 @@ detailed_design:
         - "id: UUID (PK)"
         - "lat: DECIMAL(10,8)"
         - "lng: DECIMAL(11,8)"
-        - "city_id: UUID (FK to cities)"
-        - "enemy_type: VARCHAR (helmet, armor, sword, etc.)"
-        - "item_type: VARCHAR (matches enemy_type)"
+        - "location_type: VARCHAR (library, gym, park, coffee_shop, etc.)"
+        - "state_code: VARCHAR (US state code: CA, NY, TX, etc.)"
+        - "country_code: VARCHAR (ISO country code: USA, CAN, etc.)"
+        # enemy_type and item_type deprecated - now handled by EnemyPools and LootPools
         - "spawn_radius: INT (default 50m)"
         - "is_premium: BOOLEAN (default false)"
         - "created_at: TIMESTAMP"

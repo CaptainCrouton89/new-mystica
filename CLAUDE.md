@@ -110,3 +110,19 @@ Backend uses centralized error handling:
 2. Import SwiftUI and SwiftData as needed
 3. Use `@Environment(\.modelContext)` for data operations
 4. Use `@Query` for reactive data fetching
+
+## Scripts & AI Pipeline
+
+### Image Generation Pipeline
+The `scripts/` directory contains TypeScript tools for AI-powered image generation:
+
+- **generate-image.ts** - Main image generation script using Replicate
+- **generate-item-description.ts** - AI-powered item description generation
+
+### Cloudflare R2 Integration
+Reference images are hosted on Cloudflare R2 (`mystica-assets` bucket):
+- **Storage:** `image-refs/` directory in R2 bucket
+- **Access:** HTTPS URLs only (no local file support)
+- **Management:** Wrangler CLI for uploads/management
+
+See `docs/external/r2-image-hosting.md` for complete setup and usage instructions.

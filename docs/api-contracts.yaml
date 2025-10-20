@@ -387,7 +387,7 @@ components:
 paths:
   /locations/nearby:
     get:
-      summary: Get nearby spawn locations
+      summary: Get nearby spawn locations (F-01)
       security:
         - BearerAuth: []
       parameters:
@@ -421,7 +421,7 @@ paths:
 
   /combat/start:
     post:
-      summary: Start combat encounter
+      summary: Start combat encounter (F-02)
       security:
         - BearerAuth: []
       requestBody:
@@ -444,7 +444,7 @@ paths:
 
   /combat/attack:
     post:
-      summary: Execute attack with timing
+      summary: Execute attack with timing (F-02)
       security:
         - BearerAuth: []
       requestBody:
@@ -562,7 +562,7 @@ paths:
 
   /inventory:
     get:
-      summary: Get player inventory (all items)
+      summary: Get player inventory (all items) (F-09)
       security:
         - BearerAuth: []
       responses:
@@ -676,7 +676,7 @@ paths:
 
   /materials:
     get:
-      summary: Get all material templates (library)
+      summary: Get all material templates (library) (F-04)
       responses:
         '200':
           description: All available materials
@@ -710,7 +710,7 @@ paths:
 
   /items/{item_id}/apply-material:
     post:
-      summary: Apply material to item
+      summary: Apply material to item (F-04)
       security:
         - BearerAuth: []
       parameters:
@@ -824,7 +824,7 @@ paths:
 
   /items/{item_id}/upgrade:
     post:
-      summary: Upgrade item to next level (spend gold)
+      summary: Upgrade item to next level (spend gold) (F-06)
       security:
         - BearerAuth: []
       parameters:

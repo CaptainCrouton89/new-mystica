@@ -2,7 +2,7 @@
 # Architecture, components, data flow, and technical decisions.
 
 status: draft
-last_updated: 2025-01-27
+last_updated: 2025-10-20
 
 overview:
   goal: "Build a location-based mobile RPG with real-time GPS tracking, combat mechanics, and crafting progression. System must handle location queries, combat sessions, AI item generation, and persistent user data. Designed for thousands of concurrent mobile clients with low latency (<500ms API response)."

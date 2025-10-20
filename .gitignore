@@ -17,3 +17,5 @@ DerivedData/
 
 # Claude agent responses
 agent-responses/
+image-refs/
+scripts/output/
