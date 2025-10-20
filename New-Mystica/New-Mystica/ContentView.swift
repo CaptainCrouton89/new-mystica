@@ -10,46 +10,53 @@ import SwiftData
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject private var navigationManager: NavigationManager
     @Query private var items: [Item]
 
     var body: some View {
-        NavigationSplitView {
-            List {
-                ForEach(items) { item in
-                    NavigationLink {
-                        Text("Item at \(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))")
-                    } label: {
-                        Text(item.timestamp, format: Date.FormatStyle(date: .numeric, time: .standard))
-                    }
+        NavigationStack(path: $navigationManager.navigationPath) {
+            MainMenuView()
+                .navigationDestination(for: NavigationDestination.self) { destination in
+                    destinationView(for: destination)
                 }
-                .onDelete(perform: deleteItems)
-            }
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    EditButton()
-                }
-                ToolbarItem {
-                    Button(action: addItem) {
-                        Label("Add Item", systemImage: "plus")
-                    }
-                }
-            }
-        } detail: {
-            Text("Select an item")
         }
+        .modelContainer(for: Item.self)
     }
-
-    private func addItem() {
-        withAnimation {
-            let newItem = Item(timestamp: Date())
-            modelContext.insert(newItem)
-        }
-    }
-
-    private func deleteItems(offsets: IndexSet) {
-        withAnimation {
-            for index in offsets {
-                modelContext.delete(items[index])
+    
+    @ViewBuilder
+    private func destinationView(for destination: NavigationDestination) -> some View {
+        switch destination {
+        case .mainMenu:
+            MainMenuView()
+        case .map:
+            MapView()
+        case .collection:
+            CollectionView()
+        case .settings:
+            // Example of how easy it is to create new views with navigation
+            SimpleNavigableView(title: "Settings") {
+                VStack(spacing: 20) {
+                    Spacer()
+                    
+                    TitleText("Settings")
+                    
+                    NormalText("Coming Soon")
+                    
+                    Spacer()
+                }
+            }
+        case .profile:
+            // Another example of automatic navigation
+            SimpleNavigableView(title: "Profile") {
+                VStack(spacing: 20) {
+                    Spacer()
+                    
+                    TitleText("Profile")
+                    
+                    NormalText("Coming Soon")
+                    
+                    Spacer()
+                }
             }
         }
     }
@@ -58,4 +65,5 @@ struct ContentView: View {
 #Preview {
     ContentView()
         .modelContainer(for: Item.self, inMemory: true)
+        .environmentObject(NavigationManager())
 }

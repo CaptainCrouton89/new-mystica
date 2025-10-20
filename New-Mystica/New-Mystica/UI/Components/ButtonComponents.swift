@@ -17,22 +17,22 @@ struct IconButton: View {
     }
     
     var body: some View {
-        Button(action: {
+        Button {
             if !isDisabled {
                 action()
             }
-        }) {
+        } label: {
             Image(systemName: icon)
                 .font(.system(size: 20, weight: .medium))
-                .foregroundColor(isDisabled ? .mysticaLightBrown : .mysticaSoftBrown)
+                .foregroundColor(isDisabled ? Color.mysticaLightBrown : Color.mysticaSoftBrown)
                 .frame(width: size, height: size)
                 .background(
                     RoundedRectangle(cornerRadius: 8)
-                        .fill(isDisabled ? .mysticaCharcoal : (isPressed ? .mysticaDarkGray : .mysticaDarkBrown))
+                        .fill(isDisabled ? Color.mysticaCharcoal : (isPressed ? Color.mysticaDarkGray : Color.mysticaDarkBrown))
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 8)
-                        .stroke(isDisabled ? .mysticaDarkGray : (isPressed ? .mysticaWarmBrown : .mysticaLightBrown), lineWidth: 1)
+                        .stroke(isDisabled ? Color.mysticaDarkGray : (isPressed ? Color.mysticaWarmBrown : Color.mysticaLightBrown), lineWidth: 1)
                 )
         }
         .buttonStyle(PlainButtonStyle())
@@ -63,19 +63,19 @@ struct TextButton: View {
     }
     
     var body: some View {
-        Button(action: {
+        Button {
             if !isDisabled {
                 action()
             }
-        }) {
+        } label: {
             Text(title)
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundColor(isDisabled ? .mysticaLightBrown : .mysticaLightGray)
+                .font(.custom("Impact", size: 17))
+                .foregroundColor(isDisabled ? Color.mysticaLightBrown : Color.mysticaLightGray)
                 .frame(maxWidth: .infinity)
                 .frame(height: height)
                 .background(
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(isDisabled ? .mysticaCharcoal : (isPressed ? .mysticaWarmBrown : .mysticaLightBrown))
+                        .fill(isDisabled ? Color.mysticaCharcoal : (isPressed ? Color.mysticaWarmBrown : Color.mysticaLightBrown))
                 )
         }
         .buttonStyle(PlainButtonStyle())
@@ -104,22 +104,22 @@ struct BackButton: View {
     }
     
     var body: some View {
-        Button(action: {
+        Button {
             if !isDisabled {
                 action()
             }
-        }) {
+        } label: {
             Image(systemName: "chevron.left")
                 .font(.system(size: 16, weight: .medium))
-                .foregroundColor(isDisabled ? .mysticaLightBrown : .mysticaSoftBrown)
+                .foregroundColor(isDisabled ? Color.mysticaLightBrown : Color.mysticaSoftBrown)
                 .frame(width: size, height: size)
                 .background(
                     Circle()
-                        .fill(isPressed ? .mysticaDarkBrown : .clear)
+                        .fill(isPressed ? Color.mysticaDarkBrown : Color.clear)
                 )
                 .overlay(
                     Circle()
-                        .stroke(isDisabled ? .mysticaDarkGray : (isPressed ? .mysticaWarmBrown : .mysticaLightBrown), lineWidth: 1)
+                        .stroke(isDisabled ? Color.mysticaDarkGray : (isPressed ? Color.mysticaWarmBrown : Color.mysticaLightBrown), lineWidth: 1)
                 )
         }
         .buttonStyle(PlainButtonStyle())

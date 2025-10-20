@@ -12,8 +12,8 @@ struct TitleText: View {
     
     var body: some View {
         Text(text)
-            .font(.system(size: size, weight: .bold, design: .default))
-            .foregroundColor(.mysticaLightGray)
+            .font(.custom("Impact", size: size))
+            .foregroundColor(Color.mysticaLightGray)
             .kerning(0.5)
             .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 2)
             .lineLimit(nil)
@@ -32,8 +32,8 @@ struct NormalText: View {
     
     var body: some View {
         Text(text)
-            .font(.system(size: size, weight: .regular, design: .default))
-            .foregroundColor(.mysticaSoftBrown)
+            .font(.custom("Impact", size: size))
+            .foregroundColor(Color.mysticaSoftBrown)
             .kerning(0.2)
             .lineSpacing(2)
             .lineLimit(nil)
@@ -52,8 +52,8 @@ struct SmallText: View {
     
     var body: some View {
         Text(text)
-            .font(.system(size: size, weight: .regular, design: .default))
-            .foregroundColor(.mysticaLightBrown)
+            .font(.custom("Impact", size: size))
+            .foregroundColor(Color.mysticaLightBrown)
             .kerning(0.2)
             .lineSpacing(1)
             .lineLimit(nil)

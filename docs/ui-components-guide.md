@@ -71,7 +71,7 @@ TitleText("Smaller Title", size: 24)
 **Properties**:
 
 - Default size: 30pt
-- Font: System bold
+- Font: Impact (Bold Arcade/Retro)
 - Color: `.mysticaLightGray`
 - Features: Text shadow, kerning, multi-line support
 
@@ -88,7 +88,7 @@ NormalText("Smaller body text", size: 15)
 **Properties**:
 
 - Default size: 17pt
-- Font: System regular
+- Font: Impact (Bold Arcade/Retro)
 - Color: `.mysticaSoftBrown`
 - Features: Line spacing, kerning, multi-line support
 
@@ -105,7 +105,7 @@ SmallText("Very small text", size: 11)
 **Properties**:
 
 - Default size: 13pt
-- Font: System regular
+- Font: Impact (Bold Arcade/Retro)
 - Color: `.mysticaLightBrown`
 - Features: Compact spacing, multi-line support
 
@@ -157,7 +157,7 @@ TextButton("Continue", height: 40, isDisabled: false) {
 **Properties**:
 
 - Default height: 48pt
-- Font: System semibold, 17pt
+- Font: Impact (Bold Arcade/Retro), 17pt
 - Border radius: 12pt
 - States: Default, Pressed (scale 0.98), Disabled
 

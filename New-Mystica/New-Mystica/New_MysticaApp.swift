@@ -10,6 +10,8 @@ import SwiftData
 
 @main
 struct New_MysticaApp: App {
+    @StateObject private var navigationManager = NavigationManager()
+    
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             Item.self,
@@ -26,6 +28,7 @@ struct New_MysticaApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environmentObject(navigationManager)
         }
         .modelContainer(sharedModelContainer)
     }
