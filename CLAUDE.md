@@ -4,125 +4,197 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Structure
 
-This is a monorepo containing two applications:
+Monorepo with Express backend, SwiftUI frontend, and TypeScript AI scripts:
 
-- **mystica-express/** - Express.js backend API server
-- **New-Mystica/** - iOS/macOS application (SwiftUI + SwiftData)
+- **mystica-express/** - Express.js 4.16 backend (Jade, Supabase, Railway)
+- **New-Mystica/** - iOS/macOS SwiftUI app (SwiftData persistence)
+- **scripts/** - TypeScript AI image generation pipeline (Replicate, OpenAI)
+- **docs/** - YAML-based project documentation system
 
-## Backend (mystica-express)
+## Commands
 
-### Technology Stack
-- Express.js 4.16.x with Jade templating
-- Supabase for database and authentication
-- pnpm for package management
-- Deployed to Railway
-
-### Development Commands
-
+### Backend (mystica-express/)
 ```bash
-# Install dependencies
-cd mystica-express
-pnpm install
-
-# Start development server (runs on port 3000 by default)
-pnpm start
-
-# No build step required
-pnpm build  # echoes "No build step required"
+pnpm install                  # Install dependencies
+pnpm start                    # Start dev server (port 3000)
+supabase start                # Start local Supabase stack (ports 54321-54327)
+supabase status               # View service URLs and credentials
 ```
 
-### Server Configuration
-- Default port: 3000 (configured in `bin/www`)
-- Can be overridden via `PORT` environment variable
-- Routes defined in `routes/` directory
-- Static files served from `public/`
-
-### Supabase Integration
-
-Supabase local development is configured in `supabase/config.toml`:
-
-- API Port: 54321
-- Database Port: 54322
-- Studio Port: 54323
-- Email Testing (Inbucket) Port: 54324
-- Analytics Port: 54327
-
-To work with Supabase:
-```bash
-cd mystica-express
-supabase start    # Start local Supabase instance
-supabase stop     # Stop local Supabase instance
-supabase status   # Check service status
-```
-
-### Deployment
-
-Configured for Railway deployment via `railway.json`:
-- Build: `pnpm install`
-- Start: `pnpm start`
-- Restart policy: ON_FAILURE with max 10 retries
-
-## Frontend (New-Mystica)
-
-### Technology Stack
-- SwiftUI for UI
-- SwiftData for local persistence
-- Xcode project structure
-
-### Development
+### Frontend (New-Mystica/)
 - Open `New-Mystica.xcodeproj` in Xcode
-- Main app entry: `New-Mystica/New_MysticaApp.swift`
-- Main view: `New-Mystica/ContentView.swift`
-- Data model: `New-Mystica/Item.swift`
+- Press ⌘R to build and run
 
-### Architecture
-- Uses SwiftData `ModelContainer` for persistence
-- Schema includes `Item` model
-- Data stored persistently (not in-memory)
+### AI Image Generation (scripts/)
+```bash
+# From project root
+cd scripts && pnpm install
 
-## Key Architecture Notes
+# Generate item image with AI description
+pnpm generate-image --type "Magic Wand" --materials "wood,crystal" --provider gemini \
+  -r "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/..."
 
-### Backend Routes
-Currently implements two basic routes:
-- `/` - Index route (defined in `routes/index.js`)
-- `/users` - Users route (defined in `routes/users.js`)
+# Generate raw seed images (batch mode for all seed data)
+pnpm generate-raw-image --batch all
 
-### Error Handling
-Backend uses centralized error handling:
-- 404 handler forwards to error middleware
-- Error details shown only in development mode
-- Errors rendered via Jade `error` template
+# Generate item description only
+npx tsx generate-item-description.ts "Item Type" "material1,material2"
+```
 
-### Frontend Data Flow
-- SwiftData manages model context
-- Environment injection for `modelContext`
-- `@Query` property wrapper for reactive data fetching
+### Documentation Management (docs/)
+```bash
+./docs/check-project.sh -v              # Validate all YAML files
+./docs/feature-specs/list-features.sh   # Show features with stats
+./docs/user-stories/list-stories.sh     # Filter by feature/status
+./docs/list-apis.sh --format curl       # Generate API examples
+```
+
+## Critical Constraints
+
+### AI Image Generation Pipeline
+- **Reference images MUST use R2 HTTPS URLs** - Local file paths rejected by validation
+- **R2 bucket:** `mystica-assets` at `pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev`
+- **Reference images directory:** `image-refs/` in R2 bucket
+- **Hardcoded references (generate-raw-image.ts):** 5 R2 URLs for style consistency
+- **Material limits:** 1-3 materials required for generate-image.ts
+- **Seed data sources:** `docs/seed-data-{items,materials,monsters}.json`
+
+### Swift UI Architecture
+- **NavigationManager is global singleton** - injected via `@EnvironmentObject`, manages NavigationPath + history
+- **NavigationDestination enum drives routing** - all views registered in ContentView:21 switch
+- **Custom components enforce design system** - TitleText, NormalText, IconButton, TextButton with mystica* colors
+- **Color palette is hardcoded** - `UI/Colors/Colors.swift` defines mysticaDarkBrown, mysticaLightBrown, etc.
+- **Impact font required** - Used in all buttons (TextButton:72)
+
+### Backend Configuration
+- **No build step** - Express serves directly (`pnpm build` echoes "No build step required")
+- **Port override via ENV** - `PORT` environment variable (bin/www:15)
+- **Supabase local ports** - API:54321, DB:54322, Studio:54323, Inbucket:54324
+- **Railway deployment** - Uses Nixpacks builder, `pnpm install` + `pnpm start`
+
+### Documentation System
+- **YAML-based specs with strict conventions** - Features `F-01`, Stories `US-101`, files kebab-case
+- **Cross-document linking required** - Stories/specs must set `feature_id` matching PRD
+- **Status values enforced:** `incomplete | in-progress | complete`
+- **Management scripts expect 2-space YAML indent** - Quote special chars, no blank fields
+- **Workflow order matters:** PRD → Flows → Stories → Specs → Design → APIs → Data → Traceability
+
+## Environment Variables
+
+Required in `.env.local` (root or scripts/):
+
+```bash
+# AI Services
+REPLICATE_API_TOKEN=...      # Required for all image generation
+OPENAI_API_KEY=...           # Required for generate-item-description.ts
+
+# Supabase (Backend)
+SUPABASE_ANON_KEY=...
+SUPABASE_SERVICE_ROLE_KEY=...
+
+# Optional (documented but not actively used)
+ELEVENLABS_API_KEY=...
+GOOGLE_API_KEY=...
+HF_TOKEN=...
+SERP_API_KEY=...
+```
+
+## Architecture Patterns
+
+### AI Image Generation Flow
+1. **generate-item-description.ts** (scripts:38-126) - GPT-4.1-mini generates name + 2-sentence description from itemType + materials, enforces material fusion (e.g., cactus blender = cactus-shaped blender body, not cacti inside)
+2. **generate-image.ts** (scripts:1-459) - Replicate (Gemini/Seedream) generates image from prompt + R2 reference URLs for style consistency
+3. **generate-raw-image.ts** (scripts:1-395) - Batch-generates seed data images with hardcoded 5-reference set, outputs to `output/raw/{items,materials}/`
+
+### Swift Navigation System
+- **ContentView wraps NavigationStack** with `$navigationManager.navigationPath` binding
+- **NavigationManager tracks history** (max 10) and provides navigateTo/navigateBack methods
+- **SimpleNavigableView wrapper** auto-adds back button for quick view creation
+- **Environment injection pattern:** NavigationManager injected at app root (New_MysticaApp.swift:31-32)
+
+### Express Backend Structure
+- **Minimal routes:** Only `/` (index) and `/users` defined (app.js:22-23)
+- **Centralized error handling:** 404 → error middleware → Jade template (app.js:26-39)
+- **Supabase integration ready** but no active database code yet
+
+### Documentation System
+- **Six management scripts** validate/query YAML: check-project.sh, list-features.sh, list-stories.sh, list-flows.sh, list-apis.sh, generate-docs.sh
+- **ID-based cross-referencing** prevents orphaned specs (every F-## needs matching feature spec)
+- **Traceability validation** ensures flows → PRD features, stories → feature_id, APIs → feature IDs
+
+## Key Technologies
+
+- **Backend:** Express.js 4.16.1, Node.js CommonJS, Jade 1.11.0, pnpm
+- **Frontend:** SwiftUI, SwiftData (persistent ModelContainer), Xcode project structure
+- **Scripts:** TypeScript 5.7.2, tsx 4.19.2, CommonJS mode
+- **AI Services:** Replicate (google/nano-banana, bytedance/seedream-4), OpenAI GPT-4.1-mini, Vercel AI SDK
+- **Infrastructure:** Cloudflare R2 (mystica-assets bucket), Railway (Nixpacks), Supabase local dev
+
+## Cloudflare R2 Integration
+
+**Public bucket URL:** `https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/`
+
+**Wrangler CLI operations:**
+```bash
+wrangler r2 object list mystica-assets                                    # List objects
+wrangler r2 object put mystica-assets/image-refs/IMG_0821.png --file=...  # Upload
+wrangler r2 object get mystica-assets/image-refs/IMG_0821.png --file=...  # Download
+```
+
+**Reference images** (5 R2 URLs) hardcoded in generate-raw-image.ts:14-20 for consistent style transfer
+
+## File Organization Patterns
+
+### Swift Project
+- `UI/Components/` - Reusable components (TextComponents, ButtonComponents, PopupComponents)
+- `UI/Colors/Colors.swift` - Color palette extensions
+- `UI/Previews/UIComponentsPreview.swift` - Live component gallery
+- Root views: MainMenuView, MapView, CollectionView, ContentView (router)
+
+### Backend
+- `routes/*.js` - Express route handlers
+- `views/*.jade` - Jade templates
+- `public/` - Static assets
+- `bin/www` - Server bootstrap
+
+### Scripts
+- `generate-*.ts` - AI generation tools
+- `output/` - Generated images (gitignored)
+- `package.json` - Uses CommonJS (type: "commonjs")
+
+### Documentation
+- `docs/*.yaml` - Top-level specs (PRD, system-design, api-contracts, data-plan, design-spec)
+- `docs/{user-flows,user-stories,feature-specs}/*.yaml` - Categorized specs
+- `docs/external/*.md` - Third-party API documentation
+- `docs/seed-data-*.json` - Game data (items, materials, monsters)
 
 ## Common Patterns
 
+### Adding Swift Views
+1. Create view file in `New-Mystica/New-Mystica/`
+2. Add case to `NavigationDestination` enum (NavigationManager.swift:12)
+3. Add case to ContentView router switch (ContentView.swift:28)
+4. Use `@EnvironmentObject var navigationManager: NavigationManager` for navigation
+
 ### Adding Backend Routes
 1. Create route file in `mystica-express/routes/`
-2. Register in `app.js` using `app.use(path, router)`
-3. Follow existing route patterns in `routes/index.js`
+2. Register in app.js: `app.use('/path', require('./routes/filename'))`
 
-### Adding Frontend Views
-1. Create new Swift file in `New-Mystica/New-Mystica/`
-2. Import SwiftUI and SwiftData as needed
-3. Use `@Environment(\.modelContext)` for data operations
-4. Use `@Query` for reactive data fetching
+### Generating Item Images
+1. Check seed data: `docs/seed-data-{items,materials}.json`
+2. Run with 1-3 materials: `pnpm generate-image --type "..." --materials "..." --provider gemini -r "..."`
+3. Output: `scripts/output/gemini-{timestamp}.png`
 
-## Scripts & AI Pipeline
+### Managing Documentation
+1. Run `./docs/check-project.sh` before editing
+2. Use list scripts to check existing IDs (`list-features.sh`, `list-stories.sh`)
+3. Maintain feature_id links (stories → F-##, specs → F-##)
+4. Validate after changes: `./docs/check-project.sh -v`
 
-### Image Generation Pipeline
-The `scripts/` directory contains TypeScript tools for AI-powered image generation:
+## Special Notes
 
-- **generate-image.ts** - Main image generation script using Replicate
-- **generate-item-description.ts** - AI-powered item description generation
-
-### Cloudflare R2 Integration
-Reference images are hosted on Cloudflare R2 (`mystica-assets` bucket):
-- **Storage:** `image-refs/` directory in R2 bucket
-- **Access:** HTTPS URLs only (no local file support)
-- **Management:** Wrangler CLI for uploads/management
-
-See `docs/external/r2-image-hosting.md` for complete setup and usage instructions.
+- **SwiftUI previews require SwiftData** - Always include `.modelContainer(for: Item.self, inMemory: true)` and `.environmentObject(NavigationManager())`
+- **Wrangler CLI already authenticated** - No API keys needed for R2 operations via CLI
+- **AI generation costs** - Replicate per-second billing (~$0.002-0.01/image), OpenAI ~$0.0001-0.0005/description
+- **.env.local location** - Scripts look for `.env.local` in project root (scripts/generate-image.ts:8)
+- **Documentation workflow is sequential** - Each phase depends on upstream docs (see CLAUDE.md in docs/)
