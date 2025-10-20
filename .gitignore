@@ -7,8 +7,13 @@ node_modules/
 # Xcode
 *.xcodeproj/xcuserdata/
 *.xcworkspace/xcuserdata/
+*.xcuserstate
+*.xcuserdatad
 DerivedData/
 *.hmap
 *.ipa
 *.dSYM.zip
 *.dSYM
+
+# Claude agent responses
+agent-responses/
