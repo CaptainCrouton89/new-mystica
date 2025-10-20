@@ -1,0 +1,107 @@
+# Product Requirements Document
+# Keep descriptions brief. Features link to feature-title.yaml specs.
+
+status: draft
+last_updated: 2025-10-19
+
+overview:
+  project_name: "New Mystica"
+  summary: "A full-stack application combining an Express.js backend API with native iOS/macOS SwiftUI frontend. Built for [define purpose - awaiting user input]."
+  problem_statement: "[To be defined - What problem does New Mystica solve? Who are the users and what pain points do they experience?]"
+
+scope:
+  in_scope:
+    - Native iOS/macOS application with SwiftUI
+    - RESTful API backend with Express.js
+    - Database persistence with Supabase (PostgreSQL)
+    - User authentication and authorization
+    - Local data persistence with SwiftData
+    - Cloud deployment via Railway
+  out_of_scope:
+    - Web frontend (mobile-only focus)
+    - Android support (iOS/macOS only)
+    - Real-time collaboration features (v1)
+    - Third-party integrations (v1)
+
+summary:
+  goal: "[To be defined - What is the primary goal of New Mystica?]"
+  primary_users:
+    - "[User Persona 1 - To be defined]"
+    - "[User Persona 2 - To be defined]"
+  key_problems_solved:
+    - "[Problem 1 - To be defined]"
+    - "[Problem 2 - To be defined]"
+
+features:
+  - id: "F-01"
+    description: "User Authentication - Secure user registration, login, and session management"
+    priority: "high"
+    status: "planned"
+
+  - id: "F-02"
+    description: "Data Management - CRUD operations for core data entities with local and cloud sync"
+    priority: "high"
+    status: "planned"
+
+  - id: "F-03"
+    description: "Native Mobile UI - SwiftUI-based interface optimized for iOS/macOS"
+    priority: "high"
+    status: "planned"
+
+technical_constraints:
+  platforms:
+    - iOS 17+
+    - macOS 14+
+  backend:
+    - Express.js 4.16.x
+    - Node.js runtime
+    - Supabase PostgreSQL
+  frontend:
+    - SwiftUI
+    - SwiftData for local persistence
+  deployment:
+    - Railway for backend hosting
+    - TestFlight for mobile app distribution
+
+timeline:
+  milestones:
+    - phase: "Phase 1 - Foundation"
+      target: "[To be defined]"
+      deliverables:
+        - Core authentication system
+        - Basic data model and API
+        - Skeleton UI framework
+
+    - phase: "Phase 2 - Core Features"
+      target: "[To be defined]"
+      deliverables:
+        - "[To be defined based on feature priorities]"
+
+    - phase: "Phase 3 - Polish & Launch"
+      target: "[To be defined]"
+      deliverables:
+        - Production deployment
+        - App Store submission
+        - User onboarding flow
+
+success_metrics:
+  - metric: "[To be defined - e.g., daily active users, data entries created, etc.]"
+    target: "[To be defined]"
+  - metric: "[To be defined]"
+    target: "[To be defined]"
+
+notes: |
+  This PRD is based on the initial project scaffolding. The following need to be defined through user input:
+
+  1. What is the core purpose/domain of New Mystica? (e.g., task management, journaling, finance tracking, etc.)
+  2. Who are the target users and what are their primary use cases?
+  3. What specific problems does this solve that existing solutions don't address?
+  4. What are the priority features beyond basic auth and data management?
+  5. What is the timeline for development phases?
+
+  Current codebase state (as of 2025-10-19):
+  - Backend: Express.js scaffold with basic routing (/, /users)
+  - Frontend: SwiftUI scaffold with simple Item model (timestamp only)
+  - Database: Supabase configured but not yet integrated
+  - Authentication: Not yet implemented
+  - Deployment: Railway configured but app not yet deployed
