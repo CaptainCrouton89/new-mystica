@@ -2,7 +2,7 @@
 # Architecture, components, data flow, and technical decisions.
 
 status: draft
-last_updated: 2025-10-19
+last_updated: 2025-01-27
 
 overview:
   goal: "Build a location-based mobile RPG with real-time GPS tracking, combat mechanics, and crafting progression. System must handle location queries, combat sessions, AI item generation, and persistent user data. Designed for thousands of concurrent mobile clients with low latency (<500ms API response)."
@@ -65,16 +65,19 @@ core_components:
       - "CORS middleware for client requests"
 
   - component: "Location Service"
-    description: "Manages spawn locations and enemy assignments. Handles /locations/nearby queries with geospatial distance calculations. Returns locations within radius sorted by distance."
+    description: "Manages spawn locations and level-aware pool system for enemy/loot assignments. Handles /locations/nearby queries with geospatial distance calculations. Implements tag/filter-based pool system where pools are level-specific and apply based on location attributes (location_type, state, country, coordinates). Returns locations within radius sorted by distance with dynamically assigned enemies from matching pools."
     dependencies:
       - "PostgreSQL PostGIS extension for geo queries"
-      - "Locations table in Supabase"
+      - "Locations table with location_type, state_code, country_code metadata"
+      - "EnemyPools and LootPools with filter-based matching logic"
+      - "Pool member tables for weighted random selection"
 
   - component: "Combat Service"
-    description: "Manages combat sessions in-memory (Redis) with TTL expiration. Calculates damage based on player stats, enemy stats, and timing multiplier. Awards items/pets on victory."
+    description: "Manages combat sessions in-memory (Redis) with TTL expiration. Calculates damage based on player stats, enemy stats, and timing multiplier. Awards items/pets on victory. Uses level-aware pool system to dynamically select enemies and loot drops based on player level and location attributes."
     dependencies:
       - "Redis for session storage (TTL: 15 min)"
       - "Items and enemies tables"
+      - "EnemyPools and LootPools for dynamic assignment"
       - "Stat calculation logic"
 
   - component: "Inventory Service"
@@ -91,16 +94,21 @@ core_components:
       - "Background job queue (pg_cron or Redis Queue)"
 
   - component: "AI Generation Service"
-    description: "Generates unique item descriptions and stat distributions via AI (OpenAI/Anthropic). Validates stat distributions sum to 1.0. Caches generated items to avoid regeneration."
+    description: "Generates unique item descriptions and stat distributions via AI (OpenAI/Anthropic). Also generates pet personality dialogue (F-11) and enemy trash-talk (F-12) during combat. Validates stat distributions sum to 1.0. Caches generated items to avoid regeneration. For pet chatter (F-11), uses personality prompts and combat context to generate supportive dialogue. For enemy chatter (F-12), uses enemy type traits and player history to generate antagonistic trash-talk."
     dependencies:
-      - "OpenAI or Anthropic API"
+      - "OpenAI or Anthropic API (GPT-4.1-nano or GPT-4o-mini recommended)"
       - "Item_templates table for caching"
+      - "Pet_personalities seed data for dialogue generation (F-11)"
+      - "Enemy_types seed data for trash-talk generation (F-12)"
+      - "Player_combat_history for enemy AI context (F-12)"
+      - "Combat session context from Redis (F-11, F-12)"
 
   - component: "Supabase PostgreSQL"
-    description: "Primary database for all persistent data: users, items, locations, enemies, crafting sessions. Provides geospatial queries via PostGIS, ACID transactions, and row-level security."
+    description: "Primary database for all persistent data including core entities (Users, Items, ItemTypes, Materials, MaterialInstances), pet system (Pets, PetPersonalities), enemy AI (EnemyTypes, PlayerCombatHistory), and analytics (CombatChatterLog, EnemyChatterLog). Full schema documented in data-plan.yaml. Provides geospatial queries via PostGIS, ACID transactions, and row-level security."
     dependencies:
       - "Supabase hosted PostgreSQL"
       - "PostGIS extension for location queries"
+      - "Comprehensive schema design in data-plan.yaml"
 
   - component: "Supabase Auth"
     description: "Manages user authentication, password hashing, email verification, and JWT token issuance. Integrates with backend via JWT validation middleware."
@@ -130,17 +138,22 @@ data_flow: |
 
   **Combat Flow:**
   1. Client → Backend API: POST /combat/start {location_id}
-  2. Backend → PostgreSQL: SELECT enemy WHERE location_id = {id}
-  3. Backend → PostgreSQL: SELECT equipped items WHERE owner_id = {player_id}
-  4. Backend → Redis: Store combat session {player_hp, enemy_hp, stats}
-  5. Backend → Client: {session_id, enemy, player_stats}
-  6. Client → Backend API: POST /combat/attack {session_id, tap_accuracy}
-  7. Backend → Redis: GET session, calculate damage, update HPs
-  8. Backend → Client: {damage_dealt, enemy_damage, player_hp, enemy_hp, status}
-  9. Repeat until victory/defeat
-  10. Client → Backend API: POST /combat/complete {session_id, result}
-  11. Backend → PostgreSQL: INSERT item (if victory)
-  12. Backend → Client: {reward: {item}}
+  2. Backend → PostgreSQL: SELECT location metadata (location_type, state_code, country_code, lat, lng)
+  3. Backend → PostgreSQL: Calculate player combat level from avg equipped item level
+  4. Backend → PostgreSQL: Query matching EnemyPools based on combat level and location filters
+  5. Backend → PostgreSQL: Aggregate EnemyPoolMembers, select enemy via weighted random
+  6. Backend → PostgreSQL: Query matching LootPools for later drop calculation
+  7. Backend → PostgreSQL: SELECT equipped items WHERE owner_id = {player_id}
+  8. Backend → Redis: Store combat session {player_hp, enemy_hp, stats, applied_pools}
+  9. Backend → Client: {session_id, enemy, player_stats}
+  10. Client → Backend API: POST /combat/attack {session_id, tap_accuracy}
+  11. Backend → Redis: GET session, calculate damage, update HPs
+  12. Backend → Client: {damage_dealt, enemy_damage, player_hp, enemy_hp, status}
+  13. Repeat until victory/defeat
+  14. Client → Backend API: POST /combat/complete {session_id, result}
+  15. Backend → PostgreSQL: Use stored LootPools to calculate drops (if victory)
+  16. Backend → PostgreSQL: INSERT materials/items (if victory)
+  17. Backend → Client: {reward: {items, materials}}
 
   **Crafting Flow:**
   1. Client → Backend API: POST /crafting/start {parent_item_1, parent_item_2}
@@ -153,6 +166,47 @@ data_flow: |
   8. Push Notification → Client: "Crafting complete!"
   9. Client → Backend API: POST /crafting/complete {session_id}
   10. Backend → Client: {child_item}
+
+  **Pet Chatter Flow (F-11):**
+  1. Player equips pet → Client → Backend API: PUT /pets/{pet_id}/personality {personality_type}
+  2. Backend → PostgreSQL: INSERT/UPDATE player_pet_personalities
+  3. During combat: Player taps attack dial → Combat system calculates outcome
+  4. Client → Backend API: POST /combat/pet-chatter {session_id, event_type, event_details}
+  5. Backend → PostgreSQL: JOIN player_pet_personalities → get personality_type
+  6. Backend → PostgreSQL: SELECT pet_personalities WHERE personality_type = {type}
+  7. Backend → Redis: GET combat session context {player_hp, enemy_hp, turn_count}
+  8. Backend → AI Service: Construct prompt with personality + combat context + event
+     - System prompt: base_dialogue_style from pet_personalities
+     - Context: "Turn {turn}, Player HP: {hp}%, Enemy HP: {hp}%"
+     - Event: "Player attacked for {damage} damage (accuracy: {accuracy})"
+     - Instruction: "Generate 1-2 sentence reaction. Be {verbosity}."
+  9. AI Service → Backend: Generated dialogue (with 1-2s timeout)
+  10. Backend → PostgreSQL: INSERT combat_chatter_log (for analytics)
+  11. Backend → Client: {dialogue, personality_type, generation_time_ms}
+  12. Client: Display dialogue in speech bubble above pet sprite (2-3s duration)
+  13. If AI timeout/error → Fallback: select random example_phrase from pet_personalities
+
+  **Enemy Chatter Flow (F-12):**
+  1. Combat starts: Client → Backend API: POST /combat/start {location_id}
+  2. Backend → PostgreSQL: SELECT enemy type for location
+  3. Backend → PostgreSQL: SELECT/INSERT player_combat_history {player_id, location_id} (initialize if first attempt)
+  4. During combat: Combat event occurs (player hits, enemy hits, HP threshold, etc.)
+  5. Client → Backend API: POST /combat/enemy-chatter {session_id, event_type, event_details}
+  6. Backend → Redis: GET combat_session {enemy_type, player_id, location_id, combat_state}
+  7. Backend → PostgreSQL: SELECT enemy_types WHERE type = {enemy_type}
+  8. Backend → PostgreSQL: SELECT player_combat_history WHERE player_id + location_id
+  9. Backend → AI Service: Construct prompt with enemy personality + combat context + player history
+     - System prompt: base_dialogue_prompt from enemy_types (tone, traits)
+     - Context: "Turn {turn}, Enemy HP: {hp}%, Player HP: {hp}%"
+     - Player History: "Player has attempted {attempts} times ({victories}W/{defeats}L), current streak: {streak}"
+     - Event: "Player just {action} for {damage} damage (accuracy: {accuracy})"
+     - Instruction: "Generate 1-2 sentence trash-talk. Be {verbosity}. Tone: {dialogue_tone}."
+  10. AI Service → Backend: Generated dialogue (with 2s timeout)
+  11. Backend → PostgreSQL: INSERT enemy_chatter_log (for analytics)
+  12. Backend → Client: {dialogue, enemy_type, dialogue_tone, generation_time_ms, player_context_used}
+  13. Client: Display dialogue in speech bubble above enemy sprite (2-3s duration)
+  14. If AI timeout/error → Fallback: select random example_taunt from enemy_types.example_taunts
+  15. On combat end: Backend → PostgreSQL: UPDATE player_combat_history (increment attempts, victories/defeats, update streak)
 
 tech_stack:
   frontend: "SwiftUI (native iOS/macOS), SwiftData (local persistence), CoreLocation (GPS), Google Maps SDK (map rendering)"

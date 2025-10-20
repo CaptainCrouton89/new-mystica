@@ -2,7 +2,7 @@
 # Keep descriptions brief. Features link to feature-title.yaml specs.
 
 status: draft
-last_updated: 2025-10-19
+last_updated: 2025-10-20
 
 overview:
   project_name: "New Mystica"
@@ -49,22 +49,22 @@ features:
     status: "planned"
 
   - id: "F-03"
-    description: "Items System - Equippable items with location associations, rarity variants, and stackable stat modifiers (ATK/DEF/HP)"
+    description: "Base Items & Equipment System - 6 equipment slots (weapon, helmet, armor, amulet, ring, pet) with normalized stat blocks and level progression"
     priority: "critical"
     status: "planned"
 
   - id: "F-04"
-    description: "Pets System - Collectible pets with location associations, shiny variants, and stat bonuses"
-    priority: "high"
+    description: "Materials System - Collectible materials that modify item stats (max 3 per item), with normal and shiny variants, replaceable for gold"
+    priority: "critical"
     status: "planned"
 
   - id: "F-05"
-    description: "AI Item Generation - Backend service to generate unique items with balanced stat distributions and store in database"
-    priority: "high"
+    description: "Material Drop System - Enemies drop gold (always) and materials (60% chance), with 5% shiny rate and level-scaled rewards"
+    priority: "critical"
     status: "planned"
 
   - id: "F-06"
-    description: "Crafting System - Fuse two same-type items to create child items up to 3rd generation with increasing crafting time"
+    description: "Item Upgrade System - Spend gold to level up items, increasing stat values while maintaining normalized ratios"
     priority: "high"
     status: "planned"
 
@@ -86,6 +86,16 @@ features:
   - id: "F-10"
     description: "Premium Items - Special single-location items available through premium currency"
     priority: "medium"
+    status: "planned"
+
+  - id: "F-11"
+    description: "Pet Personality System - AI-powered dynamic pet personalities that generate contextual trash-talk and commentary during combat based on pet traits and battle events"
+    priority: "high"
+    status: "planned"
+
+  - id: "F-12"
+    description: "Enemy AI Personality System - AI-powered enemy personalities that generate contextual trash-talk during combat based on enemy type, game state, and player history (attempts, win/loss record, streaks)"
+    priority: "high"
     status: "planned"
 
 technical_constraints:
@@ -147,29 +157,45 @@ success_metrics:
     target: "Average 15+ minutes per session"
   - metric: "Retention (Day 7)"
     target: "40% D7 retention"
-  - metric: "Crafting Engagement"
-    target: "60% of active users craft at least 1 item per week"
+  - metric: "Material Application Rate"
+    target: "70% of collected materials applied to items within 24 hours"
   - metric: "Location Visits"
     target: "Average 3+ unique locations visited per session"
+  - metric: "Upgrade Engagement"
+    target: "Average 2+ item upgrades per active user per day"
 
 notes: |
   Core gameplay loop:
   1. Navigate to real-world location using map
-  2. Discover location-specific enemy
-  3. Engage in timing-based combat using equipped items + pet
-  4. Collect defeated enemy as item/pet
-  5. Return home to craft higher-generation items
-  6. Repeat with stronger loadout
+  2. Discover location-specific enemy with level = player average item level
+  3. Engage in timing-based combat (attack dial + defense dial)
+  4. Defeat enemy → receive gold + material drops (60% chance, 5% shiny)
+  5. Apply materials to base items (max 3 materials per item)
+  6. Upgrade items with gold to increase level and stats
+  7. Equip stronger items and repeat with harder enemies
 
   Key differentiators:
-  - Tactical combat vs passive collection
-  - Deep crafting progression (3 generations)
-  - AI-generated items ensure uniqueness
-  - Location-specific spawns create exploration goals
-  - Shiny variants add collector appeal
+  - Tactical combat with skill-based timing (attack AND defense dials)
+  - Material-based customization (stack up to 3 materials per item)
+  - Normalized stat system (stats sum to 1.0, materials modify by ±0.1-0.3)
+  - Dynamic enemy scaling (always appropriately challenging)
+  - Shiny materials (+20% stat modifiers) for rare power spikes
+  - Vanity level progression system (driven by item levels)
 
-  Technical notes:
-  - Items generated once by AI, stored in DB (not generated per-player)
-  - Crafting limited to same type, same generation
-  - Max 3rd generation prevents infinite power creep
-  - Crafting time increases each generation to pace progression
+  Material System Details:
+  - Base items have normalized stats: {atkPower, atkAccuracy, defPower, defAccuracy} sum to 1.0
+  - Materials apply modifiers like +0.2 atkPower, -0.1 defSpeed (must sum to 0)
+  - Max 3 materials per item (prevents excessive stacking)
+  - Materials can be replaced for gold cost (old material destroyed)
+  - Shiny materials: same modifiers but 1.2x effectiveness
+
+  Combat Mechanics:
+  - Attack dial: Timing determines damage multiplier (atkAccuracy = hit window size)
+  - Defense dial: Timing determines damage reduction % (defAccuracy = block window size)
+  - atkPower scales base damage, defPower scales reduction percentage
+  - Enemy stats scale to player's average equipped item level
+
+  Progression Systems:
+  - Item levels: Spend gold to level up items (stats scale proportionally)
+  - Vanity level: Increases based on total item levels across all items
+  - Enemy difficulty: Scales dynamically to player's average item level
