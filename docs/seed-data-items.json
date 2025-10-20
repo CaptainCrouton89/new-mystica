@@ -1,0 +1,342 @@
+{
+  "items": [
+    {
+      "id": "gatling_gun",
+      "name": "Gatling Gun",
+      "slot": "weapon",
+      "base_stats": {
+        "atkPower": 0.5,
+        "atkAccuracy": 0.15,
+        "defPower": 0.2,
+        "defAccuracy": 0.15
+      },
+      "description": "Rapid-fire mayhem with overwhelming firepower",
+      "rarity": "epic"
+    },
+    {
+      "id": "sword",
+      "name": "Sword",
+      "slot": "weapon",
+      "base_stats": {
+        "atkPower": 0.4,
+        "atkAccuracy": 0.25,
+        "defPower": 0.25,
+        "defAccuracy": 0.1
+      },
+      "description": "Classic blade balancing power and precision",
+      "rarity": "epic"
+    },
+    {
+      "id": "enormous_key",
+      "name": "Enormous Key",
+      "slot": "weapon",
+      "base_stats": {
+        "atkPower": 0.35,
+        "atkAccuracy": 0.2,
+        "defPower": 0.3,
+        "defAccuracy": 0.15
+      },
+      "description": "Oversized key that unlocks pain",
+      "rarity": "uncommon"
+    },
+    {
+      "id": "umbrella",
+      "name": "Umbrella",
+      "slot": "shield",
+      "base_stats": {
+        "atkPower": 0.15,
+        "atkAccuracy": 0.15,
+        "defPower": 0.4,
+        "defAccuracy": 0.3
+      },
+      "description": "Gentlemanly protection from all elements",
+      "rarity": "rare"
+    },
+    {
+      "id": "jar_of_jelly",
+      "name": "Jar of Jelly",
+      "slot": "shield",
+      "base_stats": {
+        "atkPower": 0.1,
+        "atkAccuracy": 0.1,
+        "defPower": 0.5,
+        "defAccuracy": 0.3
+      },
+      "description": "Gelatinous barrier absorbing all impacts",
+      "rarity": "common"
+    },
+    {
+      "id": "trash_can_lid",
+      "name": "Trash Can Lid",
+      "slot": "shield",
+      "base_stats": {
+        "atkPower": 0.2,
+        "atkAccuracy": 0.1,
+        "defPower": 0.45,
+        "defAccuracy": 0.25
+      },
+      "description": "Makeshift defense with surprising effectiveness",
+      "rarity": "uncommon"
+    },
+    {
+      "id": "halo",
+      "name": "Halo",
+      "slot": "head",
+      "base_stats": {
+        "atkPower": 0.25,
+        "atkAccuracy": 0.3,
+        "defPower": 0.25,
+        "defAccuracy": 0.2
+      },
+      "description": "Divine circlet enhancing awareness",
+      "rarity": "common"
+    },
+    {
+      "id": "bicycle_helmet",
+      "name": "Bicycle Helmet",
+      "slot": "head",
+      "base_stats": {
+        "atkPower": 0.2,
+        "atkAccuracy": 0.2,
+        "defPower": 0.35,
+        "defAccuracy": 0.25
+      },
+      "description": "Safety first, combat second",
+      "rarity": "epic"
+    },
+    {
+      "id": "cowboy_hat",
+      "name": "Cowboy Hat",
+      "slot": "head",
+      "base_stats": {
+        "atkPower": 0.3,
+        "atkAccuracy": 0.25,
+        "defPower": 0.25,
+        "defAccuracy": 0.2
+      },
+      "description": "Yeehaw energy providing confident swagger",
+      "rarity": "common"
+    },
+    {
+      "id": "bubble_wrap_vest",
+      "name": "Bubble Wrap Vest",
+      "slot": "armor",
+      "base_stats": {
+        "atkPower": 0.15,
+        "atkAccuracy": 0.15,
+        "defPower": 0.45,
+        "defAccuracy": 0.25
+      },
+      "description": "Pop pop pop goes the damage",
+      "rarity": "uncommon"
+    },
+    {
+      "id": "disco_ball_armor",
+      "name": "Disco Ball Armor",
+      "slot": "armor",
+      "base_stats": {
+        "atkPower": 0.2,
+        "atkAccuracy": 0.3,
+        "defPower": 0.3,
+        "defAccuracy": 0.2
+      },
+      "description": "Reflective protection that dazzles enemies",
+      "rarity": "common"
+    },
+    {
+      "id": "leather_jacket",
+      "name": "Leather Jacket",
+      "slot": "armor",
+      "base_stats": {
+        "atkPower": 0.25,
+        "atkAccuracy": 0.2,
+        "defPower": 0.35,
+        "defAccuracy": 0.2
+      },
+      "description": "Rebellious hide offering tough protection",
+      "rarity": "rare"
+    },
+    {
+      "id": "roller_skates",
+      "name": "Roller Skates",
+      "slot": "feet",
+      "base_stats": {
+        "atkPower": 0.25,
+        "atkAccuracy": 0.3,
+        "defPower": 0.2,
+        "defAccuracy": 0.25
+      },
+      "description": "Speedy wheels dodging with style",
+      "rarity": "uncommon"
+    },
+    {
+      "id": "combat_boots",
+      "name": "Combat Boots",
+      "slot": "feet",
+      "base_stats": {
+        "atkPower": 0.3,
+        "atkAccuracy": 0.2,
+        "defPower": 0.3,
+        "defAccuracy": 0.2
+      },
+      "description": "Military-grade stompers for serious combat",
+      "rarity": "uncommon"
+    },
+    {
+      "id": "fuzzy_slippers",
+      "name": "Fuzzy Slippers",
+      "slot": "feet",
+      "base_stats": {
+        "atkPower": 0.15,
+        "atkAccuracy": 0.15,
+        "defPower": 0.4,
+        "defAccuracy": 0.3
+      },
+      "description": "Maximum comfort, surprising resilience",
+      "rarity": "uncommon"
+    },
+    {
+      "id": "shiny_coin",
+      "name": "Shiny Coin",
+      "slot": "accessory",
+      "base_stats": {
+        "atkPower": 0.3,
+        "atkAccuracy": 0.25,
+        "defPower": 0.25,
+        "defAccuracy": 0.2
+      },
+      "description": "Lucky charm reflecting opportunity",
+      "rarity": "common"
+    },
+    {
+      "id": "cupcake",
+      "name": "Cupcake",
+      "slot": "accessory",
+      "base_stats": {
+        "atkPower": 0.2,
+        "atkAccuracy": 0.2,
+        "defPower": 0.35,
+        "defAccuracy": 0.25
+      },
+      "description": "Sweet treat boosting morale",
+      "rarity": "rare"
+    },
+    {
+      "id": "a_rose",
+      "name": "A Rose",
+      "slot": "accessory",
+      "base_stats": {
+        "atkPower": 0.25,
+        "atkAccuracy": 0.3,
+        "defPower": 0.2,
+        "defAccuracy": 0.25
+      },
+      "description": "Romantic flower with hidden thorns",
+      "rarity": "common"
+    },
+    {
+      "id": "mood_ring",
+      "name": "Mood Ring",
+      "slot": "accessory",
+      "base_stats": {
+        "atkPower": 0.22,
+        "atkAccuracy": 0.28,
+        "defPower": 0.25,
+        "defAccuracy": 0.25
+      },
+      "description": "Color-changing jewelry reading combat flow",
+      "rarity": "uncommon"
+    },
+    {
+      "id": "scrunchie",
+      "name": "Scrunchie",
+      "slot": "accessory",
+      "base_stats": {
+        "atkPower": 0.2,
+        "atkAccuracy": 0.25,
+        "defPower": 0.3,
+        "defAccuracy": 0.25
+      },
+      "description": "90s fashion accessory with surprising utility",
+      "rarity": "rare"
+    },
+    {
+      "id": "harmonica",
+      "name": "Harmonica",
+      "slot": "accessory",
+      "base_stats": {
+        "atkPower": 0.28,
+        "atkAccuracy": 0.27,
+        "defPower": 0.22,
+        "defAccuracy": 0.23
+      },
+      "description": "Musical instrument that weaponizes sound",
+      "rarity": "common"
+    },
+    {
+      "id": "dog",
+      "name": "Dog",
+      "slot": "pet",
+      "base_stats": {
+        "atkPower": 0.3,
+        "atkAccuracy": 0.25,
+        "defPower": 0.25,
+        "defAccuracy": 0.2
+      },
+      "description": "Loyal companion providing balanced support",
+      "rarity": "uncommon"
+    },
+    {
+      "id": "dragon",
+      "name": "Dragon",
+      "slot": "pet",
+      "base_stats": {
+        "atkPower": 0.45,
+        "atkAccuracy": 0.2,
+        "defPower": 0.2,
+        "defAccuracy": 0.15
+      },
+      "description": "Mythical beast breathing fire and fury",
+      "rarity": "common"
+    },
+    {
+      "id": "poop_emoji",
+      "name": "Poop Emoji",
+      "slot": "pet",
+      "base_stats": {
+        "atkPower": 0.2,
+        "atkAccuracy": 0.2,
+        "defPower": 0.35,
+        "defAccuracy": 0.25
+      },
+      "description": "Literal shit that somehow helps in combat",
+      "rarity": "epic"
+    },
+    {
+      "id": "lil_buddy",
+      "name": "Lil Buddy",
+      "slot": "pet",
+      "base_stats": {
+        "atkPower": 0.25,
+        "atkAccuracy": 0.3,
+        "defPower": 0.25,
+        "defAccuracy": 0.2
+      },
+      "description": "Small friend with big heart",
+      "rarity": "rare"
+    },
+    {
+      "id": "robot",
+      "name": "Robot",
+      "slot": "pet",
+      "base_stats": {
+        "atkPower": 0.35,
+        "atkAccuracy": 0.3,
+        "defPower": 0.2,
+        "defAccuracy": 0.15
+      },
+      "description": "Mechanical companion computing optimal strategies",
+      "rarity": "uncommon"
+    }
+  ]
+}

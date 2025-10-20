@@ -1,0 +1,184 @@
+{
+  "monsters": [
+    {
+      "id": "spray_paint_goblin",
+      "name": "Spray Paint Goblin",
+      "min_combat_level": 1,
+      "base_stats": {
+        "atkPower": 8.0,
+        "atkAccuracy": 6.0,
+        "defPower": 5.0,
+        "defAccuracy": 4.0
+      },
+      "personality_traits": [
+        "street-smart urban artist",
+        "sarcastic and witty",
+        "tagging everything mid-combat"
+      ],
+      "dialogue_tone": "aggressive",
+      "description": "Chaotic street artist attacking with aerosol cans and artistic fury"
+    },
+    {
+      "id": "sentient_vending_machine",
+      "name": "Sentient Vending Machine",
+      "min_combat_level": 2,
+      "base_stats": {
+        "atkPower": 7.0,
+        "atkAccuracy": 5.0,
+        "defPower": 9.0,
+        "defAccuracy": 5.0
+      },
+      "personality_traits": [
+        "coin-hungry capitalist",
+        "dispensing threats instead of snacks",
+        "rattling menacingly"
+      ],
+      "dialogue_tone": "transactional",
+      "description": "Rogue appliance demanding exact change and respect"
+    },
+    {
+      "id": "goopy_floating_eye",
+      "name": "Goopy Floating Eye",
+      "min_combat_level": 3,
+      "base_stats": {
+        "atkPower": 6.0,
+        "atkAccuracy": 9.0,
+        "defPower": 6.0,
+        "defAccuracy": 8.0
+      },
+      "personality_traits": [
+        "all-seeing and ominous",
+        "condescending observer",
+        "dripping mysterious ooze"
+      ],
+      "dialogue_tone": "condescending",
+      "description": "Levitating eyeball oozing goo while judging your every move"
+    },
+    {
+      "id": "rogue_roomba",
+      "name": "Rogue Roomba",
+      "min_combat_level": 4,
+      "base_stats": {
+        "atkPower": 9.0,
+        "atkAccuracy": 8.0,
+        "defPower": 6.0,
+        "defAccuracy": 7.0
+      },
+      "personality_traits": [
+        "obsessively cleaning combat arena",
+        "beeping passive-aggressively",
+        "circling with menacing efficiency"
+      ],
+      "dialogue_tone": "mechanical",
+      "description": "Household robot gone haywire with aggressive cleaning protocols"
+    },
+    {
+      "id": "feral_unicorn",
+      "name": "Feral Unicorn",
+      "min_combat_level": 5,
+      "base_stats": {
+        "atkPower": 12.0,
+        "atkAccuracy": 7.0,
+        "defPower": 8.0,
+        "defAccuracy": 6.0
+      },
+      "personality_traits": [
+        "wild and unpredictable",
+        "magical but violent",
+        "sparkles mixed with rage"
+      ],
+      "dialogue_tone": "chaotic",
+      "description": "Once-majestic creature now corrupted into violent rainbow chaos"
+    },
+    {
+      "id": "Karen",
+      "name": "Karen",
+      "min_combat_level": 6,
+      "base_stats": {
+        "atkPower": 8.0,
+        "atkAccuracy": 10.0,
+        "defPower": 9.0,
+        "defAccuracy": 10.0
+      },
+      "personality_traits": [
+        "demanding to speak with manager",
+        "weaponizing entitlement",
+        "escalating every interaction"
+      ],
+      "dialogue_tone": "entitled",
+      "description": "Aggressively entitled customer manifesting pure rage"
+    },
+    {
+      "id": "bipedal_deer",
+      "name": "Bipedal Deer",
+      "min_combat_level": 7,
+      "base_stats": {
+        "atkPower": 10.0,
+        "atkAccuracy": 8.0,
+        "defPower": 9.0,
+        "defAccuracy": 9.0
+      },
+      "personality_traits": [
+        "forest-wise and territorial",
+        "eerily human-like",
+        "protecting ancient secrets"
+      ],
+      "dialogue_tone": "sarcastic",
+      "description": "Upright deer with unsettling intelligence and territorial aggression"
+    },
+    {
+      "id": "influencer_ghost",
+      "name": "Influencer Ghost",
+      "min_combat_level": 8,
+      "base_stats": {
+        "atkPower": 11.0,
+        "atkAccuracy": 11.0,
+        "defPower": 7.0,
+        "defAccuracy": 8.0
+      },
+      "personality_traits": [
+        "haunting with perfect lighting",
+        "demanding engagement and followers",
+        "viral threat energy"
+      ],
+      "dialogue_tone": "performative",
+      "description": "Deceased content creator still chasing clout from beyond"
+    },
+    {
+      "id": "existential_cube",
+      "name": "Existential Cube",
+      "min_combat_level": 9,
+      "base_stats": {
+        "atkPower": 9.0,
+        "atkAccuracy": 12.0,
+        "defPower": 12.0,
+        "defAccuracy": 11.0
+      },
+      "personality_traits": [
+        "questioning meaning of combat",
+        "philosophically devastating",
+        "rotating ominously through dimensions"
+      ],
+      "dialogue_tone": "philosophical",
+      "description": "Geometric entity pondering existence while attacking yours"
+    },
+    {
+      "id": "politician",
+      "name": "Politician",
+      "min_combat_level": 10,
+      "base_stats": {
+        "atkPower": 7.0,
+        "atkAccuracy": 11.0,
+        "defPower": 10.0,
+        "defAccuracy": 12.0
+      },
+      "personality_traits": [
+        "manipulative wordsmith",
+        "eloquent but dishonest",
+        "spinning everything into campaign speech"
+      ],
+      "dialogue_tone": "political",
+      "description": "Suit-wearing bureaucrat weaponizing rhetoric and empty promises"
+    }
+  ]
+}
