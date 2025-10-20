@@ -4,18 +4,26 @@
 
 ### Primary Colors
 
-- **Dark Brown (Primary)**: `#2D1810` - Main background, primary containers
-- **Light Brown (Secondary)**: `#8B4513` - Accent elements, highlights, secondary backgrounds
-- **Dark Gray (Tertiary)**: `#1A1A1A` - Text, borders, subtle elements
+- **Dark Gray (Primary)**: `#1A1A1A` - Main background, primary containers
+- **Charcoal Gray (Secondary)**: `#2F2F2F` - Secondary backgrounds, cards, depth layers
+- **Light Gray (Tertiary)**: `#E5E5E5` - Primary text, borders
 
-### Extended Palette
+### Accent Colors
 
-- **Warm Brown**: `#A0522D` - Interactive states, hover effects
-- **Soft Brown**: `#D2B48C` - Light text, disabled states
-- **Charcoal**: `#2F2F2F` - Secondary backgrounds, cards
-- **Light Gray**: `#E5E5E5` - Borders, dividers
-- **Accent Gold**: `#DAA520` - Special highlights, success states
-- **Error Red**: `#8B0000` - Error states, warnings
+- **Neon Pink**: `#FF1493` - Primary accent, CTAs, active states, highlights
+- **Neon Blue**: `#00BFFF` - Secondary accent, interactive elements, success states
+- **Bright Pink**: `#FF69B4` - Interactive states, hover effects, pressed buttons
+- **Bright Blue**: `#1E90FF` - Secondary interactive states, hover effects
+
+### Text Colors
+
+- **White**: `#FFFFFF` - High contrast text, primary headings
+- **Light Gray**: `#E5E5E5` - Primary text, body content
+- **Secondary Text**: `#B0B0B0` - Secondary text, captions, disabled states
+
+### Semantic Colors
+
+- **Error Pink**: `#FF1493` - Error states, warnings, negative feedback
 
 ## Typography
 
@@ -23,16 +31,16 @@
 
 - **Font**: System font, bold weight
 - **Size**: 28-32pt (iOS), 24-28px (Web)
-- **Color**: `#E5E5E5` (Light Gray)
+- **Color**: `#FFFFFF` (White)
 - **Line Height**: 1.2
 - **Letter Spacing**: 0.5pt
-- **Shadow**: `0 2px 4px rgba(0,0,0,0.3)`
+- **Shadow**: `0 2px 4px rgba(0,0,0,0.5)`
 
 ### Normal Text
 
 - **Font**: System font, regular weight
 - **Size**: 16-18pt (iOS), 14-16px (Web)
-- **Color**: `#D2B48C` (Soft Brown)
+- **Color**: `#E5E5E5` (Light Gray)
 - **Line Height**: 1.4
 - **Letter Spacing**: 0.2pt
 
@@ -40,7 +48,7 @@
 
 - **Font**: System font, regular weight
 - **Size**: 12-14pt (iOS), 12px (Web)
-- **Color**: `#8B4513` (Light Brown)
+- **Color**: `#B0B0B0` (Secondary Text)
 - **Line Height**: 1.3
 
 ## Button Styles
@@ -48,50 +56,50 @@
 ### Icon Button
 
 - **Size**: 44x44pt (iOS), 44x44px (Web) minimum touch target
-- **Background**: `#2D1810` (Dark Brown)
-- **Border**: 1px solid `#8B4513` (Light Brown)
+- **Background**: `#1A1A1A` (Dark Gray)
+- **Border**: 1px solid `#FF1493` (Neon Pink)
 - **Border Radius**: 8pt (iOS), 8px (Web)
-- **Icon Color**: `#D2B48C` (Soft Brown)
+- **Icon Color**: `#E5E5E5` (Light Gray)
 - **Icon Size**: 20x20pt (iOS), 20x20px (Web)
 - **Padding**: 12pt (iOS), 12px (Web)
 
 **States:**
 
-- **Default**: Background `#2D1810`, Border `#8B4513`
-- **Pressed**: Background `#1A1A1A`, Border `#A0522D`, Scale 0.95
-- **Disabled**: Background `#2F2F2F`, Border `#1A1A1A`, Icon `#8B4513`
+- **Default**: Background `#1A1A1A`, Border `#FF1493`
+- **Pressed**: Background `#2F2F2F`, Border `#FF69B4`, Scale 0.95
+- **Disabled**: Background `#2F2F2F`, Border `#B0B0B0`, Icon `#B0B0B0`
 
 ### Text Button
 
 - **Height**: 48pt (iOS), 48px (Web)
-- **Background**: `#8B4513` (Light Brown)
+- **Background**: `#FF1493` (Neon Pink)
 - **Border**: None
 - **Border Radius**: 12pt (iOS), 12px (Web)
-- **Text Color**: `#E5E5E5` (Light Gray)
+- **Text Color**: `#FFFFFF` (White)
 - **Font**: System font, semibold weight, 16-18pt (iOS), 14-16px (Web)
 - **Padding**: 16pt horizontal, 12pt vertical (iOS), 16px horizontal, 12px vertical (Web)
 
 **States:**
 
-- **Default**: Background `#8B4513`, Text `#E5E5E5`
-- **Pressed**: Background `#A0522D`, Scale 0.98
-- **Disabled**: Background `#2F2F2F`, Text `#8B4513`
+- **Default**: Background `#FF1493`, Text `#FFFFFF`
+- **Pressed**: Background `#FF69B4`, Scale 0.98
+- **Disabled**: Background `#2F2F2F`, Text `#B0B0B0`
 
 ### Back Button
 
 - **Size**: 40x40pt (iOS), 40x40px (Web)
 - **Background**: Transparent
-- **Border**: 1px solid `#8B4513` (Light Brown)
+- **Border**: 1px solid `#FF1493` (Neon Pink)
 - **Border Radius**: 20pt (iOS), 20px (Web) (circular)
 - **Icon**: Left-pointing chevron or arrow
-- **Icon Color**: `#D2B48C` (Soft Brown)
+- **Icon Color**: `#E5E5E5` (Light Gray)
 - **Icon Size**: 16x16pt (iOS), 16x16px (Web)
 
 **States:**
 
-- **Default**: Transparent background, Border `#8B4513`
-- **Pressed**: Background `#2D1810`, Border `#A0522D`, Scale 0.95
-- **Disabled**: Border `#1A1A1A`, Icon `#8B4513`
+- **Default**: Transparent background, Border `#FF1493`
+- **Pressed**: Background `#1A1A1A`, Border `#FF69B4`, Scale 0.95
+- **Disabled**: Border `#B0B0B0`, Icon `#B0B0B0`
 
 ## Spacing System
 
@@ -159,8 +167,8 @@
 
 ### Focus States
 
-- **Focus Ring**: 2px solid `#DAA520` (Accent Gold)
-- **Focus Background**: `#2D1810` with 20% opacity overlay
+- **Focus Ring**: 2px solid `#FF1493` (Neon Pink)
+- **Focus Background**: `#1A1A1A` with 20% opacity overlay
 
 ## Usage Examples
 
@@ -168,12 +176,13 @@
 
 ```css
 :root {
-  --color-primary: #2d1810;
-  --color-secondary: #8b4513;
-  --color-tertiary: #1a1a1a;
-  --color-text-primary: #e5e5e5;
-  --color-text-secondary: #d2b48c;
-  --color-accent: #daa520;
+  --color-primary: #1a1a1a;
+  --color-secondary: #2f2f2f;
+  --color-accent-pink: #ff1493;
+  --color-accent-blue: #00bfff;
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #e5e5e5;
+  --color-text-tertiary: #b0b0b0;
 }
 ```
 
@@ -181,17 +190,18 @@
 
 ```swift
 extension Color {
-    static let mysticaDarkBrown = Color(hex: "2D1810")
-    static let mysticaLightBrown = Color(hex: "8B4513")
-    static let mysticaDarkGray = Color(hex: "1A1A1A")
-    static let mysticaTextPrimary = Color(hex: "E5E5E5")
-    static let mysticaTextSecondary = Color(hex: "D2B48C")
+    static let primary = Color(hex: "1A1A1A")
+    static let secondary = Color(hex: "2F2F2F")
+    static let accent = Color(hex: "FF1493")
+    static let accentSecondary = Color(hex: "00BFFF")
+    static let textPrimary = Color(hex: "FFFFFF")
+    static let textSecondary = Color(hex: "E5E5E5")
 }
 ```
 
 ## Design Principles
 
-1. **Earth Connection**: Colors evoke natural, grounded feelings
+1. **Cyberpunk Aesthetic**: Colors evoke futuristic, high-tech feelings with neon accents
 2. **Clear Hierarchy**: Strong contrast between text levels and interactive elements
 3. **Consistent Spacing**: 8pt grid system for visual rhythm
 4. **Smooth Interactions**: Subtle animations that feel natural
@@ -202,6 +212,6 @@ extension Color {
 
 - All colors are tested for accessibility compliance
 - Animation durations are optimized for perceived performance
-- The earthy color palette creates a mystical, grounded atmosphere
+- The neon color palette creates a futuristic, high-tech atmosphere
 - High contrast ensures readability in various lighting conditions
 - The design system supports both iOS and web implementations

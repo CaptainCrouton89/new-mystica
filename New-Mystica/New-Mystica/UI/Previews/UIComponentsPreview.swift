@@ -12,7 +12,7 @@ struct UIComponents_Previews: PreviewProvider {
                 }
                 
                 Divider()
-                    .background(Color.mysticaLightBrown)
+                    .background(Color.accent)
                 
                 // Normal Text Examples
                 VStack(alignment: .leading, spacing: 8) {
@@ -21,7 +21,7 @@ struct UIComponents_Previews: PreviewProvider {
                 }
                 
                 Divider()
-                    .background(Color.mysticaLightBrown)
+                    .background(Color.accent)
                 
                 // Small Text Examples
                 VStack(alignment: .leading, spacing: 8) {
@@ -30,7 +30,7 @@ struct UIComponents_Previews: PreviewProvider {
                 }
                 
                 Divider()
-                    .background(Color.mysticaLightBrown)
+                    .background(Color.accent)
                 
                 // Icon Button Examples
                 VStack(spacing: 16) {
@@ -60,7 +60,7 @@ struct UIComponents_Previews: PreviewProvider {
                 }
                 
                 Divider()
-                    .background(Color.mysticaLightBrown)
+                    .background(Color.accent)
                 
                 // Text Button Examples
                 VStack(spacing: 16) {
@@ -78,7 +78,7 @@ struct UIComponents_Previews: PreviewProvider {
                 }
                 
                 Divider()
-                    .background(Color.mysticaLightBrown)
+                    .background(Color.accent)
                 
                 // Back Button Examples
                 HStack(spacing: 16) {
@@ -97,7 +97,7 @@ struct UIComponents_Previews: PreviewProvider {
             }
             .padding()
         }
-        .background(Color.mysticaDarkBrown)
+        .background(Color.backgroundPrimary)
         .previewDisplayName("UI Components Showcase")
     }
 }

@@ -43,7 +43,7 @@ struct BaseView<Content: View>: View {
     var body: some View {
         ZStack {
             // Background
-            Color.mysticaDarkBrown
+            Color.backgroundPrimary
                 .ignoresSafeArea()
             
             VStack(spacing: 0) {

@@ -11,6 +11,7 @@ import SwiftData
 @main
 struct New_MysticaApp: App {
     @StateObject private var navigationManager = NavigationManager()
+    @StateObject private var audioManager = AudioManager.shared
     
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
@@ -27,8 +28,9 @@ struct New_MysticaApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            SplashScreenView()
                 .environmentObject(navigationManager)
+                .environmentObject(audioManager)
         }
         .modelContainer(sharedModelContainer)
     }

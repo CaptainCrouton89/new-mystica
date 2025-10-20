@@ -137,7 +137,7 @@ struct SettingsRow: View {
             Spacer()
             
             Toggle("", isOn: $isOn)
-                .toggleStyle(SwitchToggleStyle(tint: Color.mysticaAccentGold))
+                .toggleStyle(SwitchToggleStyle(tint: Color.accentSecondary))
         }
         .padding(.vertical, 8)
     }
