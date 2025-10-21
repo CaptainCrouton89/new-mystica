@@ -136,7 +136,7 @@ layouts_components:
     description: "Visual loadout showing all equipped items and active pet"
     components:
       - "Character silhouette (center)"
-      - "Equipment slots (overlay on silhouette): helmet, armor, weapon, offhand, amulet, rings"
+      - "Equipment slots (overlay on silhouette): head, armor, weapon, offhand, feet, accessory_1, accessory_2"
       - "Active pet (bottom-left of character)"
       - "Total stats display (bottom): ATK / DEF / HP"
       - "Tap slot → Open item selector"

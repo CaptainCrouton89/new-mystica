@@ -84,8 +84,8 @@ detailed_design:
     1. Get base item stats (normalized to 1.0)
     2. Apply rarity multiplier (ItemType.rarity: 1.0-2.0)
     3. Apply each material modifier (±0.1-0.3, sum to 0)
-       - For styled materials: multiply modifier by 1.2
-       - Materials have style_id (FK to StyleDefinitions), not rarity
+       - Materials have style_id (FK to StyleDefinitions) for visual variants only
+       - Style does not affect stat effectiveness
     4. Multiply by item level
     5. Result = item's final stats
 
