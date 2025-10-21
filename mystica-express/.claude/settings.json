@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash([ -d /Users/silasrhyneer/Code/new-mystica/docs ])",
+      "Bash(bash:*)",
+      "Read(//Users/silasrhyneer/.claude/file-templates/init-project/**)",
+      "Bash(./docs/check-project.sh:*)",
+      "Bash([ -d /Users/silasrhyneer/Code/new-mystica/docs/external ])",
+      "Bash(wrangler r2 bucket create:*)",
+      "Bash(wrangler r2 object put:*)",
+      "Bash(wrangler r2 bucket:*)",
+      "Bash(wrangler r2 object get:*)",
+      "Bash(wrangler r2 object list:*)",
+      "Bash([ -d .claude/skills ])",
+      "Bash(./docs/list-apis.sh:*)",
+      "Bash(./list-features.sh:*)",
+      "Bash(/Users/silasrhyneer/Code/new-mystica/docs/feature-specs/list-features.sh:*)",
+      "Bash(/Users/silasrhyneer/Code/new-mystica/docs/user-stories/list-stories.sh:*)",
+      "Bash(/Users/silasrhyneer/Code/new-mystica/docs/user-flows/list-flows.sh:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
