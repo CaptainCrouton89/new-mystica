@@ -44,7 +44,7 @@ struct MainMenuView: View {
                             )
                         }
                         .buttonStyle(PlainButtonStyle())
-                        .slideInFromBottom(delay: 0.0)
+                        .fadeIn(delay: 0.0)
                         
                         Button {
                             audioManager.playMenuButtonClick()
@@ -57,7 +57,7 @@ struct MainMenuView: View {
                             )
                         }
                         .buttonStyle(PlainButtonStyle())
-                        .slideInFromBottom(delay: 0.2)
+                        .fadeIn(delay: 0.2)
                     }
                     .padding(.horizontal, 32)
                     

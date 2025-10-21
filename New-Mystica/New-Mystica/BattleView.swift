@@ -26,8 +26,6 @@ struct BattleView: View, NavigableView {
     @State private var isDialSpinning: Bool = true
     @State private var dialRotation: Double = 0.0
     @State private var currentMultiplier: Double = 1.0
-    @State private var combatMessage: String = ""
-    @State private var showCombatMessage: Bool = false
     @State private var animationTimer: Timer?
     
     // Victory/Defeat navigation states
@@ -70,11 +68,6 @@ struct BattleView: View, NavigableView {
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 20)
-                
-                // Combat Message Overlay
-                if showCombatMessage {
-                    combatMessageOverlay
-                }
                 
                 // Floating Text Overlay
                 FloatingTextOverlay(floatingTexts: $floatingTextView.floatingTexts)
@@ -301,36 +294,6 @@ struct BattleView: View, NavigableView {
         }
     }
     
-    // MARK: - Combat Message Overlay
-    @ViewBuilder
-    private var combatMessageOverlay: some View {
-        VStack {
-            Spacer()
-            
-            VStack(spacing: 8) {
-                NormalText(combatMessage, size: 16)
-                    .foregroundColor(Color.accentSecondary)
-                    .multilineTextAlignment(.center)
-                    .padding()
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color.backgroundCard)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color.accentSecondary, lineWidth: 2)
-                            )
-                    )
-            }
-            .padding(.horizontal, 40)
-            .padding(.bottom, 200)
-            
-            Spacer()
-        }
-        .background(Color.black.opacity(0.3))
-        .onTapGesture {
-            hideCombatMessage()
-        }
-    }
     
     
     
@@ -449,14 +412,8 @@ struct BattleView: View, NavigableView {
         let enemyPosition = CGPoint(x: 0, y: -200) // Offset towards top of screen
         floatingTextView.showDamage(totalDamage, isCritical: currentMultiplier > 1.5, at: enemyPosition)
         
-        // Show damage dealt message for non-fatal attacks
-        combatMessage = "You dealt \(String(format: "%.1f", totalDamage)) damage!"
-        showCombatMessage = true
-        
-        // Switch to enemy turn after 2.4 second delay
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.4) {
-            switchToEnemyTurn()
-        }
+        // Switch to enemy turn immediately
+        switchToEnemyTurn()
     }
     
     private func executeEnemyAttack() {
@@ -479,30 +436,18 @@ struct BattleView: View, NavigableView {
         let playerPosition = CGPoint(x: 0, y: 50) // Offset from center towards player avatar
         floatingTextView.showDamage(defendedDamage, isCritical: false, at: playerPosition)
         
-        // Show damage dealt message for non-fatal attacks
-        combatMessage = "Enemy dealt \(String(format: "%.1f", defendedDamage)) damage! (Defended: \(String(format: "%.1f", currentMultiplier))x)"
-        showCombatMessage = true
-        
-        // Switch to player turn after 2.4 second delay
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.4) {
-            switchToPlayerTurn()
-        }
+        // Switch to player turn immediately
+        switchToPlayerTurn()
     }
     
     private func switchToEnemyTurn() {
-        hideCombatMessage()
         isPlayerTurn = false
         startDialSpinning()
     }
     
     private func switchToPlayerTurn() {
-        hideCombatMessage()
         isPlayerTurn = true
         startDialSpinning()
-    }
-    
-    private func hideCombatMessage() {
-        showCombatMessage = false
     }
     
     // MARK: - Navigation Logic

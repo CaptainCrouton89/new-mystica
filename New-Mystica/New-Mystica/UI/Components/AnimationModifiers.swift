@@ -84,6 +84,31 @@ struct PopupAnimationModifier: ViewModifier {
     }
 }
 
+/// Fade-only animation modifier (no position changes)
+struct FadeOnlyModifier: ViewModifier {
+    let config: AnimationConfig
+    
+    @State private var isVisible = false
+    
+    init(config: AnimationConfig = .normal) {
+        self.config = config
+    }
+    
+    func body(content: Content) -> some View {
+        content
+            .opacity(isVisible ? 1 : 0)
+            .onAppear {
+                // Reset animation state
+                isVisible = false
+                
+                // Trigger animation
+                withAnimation(config.curve.delay(config.delay)) {
+                    isVisible = true
+                }
+            }
+    }
+}
+
 /// Performance-optimized staggered animation modifier for lists/grids
 struct StaggeredAnimationModifier: ViewModifier {
     let index: Int
@@ -161,6 +186,11 @@ extension View {
         self.modifier(PopupAnimationModifier(config: config, scaleFrom: scaleFrom, scaleTo: scaleTo))
     }
     
+    /// Apply fade-only animation (no position changes)
+    func fadeIn(config: AnimationConfig = .normal) -> some View {
+        self.modifier(FadeOnlyModifier(config: config))
+    }
+    
     /// Apply staggered animation for lists/grids (performance optimized)
     func staggeredAnimation(index: Int, staggerDelay: Double = 0.08, config: AnimationConfig = .performanceStagger, offsetY: CGFloat = 15) -> some View {
         self.modifier(StaggeredAnimationModifier(index: index, staggerDelay: staggerDelay, config: config, offsetY: offsetY))
@@ -196,6 +226,11 @@ extension View {
     /// Quick popup animation
     func popup(delay: Double = 0.0) -> some View {
         self.popupAnimation(config: .popup.withDelay(delay))
+    }
+    
+    /// Quick fade-in animation (no position changes)
+    func fadeIn(delay: Double = 0.0) -> some View {
+        self.fadeIn(config: .normal.withDelay(delay))
     }
     
     /// Quick staggered animation for grid items (performance optimized)

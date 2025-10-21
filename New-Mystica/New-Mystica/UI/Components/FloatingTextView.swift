@@ -72,7 +72,7 @@ struct FloatingTextOverlay: View {
         ZStack {
             ForEach(floatingTexts) { floatingText in
                 Text(floatingText.text)
-                    .font(.system(size: floatingText.fontSize, weight: floatingText.fontWeight))
+                    .font(FontManager.primary(size: floatingText.fontSize))
                     .foregroundColor(floatingText.color)
                     .offset(x: floatingText.position.x, y: floatingText.position.y + floatingText.currentOffset)
                     .opacity(floatingText.currentOpacity)
