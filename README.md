@@ -17,31 +17,26 @@ Express.js API server with Supabase integration.
 ### Prerequisites
 - Node.js
 - pnpm
-- Supabase CLI (optional, for local development)
 
 ### Setup & Development
 
 ```bash
 cd mystica-express
 pnpm install
+
+# Configure environment
+cp .env.example .env.local
+# Edit .env.local with your remote Supabase credentials
+
+# Development server
+pnpm dev
+
+# Production build
+pnpm build
 pnpm start
 ```
 
-The server runs on `http://localhost:3000` by default.
-
-### Supabase Local Development
-
-```bash
-cd mystica-express
-supabase start   # Start local Supabase stack
-supabase status  # View service URLs and credentials
-supabase stop    # Stop services
-```
-
-Services available at:
-- API: http://localhost:54321
-- Studio: http://localhost:54323
-- Database: postgresql://postgres:postgres@localhost:54322/postgres
+The server runs on `http://localhost:3000` by default and connects to remote Supabase.
 
 ### Deployment
 
@@ -64,8 +59,8 @@ Native iOS/macOS application built with SwiftUI and SwiftData.
 ## Technology Stack
 
 **Backend:**
-- Express.js 4.16
-- Supabase (PostgreSQL, Auth, Storage)
+- Express.js 4.18
+- Supabase (remote PostgreSQL with PostGIS, Auth, Storage)
 - pnpm package manager
 - Railway hosting
 
