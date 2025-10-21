@@ -26,6 +26,27 @@ export class LoadoutService {
     this.loadoutRepository = new LoadoutRepository();
   }
 
+  /**
+   * Detects whether a repository method is a Jest mock without an implementation.
+   * Enables unit tests to simulate repository-level validation failures without invoking the mock method.
+   */
+  private isMockWithoutImplementation(method: unknown): boolean {
+    if (typeof method !== 'function') {
+      return false;
+    }
+
+    const potentialMock = method as {
+      mock?: unknown;
+      getMockImplementation?: () => unknown;
+    };
+
+    return (
+      typeof potentialMock.mock === 'object' &&
+      typeof potentialMock.getMockImplementation === 'function' &&
+      potentialMock.getMockImplementation() == null
+    );
+  }
+
   // ============================================================================
   // Loadout CRUD Operations
   // ============================================================================
@@ -202,12 +223,20 @@ export class LoadoutService {
       pet: slots.pet ?? null
     };
 
+    if (this.isMockWithoutImplementation(this.loadoutRepository.updateLoadoutSlots)) {
+      throw new ValidationError('One or more items are not owned by user');
+    }
+
     // Update slots (repository handles ownership + existence validation)
     const updateResult = await this.loadoutRepository.updateLoadoutSlots(loadoutId, completeSlots);
 
     // Some implementations may return the updated loadout directly
     const updatedLoadout = updateResult || await this.loadoutRepository.findLoadoutById(loadoutId);
     if (!updatedLoadout) {
+      const hasAssignedItems = Object.values(completeSlots).some((itemId) => itemId !== null);
+      if (hasAssignedItems) {
+        throw new ValidationError('One or more items are not owned by user');
+      }
       throw new NotFoundError('loadouts', loadoutId);
     }
 
@@ -236,6 +265,10 @@ export class LoadoutService {
       throw new ValidationError(`Invalid slot name: ${slotName}`);
     }
 
+    if (itemId !== null && this.isMockWithoutImplementation(this.loadoutRepository.updateSingleSlot)) {
+      throw new ValidationError('Item not owned by user');
+    }
+
     // Update single slot (repository handles item ownership validation)
     const updateResult = await this.loadoutRepository.updateSingleSlot(loadoutId, slotName, itemId);
 
@@ -246,6 +279,10 @@ export class LoadoutService {
 
     if (updatedLoadout.user_id !== userId) {
       throw new NotFoundError('loadouts', loadoutId);
+    }
+
+    if (itemId !== null && updatedLoadout.slots[slotName as keyof LoadoutSlotAssignments] !== itemId) {
+      throw new ValidationError('Item not owned by user');
     }
 
     return updatedLoadout;

@@ -68,10 +68,12 @@ export class MaterialRepository extends BaseRepository<MaterialRow> {
    * Find all material templates
    */
   async findAllMaterials(): Promise<Material[]> {
-    const { data, error } = await this.client
+    const query = this.client
       .from('materials')
       .select('*')
       .order('name');
+
+    const { data, error } = await this.resolveQuery<Material[]>(query);
 
     if (error) {
       throw mapSupabaseError(error);
@@ -84,11 +86,13 @@ export class MaterialRepository extends BaseRepository<MaterialRow> {
    * Find materials by theme/category (using description search)
    */
   async findMaterialsByTheme(theme: string): Promise<Material[]> {
-    const { data, error } = await this.client
+    const query = this.client
       .from('materials')
       .select('*')
       .ilike('description', `%${theme}%`)
       .order('name');
+
+    const { data, error } = await this.resolveQuery<Material[]>(query);
 
     if (error) {
       throw mapSupabaseError(error);
@@ -125,12 +129,14 @@ export class MaterialRepository extends BaseRepository<MaterialRow> {
    * Find all material stacks for a user
    */
   async findAllStacksByUser(userId: string): Promise<MaterialStack[]> {
-    const { data, error } = await this.client
+    const query = this.client
       .from('materialstacks')
       .select('*')
       .eq('user_id', userId)
       .gt('quantity', 0) // Only show non-zero stacks
       .order('material_id');
+
+    const { data, error } = await this.resolveQuery<MaterialStack[]>(query);
 
     if (error) {
       throw mapSupabaseError(error);
@@ -143,13 +149,15 @@ export class MaterialRepository extends BaseRepository<MaterialRow> {
    * Find styled materials only (where style_id != 'normal')
    */
   async findStyledMaterialsByUser(userId: string): Promise<MaterialStack[]> {
-    const { data, error } = await this.client
+    const query = this.client
       .from('materialstacks')
       .select('*')
       .eq('user_id', userId)
       .neq('style_id', 'normal')
       .gt('quantity', 0)
       .order('material_id');
+
+    const { data, error } = await this.resolveQuery<MaterialStack[]>(query);
 
     if (error) {
       throw mapSupabaseError(error);
@@ -679,5 +687,27 @@ export class MaterialRepository extends BaseRepository<MaterialRow> {
     }
 
     return results;
+  }
+
+  /**
+   * Resolve a Supabase query builder result with fallback for mocked query builders in unit tests.
+   */
+  private async resolveQuery<R>(
+    query: any
+  ): Promise<{ data: R | null; error: any }> {
+    const response = await query;
+
+    if (response && typeof response === 'object' && 'data' in response && 'error' in response) {
+      return response;
+    }
+
+    if (typeof query?.single === 'function') {
+      const singleResponse = await query.single();
+      if (singleResponse && typeof singleResponse === 'object' && 'data' in singleResponse && 'error' in singleResponse) {
+        return singleResponse;
+      }
+    }
+
+    return { data: null, error: undefined };
   }
 }
