@@ -9,13 +9,16 @@ import Foundation
 
 // MARK: - Player Stats Model (for equipment totals)
 struct PlayerStats: Codable {
-    let atkPower: Double
-    let atkAccuracy: Double
-    let defPower: Double
-    let defAccuracy: Double
+    let totalStats: ItemStats
+    let itemContributions: [String: ItemStats]
+    let equippedItemsCount: Int
+    let totalItemLevel: Int
 
     enum CodingKeys: String, CodingKey {
-        case atkPower, atkAccuracy, defPower, defAccuracy
+        case totalStats = "total_stats"
+        case itemContributions = "item_contributions"
+        case equippedItemsCount = "equipped_items_count"
+        case totalItemLevel = "total_item_level"
     }
 }
 
@@ -40,7 +43,7 @@ struct EquipmentSlots: Codable {
 // MARK: - Equipment Model (Top-level Response)
 struct Equipment: Codable {
     let slots: EquipmentSlots
-    let totalStats: PlayerStats
+    let totalStats: ItemStats
     let equipmentCount: Int
 
     enum CodingKeys: String, CodingKey {
