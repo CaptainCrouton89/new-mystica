@@ -26,32 +26,25 @@ struct FontManager {
     // MARK: - Font Methods
     /// Get primary font with specified size
     static func primary(size: CGFloat) -> Font {
-        // Test with system font first to verify FontManager is working
         if testWithSystemFont {
-            print("🧪 TEST MODE: Using system font")
             return SwiftUI.Font.system(size: size, weight: .bold)
         }
-        
+
         // Try different font name variations for Bungee
         let fontNames = [
             "Bungee-Regular",
-            "Bungee", 
+            "Bungee",
             "Bungee Regular",
             "BungeeRegular"
         ]
-        
+
         for fontName in fontNames {
-            let font = Font.custom(fontName, size: size)
-            print("🔍 Trying font name: '\(fontName)'")
-            
-            // Try to create a UIFont to test if it exists
-            if let uiFont = UIFont(name: fontName, size: size) {
-                print("✅ Successfully loaded font: \(fontName)")
-                return font
+            if UIFont(name: fontName, size: size) != nil {
+                return Font.custom(fontName, size: size)
             }
         }
-        
-        print("❌ Failed to load Bungee font, falling back to system font")
+
+        // Fallback to system font if Bungee not found
         return SwiftUI.Font.system(size: size, weight: .regular)
     }
     

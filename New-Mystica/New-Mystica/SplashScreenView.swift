@@ -11,9 +11,12 @@ struct SplashScreenView: View {
     @State private var isActive = false
     @State private var opacity = 0.0
     @State private var scale = 0.8
+    @State private var loadingText: String = ""
+    @State private var errorMessage: String?
     @EnvironmentObject private var navigationManager: NavigationManager
     @EnvironmentObject private var audioManager: AudioManager
     @EnvironmentObject private var authService: AuthService
+    @EnvironmentObject var equipmentService: EquipmentService
     
     var body: some View {
         if isActive {
@@ -39,14 +42,62 @@ struct SplashScreenView: View {
                     .animation(.easeInOut(duration: 1.0), value: scale)
                 
                 // Optional loading indicator overlay
-                VStack {
+                VStack(spacing: 20) {
                     Spacer()
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                        .scaleEffect(0.8)
-                        .opacity(opacity)
-                        .padding(.bottom, 50)
+
+                    if let error = errorMessage {
+                        VStack(spacing: 16) {
+                            Text(error)
+                                .foregroundColor(.red)
+                                .multilineTextAlignment(.center)
+                                .padding(.horizontal, 32)
+
+                            Button("Retry") {
+                                errorMessage = nil
+                                loadingText = ""
+                                Task {
+                                    // Re-run the entire loading sequence
+                                    do {
+                                        print("🔄 [SPLASH] Retry button pressed, restarting initialization...")
+                                        let hasToken = KeychainService.get(key: "mystica_access_token") != nil
+
+                                        loadingText = "Authenticating..."
+                                        if !hasToken {
+                                            try await authService.registerDevice()
+                                        } else {
+                                            try await authService.bootstrapSession()
+                                        }
+
+                                        loadingText = "Loading player data..."
+                                        try await equipmentService.loadEquipment()
+
+                                        withAnimation(.easeInOut(duration: 0.5)) {
+                                            isActive = true
+                                        }
+                                    } catch {
+                                        print("❌ [SPLASH] Retry failed:", error.localizedDescription)
+                                        errorMessage = "Unable to load player data. Please check your connection."
+                                    }
+                                }
+                            }
+                            .buttonStyle(.borderedProminent)
+                        }
+                    } else {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            .scaleEffect(1.2)
+                            .opacity(opacity)
+
+                        if !loadingText.isEmpty {
+                            Text(loadingText)
+                                .foregroundColor(.white)
+                                .font(.system(size: 16))
+                        }
+                    }
+
+                    Spacer()
                 }
+                .padding(.bottom, 80)
             }
             .onAppear {
                 // Animate the splash screen appearance
@@ -56,23 +107,35 @@ struct SplashScreenView: View {
                 }
             }
             .task {
-                // Check if device has authentication token
-                let hasToken = KeychainService.get(key: "mystica_access_token") != nil
+                do {
+                    print("🚀 [SPLASH] Starting app initialization...")
+                    let hasToken = KeychainService.get(key: "mystica_access_token") != nil
 
-                if !hasToken {
-                    // Register device if no token exists
-                    try? await authService.registerDevice()
-                } else {
-                    // Bootstrap session if token exists
-                    _ = await authService.bootstrapSession()
-                }
+                    // Auth phase
+                    loadingText = "Authenticating..."
+                    print("🔐 [SPLASH] Has existing token:", hasToken)
+                    if !hasToken {
+                        print("📱 [SPLASH] No token found, registering new device...")
+                        try await authService.registerDevice()
+                    } else {
+                        print("🔄 [SPLASH] Token found, bootstrapping session...")
+                        try await authService.bootstrapSession()
+                    }
 
-                // Navigate to map (user is now authenticated)
-                navigationManager.navigateTo(.map)
+                    // Data loading phase
+                    loadingText = "Loading player data..."
+                    print("⚔️ [SPLASH] Loading equipment data...")
+                    try await equipmentService.loadEquipment()
 
-                // Transition to main app
-                withAnimation(.easeInOut(duration: 0.5)) {
-                    isActive = true
+                    // Navigation (FIXED - no .map navigation)
+                    // Let ContentView start at MainMenuView naturally
+                    print("✅ [SPLASH] Initialization complete, transitioning to main menu")
+                    withAnimation(.easeInOut(duration: 0.5)) {
+                        isActive = true
+                    }
+                } catch {
+                    print("❌ [SPLASH] Initialization failed:", error.localizedDescription)
+                    errorMessage = "Unable to load player data. Please check your connection."
                 }
             }
         }
@@ -84,4 +147,5 @@ struct SplashScreenView: View {
         .environmentObject(NavigationManager())
         .environmentObject(AudioManager.shared)
         .environmentObject(AuthService.shared)
+        .environmentObject(EquipmentService.shared)
 }

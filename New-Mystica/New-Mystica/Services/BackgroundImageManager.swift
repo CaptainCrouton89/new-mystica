@@ -31,7 +31,6 @@ class BackgroundImageManager: ObservableObject {
         // Select a random background image on initialization
         let randomURLString = backgroundImages.randomElement() ?? backgroundImages[0]
         self.currentBackgroundURL = URL(string: randomURLString)!
-        print("🖼️ BackgroundImageManager: Selected background URL: \(randomURLString)")
 
         // Start loading the image asynchronously
         Task { @MainActor in
@@ -42,26 +41,18 @@ class BackgroundImageManager: ObservableObject {
     /// Load the current background image
     func loadImage() async {
         isLoading = true
-        print("🖼️ BackgroundImageManager: Starting image load from \(currentBackgroundURL)")
 
         do {
-            let (data, response) = try await URLSession.shared.data(from: currentBackgroundURL)
-
-            if let httpResponse = response as? HTTPURLResponse {
-                print("🖼️ BackgroundImageManager: HTTP response status: \(httpResponse.statusCode)")
-            }
+            let (data, _) = try await URLSession.shared.data(from: currentBackgroundURL)
 
             if let image = UIImage(data: data) {
                 loadedImage = image
                 isLoading = false
-                print("✅ BackgroundImageManager: Image loaded successfully - size: \(image.size)")
             } else {
                 isLoading = false
-                print("❌ BackgroundImageManager: Failed to create UIImage from data")
             }
         } catch {
             isLoading = false
-            print("❌ BackgroundImageManager: Failed to load image - \(error.localizedDescription)")
         }
     }
 
