@@ -8,11 +8,28 @@
 
 /* Begin PBXFileReference section */
 		2817BD1B2EA5FD3700468184 /* New-Mystica.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "New-Mystica.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		98EDADE22EA72B690033F76B /* Bungee-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "Bungee-Regular.ttf"; path = "New-Mystica/Fonts/Bungee/Bungee-Regular.ttf"; sourceTree = "<group>"; };
+		98EDADED2EA72E200033F76B /* Metamorphous-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "Metamorphous-Regular.ttf"; path = "New-Mystica/Fonts/Metamorphous/Metamorphous-Regular.ttf"; sourceTree = "<group>"; };
+		98EDADEE2EA72E8E0033F76B /* IMFellFrenchCanon-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "IMFellFrenchCanon-Regular.ttf"; path = "New-Mystica/Fonts/IM_Fell_French_Canon/IMFellFrenchCanon-Regular.ttf"; sourceTree = "<group>"; };
+		98EDADEF2EA72EA10033F76B /* CinzelDecorative-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "CinzelDecorative-Regular.ttf"; path = "New-Mystica/Fonts/Cinzel_Decorative/CinzelDecorative-Regular.ttf"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		98EDADE42EA72C360033F76B /* Exceptions for "New-Mystica" folder in "New-Mystica" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 2817BD1A2EA5FD3700468184 /* New-Mystica */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		2817BD1D2EA5FD3700468184 /* New-Mystica */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				98EDADE42EA72C360033F76B /* Exceptions for "New-Mystica" folder in "New-Mystica" target */,
+			);
 			path = "New-Mystica";
 			sourceTree = "<group>";
 		};
@@ -32,6 +49,10 @@
 		2817BD122EA5FD3700468184 = {
 			isa = PBXGroup;
 			children = (
+				98EDADEF2EA72EA10033F76B /* CinzelDecorative-Regular.ttf */,
+				98EDADEE2EA72E8E0033F76B /* IMFellFrenchCanon-Regular.ttf */,
+				98EDADED2EA72E200033F76B /* Metamorphous-Regular.ttf */,
+				98EDADE22EA72B690033F76B /* Bungee-Regular.ttf */,
 				2817BD1D2EA5FD3700468184 /* New-Mystica */,
 				2817BD1C2EA5FD3700468184 /* Products */,
 			);
@@ -256,6 +277,7 @@
 				DEVELOPMENT_TEAM = 2C4VDA32CW;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "New-Mystica/Info.plist";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -288,6 +310,7 @@
 				DEVELOPMENT_TEAM = 2C4VDA32CW;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "New-Mystica/Info.plist";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

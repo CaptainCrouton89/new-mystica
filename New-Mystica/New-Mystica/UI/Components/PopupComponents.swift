@@ -67,7 +67,7 @@ struct ItemDetailPopup: View {
                     
                     // Rarity badge
                     Text(item.rarity)
-                        .font(.custom("Impact", size: 14))
+                        .font(FontManager.caption)
                         .foregroundColor(Color.accentSecondary)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
@@ -324,7 +324,7 @@ struct ActionPopup: View {
                     dismissPopup()
                 } label: {
                     Text(buttonText)
-                        .font(.custom("Impact", size: 18))
+                        .font(FontManager.body)
                         .foregroundColor(Color.textPrimary)
                         .frame(maxWidth: .infinity)
                         .frame(height: 50)

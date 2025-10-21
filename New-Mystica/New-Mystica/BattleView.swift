@@ -228,7 +228,6 @@ struct BattleView: View, NavigableView {
                     Spacer()
                     NormalText("\(Int(currentHealth))/\(Int(maxHealth))", size: 12)
                         .foregroundColor(Color.textPrimary)
-                        .font(.custom("Impact", size: 12))
                     Spacer()
                 }
             }

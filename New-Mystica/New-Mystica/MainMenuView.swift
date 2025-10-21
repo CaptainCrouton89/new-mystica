@@ -101,11 +101,11 @@ struct MenuOptionView: View {
             // Text Content
             VStack(alignment: .leading, spacing: 4) {
                 Text(title)
-                    .font(.custom("Impact", size: 22))
+                    .font(FontManager.subtitle)
                     .foregroundColor(Color.textPrimary)
                 
                 Text(subtitle)
-                    .font(.custom("Impact", size: 16))
+                    .font(FontManager.body)
                     .foregroundColor(Color.textSecondary)
             }
             

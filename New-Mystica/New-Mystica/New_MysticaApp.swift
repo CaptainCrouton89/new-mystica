@@ -31,6 +31,16 @@ struct New_MysticaApp: App {
             SplashScreenView()
                 .environmentObject(navigationManager)
                 .environmentObject(audioManager)
+                .onAppear {
+                    // Debug: List all available fonts
+                    print("🔍 Available font families:")
+                    for family in UIFont.familyNames.sorted() {
+                        print("  📁 \(family)")
+                        for font in UIFont.fontNames(forFamilyName: family) {
+                            print("    📝 \(font)")
+                        }
+                    }
+                }
         }
         .modelContainer(sharedModelContainer)
     }

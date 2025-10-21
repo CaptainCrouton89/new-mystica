@@ -73,7 +73,7 @@ struct TextButton: View {
             }
         } label: {
             Text(title)
-                .font(.custom("Impact", size: 17))
+                .font(FontManager.body)
                 .foregroundColor(isDisabled ? Color.textSecondary : Color.textPrimary)
                 .frame(maxWidth: .infinity)
                 .frame(height: height)

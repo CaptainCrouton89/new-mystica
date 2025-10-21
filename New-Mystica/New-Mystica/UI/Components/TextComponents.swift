@@ -12,7 +12,7 @@ struct TitleText: View {
     
     var body: some View {
         Text(text)
-            .font(.custom("Impact", size: size))
+            .font(FontManager.title)
             .foregroundColor(Color.textPrimary)
             .kerning(0.5)
             .shadow(color: .black.opacity(0.3), radius: 2, x: 0, y: 2)
@@ -32,7 +32,7 @@ struct NormalText: View {
     
     var body: some View {
         Text(text)
-            .font(.custom("Impact", size: size))
+            .font(FontManager.body)
             .foregroundColor(Color.textSecondary)
             .kerning(0.2)
             .lineSpacing(2)
@@ -52,7 +52,7 @@ struct SmallText: View {
     
     var body: some View {
         Text(text)
-            .font(.custom("Impact", size: size))
+            .font(FontManager.caption)
             .foregroundColor(Color.textSecondary)
             .kerning(0.2)
             .lineSpacing(1)

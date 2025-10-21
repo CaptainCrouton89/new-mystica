@@ -90,13 +90,13 @@ struct CollectionItemView: View {
             
             // Item Name
             Text(item.name)
-                .font(.custom("Impact", size: 14))
+                .font(FontManager.caption)
                 .foregroundColor(Color.textPrimary)
                 .lineLimit(1)
             
             // Rarity Badge
             Text(item.rarity)
-                .font(.custom("Impact", size: 10))
+                .font(FontManager.small)
                 .foregroundColor(Color.textSecondary)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 2)
