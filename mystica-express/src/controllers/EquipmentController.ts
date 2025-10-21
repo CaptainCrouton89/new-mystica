@@ -42,10 +42,9 @@ export class EquipmentController {
 
       res.json({
         success: result.success,
-        slot: result.equipped_item.base_type, // The slot where item was equipped
         equipped_item: result.equipped_item,
         unequipped_item: result.unequipped_item || null,
-        updated_stats: result.updated_stats
+        updated_player_stats: result.updated_player_stats
       });
     } catch (error) {
       next(error);

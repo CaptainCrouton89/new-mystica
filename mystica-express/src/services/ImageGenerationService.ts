@@ -1,4 +1,4 @@
-import { NotImplementedError } from '../types/api.types';
+import { NotImplementedError } from '../utils/errors';
 
 interface MaterialReference {
   material_id: string;

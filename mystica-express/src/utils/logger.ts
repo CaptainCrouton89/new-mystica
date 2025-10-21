@@ -35,7 +35,7 @@ const productionFormat = winston.format.combine(
   winston.format.timestamp(),
   winston.format.errors({ stack: true }),
   winston.format.json(),
-  winston.format.printf((info) => {
+  winston.format.printf((info: any) => {
     // Ensure consistent structure
     return JSON.stringify({
       timestamp: info.timestamp,

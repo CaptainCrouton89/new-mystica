@@ -1,4 +1,6 @@
-import { UserProfile, NotImplementedError } from '../types/api.types';
+import { UserProfile } from '../types/api.types';
+import { NotImplementedError, mapSupabaseError, ConflictError, NotFoundError, DatabaseError } from '../utils/errors';
+import { supabase } from '../config/supabase';
 
 /**
  * Handles user profile management and initialization
@@ -10,17 +12,52 @@ export class ProfileService {
    * - Sets up initial inventory state
    * - Validates user_id uniqueness
    */
-  async initializeProfile(userId: string): Promise<UserProfile> {
-    // TODO: Implement profile initialization workflow
-    // 1. Check if profile already exists (prevent duplicates)
-    // 2. Create UserProfile record with defaults:
-    //    - username: auto-generated or from auth
-    //    - gold: 1000 (starting amount)
-    //    - vanity_level: 1
-    //    - avg_item_level: 1
-    // 3. Create initial starter items in inventory
-    // 4. Return created profile
-    throw new NotImplementedError('ProfileService.initializeProfile not implemented');
+  async initializeProfile(userId: string, email: string): Promise<UserProfile> {
+    try {
+      // Call the stored procedure for atomic profile initialization
+      const { data, error } = await supabase
+        .rpc('init_profile', {
+          p_user_id: userId,
+          p_email: email
+        })
+        .single();
+
+      if (error) {
+        // Map specific SQL exceptions to appropriate error types
+        if (error.message?.includes('conflict:already_initialized')) {
+          throw new ConflictError('Profile already initialized for this user');
+        }
+        if (error.message?.includes('not_found:common_weapon_missing')) {
+          throw new NotFoundError('No common weapons available for profile initialization');
+        }
+        throw mapSupabaseError(error);
+      }
+
+      if (!data) {
+        throw new DatabaseError('Failed to create profile - no data returned');
+      }
+
+      // Transform database row to UserProfile format
+      // Note: gold comes from UserCurrencyBalances, not the users table
+      const userProfile: UserProfile = {
+        id: data.id,
+        user_id: data.id, // In our schema, user ID is the primary key
+        username: data.username || '', // Username starts null, empty string for API
+        gold: 0, // Starting gold is 0 as per requirements
+        vanity_level: data.vanity_level,
+        avg_item_level: data.avg_item_level,
+        created_at: data.created_at,
+        updated_at: data.updated_at
+      };
+
+      return userProfile;
+    } catch (error) {
+      // Re-throw AppErrors as-is, map others
+      if (error instanceof ConflictError || error instanceof NotFoundError) {
+        throw error;
+      }
+      throw mapSupabaseError(error);
+    }
   }
 
   /**
@@ -34,6 +71,47 @@ export class ProfileService {
     // 2. Return profile data
     // 3. Throw NotFoundError if user doesn't exist
     throw new NotImplementedError('ProfileService.getProfile not implemented');
+  }
+
+  /**
+   * Update user vanity level based on equipped item levels
+   * - Calculates sum of all equipped item levels
+   * - Updates Users.vanity_level field
+   */
+  async updateVanityLevel(userId: string): Promise<void> {
+    try {
+      // Calculate total level of all equipped items
+      const { data: equipmentLevels, error: equipmentError } = await supabase
+        .from('UserEquipment')
+        .select(`
+          Items!inner(
+            level
+          )
+        `)
+        .eq('user_id', userId)
+        .not('item_id', 'is', null);
+
+      if (equipmentError) {
+        throw mapSupabaseError(equipmentError);
+      }
+
+      // Sum all equipped item levels
+      const totalLevel = equipmentLevels?.reduce((sum, equipment) => {
+        return sum + (equipment.Items as any)?.level || 0;
+      }, 0) || 0;
+
+      // Update user's vanity level
+      const { error: updateError } = await supabase
+        .from('Users')
+        .update({ vanity_level: totalLevel })
+        .eq('id', userId);
+
+      if (updateError) {
+        throw mapSupabaseError(updateError);
+      }
+    } catch (error) {
+      throw mapSupabaseError(error);
+    }
   }
 }
 

@@ -1,4 +1,5 @@
-import { Item, ItemStack, NotImplementedError } from '../types/api.types';
+import { Item, ItemStack } from '../types/api.types';
+import { NotImplementedError } from '../utils/errors';
 
 /**
  * Handles inventory management and item stacking

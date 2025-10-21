@@ -1,4 +1,5 @@
-import { MaterialStack, ApplyMaterialResult, ReplaceMaterialResult, NotImplementedError } from '../types/api.types';
+import { MaterialStack, ApplyMaterialResult, ReplaceMaterialResult } from '../types/api.types';
+import { NotImplementedError } from '../utils/errors';
 
 /**
  * Handles material application to items with image generation

@@ -1,4 +1,5 @@
-import { EquipmentSlots, EquipResult, Stats, NotImplementedError } from '../types/api.types';
+import { EquipmentSlots, EquipResult, Stats } from '../types/api.types';
+import { NotImplementedError } from '../utils/errors';
 
 /**
  * Handles equipment management and the 8-slot system
