@@ -7,7 +7,7 @@ last_updated: 2025-10-20
 summary: "AI-powered enemy personalities that generate contextual trash-talk during combat based on enemy type, game state, and player history. Uses GPT-4.1-nano or similar lightweight model to create dynamic, antagonistic dialogue that enhances combat engagement and creates memorable enemy interactions."
 
 functional_overview:
-  core_logic: "Enemy personalities are ephemeral and generated fresh per combat encounter. Each enemy type (Spray Paint Goblin, Goopy Floating Eye, etc.) has personality traits that influence dialogue tone. The AI receives combat context (HP, stats, turn count, actions) plus player metadata (level attempts, win/loss history, streak) to generate taunts. Unlike pet personalities (F-11), enemy personalities are not persistent and focus on antagonistic/challenging themes."
+  core_logic: "Enemy personalities are ephemeral and generated fresh per combat encounter. Each enemy type (Spray Paint Goblin, Goopy Floating Eye, etc.) has personality traits that influence dialogue tone. The AI generates contextual TEXT trash-talk with sound effect during combat events. Unlike pet personalities (F-11), enemy personalities are not persistent and focus on antagonistic/challenging themes."
 
   data_schema: |
     **enemy_types** (seed data)
@@ -202,7 +202,7 @@ detailed_design:
     8. Backend → PostgreSQL: INSERT enemy_chatter_log (analytics)
     9. Backend → PostgreSQL: UPDATE player_combat_history (increment attempts/victories/defeats as appropriate)
     10. Backend → Client: {dialogue, enemy_type, tone, generation_time_ms}
-    11. Client: Display dialogue in speech bubble above enemy sprite (2-3s duration)
+    11. Client: Display dialogue in speech bubble above enemy sprite (2-3s duration) with chatter sound effect
     12. If AI timeout/error → Fallback: random example_taunt from enemy_types.example_taunts
 
     Key Differences from Pet Chatter (F-11):
@@ -212,21 +212,24 @@ detailed_design:
     - Player history metadata adds context (mock repeat failures, taunt first-timers)
     - No custom naming (enemies always use display_name)
     - Triggered by same combat events but different prompt engineering
+    - Both use same UI pattern (speech bubbles with sound effect), different tone
 
 dependencies:
-  libraries: "OpenAI SDK or Anthropic SDK (same as F-11 pet chatter), Redis client (for combat session lookup)"
+  libraries: "OpenAI SDK (GPT-4.1-nano model), Redis client (for combat session lookup)"
   services: "AI Generation Service (shared with F-11), Supabase PostgreSQL (enemy_types seed data, player_combat_history, enemy_chatter_log)"
   data_sources: "enemy_types (seed data ~5-10 enemy types), player_combat_history (per player/location tracking), combat_sessions (Redis, ephemeral)"
 
 implementation_status:
   notes:
+    - "AI Model: GPT-4.1-nano (~$0.0001/message)"
+    - "Randomness: Random literary passage injection"
+    - "Throttling: 1-2 messages/turn + special events"
+    - "UI: Speech bubbles with chatter sound, no voice synthesis"
     - "Shares AI infrastructure with F-11 Pet Personality System but uses different prompts"
     - "Enemy types seed data must be populated before combat can generate chatter"
     - "Player combat history tracking must update on combat_start and combat_complete events"
-    - "AI model recommendation: GPT-4.1-nano (fast, cheap) or GPT-4o-mini as fallback"
     - "Timeout handling critical: fallback to example_taunts if AI latency >2s"
     - "Analytics track dialogue quality: generation_time_ms, was_ai_generated, event_type distribution"
-    - "Enemy dialogue frequency: 1-2 messages per combat turn (attack + defend) + special events (low HP, near victory)"
     - "Combat flow integration: POST /combat/attack and POST /combat/defend should trigger chatter generation on server-side"
     - "Client-side display: Speech bubble above enemy sprite, auto-dismiss after 2-3s, queue if multiple messages"
     - "Future enhancement: Enemy personality evolution based on player skill level (harder enemies = more arrogant)"

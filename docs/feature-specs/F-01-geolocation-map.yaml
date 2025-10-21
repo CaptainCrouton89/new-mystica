@@ -2,15 +2,16 @@ title: Technical Specification - Geolocation & Map System
 template: ~/.claude/file-templates/init-project/feature-spec/feature-title.yaml
 feature_id: F-01
 status: planned
-last_updated: 2025-10-20
+last_updated: 2025-01-27
 
 summary: "Integrate Google Maps to display player location and nearby enemy spawn points. Enable location-based discovery by tracking GPS position and calculating proximity to spawn locations."
 
 functional_overview:
-  core_logic: "Track player GPS coordinates continuously. Query backend for spawn locations within radius. Display markers on map. Activate locations when player within 50m threshold. GPS permission required to proceed - show permission request popup on app launch and block progression until granted."
+  core_logic: "Track player GPS coordinates continuously. On app open, API call with user's exact coordinates generates location instantly from 30 pre-generated hardcoded SF locations. Display markers on map. Activate locations when player within 50m threshold. Pool union system: Each location fetches union of (location_type pool ∪ state pool ∪ latitude pool ∪ longitude pool ∪ generic pool with 100 base enemies), then combat level filters from that larger pool. GPS permission required but non-blocking in MVP0 - unlimited re-battles at same location."
   data_schema: "Locations table: id, lat, lng, city_id, enemy_type, item_type, spawn_radius. Player location tracked client-side."
   api_endpoints:
     - "GET /locations/nearby?lat={lat}&lng={lng}&radius={meters}"
+    - "POST /locations/generate" # MVP0: Generate location instantly from hardcoded SF set
     - "GET /locations/:id"
   integration_points:
     - "Google Maps SDK for iOS"
@@ -41,6 +42,14 @@ detailed_design:
         - "400: Invalid coordinates"
         - "500: Database error"
 
+    - method: "POST"
+      endpoint: "/locations/generate"
+      request: "Body: {lat: float, lng: float}"
+      response: "{location: {id, lat, lng, location_type, enemy_pools}}"
+      errors:
+        - "400: Invalid coordinates"
+        - "500: Generation failed"
+
     - method: "GET"
       endpoint: "/locations/:id"
       request: "Path param: id (UUID)"
@@ -49,22 +58,26 @@ detailed_design:
         - "404: Location not found"
 
   diagrams: |
-    Map View Flow:
-    1. App launches → Request location permissions via popup
-    2. If permission denied → Show blocking alert explaining GPS is required, re-request permission (loop until granted)
-    3. Once permission granted → CLLocationManager starts tracking
-    4. On location update → Center map, query /locations/nearby
+    Map View Flow (MVP0):
+    1. App launches → Request location permissions (non-blocking)
+    2. If permission denied → Continue with limited functionality, show advisory notice
+    3. CLLocationManager starts tracking (if permitted)
+    4. On location update → POST /locations/generate for instant location from 30 hardcoded SF set
     5. Render markers on map
     6. Monitor distance to each location
     7. When distance < spawn_radius → Activate marker (change color/icon)
-    8. Player taps active marker → Launch encounter (trigger F-02)
+    8. Player taps active marker → Launch encounter (trigger F-02) - unlimited re-battles
 
-    Permission Handling:
+    Pool Union Strategy:
+    - Location fetches: location_type pool ∪ state pool ∪ latitude pool ∪ longitude pool ∪ generic pool (100 base enemies)
+    - Combat level filters from union to show only appropriate level enemies
+    - No cooldowns in MVP0 - players can re-battle same location infinitely
+
+    Permission Handling (MVP0):
     - On first launch: Request "When In Use" location permission
-    - On denial: Block app with modal explaining GPS is required for gameplay
-    - Provide "Open Settings" button to guide user to enable location services
-    - Re-check permission status when app returns from background
-    - No fallback mode - GPS is mandatory for core gameplay
+    - On denial: Show advisory notice but allow progression
+    - GPS preferred but not mandatory for MVP0 core gameplay
+    - Future MVP: Make GPS mandatory with blocking behavior
 
 dependencies:
   libraries: "Google Maps SDK for iOS (pod 'GoogleMaps'), CoreLocation"
@@ -73,8 +86,9 @@ dependencies:
 
 implementation_status:
   notes:
-    - "Light MVP: Use static hardcoded locations (no backend), simple map with pins"
-    - "Full MVP: Integrate Google Maps API, real GPS tracking, backend location queries"
+    - "MVP0: 30 hardcoded SF locations stored in database, no cooldowns, instant location generation API, GPS permission non-blocking"
+    - "MVP1: Add cooldown system, expand to more cities, make GPS permission blocking"
+    - "Full MVP: Dynamic location generation, real-time spawn updates, advanced pool strategies"
     - "Finished: Optimize marker rendering for 100+ locations, add location clustering, offline caching"
 
 user_stories:

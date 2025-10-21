@@ -4,10 +4,10 @@ feature_id: F-02
 status: planned
 last_updated: 2025-10-20
 
-summary: "Turn-based combat with weapon-specific timing dial mechanics. Different weapons have different dial patterns (single_arc, dual_arcs, pulsing_arc, roulette, sawtooth). Player taps moving dial with zone-based outcomes (miss/graze/normal/crit). Player accuracy stat scales zone sizes. Stats calculated from equipped items + pet. Enemy counterattacks after player turn. Combat ends when either HP reaches 0."
+summary: "Turn-based combat with weapon-specific timing dial mechanics. MVP0 uses single_arc pattern only, constant dial speed. Player taps moving dial with zone-based outcomes (miss/graze/normal/crit). Player accuracy stat scales zone sizes. Stats calculated from equipped items + pet. Enemy counterattacks after player turn. Combat ends when either HP reaches 0."
 
 functional_overview:
-  core_logic: "Initiate combat when player taps active location. Load enemy data and player's equipped weapon. Display weapon-specific dial pattern (single_arc/dual_arcs/pulsing_arc/roulette/sawtooth) with zone-based hit bands. Player accuracy stat adjusts zone sizes via fn_weapon_bands_adjusted(). On tap, determine hit zone (injure/miss/graze/normal/crit). Apply zone multipliers: injure=-50%, miss=0%, graze=60%, normal=100%, crit=160%+RNG. RNG adds 0-100% bonus multiplier on crit hits. Enemy counterattacks after player turn. Victory rewards materials matching enemy's style_id."
+  core_logic: "Initiate combat when player taps active location. Load enemy data and player's equipped weapon. Display single_arc dial pattern (MVP0 only) with zone-based hit bands. Player accuracy stat adjusts zone sizes via fn_weapon_bands_adjusted(). On tap, determine hit zone (injure/miss/graze/normal/crit). Apply zone multipliers: injure=-50%, miss=0%, graze=60%, normal=100%, crit=160%+RNG. RNG adds 0-100% bonus multiplier on crit hits. Enemy counterattacks after player turn. Victory rewards materials matching enemy's style_id."
   data_schema: "Combat sessions (in-memory cache, not persistent), EnemyTypes table, Weapons table (dial patterns + hit bands), player stats (from v_player_equipped_stats view)"
   api_endpoints:
     - "POST /combat/start"
@@ -21,6 +21,10 @@ functional_overview:
     - "Style System: Enemy styles determine reward material styles (styled enemies always drop styled materials)"
 
 detailed_design:
+  business_rules:
+    - "Enemy difficulty determined solely by stat scaling, not dial mechanics. Level 1 enemies remain weak regardless of player level."
+    - "MVP0 simplification: Single arc pattern only, constant dial speed across all weapons, difficulty scaling through enemy stats only."
+    - "Dial speed scaling reserved for post-MVP variety, not difficulty compensation."
   data_structures:
     - name: "EnemyTypes (seed data, see data-plan.yaml)"
       columns:
@@ -36,14 +40,14 @@ detailed_design:
     - name: "Weapons (per-item timing mechanics, see data-plan.yaml)"
       columns:
         - "item_id: UUID (PK, FK to Items where category='weapon')"
-        - "pattern: weapon_pattern ENUM (single_arc, dual_arcs, pulsing_arc, roulette, sawtooth)"
-        - "spin_deg_per_s: NUMERIC (rotation speed in degrees/second)"
+        - "pattern: weapon_pattern ENUM (single_arc, dual_arcs, pulsing_arc, roulette, sawtooth) -- MVP0: single_arc only"
+        - "spin_deg_per_s: NUMERIC (rotation speed in degrees/second) -- MVP0: constant speed for all weapons"
         - "deg_injure: NUMERIC (self-damage zone size in degrees)"
         - "deg_miss: NUMERIC (miss zone size in degrees)"
         - "deg_graze: NUMERIC (partial hit zone size in degrees)"
         - "deg_normal: NUMERIC (normal hit zone size in degrees)"
         - "deg_crit: NUMERIC (critical hit zone size in degrees)"
-        - "NOTE: Total degrees must not exceed 360. Player accuracy scales these via fn_weapon_bands_adjusted()"
+        - "NOTE: Total degrees must not exceed 360. Player accuracy scales these via fn_weapon_bands_adjusted(). MVP0: Only single_arc pattern implemented, constant dial speed for simplicity."
 
     - name: "combat_sessions (in-memory cache, NOT persistent database)"
       storage: "In-memory cache or Redis (15min TTL) for active combat state"
@@ -91,8 +95,8 @@ detailed_design:
     4. Server: Calculate accuracy-adjusted hit bands using fn_weapon_bands_adjusted(weapon_id, player_accuracy)
     5. Server: Return enemy data (with tier-scaled stats), player stats, weapon pattern, adjusted hit bands
     6. Client: Display combat UI with enemy image, stats, HP bars (styled based on enemy style_id)
-    7. Player's turn: Render weapon-specific dial pattern (single_arc/dual_arcs/pulsing_arc/roulette/sawtooth)
-    8. Client: Animate dial rotation at weapon's spin_deg_per_s speed
+    7. Player's turn: Render single_arc dial pattern (MVP0 only)
+    8. Client: Animate dial rotation at constant speed (MVP0: no speed scaling)
     9. Client: Display color-coded zones based on adjusted hit bands:
        - Red zone (injure): deg_injure (self-damage, -50% multiplier)
        - Gray zone (miss): deg_miss (0% multiplier)
@@ -115,12 +119,12 @@ detailed_design:
     23. Server: Generate reward material with enemy's style_id (styled enemies always drop styled materials)
     24. Client: Display result screen with styled reward (if victory)
 
-    Weapon Pattern Types:
-    - single_arc: Standard arc with 5 color-coded bands (most common)
-    - dual_arcs: Two parallel arcs, player can tap either for same bands
-    - pulsing_arc: Arc that dynamically expands/contracts, changing effective zone sizes
-    - roulette: Circular wheel divided into wedge-shaped zones
-    - sawtooth: Jagged pattern with irregular zone sizes for advanced players
+    Weapon Pattern Types (MVP0: single_arc only):
+    - single_arc: Standard arc with 5 color-coded bands (MVP0 implementation)
+    - dual_arcs: Two parallel arcs, player can tap either for same bands (post-MVP)
+    - pulsing_arc: Arc that dynamically expands/contracts, changing effective zone sizes (post-MVP)
+    - roulette: Circular wheel divided into wedge-shaped zones (post-MVP)
+    - sawtooth: Jagged pattern with irregular zone sizes for advanced players (post-MVP)
 
     Zone Outcome Multipliers (from data-plan):
     - injure: -0.5x (self-damage, player loses HP instead of enemy)
@@ -149,10 +153,11 @@ dependencies:
 
 implementation_status:
   notes:
-    - "Light MVP: Single weapon pattern (single_arc only), hardcoded 5 zones (no accuracy scaling), local damage calculation, 3 tiers max"
+    - "Light MVP: single_arc pattern only, constant dial speed, difficulty via enemy stats"
+    - "MVP0 constraints: No dial speed scaling for difficulty, level 1 enemies stay weak permanently, player should crush low-level enemies"
     - "Full MVP: All 5 weapon patterns implemented, fn_weapon_bands_adjusted() for accuracy scaling, backend combat sessions (in-memory cache), tier-scaled enemies (1-10 tiers), zone-based hit detection, RNG crit bonuses"
-    - "Finished: Polished dial animations for all patterns, weapon-specific haptics, balanced zone sizing across accuracy ranges, 20+ enemy tiers, combat analytics, visual effects for each hit zone"
-    - "Critical: Weapon patterns must feel distinct (dual_arcs easier, sawtooth harder). Accuracy scaling should be noticeable (5 acc vs 30 acc feels very different)."
+    - "Post-MVP: Dial speed variations for variety (not difficulty), polished animations for all patterns, weapon-specific haptics, balanced zone sizing, 20+ enemy tiers"
+    - "Critical: Difficulty scaling purely through enemy stats. Weapon patterns reserved for post-MVP variety, not difficulty compensation."
 
 user_stories:
   - US-201

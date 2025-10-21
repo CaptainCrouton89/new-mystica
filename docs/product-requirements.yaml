@@ -2,7 +2,7 @@
 # Keep descriptions brief. Features link to feature-title.yaml specs.
 
 status: draft
-last_updated: 2025-10-20
+last_updated: 2025-01-27
 
 overview:
   project_name: "New Mystica"
@@ -163,6 +163,18 @@ core_systems:
       events: ["currency_balance_changed", "item_upgraded", "material_replaced"]
       purpose: "Track gold flow, inflation, and spending patterns"
 
+content_policy:
+  age_rating: "Teen (13+) for fantasy violence and mild language"
+  app_store_compliance:
+    - "Age-appropriate materials for teen rating"
+    - "Remove inappropriate materials (Cocaine, Lube) from early tier drops"
+    - "Adult-themed materials unlock only at higher player levels (20+)"
+    - "No explicit sexual content or real-world drug references"
+  material_filtering:
+    - "Level-gated system prevents inappropriate materials in early game"
+    - "Player level 1-19: Family-friendly materials only"
+    - "Player level 20+: Expanded material pool with adult themes"
+
 technical_constraints:
   platforms:
     - iOS 17+
@@ -183,6 +195,63 @@ technical_constraints:
     - Map rendering must support smooth scrolling with 100+ location markers
     - Combat animations must run at 60fps
     - Item generation API response time < 2s
+  image_generation:
+    - "MVP0: Synchronous/blocking generation (20s response time)"
+    - "Post-MVP: Asynchronous generation with crafting queues"
+    - "Cloudflare R2 bucket for asset storage and caching"
+
+mvp_phases:
+  mvp0_demo:
+    scope: "Demo-ready prototype for stakeholder validation"
+    features:
+      - id: "F-01"
+        description: "30 hardcoded SF locations, no cooldowns, instant generation API"
+      - id: "F-02"
+        description: "Single_arc dial pattern only, stat-based difficulty"
+      - id: "F-03"
+        description: "8 equipment slots, basic equip/unequip"
+      - id: "F-04"
+        description: "Materials system with sync image generation (20s blocking)"
+      - id: "F-05"
+        description: "100% drop rate (always material + item + gold)"
+      - id: "F-06"
+        description: "Upgrade system with simplified formula (no rarity multiplier)"
+      - id: "F-07"
+        description: "Authentication (Supabase)"
+      - id: "F-09"
+        description: "Inventory with 100 item cap"
+      - id: "F-11"
+        description: "Pet speech bubbles (text + sound effect, nano AI)"
+      - id: "F-12"
+        description: "Enemy speech bubbles (text + sound effect, nano AI)"
+
+  mvp1_post_demo:
+    scope: "Refined experience with balancing and progression"
+    features:
+      - id: "F-01"
+        description: "Location cooldowns, full pool union system"
+      - id: "F-02"
+        description: "2-3 additional dial patterns"
+      - id: "F-05"
+        description: "Weighted drop rates (60% material chance, tier-based rarity)"
+      - id: "F-08"
+        description: "XP progression visible to player, level unlocks active"
+      - id: "F-10"
+        description: "Storage expansion IAP ($0.99 for 100→1000 slots)"
+
+  post_mvp:
+    scope: "Full feature set and endgame content"
+    features:
+      - id: "F-04"
+        description: "Async image generation with crafting queues"
+      - id: "F-08"
+        description: "Full progression system with feature unlocks"
+      - id: "F-09"
+        description: "Loadouts system (5 saved configs)"
+      - id: "F-10"
+        description: "Premium items and full monetization"
+      - id: "F-13"
+        description: "Prestige system, endgame achievements"
 
 timeline:
   milestones:
@@ -274,6 +343,12 @@ notes: |
   - Material Rarity: Auto-classified into strength tiers (common/uncommon/rare/epic) based on stat modifier magnitude (not a stored property)
   - Drop Frequency: Tier-based system controls how often materials drop per location using tier multipliers (common=1.0, epic=0.15)
   - Level Gating: Inappropriate materials (e.g., Hello Kitty) excluded from early-level pools, unlocked at higher levels
+
+  Location System Details:
+  - Pool Union System: Locations fetch union of (location_type ∪ state ∪ lat ∪ lng ∪ generic) material pools
+  - Combat Level Filtering: Final pool filtered by player's combat level for appropriate difficulty
+  - MVP0: 30 hardcoded SF locations with instant spawns, no cooldowns
+  - MVP1+: Dynamic location cooldowns and full geolocation-based pool generation
 
   Combat Mechanics:
   - Attack dial: Timing determines damage multiplier (atkAccuracy = hit window size)

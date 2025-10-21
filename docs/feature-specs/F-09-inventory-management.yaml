@@ -7,7 +7,7 @@ last_updated: 2025-01-27
 summary: "Comprehensive inventory management system with item viewing, organizing, filtering, equipment management across 8 slots, and saved loadouts. Players can view all owned items, sort/filter by type/rarity/level, equip/unequip items to appropriate slots, and save/load equipment configurations for quick switching."
 
 functional_overview:
-  core_logic: "Players accumulate items through combat rewards and can organize them in a comprehensive inventory system. Items can be filtered by equipment slot (weapon, offhand, head, armor, feet, accessory_1, accessory_2, pet), sorted by level/rarity/acquisition date, and equipped to 8 equipment slots. Post-MVP adds saved loadouts for quick equipment configuration switching. UserEquipment table is single source of truth for equipped state."
+  core_logic: "Players accumulate items through combat rewards (up to 100 item cap in MVP) and can organize them in a comprehensive inventory system. Items can be filtered by equipment slot (weapon, offhand, head, armor, feet, accessory_1, accessory_2, pet), sorted by level/rarity/acquisition date, and equipped to 8 equipment slots. Storage expansion available via $0.99 IAP (100→1000 slots). Post-MVP adds saved loadouts for quick equipment configuration switching. UserEquipment table is single source of truth for equipped state."
   data_schema: "Items table with user ownership, UserEquipment table for current equipment state (8 slots), Loadouts/LoadoutSlots tables for saved configurations, ItemHistory for audit trail"
   api_endpoints:
     - "GET /inventory?filter_slot=weapon&sort_by=level&sort_order=desc"
@@ -232,6 +232,7 @@ dependencies:
 
 implementation_status:
   notes:
+    - "Light MVP: 100 item cap with purchase prompt when full"
     - "MVP Phase 1: Basic inventory viewing with GET /inventory (filtering, sorting, pagination)"
     - "MVP Phase 2: Equipment management with GET /equipment, PUT /equipment/{slot}, DELETE /equipment/{slot}"
     - "MVP Phase 3: Equipment UI with 8-slot visualization, drag-and-drop or tap-to-equip"
@@ -309,8 +310,9 @@ business_rules:
     - "Unequipping item returns it to inventory immediately"
 
   inventory_limits:
-    - "No inventory size limit for MVP (unlimited item storage)"
-    - "Future enhancement: soft cap with expansion options"
+    - "100 item cap for MVP (expandable via IAP)"
+    - "Storage expansion: $0.99 for 900 additional slots (100→1000), permanent"
+    - "Future enhancement: Multiple expansion tiers"
     - "Items are never auto-deleted (manual deletion only in future)"
 
   loadout_constraints:
@@ -334,6 +336,7 @@ edge_cases:
     - "What if user deletes item that's currently equipped? → Item removed from equipment slot via CASCADE trigger"
     - "What if user tries to equip item they don't own? → 404 error, no state change"
     - "What if user has no items to equip? → Empty equipment slots shown, total stats are base player stats only"
+    - "What if player reaches 100 item cap? → Block new item acquisition, show 'Expand Storage' IAP prompt or dismantle items"
 
   loadout_system:
     - "What if loadout contains items user no longer owns? → Skip those slots during activation, warn user"
@@ -391,6 +394,7 @@ related_features:
   - "F-04: Materials System (items display applied materials in inventory)"
   - "F-06: Item Upgrade System (upgrade actions accessible from inventory)"
   - "F-02: Combat System (equipped items determine player combat stats)"
+  - "F-10: Premium Items (storage expansion IAP implementation)"
 
 events_to_track:
   - event_name: "inventory_viewed"

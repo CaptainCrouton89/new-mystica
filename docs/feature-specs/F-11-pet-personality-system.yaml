@@ -2,12 +2,12 @@ title: Technical Specification - Pet Personality System
 template: ~/.claude/file-templates/init-project/feature-spec/feature-title.yaml
 feature_id: F-11
 status: planned
-last_updated: 2025-10-20
+last_updated: 2025-01-27
 
 summary: "AI-powered dynamic pet personalities that generate contextual trash-talk and commentary during combat. Each pet has personality traits that influence their dialogue style. The AI observes combat events (attacks, defenses, critical hits, misses) and generates personality-appropriate chatter in real-time."
 
 functional_overview:
-  core_logic: "Each pet has a personality profile (traits, tone, behavior tendencies). During combat, the system tracks combat events and feeds them to an AI service along with the pet's personality profile. The AI generates contextual dialogue that appears in the combat UI as speech bubbles or text overlays. Personality traits influence dialogue style (e.g., sassy vs. encouraging, verbose vs. terse)."
+  core_logic: "Each pet has a personality profile (traits, tone, behavior tendencies). During combat, the system tracks combat events and feeds them to an AI service along with the pet's personality profile. The AI generates personality-appropriate TEXT chatter with sound effect that appears in speech bubbles above the pet sprite. Personality traits influence dialogue style (e.g., sassy vs. encouraging, verbose vs. terse)."
   data_schema: "pet_personalities table with personality_type, traits JSON array, base_dialogue_style. combat_chatter_log table stores generated dialogue for analytics."
   api_endpoints:
     - "POST /combat/pet-chatter (generates dialogue based on combat event)"
@@ -187,7 +187,7 @@ detailed_design:
     6. AI generates dialogue (OpenAI/Anthropic with 1-2s timeout)
     7. Backend logs to combat_chatter_log for analytics
     8. Response sent to client: {dialogue, personality_type}
-    9. Client displays dialogue in speech bubble above pet sprite (2-3s duration)
+    9. Client displays dialogue in speech bubble above pet sprite (2-3s duration) with chatter sound effect
 
     **Fallback Strategy (AI Unavailable):**
     - If AI service timeout or error, use canned example_phrases from pet_personalities
@@ -209,7 +209,7 @@ detailed_design:
     - Politician
 
 dependencies:
-  libraries: "OpenAI SDK or Anthropic SDK (Node.js)"
+  libraries: "OpenAI SDK (GPT-4.1-nano model)"
   services: "AI Generation Service (shared with item generation), Combat Service (F-02), Redis for combat session context"
   data_sources: "pet_personalities seed data (6 base personalities), player_pet_personalities table, combat_sessions (Redis)"
 
@@ -218,6 +218,10 @@ implementation_status:
     - "Light MVP: Hardcode 2-3 personalities with canned phrases only (no AI), triggered on specific combat events"
     - "Full MVP: AI integration with OpenAI/Anthropic, 6 personality types, player can assign personality to pet, dialogue logs for analytics"
     - "Finished: Custom pet names, personality unlock system (rare personalities from special pets), A/B test dialogue frequency, multilingual support"
+    - "AI Model: GPT-4.1-nano for cost efficiency (~$0.0001/message)"
+    - "Randomness: Inject random literary passages to prevent repetition"
+    - "Throttling: 1 message/turn max, special events only"
+    - "UI requirements: Speech bubble with chatter sound effect (no voice synthesis)"
 
 user_stories:
   - "US-TBD: Create user stories for pet personality assignment and combat chatter viewing"

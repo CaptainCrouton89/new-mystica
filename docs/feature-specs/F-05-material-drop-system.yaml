@@ -2,15 +2,16 @@ title: Technical Specification - Material Drop System
 template: ~/.claude/file-templates/init-project/feature-spec/feature-title.yaml
 feature_id: F-05
 status: planned
-last_updated: 2025-10-20
+last_updated: 2025-01-27
 
 summary: "Enemies drop gold (100% chance) and materials (60% chance). Material drops use tier-based rarity system with derived strength classification. Drop weights calculated as base_drop_weight × tier_multiplier from LootPoolTierWeights. Enemy level equals player's average equipped item level."
 
 functional_overview:
-  core_logic: "On combat victory, roll for material drop (60% chance). If success, select weighted random material from location-specific LootPool using tier-based system. Materials auto-classified into tiers (common/uncommon/rare/epic) based on stat modifier magnitude. Drop weights = base_drop_weight × tier_multiplier. Always award gold (random amount in enemy's level-scaled range)."
+  core_logic: "MVP0/1: 100% drop rate, always 1 material + 1 item + gold. Later: 60% material chance with tier-based weighting. On combat victory, guaranteed material + item drop using simplified selection from location LootPool. Materials classified into tiers for future versions. Always award gold (fixed amount in MVP0, level-scaled later)."
   data_schema: "LootPools (location-specific), LootPoolTierWeights (tier distribution), MaterialStrengthTiers (classification thresholds), v_loot_pool_material_weights (computed view)"
   api_endpoints:
     - "POST /combat/complete (returns rewards)"
+    - "POST /items/{id}/dismantle (returns gold from burning items)"
   integration_points:
     - "Combat system (F-02) triggers on victory"
     - "Materials system (F-04) receives dropped materials and provides base_drop_weight"
@@ -44,7 +45,13 @@ detailed_design:
     - name: "combat_rewards (returned from API, not stored)"
       columns:
         - "gold_amount: INT"
-        - "material_dropped: {material_id, style_id} (null if no drop)"
+        - "material_dropped: {material_id, style_id} (guaranteed in MVP0)"
+        - "item_dropped: {item_id, name} (guaranteed in MVP0)"
+
+    - name: "dismantle_response (returned from API, not stored)"
+      columns:
+        - "gold_awarded: INT (flat 5-10g rate)"
+        - "success: BOOLEAN"
 
   apis:
     - method: "POST"
@@ -59,19 +66,42 @@ detailed_design:
               material_id: 'flame',
               name: 'Flame',
               style_id: 'normal'
-            } // null if no drop
+            }, // guaranteed in MVP0
+            item: {
+              item_id: 'magic_wand_basic',
+              name: 'Basic Magic Wand'
+            } // guaranteed in MVP0
           },
           updated_balance: {
             gold: 1850,
-            materials: [{material_id: 'flame', style_id: 'normal', quantity: 3}] // updated after adding drop
+            materials: [{material_id: 'flame', style_id: 'normal', quantity: 3}],
+            items: [{item_id: 'magic_wand_basic', quantity: 2}] // updated after adding drop
           }
         }
       errors:
         - "404: Combat session not found"
         - "400: Combat not complete (enemy still alive)"
 
+    - method: "POST"
+      endpoint: "/items/{id}/dismantle"
+      request: "{item_id: UUID}"
+      response: |
+        {
+          gold_awarded: 10,
+          success: true
+        }
+      errors:
+        - "404: Item not found"
+        - "403: Item not owned by player"
+
   diagrams: |
-    Tier-Based Drop Calculation Flow (Server-Side):
+    MVP0 Drop Calculation Flow (Server-Side):
+    1. Validate combat victory (enemy HP = 0)
+    2. Always generate: material + item + gold (no RNG)
+    3. Add to inventory: materials, items, gold
+    4. Return rewards to client
+
+    Full MVP Drop Calculation Flow (Server-Side):
     1. Validate combat victory (enemy HP = 0)
     2. Get enemy level from combat session
     3. Roll for material drop: random(0, 1) < 0.6 ?
@@ -133,15 +163,16 @@ dependencies:
 
 implementation_status:
   notes:
-    - "Light MVP: Hardcoded enemy level = 3, fixed gold = 200, material drop = 100% for testing"
-    - "Full MVP: Tier-based drop system with MaterialStrengthTiers and LootPoolTierWeights, 60% material drop rate, level-scaled gold"
+    - "Light MVP: 100% drop rate, 1 material + 1 item + fixed gold per combat, no RNG"
+    - "Full MVP: 60% material drop chance, tier-based weighting via LootPoolTierWeights"
     - "Material Tier System: Common [0.00,0.12), Uncommon [0.12,0.20), Rare [0.20,0.28), Epic [0.28,1.00) thresholds"
     - "Drop Weight Examples: Level 1-8 pools exclude uncommon+ materials (weight=0), Level 9+ pools use default tier multipliers (common=1.0, uncommon=0.7, rare=0.35, epic=0.15)"
     - "Auto-Integration: New materials instantly classified into tiers, appear in all pools with default multipliers, can be level-gated via LootPoolEntries overrides"
     - "Finished: Location-specific drop pools, rare material drops, daily bonus drops, streak bonuses"
+    - "Item Dismantling: Flat-rate gold return (5-10g) when burning unwanted items via POST /items/{id}/dismantle"
 
 balancing_parameters:
-  material_drop_rate: "60% (ensures steady material income without flooding inventory)"
+  material_drop_rate: "MVP0: 100% (guaranteed), Full MVP: 60% (ensures steady material income without flooding inventory)"
   style_inheritance: "Materials inherit enemy style_id (styled enemies drop styled materials, normal enemies drop normal materials)"
   gold_scaling: "100-200 × enemy_level (allows ~5 upgrades per combat at same level)"
   enemy_level_formula: "floor(avg_player_item_level) (enemies scale to player, always fair challenge)"
