@@ -7,6 +7,8 @@
     "generate-image": "tsx generate-image.ts",
     "generate-raw-image": "tsx generate-raw-image.ts",
     "generate-raw-monster": "tsx generate-raw-monster.ts",
+    "generate-arbitrary": "tsx generate-arbitrary-image.ts",
+    "generate-landscape": "tsx generate-landscape.ts",
     "analyze-image": "tsx analyze-image.ts"
   },
   "dependencies": {
@@ -17,6 +19,7 @@
     "ai": "^5.0.76",
     "dotenv": "^16.4.7",
     "replicate": "^1.0.4",
+    "sharp": "^0.34.4",
     "zod": "^4.1.12"
   },
   "devDependencies": {

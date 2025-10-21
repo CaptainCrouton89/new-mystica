@@ -1,0 +1,2 @@
+- Always use --remote when uploading to r2
+- When generating many images, do them in parallel or in batches
