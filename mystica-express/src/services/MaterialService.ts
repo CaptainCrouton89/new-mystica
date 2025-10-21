@@ -1,4 +1,4 @@
-import { Material, MaterialStack, ApplyMaterialResult, ReplaceMaterialResult } from '../types/api.types.js';
+import { Material, MaterialStackDetailed, ApplyMaterialResult, ReplaceMaterialResult } from '../types/api.types.js';
 import { NotImplementedError, NotFoundError, ValidationError, BusinessLogicError } from '../utils/errors.js';
 import { MaterialRepository } from '../repositories/MaterialRepository.js';
 import { ImageCacheRepository } from '../repositories/ImageCacheRepository.js';
@@ -39,7 +39,7 @@ export class MaterialService {
    * - Groups by material type and style
    * - Returns stackable inventory data
    */
-  async getMaterialInventory(userId: string): Promise<MaterialStack[]> {
+  async getMaterialInventory(userId: string): Promise<MaterialStackDetailed[]> {
     // TODO: Implement material inventory retrieval
     // 1. Query MaterialStacks table for user_id
     // 2. Join with Materials for base data
@@ -49,7 +49,7 @@ export class MaterialService {
     const stacks = await this.materialRepository.findAllStacksByUser(userId);
 
     // For each stack, fetch the material template data
-    const stacksWithMaterials: MaterialStack[] = [];
+    const stacksWithMaterials: MaterialStackDetailed[] = [];
 
     for (const stack of stacks) {
       const material = await this.materialRepository.findMaterialById(stack.material_id);
@@ -66,11 +66,9 @@ export class MaterialService {
         material: {
           id: material.id,
           name: material.name,
-          rarity: material.rarity as any,
-          stat_modifiers: material.stat_modifiers as any,
-          theme: material.theme as any,
-          image_url: material.image_url || undefined,
-          description: material.description || undefined
+          stat_modifiers: material.stat_modifiers,
+          description: material.description || undefined,
+          base_drop_weight: material.base_drop_weight
         }
       });
     }
@@ -348,11 +346,9 @@ export class MaterialService {
         material: oldMaterial ? {
           id: oldMaterial.id,
           name: oldMaterial.name,
-          rarity: oldMaterial.rarity as any,
-          stat_modifiers: oldMaterial.stat_modifiers as any,
-          theme: oldMaterial.theme as any,
-          image_url: oldMaterial.image_url || undefined,
-          description: oldMaterial.description || undefined
+          stat_modifiers: oldMaterial.stat_modifiers,
+          description: oldMaterial.description || undefined,
+          base_drop_weight: oldMaterial.base_drop_weight
         } : {} as any
       },
       refunded_material: {
@@ -364,11 +360,9 @@ export class MaterialService {
         material: oldMaterial ? {
           id: oldMaterial.id,
           name: oldMaterial.name,
-          rarity: oldMaterial.rarity as any,
-          stat_modifiers: oldMaterial.stat_modifiers as any,
-          theme: oldMaterial.theme as any,
-          image_url: oldMaterial.image_url || undefined,
-          description: oldMaterial.description || undefined
+          stat_modifiers: oldMaterial.stat_modifiers,
+          description: oldMaterial.description || undefined,
+          base_drop_weight: oldMaterial.base_drop_weight
         } : {} as any
       },
       message: `Replaced material in slot ${slotIndex} (cost: ${goldCost} gold)`
@@ -396,11 +390,9 @@ export class MaterialService {
         material: {
           id: m.material?.id || '',
           name: m.material?.name || '',
-          rarity: m.material?.rarity || 'common',
           stat_modifiers: m.material?.stat_modifiers || {},
-          theme: m.material?.theme || 'balanced',
-          image_url: m.material?.image_url,
-          description: m.material?.description
+          description: m.material?.description,
+          base_drop_weight: m.material?.base_drop_weight || 100
         }
       })) || [],
       item_type: itemWithDetails.item_type ? {

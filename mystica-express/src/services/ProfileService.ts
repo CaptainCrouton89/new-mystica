@@ -2,9 +2,9 @@ import { UserProfile, Stats } from '../types/api.types.js';
 import { mapSupabaseError, NotFoundError, BusinessLogicError, ValidationError } from '../utils/errors.js';
 import { ProfileRepository } from '../repositories/ProfileRepository.js';
 import { ItemRepository } from '../repositories/ItemRepository.js';
+import { EquipmentRepository } from '../repositories/EquipmentRepository.js';
 import { analyticsService } from './AnalyticsService.js';
 import { Database } from '../types/database.types.js';
-import { supabase } from '../config/supabase.js';
 
 // Database row types
 type PlayerProgression = Database['public']['Tables']['playerprogression']['Row'];
@@ -16,10 +16,12 @@ type DeviceToken = Database['public']['Tables']['devicetokens']['Row'];
 export class ProfileService {
   private profileRepository: ProfileRepository;
   private itemRepository: ItemRepository;
+  private equipmentRepository: EquipmentRepository;
 
   constructor() {
     this.profileRepository = new ProfileRepository();
     this.itemRepository = new ItemRepository();
+    this.equipmentRepository = new EquipmentRepository();
   }
   /**
    * Initialize a new player profile with starter inventory
@@ -227,23 +229,7 @@ export class ProfileService {
    */
   async calculateTotalStats(userId: string): Promise<Stats> {
     try {
-      const { data, error } = await supabase
-        .from('v_player_equipped_stats')
-        .select('*')
-        .eq('player_id', userId)
-        .single();
-
-      if (error || !data) {
-        // Return zero stats if no equipped items or user doesn't exist
-        return { atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0 };
-      }
-
-      return {
-        atkPower: Number(data.atk) || 0,
-        atkAccuracy: Number(data.acc) || 0,
-        defPower: Number(data.def) || 0,
-        defAccuracy: Number(data.acc) || 0 // Using acc for both attack and defense accuracy
-      };
+      return await this.equipmentRepository.getPlayerEquippedStats(userId);
     } catch (error) {
       throw mapSupabaseError(error);
     }

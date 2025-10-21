@@ -228,10 +228,10 @@ export class LoadoutService {
     }
 
     // Update slots (repository handles ownership + existence validation)
-    const updateResult = await this.loadoutRepository.updateLoadoutSlots(loadoutId, completeSlots);
+    await this.loadoutRepository.updateLoadoutSlots(loadoutId, completeSlots);
 
-    // Some implementations may return the updated loadout directly
-    const updatedLoadout = updateResult || await this.loadoutRepository.findLoadoutById(loadoutId);
+    // Fetch the updated loadout
+    const updatedLoadout = await this.loadoutRepository.findLoadoutById(loadoutId);
     if (!updatedLoadout) {
       const hasAssignedItems = Object.values(completeSlots).some((itemId) => itemId !== null);
       if (hasAssignedItems) {
@@ -270,9 +270,10 @@ export class LoadoutService {
     }
 
     // Update single slot (repository handles item ownership validation)
-    const updateResult = await this.loadoutRepository.updateSingleSlot(loadoutId, slotName, itemId);
+    await this.loadoutRepository.updateSingleSlot(loadoutId, slotName, itemId);
 
-    const updatedLoadout = updateResult || await this.loadoutRepository.findLoadoutById(loadoutId);
+    // Fetch the updated loadout
+    const updatedLoadout = await this.loadoutRepository.findLoadoutById(loadoutId);
     if (!updatedLoadout) {
       throw new NotFoundError('loadouts', loadoutId);
     }

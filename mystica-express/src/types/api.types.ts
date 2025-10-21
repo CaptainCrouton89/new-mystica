@@ -87,10 +87,8 @@ export interface ItemType {
 export interface Material {
   id: string;
   name: string;
-  rarity: Rarity;
   stat_modifiers: Stats;
-  theme: 'defensive' | 'offensive' | 'balanced' | 'exotic';
-  image_url?: string;
+  base_drop_weight: number;
   description?: string;
 }
 
@@ -106,15 +104,27 @@ export interface AppliedMaterial {
 }
 
 /**
- * Stackable material inventory entry
+ * Detailed material stack with full material data (used by MaterialService)
  */
-export interface MaterialStack {
+export interface MaterialStackDetailed {
   id: string;
   user_id: string;
   material_id: string;
   style_id: string;
   quantity: number;
   material: Material;
+}
+
+/**
+ * Simplified material stack for inventory response
+ */
+export interface MaterialStack {
+  material_id: string;
+  material_name: string;
+  style_id: string;
+  style_name: string;
+  quantity: number;
+  is_styled: boolean;
 }
 
 /**
@@ -240,7 +250,7 @@ export interface ApplyMaterialResult {
   is_first_craft: boolean;
   craft_count: number;
   image_url: string;
-  materials_consumed: MaterialStack[];
+  materials_consumed: MaterialStackDetailed[];
   message?: string;
 }
 
@@ -252,7 +262,7 @@ export interface ReplaceMaterialResult {
   updated_item: Item;
   gold_spent: number;
   replaced_material: AppliedMaterial;
-  refunded_material?: MaterialStack;
+  refunded_material?: MaterialStackDetailed;
   message?: string;
 }
 

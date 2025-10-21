@@ -1,6 +1,5 @@
 import { EquipmentSlots, EquipResult, Stats, Item, ItemType, PlayerStats, EquipmentSlot, PlayerItem } from '../types/api.types';
 import { NotImplementedError, mapSupabaseError } from '../utils/errors';
-import { supabase } from '../config/supabase';
 import { EquipmentRepository } from '../repositories/EquipmentRepository.js';
 import { ItemRepository } from '../repositories/ItemRepository.js';
 
@@ -61,18 +60,10 @@ export class EquipmentService {
       }
 
       // Determine slot name based on item category
-      const slotName = this.mapCategoryToSlot(item.item_type.category);
+      const slotName = await this.mapCategoryToSlot(item.item_type.category, userId);
 
       // Use the atomic RPC function to handle the complex equip logic
-      const { data: result, error: rpcError } = await supabase.rpc('equip_item' as any, {
-        p_user_id: userId,
-        p_item_id: itemId,
-        p_slot_name: slotName
-      });
-
-      if (rpcError) {
-        throw mapSupabaseError(rpcError);
-      }
+      const result = await this.equipmentRepository.equipItemAtomic(userId, itemId, slotName);
 
       // Handle RPC function response
       const equipResult = result as any;
@@ -139,14 +130,7 @@ export class EquipmentService {
   async unequipItem(userId: string, slotName: string): Promise<boolean> {
     try {
       // Use the atomic RPC function to handle the unequip logic
-      const { data: result, error: rpcError } = await supabase.rpc('unequip_item' as any, {
-        p_user_id: userId,
-        p_slot_name: slotName
-      });
-
-      if (rpcError) {
-        throw mapSupabaseError(rpcError);
-      }
+      const result = await this.equipmentRepository.unequipItemAtomic(userId, slotName);
 
       // Handle RPC function response
       const unequipResult = result as any;
@@ -164,9 +148,9 @@ export class EquipmentService {
 
   /**
    * Map item category to appropriate equipment slot name
-   * For accessory items, defaults to accessory_1 (could be enhanced with preference logic)
+   * For accessory items, intelligently selects best available slot
    */
-  private mapCategoryToSlot(category: string): string {
+  private async mapCategoryToSlot(category: string, userId?: string): Promise<string> {
     switch (category) {
       case 'weapon':
         return 'weapon';
@@ -179,13 +163,35 @@ export class EquipmentService {
       case 'feet':
         return 'feet';
       case 'accessory':
-        // For accessories, prefer accessory_1 slot
-        // TODO: Could be enhanced to check which accessory slot is available
-        return 'accessory_1';
+        // For accessories, intelligently select best available slot
+        return userId ? await this.selectBestAccessorySlot(userId) : 'accessory_1';
       case 'pet':
         return 'pet';
       default:
         throw new Error(`Unknown item category: ${category}`);
+    }
+  }
+
+  /**
+   * Select the best accessory slot for new item
+   * Strategy: Fill empty slots first, default to accessory_1 if both occupied
+   */
+  private async selectBestAccessorySlot(userId: string): Promise<'accessory_1' | 'accessory_2'> {
+    try {
+      // Query UserEquipment to check which accessory slots are available
+      const accessory1 = await this.equipmentRepository.findItemInSlot(userId, 'accessory_1');
+      const accessory2 = await this.equipmentRepository.findItemInSlot(userId, 'accessory_2');
+
+      // Strategy 1: Fill empty slots first
+      if (!accessory1) return 'accessory_1';
+      if (!accessory2) return 'accessory_2';
+
+      // Strategy 2: Default to accessory_1 if both occupied (will replace)
+      return 'accessory_1';
+    } catch (error) {
+      // Fallback to accessory_1 on any error
+      console.warn('Failed to select best accessory slot, falling back to accessory_1:', error);
+      return 'accessory_1';
     }
   }
 
@@ -206,27 +212,7 @@ export class EquipmentService {
    * Get player stats from equipped items using v_player_equipped_stats view
    */
   private async getPlayerStats(userId: string): Promise<Stats> {
-    try {
-      const { data, error } = await supabase
-        .from('v_player_equipped_stats')
-        .select('*')
-        .eq('player_id', userId)
-        .single();
-
-      if (error || !data) {
-        // Return zero stats if no equipped items or user doesn't exist
-        return { atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0 };
-      }
-
-      return {
-        atkPower: Number(data.atk) || 0,
-        atkAccuracy: Number(data.acc) || 0,
-        defPower: Number(data.def) || 0,
-        defAccuracy: Number(data.acc) || 0 // Using acc for both attack and defense accuracy
-      };
-    } catch (error) {
-      throw mapSupabaseError(error);
-    }
+    return await this.equipmentRepository.getPlayerEquippedStats(userId);
   }
 
   /**

@@ -6,8 +6,6 @@
  * from initialization through completion with proper pool-based enemy/loot selection.
  */
 
-import { SupabaseClient } from '@supabase/supabase-js';
-import { supabase } from '../config/supabase.js';
 import { CombatRepository, CombatSessionData, CombatLogEventData, PlayerCombatHistoryData } from '../repositories/CombatRepository.js';
 import { EnemyRepository } from '../repositories/EnemyRepository.js';
 import { EquipmentRepository } from '../repositories/EquipmentRepository.js';
@@ -15,6 +13,7 @@ import { WeaponRepository } from '../repositories/WeaponRepository.js';
 import { MaterialRepository } from '../repositories/MaterialRepository.js';
 import { Database } from '../types/database.types.js';
 import { AdjustedBands } from '../types/repository.types.js';
+import { Stats } from '../types/api.types.js';
 import {
   ConflictError,
   NotFoundError,
@@ -144,11 +143,6 @@ export interface EnemyStats {
  * - Combat completion with loot generation and history updates
  */
 export class CombatService {
-  private client: SupabaseClient;
-
-  constructor(client: SupabaseClient = supabase) {
-    this.client = client;
-  }
 
   // ============================================================================
   // Public API Methods
@@ -177,11 +171,28 @@ export class CombatService {
     const playerStats = await this.calculatePlayerStats(userId);
     const combatLevel = Math.floor((playerStats.atkPower + playerStats.defPower) / 20) || 1;
 
+    // Get location data for pool filtering
+    const locationData = await this.getLocationData(locationId);
+
+    // Get matching enemy and loot pools for analytics
+    const appliedEnemyPools = await this.getMatchingEnemyPools(locationData, combatLevel);
+    const appliedLootPools = await this.getMatchingLootPools(locationData, combatLevel);
+
     // Select enemy from matching pools
     const enemy = await this.selectEnemy(locationId, combatLevel);
 
     // Get weapon configuration
     const weaponConfig = await this.getWeaponConfig(userId, playerStats.atkAccuracy);
+
+    // Capture player equipment snapshot
+    const playerEquippedItemsSnapshot = await this.captureEquipmentSnapshot(userId);
+
+    // Calculate combat ratings
+    const playerRating = await this.calculateCombatRating(playerStats.atkPower, playerStats.defPower, playerStats.hp);
+    const enemyRating = await this.calculateCombatRating(enemy.atk, enemy.def, enemy.hp);
+
+    // Calculate win probability using Elo-style formula
+    const winProbEst = this.calculateWinProbability(playerRating, enemyRating);
 
     // Create session in database
     const sessionData: Omit<CombatSessionData, 'id' | 'createdAt' | 'updatedAt'> = {
@@ -189,12 +200,12 @@ export class CombatService {
       locationId,
       combatLevel,
       enemyTypeId: enemy.id,
-      appliedEnemyPools: [], // TODO: Store pool IDs used
-      appliedLootPools: [], // TODO: Store loot pool IDs
-      playerEquippedItemsSnapshot: {}, // TODO: Store equipped items snapshot
-      playerRating: await this.calculateCombatRating(playerStats.atkPower, playerStats.defPower, playerStats.hp),
-      enemyRating: await this.calculateCombatRating(enemy.atk, enemy.def, enemy.hp),
-      winProbEst: undefined, // TODO: Calculate win probability
+      appliedEnemyPools,
+      appliedLootPools,
+      playerEquippedItemsSnapshot,
+      playerRating,
+      enemyRating,
+      winProbEst,
       combatLog: [],
     };
 
@@ -509,16 +520,8 @@ export class CombatService {
    */
   private async calculatePlayerStats(userId: string): Promise<PlayerStats> {
     try {
-      // Get power level stats from v_player_powerlevel view
-      const { data: powerStats, error } = await this.client
-        .from('v_player_powerlevel')
-        .select('atk, def, hp, acc')
-        .eq('player_id', userId)
-        .single();
-
-      if (error && error.code !== 'PGRST116') { // Not "no rows found"
-        throw mapSupabaseError(error);
-      }
+      // Get power level stats from v_player_powerlevel view via repository
+      const powerStats = await equipmentRepository.getPlayerPowerLevel(userId);
 
       // Fallback to equipment repository if view query fails or no data
       if (!powerStats) {
@@ -558,16 +561,8 @@ export class CombatService {
    */
   private async calculateEnemyStats(enemyTypeId: string): Promise<EnemyStats> {
     try {
-      // Use v_enemy_realized_stats view for stats with tier scaling
-      const { data: realizedStats, error } = await this.client
-        .from('v_enemy_realized_stats')
-        .select('atk, def, hp, combat_rating')
-        .eq('id', enemyTypeId)
-        .single();
-
-      if (error) {
-        throw mapSupabaseError(error);
-      }
+      // Use v_enemy_realized_stats view for stats with tier scaling via repository
+      const realizedStats = await enemyRepository.getEnemyRealizedStats(enemyTypeId);
 
       if (!realizedStats) {
         throw new NotFoundError('Enemy stats', enemyTypeId);
@@ -745,16 +740,7 @@ export class CombatService {
     if (!weaponId) return 1.0;
 
     try {
-      const { data, error } = await this.client.rpc('fn_expected_mul_quick', {
-        w_id: weaponId,
-        player_acc: accuracy
-      });
-
-      if (error) {
-        console.warn('Database fn_expected_mul_quick failed, using fallback:', error);
-        return 1.0; // Fallback to base multiplier
-      }
-      return data || 1.0;
+      return await weaponRepository.getExpectedDamageMultiplier(weaponId, accuracy);
     } catch (error) {
       console.warn('Expected damage multiplier calculation failed:', error);
       return 1.0; // Fallback to base multiplier
@@ -822,23 +808,13 @@ export class CombatService {
         };
       }
 
-      // Use v_loot_pool_material_weights view for weighted selection
-      const { data: weightedMaterials, error } = await this.client
-        .from('v_loot_pool_material_weights')
-        .select(`
-          loot_pool_id,
-          material_id,
-          final_weight
-        `)
-        .in('loot_pool_id', lootPoolIds)
-        .gt('final_weight', 0); // Only materials with positive weights
+      // Use v_loot_pool_material_weights view for weighted selection via repository
+      const weightedMaterials = await materialRepository.getLootPoolMaterialWeights(lootPoolIds);
 
-      if (error) {
-        console.warn('Database v_loot_pool_material_weights query failed, using fallback:', error);
-        return this.generateLootFallback(locationId, combatLevel, enemyStyleId);
-      }
+      // Filter for positive weights
+      const validMaterials = weightedMaterials.filter(m => Number(m.spawn_weight) > 0);
 
-      if (!weightedMaterials || weightedMaterials.length === 0) {
+      if (!validMaterials || validMaterials.length === 0) {
         return this.generateLootFallback(locationId, combatLevel, enemyStyleId);
       }
 
@@ -848,24 +824,20 @@ export class CombatService {
 
       for (let i = 0; i < numDrops; i++) {
         // Calculate total weight
-        const totalWeight = weightedMaterials.reduce((sum, m) => sum + Number(m.final_weight), 0);
+        const totalWeight = validMaterials.reduce((sum, m) => sum + Number(m.spawn_weight), 0);
         if (totalWeight <= 0) break;
 
         // Weighted random selection
         const randomWeight = Math.random() * totalWeight;
         let currentWeight = 0;
-        const selectedMaterial = weightedMaterials.find(m => {
-          currentWeight += Number(m.final_weight);
+        const selectedMaterial = validMaterials.find(m => {
+          currentWeight += Number(m.spawn_weight);
           return randomWeight <= currentWeight;
         });
 
         if (selectedMaterial) {
-          // Get material details separately
-          const { data: materialData } = await this.client
-            .from('materials')
-            .select('name')
-            .eq('id', selectedMaterial.material_id)
-            .single();
+          // Get material details via repository
+          const materialData = await materialRepository.findMaterialById(selectedMaterial.material_id);
 
           // Apply style inheritance from enemy
           materials.push({
@@ -952,19 +924,260 @@ export class CombatService {
    */
   private async calculateCombatRating(atk: number, def: number, hp: number): Promise<number> {
     try {
-      const { data, error } = await this.client.rpc('combat_rating', {
-        atk,
-        defense: def,
-        hp
-      });
-      if (error) throw mapSupabaseError(error);
-      return data || 0;
+      return await combatRepository.calculateCombatRating(atk, def, hp);
     } catch (error) {
       // Fallback to simple calculation if DB function fails
       console.warn('Database combat_rating function failed, using fallback:', error);
       return Math.floor(atk * 2 + def * 1.5 + hp * 0.5);
     }
   }
+
+  /**
+   * Get location data needed for pool filtering
+   */
+  private async getLocationData(locationId: string): Promise<{
+    location_type: string | null;
+    state_code: string | null;
+    country_code: string | null;
+    lat: number;
+    lng: number;
+  }> {
+    try {
+      const { data, error } = await combatRepository['client']
+        .from('locations')
+        .select('location_type, state_code, country_code, lat, lng')
+        .eq('id', locationId)
+        .single();
+
+      if (error || !data) {
+        throw new NotFoundError('Location', locationId);
+      }
+
+      return {
+        location_type: data.location_type,
+        state_code: data.state_code,
+        country_code: data.country_code,
+        lat: Number(data.lat),
+        lng: Number(data.lng),
+      };
+    } catch (error) {
+      throw mapSupabaseError(error);
+    }
+  }
+
+  /**
+   * Get matching enemy pools for location and combat level
+   */
+  private async getMatchingEnemyPools(locationData: {
+    location_type: string | null;
+    state_code: string | null;
+    country_code: string | null;
+    lat: number;
+    lng: number;
+  }, combatLevel: number): Promise<Array<{
+    pool_id: string;
+    pool_name: string;
+    filter_type: string;
+    filter_value: string | null;
+    matched_criteria: string;
+  }>> {
+    try {
+      const { data, error } = await combatRepository['client']
+        .from('enemypools')
+        .select('id, name, filter_type, filter_value')
+        .eq('combat_level', combatLevel)
+        .or(`filter_type.eq.universal,filter_type.eq.location_type,filter_type.eq.state,filter_type.eq.country,filter_type.eq.lat_range,filter_type.eq.lng_range`);
+
+      if (error) {
+        throw mapSupabaseError(error);
+      }
+
+      const matchingPools = [];
+      for (const pool of data || []) {
+        let matched = false;
+        let matchedCriteria = '';
+
+        switch (pool.filter_type) {
+          case 'universal':
+            matched = pool.filter_value === null;
+            matchedCriteria = 'universal';
+            break;
+          case 'location_type':
+            matched = pool.filter_value === locationData.location_type;
+            matchedCriteria = `location_type:${locationData.location_type}`;
+            break;
+          case 'state':
+            matched = pool.filter_value === locationData.state_code;
+            matchedCriteria = `state:${locationData.state_code}`;
+            break;
+          case 'country':
+            matched = pool.filter_value === locationData.country_code;
+            matchedCriteria = `country:${locationData.country_code}`;
+            break;
+          case 'lat_range':
+          case 'lng_range':
+            // For MVP, skip lat/lng range parsing
+            matched = false;
+            break;
+        }
+
+        if (matched) {
+          matchingPools.push({
+            pool_id: pool.id,
+            pool_name: pool.name,
+            filter_type: pool.filter_type,
+            filter_value: pool.filter_value,
+            matched_criteria: matchedCriteria,
+          });
+        }
+      }
+
+      return matchingPools;
+    } catch (error) {
+      console.warn('Failed to get matching enemy pools:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get matching loot pools for location and combat level
+   */
+  private async getMatchingLootPools(locationData: {
+    location_type: string | null;
+    state_code: string | null;
+    country_code: string | null;
+    lat: number;
+    lng: number;
+  }, combatLevel: number): Promise<Array<{
+    pool_id: string;
+    pool_name: string;
+    filter_type: string;
+    filter_value: string | null;
+    matched_criteria: string;
+  }>> {
+    try {
+      const { data, error } = await combatRepository['client']
+        .from('lootpools')
+        .select('id, name, filter_type, filter_value')
+        .eq('combat_level', combatLevel)
+        .or(`filter_type.eq.universal,filter_type.eq.location_type,filter_type.eq.state,filter_type.eq.country,filter_type.eq.lat_range,filter_type.eq.lng_range`);
+
+      if (error) {
+        throw mapSupabaseError(error);
+      }
+
+      const matchingPools = [];
+      for (const pool of data || []) {
+        let matched = false;
+        let matchedCriteria = '';
+
+        switch (pool.filter_type) {
+          case 'universal':
+            matched = pool.filter_value === null;
+            matchedCriteria = 'universal';
+            break;
+          case 'location_type':
+            matched = pool.filter_value === locationData.location_type;
+            matchedCriteria = `location_type:${locationData.location_type}`;
+            break;
+          case 'state':
+            matched = pool.filter_value === locationData.state_code;
+            matchedCriteria = `state:${locationData.state_code}`;
+            break;
+          case 'country':
+            matched = pool.filter_value === locationData.country_code;
+            matchedCriteria = `country:${locationData.country_code}`;
+            break;
+          case 'lat_range':
+          case 'lng_range':
+            // For MVP, skip lat/lng range parsing
+            matched = false;
+            break;
+        }
+
+        if (matched) {
+          matchingPools.push({
+            pool_id: pool.id,
+            pool_name: pool.name,
+            filter_type: pool.filter_type,
+            filter_value: pool.filter_value,
+            matched_criteria: matchedCriteria,
+          });
+        }
+      }
+
+      return matchingPools;
+    } catch (error) {
+      console.warn('Failed to get matching loot pools:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Capture player equipment snapshot at combat start
+   */
+  private async captureEquipmentSnapshot(userId: string): Promise<{
+    total_stats: PlayerStats;
+    equipped_items: Record<string, {
+      item_id: string;
+      item_type_id: string;
+      level: number;
+      current_stats: Stats;
+      applied_materials?: Array<{material_id: string, slot_index: number}>;
+    }>;
+    snapshot_timestamp: string;
+  }> {
+    try {
+      // Get total stats
+      const totalStats = await equipmentRepository.getPlayerEquippedStats(userId);
+
+      // Get all equipped items
+      const equippedItems = await equipmentRepository.findEquippedByUser(userId);
+
+      // Convert to snapshot format
+      const itemsSnapshot: Record<string, any> = {};
+
+      for (const [slotName, item] of Object.entries(equippedItems)) {
+        if (item) {
+          itemsSnapshot[slotName] = {
+            item_id: item.id,
+            item_type_id: item.item_type.id,
+            level: item.level,
+            current_stats: item.current_stats || { atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0 },
+            // TODO: Add applied_materials query if needed for future analytics
+          };
+        }
+      }
+
+      return {
+        total_stats: {
+          atkPower: totalStats.atkPower,
+          atkAccuracy: totalStats.atkAccuracy,
+          defPower: totalStats.defPower,
+          defAccuracy: totalStats.defAccuracy,
+          hp: 100, // Default HP - EquipmentRepository doesn't include HP in total stats
+        },
+        equipped_items: itemsSnapshot,
+        snapshot_timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      console.warn('Failed to capture equipment snapshot:', error);
+      // Return empty snapshot on failure
+      return {
+        total_stats: { atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0, hp: 100 },
+        equipped_items: {},
+        snapshot_timestamp: new Date().toISOString(),
+      };
+    }
+  }
+
+  /**
+   * Calculate win probability using Elo-style formula
+   */
+  private calculateWinProbability(playerRating: number, enemyRating: number): number {
+    const ratingDiff = playerRating - enemyRating;
+    return 1.0 / (1.0 + Math.pow(10, -ratingDiff / 400));
+  }
 }
 
-export const combatService = new CombatService(supabase);
+export const combatService = new CombatService();

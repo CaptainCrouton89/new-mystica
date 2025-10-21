@@ -106,6 +106,10 @@ export class ChatterService {
       throw new NoPetEquippedError('Player has no pet equipped for chatter generation');
     }
 
+    if (!pet.personality_type) {
+      throw new PersonalityNotFoundError('Pet has no personality assigned');
+    }
+
     const personality = await this.petRepository.findPersonalityByType(pet.personality_type);
     if (!personality) {
       throw new PersonalityNotFoundError(`Pet personality ${pet.personality_type} not found`);
@@ -333,13 +337,50 @@ export class ChatterService {
   // =====================================
 
   /**
-   * Get equipped pet for user
+   * Get equipped pet for user with personality data
    */
-  private async getEquippedPet(userId: string): Promise<{ personality_type: string } | null> {
-    // This would need to be implemented based on the equipment system
-    // For now, returning a mock implementation
-    // TODO: Integrate with EquipmentRepository to get equipped pet
-    return null;
+  private async getEquippedPet(userId: string): Promise<{
+    item_id: string;
+    personality_id: string | null;
+    personality_type: string | null;
+    custom_name: string | null;
+  } | null> {
+    try {
+      // Import EquipmentRepository dynamically to avoid circular dependencies
+      const { EquipmentRepository } = await import('../repositories/EquipmentRepository.js');
+      const equipmentRepository = new EquipmentRepository();
+
+      // Get equipped pet from pet slot
+      const equippedPet = await equipmentRepository.findItemInSlot(userId, 'pet');
+      if (!equippedPet) {
+        return null; // No pet equipped
+      }
+
+      // Get pet details with personality from PetRepository
+      const pet = await this.petRepository.findPetByItemId(equippedPet.id);
+      if (!pet) {
+        return null; // Pet item exists but no pet record (data inconsistency)
+      }
+
+      // Get personality details if personality_id exists
+      let personalityType: string | null = null;
+      if (pet.personality_id) {
+        const personality = await this.petRepository.findPersonalityById(pet.personality_id);
+        personalityType = personality?.personality_type || null;
+      }
+
+      return {
+        item_id: equippedPet.id,
+        personality_id: pet.personality_id,
+        personality_type: personalityType,
+        custom_name: pet.custom_name
+      };
+
+    } catch (error) {
+      // Log error but don't fail chatter generation
+      console.warn('Failed to get equipped pet:', error);
+      return null;
+    }
   }
 
   /**

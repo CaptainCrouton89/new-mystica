@@ -418,6 +418,146 @@ export class ProgressionService {
   }
 
   /**
+   * Get combat analytics including global and user-specific stats
+   */
+  async getCombatAnalytics(userId?: string): Promise<{
+    global_stats: {
+      total_combat_sessions: number;
+      total_victories: number;
+      total_defeats: number;
+      average_win_rate: number;
+      average_combat_rating: number;
+    };
+    user_stats?: {
+      total_attempts: number;
+      victories: number;
+      defeats: number;
+      win_rate: number;
+      current_streak: number;
+      longest_streak: number;
+      favorite_locations: Array<{location_id: string, attempts: number}>;
+      rating_progression: Array<{date: string, rating: number}>;
+    };
+  }> {
+    try {
+      // Get global combat statistics
+      const { data: globalData, error: globalError } = await this.progressionRepository['client']
+        .from('combatsessions')
+        .select('outcome, player_rating')
+        .not('outcome', 'is', null);
+
+      if (globalError) {
+        throw new DatabaseError(`Failed to get global combat stats: ${globalError.message}`);
+      }
+
+      const totalSessions = globalData?.length || 0;
+      const victories = globalData?.filter(s => s.outcome === 'victory').length || 0;
+      const defeats = globalData?.filter(s => s.outcome === 'defeat').length || 0;
+      const averageWinRate = totalSessions > 0 ? victories / totalSessions : 0;
+
+      // Calculate average combat rating
+      const ratingsData = globalData?.filter(s => s.player_rating !== null) || [];
+      const averageRating = ratingsData.length > 0
+        ? ratingsData.reduce((sum, s) => sum + (s.player_rating || 0), 0) / ratingsData.length
+        : 0;
+
+      const globalStats = {
+        total_combat_sessions: totalSessions,
+        total_victories: victories,
+        total_defeats: defeats,
+        average_win_rate: averageWinRate,
+        average_combat_rating: averageRating,
+      };
+
+      let userStats = undefined;
+
+      // Get user-specific stats if userId provided
+      if (userId) {
+        // Get user combat history from PlayerCombatHistory table
+        const { data: historyData, error: historyError } = await this.progressionRepository['client']
+          .from('playercombathistory')
+          .select('*')
+          .eq('user_id', userId);
+
+        if (historyError) {
+          throw new DatabaseError(`Failed to get user combat history: ${historyError.message}`);
+        }
+
+        // Aggregate user stats across all locations
+        const totalAttempts = historyData?.reduce((sum, h) => sum + (h.total_attempts || 0), 0) || 0;
+        const userVictories = historyData?.reduce((sum, h) => sum + (h.victories || 0), 0) || 0;
+        const userDefeats = historyData?.reduce((sum, h) => sum + (h.defeats || 0), 0) || 0;
+        const userWinRate = totalAttempts > 0 ? userVictories / totalAttempts : 0;
+        const currentStreak = Math.max(...(historyData?.map(h => h.current_streak || 0) || [0]));
+        const longestStreak = Math.max(...(historyData?.map(h => h.longest_streak || 0) || [0]));
+
+        // Get favorite locations (top 5 by attempts)
+        const favoriteLocations = historyData
+          ?.sort((a, b) => (b.total_attempts || 0) - (a.total_attempts || 0))
+          .slice(0, 5)
+          .map(h => ({
+            location_id: h.location_id,
+            attempts: h.total_attempts || 0,
+          })) || [];
+
+        // Get rating progression from combat sessions (last 30 days)
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+        const { data: ratingData, error: ratingError } = await this.progressionRepository['client']
+          .from('combatsessions')
+          .select('created_at, player_rating')
+          .eq('user_id', userId)
+          .not('player_rating', 'is', null)
+          .gte('created_at', thirtyDaysAgo.toISOString())
+          .order('created_at', { ascending: true });
+
+        if (ratingError) {
+          console.warn('Failed to get rating progression:', ratingError);
+        }
+
+        // Group rating data by date and average
+        const ratingByDate = new Map<string, number[]>();
+        ratingData?.forEach(session => {
+          const date = new Date(session.created_at).toISOString().split('T')[0];
+          if (!ratingByDate.has(date)) {
+            ratingByDate.set(date, []);
+          }
+          ratingByDate.get(date)!.push(session.player_rating || 0);
+        });
+
+        const ratingProgression = Array.from(ratingByDate.entries())
+          .map(([date, ratings]) => ({
+            date,
+            rating: ratings.reduce((sum, r) => sum + r, 0) / ratings.length,
+          }))
+          .slice(-30); // Last 30 entries
+
+        userStats = {
+          total_attempts: totalAttempts,
+          victories: userVictories,
+          defeats: userDefeats,
+          win_rate: userWinRate,
+          current_streak: currentStreak,
+          longest_streak: longestStreak,
+          favorite_locations: favoriteLocations,
+          rating_progression: ratingProgression,
+        };
+      }
+
+      return {
+        global_stats: globalStats,
+        user_stats: userStats,
+      };
+    } catch (error) {
+      if (error instanceof DatabaseError || error instanceof ValidationError) {
+        throw error;
+      }
+      throw new DatabaseError(`Failed to get combat analytics: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
    * Bulk XP award for administrative purposes
    */
   async bulkAwardExperience(

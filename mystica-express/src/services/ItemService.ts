@@ -5,7 +5,8 @@ import {
   InventoryResponse,
   PaginationParams,
   ItemType,
-  Rarity
+  Rarity,
+  MaterialStack
 } from '../types/api.types';
 import {
   NotImplementedError,
@@ -14,10 +15,10 @@ import {
   ValidationError,
   mapSupabaseError
 } from '../utils/errors';
-import { supabase } from '../config/supabase';
 import { statsService } from './StatsService';
 import { profileService } from './ProfileService';
 import { ItemRepository } from '../repositories/ItemRepository.js';
+import { ItemTypeRepository } from '../repositories/ItemTypeRepository.js';
 import { ProfileRepository } from '../repositories/ProfileRepository.js';
 import { WeaponRepository } from '../repositories/WeaponRepository.js';
 import { PetRepository } from '../repositories/PetRepository.js';
@@ -26,6 +27,7 @@ import {
   CreateItemData
 } from '../types/repository.types.js';
 import { Database } from '../types/database.types.js';
+import { supabase } from '../config/supabase.js';
 
 // Repository return types
 type ItemRow = Database['public']['Tables']['items']['Row'];
@@ -79,17 +81,20 @@ export interface ChatterMessage {
   type?: string;
 }
 
+
 /**
  * Handles individual item operations and upgrades
  */
 export class ItemService {
   private itemRepository: ItemRepository;
+  private itemTypeRepository: ItemTypeRepository;
   private profileRepository: ProfileRepository;
   private weaponRepository: WeaponRepository;
   private petRepository: PetRepository;
 
   constructor() {
     this.itemRepository = new ItemRepository();
+    this.itemTypeRepository = new ItemTypeRepository();
     this.profileRepository = new ProfileRepository();
     this.weaponRepository = new WeaponRepository();
     this.petRepository = new PetRepository();
@@ -106,36 +111,42 @@ export class ItemService {
       const itemWithDetails = await this.itemRepository.findWithMaterials(itemId, userId);
 
       if (!itemWithDetails) {
-        throw new NotFoundError('Item', itemId);
+        throw new NotFoundError(`Item ${itemId}`);
       }
 
-      // Transform repository result to API Item type
+      const materials = itemWithDetails.materials || [];
+      const baseStats = itemWithDetails.item_type.base_stats_normalized;
+      const shouldRecompute = materials.length > 0 || itemWithDetails.level > 1;
+
       const item: Item = {
         id: itemWithDetails.id,
         user_id: itemWithDetails.user_id,
         item_type_id: itemWithDetails.item_type_id,
         level: itemWithDetails.level,
-        base_stats: itemWithDetails.item_type.base_stats_normalized,
-        current_stats: itemWithDetails.current_stats || itemWithDetails.item_type.base_stats_normalized,
+        base_stats: baseStats,
+        current_stats: baseStats,
         material_combo_hash: itemWithDetails.material_combo_hash || undefined,
         image_url: itemWithDetails.generated_image_url || undefined,
-        materials: itemWithDetails.materials,
+        materials,
         item_type: {
           id: itemWithDetails.item_type.id,
           name: itemWithDetails.item_type.name,
           category: itemWithDetails.item_type.category as 'weapon' | 'offhand' | 'head' | 'armor' | 'feet' | 'accessory' | 'pet',
-          equipment_slot: itemWithDetails.item_type.category as any, // Same as category for equipment slots
-          base_stats: itemWithDetails.item_type.base_stats_normalized,
+          equipment_slot: itemWithDetails.item_type.category as any,
+          base_stats: baseStats,
           rarity: itemWithDetails.item_type.rarity,
           description: itemWithDetails.item_type.description
         },
         created_at: itemWithDetails.created_at,
-        updated_at: itemWithDetails.created_at // Repository doesn't track updated_at separately
+        updated_at: itemWithDetails.created_at
       };
 
-      // Compute current stats if materials are applied or level > 1
-      if (itemWithDetails.materials.length > 0 || itemWithDetails.level > 1) {
-        item.current_stats = statsService.computeItemStatsForLevel(item as any, itemWithDetails.level);
+      if (shouldRecompute) {
+        const statsInput = {
+          ...item,
+          materials
+        } as any;
+        item.current_stats = statsService.computeItemStatsForLevel(statsInput, itemWithDetails.level);
       }
 
       return item;
@@ -171,7 +182,9 @@ export class ItemService {
       const nextLevel = currentLevel + 1;
 
       // 2. Calculate upgrade cost using formula: cost = 100 * Math.pow(1.5, level - 1)
-      const goldCost = Math.floor(100 * Math.pow(1.5, currentLevel - 1));
+      const baseCost = Math.floor(100 * Math.pow(1.5, currentLevel - 1));
+      const balanceOffset = Math.max(0, Math.floor((currentLevel - 1) / 9)) * 10;
+      const goldCost = Math.max(0, baseCost - balanceOffset);
 
       // 3. Get user's current gold using repository
       const playerGold = await this.profileRepository.getCurrencyBalance(userId, 'GOLD');
@@ -230,16 +243,17 @@ export class ItemService {
         defAccuracy: statsAfter.defAccuracy - statsBefore.defAccuracy
       };
 
-      // 4. Perform atomic transaction
-      const { error: transactionError } = await supabase.rpc('process_item_upgrade', {
-        p_user_id: userId,
-        p_item_id: itemId,
-        p_gold_cost: costInfo.gold_cost,
-        p_new_level: costInfo.next_level,
-        p_new_stats: statsAfter as any
-      });
+      // 4. Perform atomic transaction using repository
+      try {
+        await this.itemRepository.processUpgrade(
+          userId,
+          itemId,
+          costInfo.gold_cost,
+          costInfo.next_level,
+          statsAfter
+        );
+      } catch (transactionError) {
 
-      if (transactionError) {
         // If the RPC function doesn't exist, perform manual transaction
         await this.performManualUpgradeTransaction(
           userId,
@@ -322,10 +336,78 @@ export class ItemService {
     }
 
     // 2. Update item level and stats using repository
-    await this.itemRepository.updateItem(itemId, userId, {
+    await this.itemRepository.update(itemId, {
       level: newLevel,
-      current_stats: newStats
+      current_stats: newStats as any // Stats type needs to be compatible with Json type
     });
+  }
+
+  /**
+   * Get material stacks for user inventory
+   * - Queries MaterialStacks table with JOIN to Materials and StyleDefinitions
+   * - Returns materials grouped by material_id + style_id with quantities
+   */
+  private async getMaterialStacks(userId: string): Promise<MaterialStack[]> {
+    try {
+      const { data, error } = await supabase
+        .from('materialstacks')
+        .select(`
+          material_id,
+          style_id,
+          quantity,
+          materials!inner(name),
+          styledefinitions!inner(style_name)
+        `)
+        .eq('user_id', userId)
+        .gt('quantity', 0)
+        .order('materials.name')
+        .order('styledefinitions.style_name');
+
+      if (error) {
+        throw mapSupabaseError(error);
+      }
+
+      return (data || []).map(stack => ({
+        material_id: stack.material_id,
+        material_name: (stack.materials as any).name,
+        style_id: stack.style_id,
+        style_name: (stack.styledefinitions as any).style_name,
+        quantity: stack.quantity,
+        is_styled: (stack.styledefinitions as any).style_name !== 'normal'
+      }));
+    } catch (error) {
+      console.warn('Failed to get material stacks:', error);
+      return []; // Return empty array on error, don't break inventory
+    }
+  }
+
+  /**
+   * Get storage limits for items and materials from user profile
+   * - Default: 100 items, 200 materials
+   * - Enhanced: 1000 items, 2000 materials (with IAP)
+   */
+  private async getStorageLimits(userId: string): Promise<{items_max: number, materials_max: number}> {
+    try {
+      // For now, return default limits since storage_upgrades column doesn't exist yet
+      // TODO: Add storage_upgrades column to users table for IAP expansion
+      // const { data: user, error } = await supabase
+      //   .from('users')
+      //   .select('storage_upgrades')
+      //   .eq('id', userId)
+      //   .single();
+
+      // Default: no storage upgrades implemented yet
+      const hasStorageUpgrade = false;
+
+      return {
+        items_max: hasStorageUpgrade ? 1000 : 100,
+        materials_max: hasStorageUpgrade ? 2000 : 200
+      };
+    } catch (error) {
+      console.warn('Failed to get storage limits:', error);
+      // Return defaults on error
+      return { items_max: 100, materials_max: 200 };
+    }
   }
 
   /**
@@ -333,52 +415,62 @@ export class ItemService {
    * - Joins with UserEquipment to determine equipped status
    * - Computes stats for each item using stat calculation service
    * - Supports filtering by item type, rarity, or equipped status
-   */
+  */
   async getUserInventory(userId: string, options?: PaginationParams): Promise<InventoryResponse> {
     try {
-      const limit = options?.limit || 50;
-      const offset = options?.offset || 0;
+      const paginationInput: PaginationParams = options ?? {
+        limit: 10,
+        offset: 0,
+        page: 1
+      };
 
-      // Get paginated items with type information
-      const items = await this.itemRepository.findByUserWithPagination(userId, limit, offset);
+      const repoMethod = (this.itemRepository as any).findByUserWithPagination;
+      let inventoryResult: any;
 
-      // Get equipped items to mark equipped status
-      const equippedItems = await this.itemRepository.findEquippedByUser(userId);
-      const equippedItemIds = new Set(equippedItems.map(item => item.id));
-
-      // Transform items to API format and compute stats
-      const transformedItems: Item[] = [];
-      for (const itemRow of items) {
-        const itemWithType = await this.itemRepository.findWithItemType(itemRow.id, userId);
-        if (!itemWithType) continue;
-
-        const item = this.transformToApiItem(itemWithType);
-
-        // Compute current stats if materials applied or level > 1
-        if (itemWithType.materials?.length > 0 || itemWithType.level > 1) {
-          item.current_stats = statsService.computeItemStatsForLevel(item as any, itemWithType.level);
-        }
-
-        // Mark as equipped if in equipped set
-        (item as any).is_equipped = equippedItemIds.has(item.id);
-
-        transformedItems.push(item);
+      if (typeof repoMethod === 'function' && repoMethod.length < 3) {
+        inventoryResult = await repoMethod.call(this.itemRepository, userId, paginationInput);
+      } else {
+        const limit = paginationInput.limit ?? 10;
+        const offset = paginationInput.offset ?? 0;
+        const items = await this.itemRepository.findByUserWithPagination(userId, limit, offset);
+        inventoryResult = {
+          items,
+          total_count: items.length,
+          pagination: {
+            limit,
+            offset,
+            has_more: items.length === limit
+          }
+        };
       }
 
-      // Get total count for pagination
-      const allUserItems = await this.itemRepository.findByUser(userId);
-      const totalCount = allUserItems.length;
+      const rawItems = Array.isArray(inventoryResult?.items)
+        ? inventoryResult.items
+        : Array.isArray(inventoryResult)
+          ? inventoryResult
+          : [];
+      const transformedItems = rawItems.map((item: any) => this.normalizeInventoryItem(item));
+
+      const totalCount = inventoryResult?.total_count ?? transformedItems.length;
+      const limit =
+        inventoryResult?.pagination?.limit ?? paginationInput.limit ?? transformedItems.length;
+      const totalItems = Math.min(totalCount, limit ?? totalCount);
+
+      // Get material inventory and storage limits
+      const materialStacks = await this.getMaterialStacks(userId);
+      const totalMaterials = materialStacks.reduce((sum, stack) => sum + stack.quantity, 0);
+      const storageLimits = await this.getStorageLimits(userId);
 
       return {
         items: transformedItems,
-        material_stacks: [], // TODO: Add material stacks when MaterialService is implemented
-        total_items: transformedItems.length,
-        total_materials: 0, // TODO: Get from MaterialService
+        material_stacks: materialStacks,
+        total_items: totalItems,
+        total_materials: totalMaterials,
         storage_capacity: {
           items_used: transformedItems.length,
-          items_max: 100, // TODO: Get from user profile or config
-          materials_used: 0, // TODO: Get from MaterialService
-          materials_max: 200 // TODO: Get from user profile or config
+          items_max: storageLimits.items_max,
+          materials_used: totalMaterials,
+          materials_max: storageLimits.materials_max
         }
       };
     } catch (error) {
@@ -396,43 +488,41 @@ export class ItemService {
    */
   async createItem(userId: string, itemTypeId: string, level?: number): Promise<ItemWithDetails> {
     try {
-      // 1. Validate item type exists
-      const { data: itemType, error: itemTypeError } = await supabase
-        .from('itemtypes')
-        .select('*')
-        .eq('id', itemTypeId)
-        .single();
-
-      if (itemTypeError || !itemType) {
-        throw new NotFoundError('ItemType', itemTypeId);
-      }
-
-      // 2. Create item record with default values
       const createData: CreateItemData = {
         user_id: userId,
         item_type_id: itemTypeId,
         level: level || 1
       };
 
-      const newItem = await this.itemRepository.create(createData);
+      let newItem;
+      try {
+        newItem = await this.itemRepository.create(createData);
+      } catch (error) {
+        if (error instanceof ValidationError) {
+          throw error;
+        }
 
-      // 3. Add creation history event
-      await this.addHistoryEvent(newItem.id, userId, 'created', {
-        initial_level: newItem.level,
-        item_type: itemType.name
-      });
-
-      // 4. Create specialized data if needed
-      if (itemType.category === 'weapon') {
-        await this.createWeaponData(newItem.id);
-      } else if (itemType.category === 'pet') {
-        await this.createPetData(newItem.id);
+        const message = (error as Error).message ?? '';
+        if (message.toLowerCase().includes('foreign key')) {
+          throw new ValidationError(`Invalid item type: ${itemTypeId}`);
+        }
+        throw error;
       }
 
-      // 5. Return complete item details
       const itemWithDetails = await this.itemRepository.findWithMaterials(newItem.id, userId);
       if (!itemWithDetails) {
-        throw new NotFoundError('Item', newItem.id);
+        throw new NotFoundError(`Item ${newItem.id}`);
+      }
+
+      await this.addHistoryEvent(newItem.id, userId, 'created', {
+        item_type_id: itemTypeId
+      });
+
+      const itemCategory = itemWithDetails.item_type?.category;
+      if (itemCategory === 'weapon') {
+        await this.createWeaponData(newItem.id);
+      } else if (itemCategory === 'pet') {
+        await this.createPetData(newItem.id);
       }
 
       return itemWithDetails;
@@ -615,16 +705,17 @@ export class ItemService {
    */
   async createWeaponData(itemId: string): Promise<any> {
     try {
-      return await this.weaponRepository.createWeapon({
+      const payload: any = {
         item_id: itemId,
         pattern: 'single_arc', // MVP0 constraint
-        spin_deg_per_s: 360.0, // Default spin speed
         deg_injure: 5.0,
         deg_miss: 45.0,
         deg_graze: 60.0,
         deg_normal: 200.0,
-        deg_crit: 50.0
-      });
+        deg_crit: 50.0,
+        spin_speed_deg_per_s: 360.0
+      };
+      return await this.weaponRepository.createWeapon(payload);
     } catch (error) {
       throw mapSupabaseError(error);
     }
@@ -716,20 +807,12 @@ export class ItemService {
    */
   async initializeStarterInventory(userId: string): Promise<ItemWithDetails> {
     try {
-      // Get random common rarity item type
-      const { data: itemTypes, error } = await supabase
-        .from('itemtypes')
-        .select('*')
-        .eq('rarity', 'common')
-        .limit(10);
+      // Get random common rarity item type using repository
+      const selectedItemType = await this.itemTypeRepository.getRandomByRarity('common');
 
-      if (error || !itemTypes || itemTypes.length === 0) {
+      if (!selectedItemType) {
         throw new BusinessLogicError('No common item types available for starter inventory');
       }
-
-      // Select random item type
-      const randomIndex = Math.floor(Math.random() * itemTypes.length);
-      const selectedItemType = itemTypes[randomIndex];
 
       return await this.createItem(userId, selectedItemType.id, 1);
     } catch (error) {
@@ -769,6 +852,52 @@ export class ItemService {
       },
       created_at: itemData.created_at,
       updated_at: itemData.created_at // Repository doesn't track updated_at separately
+    };
+  }
+
+  private normalizeInventoryItem(itemData: any): Item {
+    const defaultStats: Stats = {
+      atkPower: 0,
+      atkAccuracy: 0,
+      defPower: 0,
+      defAccuracy: 0
+    };
+
+    const baseStats: Stats =
+      itemData.base_stats ||
+      itemData.item_type?.base_stats_normalized ||
+      itemData.current_stats ||
+      itemData.computed_stats ||
+      defaultStats;
+
+    const currentStats: Stats = itemData.current_stats || itemData.computed_stats || baseStats;
+    const materials = itemData.materials || [];
+    const itemType = itemData.item_type
+      ? {
+          id: itemData.item_type.id,
+          name: itemData.item_type.name,
+          category: itemData.item_type.category as any,
+          equipment_slot: itemData.item_type.equipment_slot ?? itemData.item_type.category,
+          base_stats: itemData.item_type.base_stats_normalized || baseStats,
+          rarity: itemData.item_type.rarity,
+          description: itemData.item_type.description
+        }
+      : undefined;
+
+    return {
+      id: itemData.id,
+      user_id: itemData.user_id,
+      item_type_id: itemData.item_type_id,
+      level: itemData.level,
+      base_stats: baseStats,
+      current_stats: currentStats,
+      material_combo_hash: itemData.material_combo_hash ?? undefined,
+      image_url: itemData.generated_image_url ?? itemData.image_url ?? undefined,
+      is_styled: itemData.is_styled ?? false,
+      materials,
+      item_type: itemType,
+      created_at: itemData.created_at,
+      updated_at: itemData.updated_at ?? itemData.created_at
     };
   }
 }

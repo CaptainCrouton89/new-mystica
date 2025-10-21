@@ -1,7 +1,6 @@
 import { openai } from '@ai-sdk/openai';
 import { generateObject } from 'ai';
 import { z } from 'zod';
-import { supabase } from '../config/supabase';
 import { env } from '../config/env';
 import { DatabaseError, ExternalAPIError } from '../utils/errors';
 import {
@@ -10,6 +9,7 @@ import {
   DialogueResponse,
   PlayerCombatContext,
 } from '../types/combat.types';
+import { CombatRepository, ChatterLogEntry } from '../repositories/CombatRepository.js';
 
 /**
  * Schema for AI-generated dialogue response
@@ -42,6 +42,11 @@ interface EnemyType {
  */
 export class EnemyChatterService {
   private readonly AI_TIMEOUT_MS = 2000; // 2 second timeout
+  private readonly combatRepository: CombatRepository;
+
+  constructor() {
+    this.combatRepository = new CombatRepository();
+  }
 
   /**
    * Generate dialogue for a combat event
@@ -393,29 +398,7 @@ Generate appropriate dialogue for this situation.`;
    * Get player combat history for context
    */
   private async getPlayerCombatHistory(playerId: string, locationId: string): Promise<PlayerCombatContext> {
-    const { data, error } = await supabase
-      .from('playercombathistory')
-      .select('*')
-      .eq('user_id', playerId)
-      .eq('location_id', locationId)
-      .single();
-
-    if (error || !data) {
-      // Return default context for new players
-      return {
-        attempts: 0,
-        victories: 0,
-        defeats: 0,
-        current_streak: 0,
-      };
-    }
-
-    return {
-      attempts: data.total_attempts || 0,
-      victories: data.victories || 0,
-      defeats: data.defeats || 0,
-      current_streak: data.current_streak || 0,
-    };
+    return this.combatRepository.getPlayerCombatContext(playerId, locationId);
   }
 
   /**
@@ -431,26 +414,19 @@ Generate appropriate dialogue for this situation.`;
       // Get enemy_type_id from session
       const session = await this.getCombatSession(sessionId);
 
-      const logEntry = {
-        session_id: sessionId,
-        enemy_type_id: session.enemy_type_id,
-        event_type: eventType,
-        generated_dialogue: response?.dialogue || null,
-        dialogue_tone: response?.dialogue_tone || null,
-        generation_time_ms: response?.generation_time_ms || 0,
-        was_ai_generated: response?.was_ai_generated || false,
-        player_metadata: response?.player_context_used ? response.player_context_used as any : null,
-        combat_context: errorMessage ? { error: errorMessage } as any : null,
+      const logEntry: ChatterLogEntry = {
+        sessionId: sessionId,
+        enemyTypeId: session.enemy_type_id,
+        eventType: eventType,
+        generatedDialogue: response?.dialogue || undefined,
+        dialogueTone: response?.dialogue_tone || undefined,
+        generationTimeMs: response?.generation_time_ms || 0,
+        wasAiGenerated: response?.was_ai_generated || false,
+        playerMetadata: response?.player_context_used ? response.player_context_used as any : undefined,
+        combatContext: errorMessage ? { error: errorMessage } as any : undefined,
       };
 
-      const { error } = await supabase
-        .from('enemychatterlog')
-        .insert([logEntry]);
-
-      if (error) {
-        console.error('Failed to log dialogue attempt:', error);
-        // Don't throw here - logging failure shouldn't break dialogue generation
-      }
+      await this.combatRepository.logChatterAttempt(logEntry);
     } catch (error) {
       console.error('Failed to log dialogue attempt:', error);
       // Don't throw here - logging failure shouldn't break dialogue generation
