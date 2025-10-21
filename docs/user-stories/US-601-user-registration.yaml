@@ -23,5 +23,5 @@ context:
 
 technical_notes:
   apis: "Supabase Auth: supabase.auth.signUp({email, password})"
-  data: "User profile created with default starter inventory (empty), level 1, starting stats"
+  data: "User profile created with starter inventory (1 random common item with no materials), level 1, starting stats, 0 gold"
   dependencies: "Supabase project configured, email templates for verification"

@@ -1,9 +1,9 @@
 template: ~/.claude/file-templates/init-project/api-contracts.yaml
-last_updated: 2025-01-20
+last_updated: 2025-01-27
 openapi: 3.0.0
 info:
   title: New Mystica API
-  version: 2.4.0
+  version: 2.5.0
   description: RESTful API for New Mystica location-based RPG with 8-slot equipment system, loadout management (F-09), material-based item crafting system (F-04), item upgrades (F-06), pet personalities (F-11), enemy AI personalities (F-12), and style system (F-13)
 servers:
   - url: https://api.mystica.app/v1
@@ -488,13 +488,293 @@ components:
       type: object
       properties:
         error:
-          type: string
-        message:
-          type: string
-        code:
-          type: integer
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details:
+              type: string
+              nullable: true
+
+  responses:
+    BadRequest:
+      description: Bad request - missing or invalid parameters
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Unauthorized - missing or invalid JWT token
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
 
 paths:
+  /auth/register:
+    post:
+      summary: Register new user (F-07)
+      description: Create new account with email and password. Sends email verification.
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 8
+              required: [email, password]
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      email:
+                        type: string
+                        format: email
+                  session:
+                    type: object
+                    properties:
+                      access_token:
+                        type: string
+                      refresh_token:
+                        type: string
+                      expires_in:
+                        type: integer
+                  message:
+                    type: string
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '422':
+          description: Validation error (weak password, email exists)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/login:
+    post:
+      summary: Login with email and password (F-07)
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+              required: [email, password]
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      email:
+                        type: string
+                  session:
+                    type: object
+                    properties:
+                      access_token:
+                        type: string
+                      refresh_token:
+                        type: string
+                      expires_in:
+                        type: integer
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/logout:
+    post:
+      summary: Logout and revoke session (F-07)
+      security:
+        - BearerAuth: []
+      tags:
+        - Authentication
+      responses:
+        '200':
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/refresh:
+    post:
+      summary: Refresh access token (F-07)
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refresh_token:
+                  type: string
+              required: [refresh_token]
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  session:
+                    type: object
+                    properties:
+                      access_token:
+                        type: string
+                      refresh_token:
+                        type: string
+                      expires_in:
+                        type: integer
+        '401':
+          description: Invalid or expired refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/reset-password:
+    post:
+      summary: Request password reset email (F-07)
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+              required: [email]
+      responses:
+        '200':
+          description: Password reset email sent (or email not found)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+
+  /auth/resend-verification:
+    post:
+      summary: Resend email verification link (F-07)
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                email:
+                  type: string
+                  format: email
+              required: [email]
+      responses:
+        '200':
+          description: Verification email sent (or email not found)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+
+  /auth/me:
+    get:
+      summary: Get current user profile (F-07)
+      security:
+        - BearerAuth: []
+      tags:
+        - Authentication
+      responses:
+        '200':
+          description: User profile retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      email:
+                        type: string
+                      created_at:
+                        type: string
+                        format: date-time
+                      last_login:
+                        type: string
+                        format: date-time
+                      vanity_level:
+                        type: integer
+                      avg_item_level:
+                        type: number
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /locations/nearby:
     get:
       summary: Get nearby spawn locations (F-01)
@@ -528,6 +808,28 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/Location'
+
+  /locations/{location_id}:
+    get:
+      summary: Get specific location by ID (F-01)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: location_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Location details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Location'
+        '404':
+          $ref: '#/components/responses/NotFound'
 
   /combat/start:
     post:
@@ -1300,12 +1602,12 @@ paths:
   /profile/init:
     post:
       summary: Initialize new player profile (after registration)
-      description: Creates starting inventory (6 level-1 items, 500 gold)
+      description: Creates starting inventory (1 random common rarity item with no materials, 0 gold)
       security:
         - BearerAuth: []
       responses:
         '201':
-          description: Profile created with starter items
+          description: Profile created with starter inventory (1 random common item, 0 gold)
           content:
             application/json:
               schema:

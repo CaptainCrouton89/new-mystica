@@ -101,8 +101,12 @@ get_endpoints() {
             summary = ""
             description = ""
             responses = ""
-            getline
-            while ($0 ~ /^      /) {
+            # Look ahead up to 50 lines for key fields
+            line_count = 0
+            while (getline > 0 && line_count++ < 50) {
+                # Stop if we hit another method or path
+                if ($0 ~ /^    (get|post|put|delete|patch|options|head):$/ || $0 ~ /^  \//) break
+
                 if ($0 ~ /^      summary:/) {
                     summary = $0
                     gsub(/^      summary: /, "", summary)
@@ -114,16 +118,16 @@ get_endpoints() {
                     gsub(/"/, "", description)
                 }
                 if ($0 ~ /^      responses:/) {
-                    getline
-                    if ($0 ~ /^        "?[0-9]+/) {
+                    # Next line should be status code
+                    if (getline > 0 && $0 ~ /^        ['\''""]?[0-9]+/) {
                         responses = $1
                         gsub(/"/, "", responses)
+                        gsub(/'\''/, "", responses)
                         gsub(/:$/, "", responses)
                         gsub(/^        /, "", responses)
                     }
+                    break
                 }
-                if ($0 !~ /^      / && $0 !~ /^        /) break
-                getline
             }
             print method "|" current_path "|" summary "|" description "|" responses
         }
