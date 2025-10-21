@@ -33,7 +33,14 @@ pnpm supabase:types           # Generate src/types/database.types.ts from linked
 ```
 
 ### Frontend (New-Mystica/)
-- Open `New-Mystica.xcodeproj` in Xcode → ⌘R to build/run
+```bash
+# Interactive development (recommended)
+# Open New-Mystica.xcodeproj in Xcode → ⌘R to build/run
+
+# Programmatic build validation (for testing/CI)
+xcodebuild -scheme New-Mystica -project New-Mystica/New-Mystica.xcodeproj \
+  -sdk iphonesimulator -destination 'platform=iOS Simulator,name=iPhone 17' build
+```
 
 ### AI Image Generation (scripts/)
 ```bash
