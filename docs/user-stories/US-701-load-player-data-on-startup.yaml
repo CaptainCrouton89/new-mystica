@@ -1,0 +1,63 @@
+title: Load Player Data on App Startup
+story_id: US-701
+feature_id: F-09
+template: ~/.claude/file-templates/init-project/user-stories/story-title.yaml
+status: incomplete
+user_story:
+  as_a: "returning player"
+  i_want: "my equipment, loadout, and inventory data to load automatically when I open the app"
+  so_that: "I can see my character's current state immediately without manual refreshes or waiting for screens to load"
+acceptance_criteria:
+  - "[ ] Given I have an existing session (token in keychain), when the app launches and completes authentication, then my equipped items (all 8 slots) are fetched from GET /equipment and cached locally"
+  - "[ ] Given I have saved loadouts (post-MVP), when the app completes authentication, then my active loadout is loaded and applied to the equipment state"
+  - "[ ] Given the backend is unreachable during startup, when data loading fails, then I see a clear error message ('Unable to load player data') with a Retry button that re-attempts the load"
+  - "[ ] Given I'm a new user with no equipment or an empty profile, when the app loads, then I see empty equipment slots and default stat values (0 stats) without crash or error dialogs"
+  - "[ ] Given data loading takes longer than 2 seconds, when the splash screen is visible, then I see a loading indicator with status text ('Loading your gear...') to provide feedback"
+  - "[ ] Given all data loads successfully, when the splash screen transitions to the main app, then the equipment screen (if opened) displays all items without additional loading states"
+context:
+  why: "Currently the SplashScreenView (SplashScreenView.swift:58-77) only handles device registration and authentication via AuthService.registerDevice() or AuthService.bootstrapSession(). No player data (equipment, inventory, profile stats) is loaded during startup, causing empty states or delayed loading when users navigate to equipment/inventory screens. This creates a poor UX as users must wait for data to load on each screen, and equipment-dependent features (like combat stat calculations) may show incorrect values until data arrives."
+  related: "US-302 (View equipment and stats in real-time), F-03 (Base Items & Equipment System), F-07 (User Authentication). This story builds on the existing authentication flow and prepares for equipment management features."
+  flow: "App Launch → SplashScreenView → AuthService.bootstrapSession() → [NEW] Load equipment data via GET /equipment → [NEW] Load active loadout (post-MVP) → [NEW] Cache player profile data → Navigate to map/main menu with fully hydrated state"
+technical_notes:
+  apis: "GET /equipment (loads 8-slot equipment state + total_stats), GET /loadouts (post-MVP, loads saved loadout configurations), GET /profile (optional, loads player profile with vanity_level, gold, etc.)"
+  data: "Create EquipmentService (similar to AuthService pattern) with loadEquipment() async method that fetches and caches equipment state. Extend SplashScreenView.task {} to call after auth succeeds. Store equipment in @Published state or SwiftData local cache for offline access."
+  dependencies: "Requires backend /equipment endpoint to be implemented (currently stubbed in F-09 spec). AuthService must complete successfully before equipment load. Network reachability check recommended before API calls."
+  implementation_approach: |
+    1. Create EquipmentService.swift (singleton @MainActor ObservableObject):
+       - @Published var equipment: Equipment? (8-slot model matching API response)
+       - @Published var totalStats: PlayerStats?
+       - @Published var isLoading: Bool = false
+       - @Published var loadError: Error?
+       - func loadEquipment() async throws -> fetches GET /equipment, caches result
+       - func retryLoad() -> wrapper for user-triggered retry
+
+    2. Update SplashScreenView.swift:
+       - Add @EnvironmentObject private var equipmentService: EquipmentService
+       - In .task {} block after auth, call: await equipmentService.loadEquipment()
+       - Handle errors with conditional UI (show retry button if loadError != nil)
+       - Update loading text based on equipmentService.isLoading state
+
+    3. Update New_MysticaApp.swift:
+       - Create @StateObject private var equipmentService = EquipmentService()
+       - Inject via .environmentObject(equipmentService) alongside authService
+
+    4. Backend API requirements:
+       - Implement GET /equipment endpoint per F-09 spec (lines 77-83)
+       - Return 200 with empty slots for new users (not 404)
+       - Include total_stats calculation in response
+
+    5. Error handling:
+       - Network errors → show "Unable to load player data. Check connection."
+       - 401 Unauthorized → trigger re-authentication flow
+       - 404 User not found → treat as new user with empty equipment
+       - Timeout (>10s) → show retry option
+
+    6. Performance:
+       - Cache equipment data in UserDefaults or SwiftData for offline viewing
+       - Set cache expiration (5 minutes) to balance freshness and network usage
+       - Parallel load equipment + profile data if both needed
+
+    7. Post-MVP loadouts:
+       - Extend EquipmentService with loadActiveLoadout() async method
+       - Fetch GET /loadouts, filter for is_active: true
+       - Apply loadout equipment to equipment state before navigation
