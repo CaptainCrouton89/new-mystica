@@ -225,5 +225,158 @@ describe('Profile API Endpoints', () => {
         p_email: mockEmail
       });
     });
+
+    it('should return profile with vanity_level set to 1', async () => {
+      const mockProfileData = {
+        id: mockUserId,
+        email: mockEmail,
+        username: null,
+        vanity_level: 1,
+        avg_item_level: 1,
+        created_at: '2024-10-21T00:00:00Z',
+        updated_at: '2024-10-21T00:00:00Z'
+      };
+
+      mockSingle.mockResolvedValueOnce({
+        data: mockProfileData,
+        error: null
+      });
+
+      const response = await request(app)
+        .post('/api/v1/profile/init')
+        .set('Authorization', `Bearer valid-jwt-token`)
+        .expect(201);
+
+      expect(response.body.profile.vanity_level).toBe(1);
+    });
+
+    it('should return profile with avg_item_level set to 1', async () => {
+      const mockProfileData = {
+        id: mockUserId,
+        email: mockEmail,
+        username: null,
+        vanity_level: 1,
+        avg_item_level: 1,
+        created_at: '2024-10-21T00:00:00Z',
+        updated_at: '2024-10-21T00:00:00Z'
+      };
+
+      mockSingle.mockResolvedValueOnce({
+        data: mockProfileData,
+        error: null
+      });
+
+      const response = await request(app)
+        .post('/api/v1/profile/init')
+        .set('Authorization', `Bearer valid-jwt-token`)
+        .expect(201);
+
+      expect(response.body.profile.avg_item_level).toBe(1);
+    });
+
+    it('should set username to empty string when null', async () => {
+      const mockProfileData = {
+        id: mockUserId,
+        email: mockEmail,
+        username: null,
+        vanity_level: 1,
+        avg_item_level: 1,
+        created_at: '2024-10-21T00:00:00Z',
+        updated_at: '2024-10-21T00:00:00Z'
+      };
+
+      mockSingle.mockResolvedValueOnce({
+        data: mockProfileData,
+        error: null
+      });
+
+      const response = await request(app)
+        .post('/api/v1/profile/init')
+        .set('Authorization', `Bearer valid-jwt-token`)
+        .expect(201);
+
+      expect(response.body.profile.username).toBe('');
+    });
+
+    it('should include both id and user_id in response', async () => {
+      const mockProfileData = {
+        id: mockUserId,
+        email: mockEmail,
+        username: null,
+        vanity_level: 1,
+        avg_item_level: 1,
+        created_at: '2024-10-21T00:00:00Z',
+        updated_at: '2024-10-21T00:00:00Z'
+      };
+
+      mockSingle.mockResolvedValueOnce({
+        data: mockProfileData,
+        error: null
+      });
+
+      const response = await request(app)
+        .post('/api/v1/profile/init')
+        .set('Authorization', `Bearer valid-jwt-token`)
+        .expect(201);
+
+      expect(response.body.profile.id).toBe(mockUserId);
+      expect(response.body.profile.user_id).toBe(mockUserId);
+    });
+
+    it('should handle null data response', async () => {
+      // Mock successful call but no data returned
+      mockSingle.mockResolvedValueOnce({
+        data: null,
+        error: null
+      });
+
+      const response = await request(app)
+        .post('/api/v1/profile/init')
+        .set('Authorization', `Bearer valid-jwt-token`)
+        .expect(500);
+
+      expect(response.body.error.code).toBe('DATABASE_ERROR');
+      expect(response.body.error.message).toContain('Failed to create profile');
+    });
+
+    it('should use email from auth context', async () => {
+      const customEmail = 'custom@example.com';
+
+      mockGetClaims.mockResolvedValueOnce({
+        data: {
+          claims: {
+            sub: mockUserId,
+            email: customEmail,
+            exp: Math.floor(Date.now() / 1000) + 3600
+          }
+        },
+        error: null
+      });
+
+      const mockProfileData = {
+        id: mockUserId,
+        email: customEmail,
+        username: null,
+        vanity_level: 1,
+        avg_item_level: 1,
+        created_at: '2024-10-21T00:00:00Z',
+        updated_at: '2024-10-21T00:00:00Z'
+      };
+
+      mockSingle.mockResolvedValueOnce({
+        data: mockProfileData,
+        error: null
+      });
+
+      await request(app)
+        .post('/api/v1/profile/init')
+        .set('Authorization', `Bearer valid-jwt-token`)
+        .expect(201);
+
+      expect(mockRpc).toHaveBeenCalledWith('init_profile', {
+        p_user_id: mockUserId,
+        p_email: customEmail
+      });
+    });
   });
 });
