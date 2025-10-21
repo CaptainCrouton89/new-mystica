@@ -52,10 +52,12 @@ npx tsx generate-item-description.ts "Item Type" "material1,material2"
 ## Critical Constraints
 
 ### AI Image Generation Pipeline
-- **Reference images MUST use R2 HTTPS URLs** - Local file paths rejected by validation
 - **R2 bucket:** `mystica-assets` at `pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev`
-- **Reference images directory:** `image-refs/` in R2 bucket
-- **Hardcoded references (generate-raw-image.ts):** 5 R2 URLs for style consistency
+- **Auto-generation:** generate-image.ts checks R2 for item/material images, generates missing ones in parallel via generateRawImage, uploads to R2 automatically
+- **R2 directory structure:** `items/{snake_case}.png`, `materials/{snake_case}.png`
+- **Reference images:** Uses R2-stored item + materials as references (no hardcoded fallbacks)
+- **R2 Service (r2-service.ts):** AWS S3 SDK client for check/upload/list operations, throws errors on missing credentials
+- **Required env vars:** CLOUDFLARE_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY
 - **Material limits:** 1-3 materials required for generate-image.ts
 - **Seed data sources:** `docs/seed-data-{items,materials,monsters}.json`
 
@@ -88,6 +90,11 @@ Required in `.env.local` (root or scripts/):
 REPLICATE_API_TOKEN=...      # Required for all image generation
 OPENAI_API_KEY=...           # Required for generate-item-description.ts
 
+# Cloudflare R2 (Required for r2-service.ts)
+CLOUDFLARE_ACCOUNT_ID=...    # Cloudflare account ID
+R2_ACCESS_KEY_ID=...         # R2 API token with read/write access
+R2_SECRET_ACCESS_KEY=...     # R2 API token secret
+
 # Supabase (Backend)
 SUPABASE_ANON_KEY=...
 SUPABASE_SERVICE_ROLE_KEY=...
@@ -102,9 +109,15 @@ SERP_API_KEY=...
 ## Architecture Patterns
 
 ### AI Image Generation Flow
-1. **generate-item-description.ts** (scripts:38-126) - GPT-4.1-mini generates name + 2-sentence description from itemType + materials, enforces material fusion (e.g., cactus blender = cactus-shaped blender body, not cacti inside)
-2. **generate-image.ts** (scripts:1-459) - Replicate (Gemini/Seedream) generates image from prompt + R2 reference URLs for style consistency
-3. **generate-raw-image.ts** (scripts:1-395) - Batch-generates seed data images with hardcoded 5-reference set, outputs to `output/raw/{items,materials}/`
+1. **generate-item-description.ts** - GPT-4.1-mini generates name + 2-sentence description from itemType + materials, enforces material fusion (e.g., cactus blender = cactus-shaped blender body, not cacti inside)
+2. **generate-image.ts** - Full pipeline with R2 integration:
+   - Checks R2 for item + material images using r2-service
+   - Generates missing assets in parallel via generateRawImage
+   - Uploads newly generated images to R2 (`items/` or `materials/` directories)
+   - Uses R2-stored images as reference URLs for final item generation
+   - Replicate (Gemini/Seedream) generates final image from prompt + references
+3. **generate-raw-image.ts** - Generates standalone item/material images with AI descriptions, uses hardcoded 10-reference set for style consistency, outputs to `output/raw/{items,materials}/`
+4. **r2-service.ts** - AWS S3 SDK wrapper for R2 operations (check exists, upload, get URLs), throws errors on missing credentials or assets
 
 ### Swift Navigation System
 - **ContentView wraps NavigationStack** with `$navigationManager.navigationPath` binding
