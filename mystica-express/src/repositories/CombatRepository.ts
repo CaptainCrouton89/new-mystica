@@ -11,19 +11,22 @@
  */
 
 import { BaseRepository } from './BaseRepository.js';
-import { ValidationError, BusinessLogicError, NotFoundError } from '../utils/errors.js';
+import { ValidationError, BusinessLogicError, NotFoundError, mapSupabaseError } from '../utils/errors.js';
 import { Database } from '../types/database.types.js';
+import { PlayerCombatContext } from '../types/combat.types.js';
 import { v4 as uuidv4 } from 'uuid';
 
 // Database row types
 type CombatSession = Database['public']['Tables']['combatsessions']['Row'];
 type CombatLogEvent = Database['public']['Tables']['combatlogevents']['Row'];
 type PlayerCombatHistory = Database['public']['Tables']['playercombathistory']['Row'];
+type EnemyChatterLog = Database['public']['Tables']['enemychatterlog']['Row'];
 
 // Insert types
 type CombatSessionInsert = Database['public']['Tables']['combatsessions']['Insert'];
 type CombatLogEventInsert = Database['public']['Tables']['combatlogevents']['Insert'];
 type PlayerCombatHistoryInsert = Database['public']['Tables']['playercombathistory']['Insert'];
+type EnemyChatterLogInsert = Database['public']['Tables']['enemychatterlog']['Insert'];
 
 // Enums
 type CombatResult = Database['public']['Enums']['combat_result'];
@@ -79,6 +82,22 @@ export interface PlayerCombatHistoryData {
   currentStreak: number;
   longestStreak: number;
   lastAttempt?: Date;
+}
+
+/**
+ * Enemy chatter log entry data structure
+ * For logging AI-generated dialogue attempts
+ */
+export interface ChatterLogEntry {
+  sessionId: string;
+  enemyTypeId: string;
+  eventType: string;
+  generatedDialogue?: string;
+  dialogueTone?: string;
+  generationTimeMs?: number;
+  wasAiGenerated?: boolean;
+  playerMetadata?: any;
+  combatContext?: any;
 }
 
 /**
@@ -710,6 +729,106 @@ export class CombatRepository extends BaseRepository<CombatSession> {
 
     if (error) {
       throw new ValidationError(`Failed to extend session activity: ${error.message}`);
+    }
+  }
+
+  // ========================================
+  // COMBAT RATING CALCULATION
+  // ========================================
+
+  /**
+   * Calculate combat rating using PostgreSQL RPC function
+   *
+   * @param atk - Attack power
+   * @param def - Defense power
+   * @param hp - Health points
+   * @returns Combat rating as number
+   * @throws DatabaseError on RPC failure
+   */
+  async calculateCombatRating(atk: number, def: number, hp: number): Promise<number> {
+    const { data, error } = await this.client.rpc('combat_rating', {
+      atk: atk,
+      def: def,
+      hp: hp
+    });
+
+    if (error) {
+      throw mapSupabaseError(error);
+    }
+
+    return Number(data) || 0;
+  }
+
+  // ========================================
+  // CHATTER LOGGING AND PLAYER HISTORY
+  // ========================================
+
+  /**
+   * Get player combat history for EnemyChatterService
+   * Returns PlayerCombatContext format for AI dialogue generation
+   *
+   * @param userId - User UUID
+   * @param locationId - Location UUID
+   * @returns Player combat context or default values for new players
+   */
+  async getPlayerCombatContext(userId: string, locationId: string): Promise<PlayerCombatContext> {
+    const { data, error } = await this.client
+      .from('playercombathistory')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('location_id', locationId)
+      .single();
+
+    if (error || !data) {
+      // Return default context for new players
+      return {
+        attempts: 0,
+        victories: 0,
+        defeats: 0,
+        current_streak: 0,
+      };
+    }
+
+    return {
+      attempts: data.total_attempts || 0,
+      victories: data.victories || 0,
+      defeats: data.defeats || 0,
+      current_streak: data.current_streak || 0,
+    };
+  }
+
+  /**
+   * Log enemy chatter dialogue attempt
+   * Records AI generation attempts and results for analytics
+   *
+   * @param logEntry - Chatter log entry data
+   * @throws ValidationError on database error (non-throwing for service reliability)
+   */
+  async logChatterAttempt(logEntry: ChatterLogEntry): Promise<void> {
+    try {
+      const chatterLogInsert: EnemyChatterLogInsert = {
+        session_id: logEntry.sessionId,
+        enemy_type_id: logEntry.enemyTypeId,
+        event_type: logEntry.eventType,
+        generated_dialogue: logEntry.generatedDialogue || null,
+        dialogue_tone: logEntry.dialogueTone || null,
+        generation_time_ms: logEntry.generationTimeMs || 0,
+        was_ai_generated: logEntry.wasAiGenerated || false,
+        player_metadata: logEntry.playerMetadata || null,
+        combat_context: logEntry.combatContext || null,
+      };
+
+      const { error } = await this.client
+        .from('enemychatterlog')
+        .insert([chatterLogInsert]);
+
+      if (error) {
+        console.error('Failed to log chatter attempt:', error);
+        // Don't throw here - logging failure shouldn't break dialogue generation
+      }
+    } catch (error) {
+      console.error('Failed to log chatter attempt:', error);
+      // Don't throw here - logging failure shouldn't break dialogue generation
     }
   }
 }

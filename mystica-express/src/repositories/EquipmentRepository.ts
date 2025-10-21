@@ -285,6 +285,75 @@ export class EquipmentRepository extends BaseRepository<UserEquipmentRow> {
   }
 
   // ============================================================================
+  // Power Level Operations
+  // ============================================================================
+
+  /**
+   * Get player power level stats from v_player_powerlevel view
+   *
+   * @param userId - User ID
+   * @returns Player power level stats or null if not found
+   * @throws DatabaseError on query failure
+   */
+  async getPlayerPowerLevel(userId: string): Promise<{ atk: number; def: number; hp: number; acc: number } | null> {
+    const { data, error } = await this.client
+      .from('v_player_powerlevel')
+      .select('atk, def, hp, acc')
+      .eq('player_id', userId)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') { // No rows found
+        return null;
+      }
+      throw this.mapSupabaseError(error);
+    }
+
+    return {
+      atk: Number(data.atk) || 0,
+      def: Number(data.def) || 0,
+      hp: Number(data.hp) || 0,
+      acc: Number(data.acc) || 0,
+    };
+  }
+
+  // ============================================================================
+  // Atomic RPC Operations
+  // ============================================================================
+
+  /**
+   * Equip item using atomic RPC function
+   *
+   * @param userId - User ID
+   * @param itemId - Item ID to equip
+   * @param slotName - Equipment slot name
+   * @returns RPC response with success status and data
+   * @throws DatabaseError on RPC failure
+   */
+  async equipItemAtomic(userId: string, itemId: string, slotName: string): Promise<any> {
+    return await this.rpc('equip_item', {
+      p_user_id: userId,
+      p_item_id: itemId,
+      p_slot_name: slotName
+    });
+  }
+
+  /**
+   * Unequip item using atomic RPC function
+   *
+   * @param userId - User ID
+   * @param slotName - Equipment slot name
+   * @returns RPC response with success status and data
+   * @throws DatabaseError on RPC failure
+   */
+  async unequipItemAtomic(userId: string, slotName: string): Promise<any> {
+    return await this.rpc('unequip_item', {
+      p_user_id: userId,
+      p_slot_name: slotName
+    });
+  }
+
+  // ============================================================================
   // Equip Operations
   // ============================================================================
 
@@ -387,6 +456,37 @@ export class EquipmentRepository extends BaseRepository<UserEquipmentRow> {
   // ============================================================================
   // Stats Aggregation
   // ============================================================================
+
+  /**
+   * Get player equipped stats from database view
+   *
+   * @param userId - User ID
+   * @returns Aggregated stats from v_player_equipped_stats view
+   * @throws DatabaseError on query failure
+   */
+  async getPlayerEquippedStats(userId: string): Promise<Stats> {
+    try {
+      const { data, error } = await this.client
+        .from('v_player_equipped_stats' as any)
+        .select('*')
+        .eq('player_id', userId)
+        .single();
+
+      if (error || !data) {
+        // Return zero stats if no equipped items or user doesn't exist
+        return { atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0 };
+      }
+
+      return {
+        atkPower: Number((data as any).atk) || 0,
+        atkAccuracy: Number((data as any).acc) || 0,
+        defPower: Number((data as any).def) || 0,
+        defAccuracy: Number((data as any).acc) || 0 // Using acc for both attack and defense accuracy
+      };
+    } catch (error) {
+      throw this.mapSupabaseError(error);
+    }
+  }
 
   /**
    * Compute total stats from all equipped items
