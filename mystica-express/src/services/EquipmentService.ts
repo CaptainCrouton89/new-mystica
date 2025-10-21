@@ -1,11 +1,20 @@
-import { EquipmentSlots, EquipResult, Stats, Item, ItemType } from '../types/api.types';
+import { EquipmentSlots, EquipResult, Stats, Item, ItemType, PlayerStats, EquipmentSlot, PlayerItem } from '../types/api.types';
 import { NotImplementedError, mapSupabaseError } from '../utils/errors';
 import { supabase } from '../config/supabase';
+import { EquipmentRepository } from '../repositories/EquipmentRepository.js';
+import { ItemRepository } from '../repositories/ItemRepository.js';
 
 /**
  * Handles equipment management and the 8-slot system
  */
 export class EquipmentService {
+  private equipmentRepository: EquipmentRepository;
+  private itemRepository: ItemRepository;
+
+  constructor() {
+    this.equipmentRepository = new EquipmentRepository();
+    this.itemRepository = new ItemRepository();
+  }
   /**
    * Get all currently equipped items for user
    * - Fetches items from all 8 equipment slots
@@ -14,101 +23,21 @@ export class EquipmentService {
    */
   async getEquippedItems(userId: string): Promise<{ slots: EquipmentSlots; total_stats: Stats }> {
     try {
-      // Query userequipment with LEFT JOIN to items and itemtypes (lowercase table names)
-      const { data, error } = await supabase
-        .from('userequipment')
-        .select(`
-          slot_name,
-          item_id,
-          items (
-            id,
-            user_id,
-            item_type_id,
-            level,
-            is_styled,
-            current_stats,
-            material_combo_hash,
-            generated_image_url,
-            created_at,
-            itemtypes (
-              id,
-              name,
-              category,
-              base_stats_normalized,
-              rarity,
-              description
-            )
-          )
-        `)
-        .eq('user_id', userId);
+      // Use repository to get equipped items
+      const repositorySlots = await this.equipmentRepository.findEquippedByUser(userId);
+      const total_stats = await this.equipmentRepository.computeTotalStats(userId);
 
-      if (error) {
-        throw mapSupabaseError(error);
-      }
-
-      // Initialize empty equipment slots
+      // Transform repository format to service API format
       const slots: EquipmentSlots = {
-        weapon: undefined,
-        offhand: undefined,
-        head: undefined,
-        armor: undefined,
-        feet: undefined,
-        accessory_1: undefined,
-        accessory_2: undefined,
-        pet: undefined
+        weapon: repositorySlots.weapon ? this.transformRepositoryItemToPlayerItem(repositorySlots.weapon, true) : undefined,
+        offhand: repositorySlots.offhand ? this.transformRepositoryItemToPlayerItem(repositorySlots.offhand, true) : undefined,
+        head: repositorySlots.head ? this.transformRepositoryItemToPlayerItem(repositorySlots.head, true) : undefined,
+        armor: repositorySlots.armor ? this.transformRepositoryItemToPlayerItem(repositorySlots.armor, true) : undefined,
+        feet: repositorySlots.feet ? this.transformRepositoryItemToPlayerItem(repositorySlots.feet, true) : undefined,
+        accessory_1: repositorySlots.accessory_1 ? this.transformRepositoryItemToPlayerItem(repositorySlots.accessory_1, true) : undefined,
+        accessory_2: repositorySlots.accessory_2 ? this.transformRepositoryItemToPlayerItem(repositorySlots.accessory_2, true) : undefined,
+        pet: repositorySlots.pet ? this.transformRepositoryItemToPlayerItem(repositorySlots.pet, true) : undefined
       };
-
-      // Initialize total stats
-      const total_stats: Stats = {
-        atkPower: 0,
-        atkAccuracy: 0,
-        defPower: 0,
-        defAccuracy: 0
-      };
-
-      // Process query results
-      data?.forEach(row => {
-        // Only process if item_id exists and items data is present
-        if (row.item_id && row.items) {
-          const itemData = row.items as any;
-
-          // Transform database result to Item interface
-          const item: Item = {
-            id: itemData.id,
-            user_id: itemData.user_id,
-            item_type_id: itemData.item_type_id,
-            level: itemData.level,
-            base_stats: itemData.itemtypes?.base_stats_normalized || { atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0 },
-            current_stats: itemData.current_stats || { atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0 },
-            material_combo_hash: itemData.material_combo_hash,
-            image_url: itemData.generated_image_url,
-            materials: undefined, // Not queried in this context
-            item_type: itemData.itemtypes ? {
-              id: itemData.itemtypes.id,
-              name: itemData.itemtypes.name,
-              category: itemData.itemtypes.category,
-              base_stats: itemData.itemtypes.base_stats_normalized,
-              rarity: itemData.itemtypes.rarity,
-              description: itemData.itemtypes.description
-            } as ItemType : undefined,
-            created_at: itemData.created_at,
-            updated_at: itemData.created_at // Not available in current schema
-          };
-
-          // Assign to appropriate slot
-          const slotName = row.slot_name as keyof EquipmentSlots;
-          if (slotName in slots) {
-            slots[slotName] = item;
-
-            // Add to total stats
-            const stats = item.current_stats;
-            total_stats.atkPower += stats.atkPower || 0;
-            total_stats.atkAccuracy += stats.atkAccuracy || 0;
-            total_stats.defPower += stats.defPower || 0;
-            total_stats.defAccuracy += stats.defAccuracy || 0;
-          }
-        }
-      });
 
       return { slots, total_stats };
     } catch (error) {
@@ -123,15 +52,82 @@ export class EquipmentService {
    * - Updates equipment state and total stats
    */
   async equipItem(userId: string, itemId: string): Promise<EquipResult> {
-    // TODO: Implement item equipping workflow
-    // 1. Validate user owns the item
-    // 2. Get item type to determine compatible slots
-    // 3. Check if slot is occupied
-    // 4. If occupied, unequip existing item
-    // 5. Create/update UserEquipment record
-    // 6. Recompute total stats
-    // 7. Return result with unequipped item (if any)
-    throw new NotImplementedError('EquipmentService.equipItem not implemented');
+    try {
+      // First, get the item to determine its category and find appropriate slot
+      const item = await this.itemRepository.findWithItemType(itemId, userId);
+
+      if (!item || !item.item_type) {
+        throw new Error('Item not found');
+      }
+
+      // Determine slot name based on item category
+      const slotName = this.mapCategoryToSlot(item.item_type.category);
+
+      // Use the atomic RPC function to handle the complex equip logic
+      const { data: result, error: rpcError } = await supabase.rpc('equip_item' as any, {
+        p_user_id: userId,
+        p_item_id: itemId,
+        p_slot_name: slotName
+      });
+
+      if (rpcError) {
+        throw mapSupabaseError(rpcError);
+      }
+
+      // Handle RPC function response
+      const equipResult = result as any;
+      if (!equipResult.success) {
+        throw new Error(equipResult.message || 'Failed to equip item');
+      }
+
+      const equipData = equipResult.data;
+
+      // Get the equipped item details
+      const equippedItem = await this.getPlayerItem(itemId, true);
+
+      // Get the previously equipped item details if there was one
+      let unequippedItem = undefined;
+      if (equipData.previous_item_id) {
+        unequippedItem = await this.getPlayerItem(equipData.previous_item_id, false);
+      }
+
+      // Get updated player stats and equipment details
+      const totalStats = await this.getPlayerStats(userId);
+      const currentEquipment = await this.getEquippedItems(userId);
+
+      // Count equipped items and sum their levels
+      const equippedSlots = Object.values(currentEquipment.slots).filter(item => item !== undefined);
+      const equippedItemsCount = equippedSlots.length;
+      const totalItemLevel = equippedSlots.reduce((sum, item) => sum + (item?.level || 0), 0);
+
+      // For now, use empty stats for individual item contributions (could be enhanced later)
+      const emptyStats: Stats = { atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0 };
+      const updatedPlayerStats: PlayerStats = {
+        total_stats: totalStats,
+        item_contributions: {
+          weapon: emptyStats,
+          offhand: emptyStats,
+          head: emptyStats,
+          armor: emptyStats,
+          feet: emptyStats,
+          accessory_1: emptyStats,
+          accessory_2: emptyStats,
+          pet: emptyStats
+        },
+        equipped_items_count: equippedItemsCount,
+        total_item_level: totalItemLevel
+      };
+
+      return {
+        success: true,
+        equipped_item: equippedItem,
+        unequipped_item: unequippedItem,
+        updated_player_stats: updatedPlayerStats
+      };
+
+    } catch (error) {
+      throw mapSupabaseError(error);
+    }
   }
 
   /**
@@ -141,13 +137,129 @@ export class EquipmentService {
    * - Returns item to inventory
    */
   async unequipItem(userId: string, slotName: string): Promise<boolean> {
-    // TODO: Implement item unequipping workflow
-    // 1. Validate slot name is valid (one of 8 slots)
-    // 2. Check if slot is occupied
-    // 3. Delete UserEquipment record for slot
-    // 4. Recompute total stats
-    // 5. Item automatically returns to inventory
-    throw new NotImplementedError('EquipmentService.unequipItem not implemented');
+    try {
+      // Use the atomic RPC function to handle the unequip logic
+      const { data: result, error: rpcError } = await supabase.rpc('unequip_item' as any, {
+        p_user_id: userId,
+        p_slot_name: slotName
+      });
+
+      if (rpcError) {
+        throw mapSupabaseError(rpcError);
+      }
+
+      // Handle RPC function response
+      const unequipResult = result as any;
+      if (!unequipResult.success) {
+        throw new Error(unequipResult.message || 'Failed to unequip item');
+      }
+
+      // Return true if an item was actually unequipped, false if slot was empty
+      return unequipResult.data.unequipped_item_id !== null;
+
+    } catch (error) {
+      throw mapSupabaseError(error);
+    }
+  }
+
+  /**
+   * Map item category to appropriate equipment slot name
+   * For accessory items, defaults to accessory_1 (could be enhanced with preference logic)
+   */
+  private mapCategoryToSlot(category: string): string {
+    switch (category) {
+      case 'weapon':
+        return 'weapon';
+      case 'offhand':
+        return 'offhand';
+      case 'head':
+        return 'head';
+      case 'armor':
+        return 'armor';
+      case 'feet':
+        return 'feet';
+      case 'accessory':
+        // For accessories, prefer accessory_1 slot
+        // TODO: Could be enhanced to check which accessory slot is available
+        return 'accessory_1';
+      case 'pet':
+        return 'pet';
+      default:
+        throw new Error(`Unknown item category: ${category}`);
+    }
+  }
+
+  /**
+   * Get full item details formatted as PlayerItem for API responses
+   */
+  private async getPlayerItem(itemId: string, isEquipped: boolean): Promise<PlayerItem> {
+    const item = await this.itemRepository.findWithItemType(itemId);
+
+    if (!item || !item.item_type) {
+      throw new Error('Item not found');
+    }
+
+    return this.transformRepositoryItemToPlayerItem(item, isEquipped);
+  }
+
+  /**
+   * Get player stats from equipped items using v_player_equipped_stats view
+   */
+  private async getPlayerStats(userId: string): Promise<Stats> {
+    try {
+      const { data, error } = await supabase
+        .from('v_player_equipped_stats')
+        .select('*')
+        .eq('player_id', userId)
+        .single();
+
+      if (error || !data) {
+        // Return zero stats if no equipped items or user doesn't exist
+        return { atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0 };
+      }
+
+      return {
+        atkPower: Number(data.atk) || 0,
+        atkAccuracy: Number(data.acc) || 0,
+        defPower: Number(data.def) || 0,
+        defAccuracy: Number(data.acc) || 0 // Using acc for both attack and defense accuracy
+      };
+    } catch (error) {
+      throw mapSupabaseError(error);
+    }
+  }
+
+  /**
+   * Transform repository item format to PlayerItem API format
+   */
+  private transformRepositoryItemToPlayerItem(repositoryItem: any, isEquipped: boolean): PlayerItem {
+    if (!repositoryItem?.item_type) {
+      throw new Error('Repository item missing item_type data');
+    }
+
+    // Get applied materials if any
+    const appliedMaterials = repositoryItem.materials || [];
+
+    return {
+      id: repositoryItem.id,
+      item_type: {
+        id: repositoryItem.item_type.id,
+        name: repositoryItem.item_type.name,
+        category: repositoryItem.item_type.category,
+        equipment_slot: repositoryItem.item_type.category as EquipmentSlot, // Assumes category matches slot
+        base_stats: repositoryItem.item_type.base_stats_normalized,
+        rarity: repositoryItem.item_type.rarity,
+        description: repositoryItem.item_type.description || '',
+        image_url: repositoryItem.item_type.image_url
+      } as ItemType,
+      level: repositoryItem.level,
+      rarity: repositoryItem.item_type.rarity,
+      applied_materials: appliedMaterials,
+      is_styled: repositoryItem.is_styled || false,
+      computed_stats: repositoryItem.current_stats || repositoryItem.item_type.base_stats_normalized || { atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0 },
+      is_equipped: isEquipped,
+      generated_image_url: repositoryItem.generated_image_url || undefined
+    };
   }
 }
 

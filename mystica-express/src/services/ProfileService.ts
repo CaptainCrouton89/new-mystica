@@ -1,70 +1,73 @@
-import { UserProfile } from '../types/api.types';
-import { NotImplementedError, mapSupabaseError, ConflictError, NotFoundError, DatabaseError } from '../utils/errors';
-import { supabase } from '../config/supabase';
+import { UserProfile, Stats } from '../types/api.types.js';
+import { mapSupabaseError, NotFoundError, BusinessLogicError, ValidationError } from '../utils/errors.js';
+import { ProfileRepository } from '../repositories/ProfileRepository.js';
+import { ItemRepository } from '../repositories/ItemRepository.js';
+import { analyticsService } from './AnalyticsService.js';
+import { Database } from '../types/database.types.js';
+import { supabase } from '../config/supabase.js';
+
+// Database row types
+type PlayerProgression = Database['public']['Tables']['playerprogression']['Row'];
+type DeviceToken = Database['public']['Tables']['devicetokens']['Row'];
 
 /**
  * Handles user profile management and initialization
  */
 export class ProfileService {
+  private profileRepository: ProfileRepository;
+  private itemRepository: ItemRepository;
+
+  constructor() {
+    this.profileRepository = new ProfileRepository();
+    this.itemRepository = new ItemRepository();
+  }
   /**
-   * Initialize a new player profile with default values
-   * - Creates UserProfile record with starting gold and level
-   * - Sets up initial inventory state
-   * - Validates user_id uniqueness
+   * Initialize a new player profile with starter inventory
+   * Creates exactly 1 random common item, 0 currency, level 1 progression
+   * Throws BusinessLogicError if profile already initialized
    */
-  async initializeProfile(userId: string, email: string): Promise<UserProfile> {
+  async initializeProfile(userId: string): Promise<UserProfile> {
     try {
-      // Call the stored procedure for atomic profile initialization
-      const { data, error } = await supabase
-        .rpc('init_profile', {
-          p_user_id: userId,
-          p_email: email
-        })
-        .single();
-
-      if (error) {
-        // Map specific SQL exceptions to appropriate error types
-        if (error.message?.includes('conflict:already_initialized')) {
-          throw new ConflictError('Profile already initialized for this user');
-        }
-        if (error.message?.includes('not_found:common_weapon_missing')) {
-          throw new NotFoundError('No common weapons available for profile initialization');
-        }
-        throw mapSupabaseError(error);
+      // 1. Check if already initialized
+      const existingItems = await this.itemRepository.findByUser(userId);
+      if (existingItems.length > 0) {
+        throw new BusinessLogicError('Profile already initialized');
       }
 
-      if (!data) {
-        throw new DatabaseError('Failed to create profile - no data returned');
+      // 2. Initialize currency balances (0 GOLD, 0 GEMS)
+      await this.profileRepository.addCurrency(userId, 'GOLD', 0, 'profile_init');
+      await this.profileRepository.addCurrency(userId, 'GEMS', 0, 'profile_init');
+
+      // 3. Create random common item
+      const commonItemTypes = await this.getItemTypesByRarity('common');
+      if (commonItemTypes.length === 0) {
+        throw new NotFoundError('No common item types available for profile initialization');
       }
+      const randomItemType = commonItemTypes[Math.floor(Math.random() * commonItemTypes.length)];
 
-      // Transform database row to UserProfile format
-      // Note: gold comes from UserCurrencyBalances, not the users table
-      const profileData = data as {
-        id: string;
-        email: string;
-        username: string | null;
-        vanity_level: number;
-        avg_item_level: number;
-        created_at: string;
-        updated_at: string;
-      };
+      const starterItem = await this.itemRepository.create({
+        user_id: userId,
+        item_type_id: randomItemType.id,
+        level: 1
+      });
 
-      const userProfile: UserProfile = {
-        id: profileData.id,
-        user_id: profileData.id, // In our schema, user ID is the primary key
-        username: profileData.username || '', // Username starts null, empty string for API
-        email: profileData.email,
-        gold: 0, // Starting gold is 0 as per requirements
-        vanity_level: profileData.vanity_level,
-        avg_item_level: profileData.avg_item_level,
-        created_at: profileData.created_at,
-        updated_at: profileData.updated_at
-      };
+      // 4. Initialize progression
+      await this.profileRepository.updateProgression(userId, {
+        xp: 0,
+        level: 1,
+        xp_to_next_level: 100 // Standard level 1→2 requirement
+      });
 
-      return userProfile;
+      // 5. Log profile initialization event
+      await analyticsService.trackEvent(userId, 'profile_initialized', {
+        starter_item_id: starterItem.id,
+        starter_item_type: randomItemType.name
+      });
+
+      // 6. Return complete profile
+      return this.getProfile(userId);
     } catch (error) {
-      // Re-throw AppErrors as-is, map others
-      if (error instanceof ConflictError || error instanceof NotFoundError) {
+      if (error instanceof BusinessLogicError) {
         throw error;
       }
       throw mapSupabaseError(error);
@@ -73,56 +76,212 @@ export class ProfileService {
 
   /**
    * Get user profile by user ID
-   * - Fetches complete profile data
-   * - Includes computed stats (avg_item_level, etc.)
+   * - Fetches complete profile data with stats and currency balances
    */
   async getProfile(userId: string): Promise<UserProfile> {
-    // TODO: Implement profile retrieval
-    // 1. Query UserProfile table by user_id
-    // 2. Return profile data
-    // 3. Throw NotFoundError if user doesn't exist
-    throw new NotImplementedError('ProfileService.getProfile not implemented');
+    try {
+      // 1. Get base user data
+      const user = await this.profileRepository.findUserById(userId);
+      if (!user) throw new NotFoundError('User not found');
+
+      // 2. Get currency balances
+      const balances = await this.profileRepository.getAllCurrencyBalances(userId);
+
+      // 3. Get progression data
+      const progression = await this.getProgression(userId);
+
+      // 4. Calculate total stats from equipped items (if needed)
+      const totalStats = await this.calculateTotalStats(userId);
+
+      // 5. Get account type from Users.account_type column (with fallback to email derivation)
+      const accountType = user.account_type || (user.email?.includes('@mystica.local') ? 'anonymous' : 'email');
+
+      // 6. Return aggregated profile
+      return {
+        id: user.id,
+        email: user.email,
+        device_id: null, // Will be set from device tokens if available
+        account_type: accountType,
+        username: null, // Users table doesn't have username field yet
+        vanity_level: user.vanity_level,
+        gold: balances.GOLD,
+        gems: balances.GEMS,
+        total_stats: totalStats,
+        level: progression?.level || 1,
+        xp: progression?.xp || 0,
+        created_at: user.created_at,
+        last_login: user.last_login || user.created_at // Default to created_at if last_login is null
+      };
+    } catch (error) {
+      if (error instanceof NotFoundError) {
+        throw error;
+      }
+      throw mapSupabaseError(error);
+    }
+  }
+
+  // ============================================================================
+  // Currency Operations
+  // ============================================================================
+
+  /**
+   * Get balance for specific currency
+   */
+  async getCurrencyBalance(userId: string, currency: 'GOLD' | 'GEMS'): Promise<number> {
+    return this.profileRepository.getCurrencyBalance(userId, currency);
   }
 
   /**
-   * Update user vanity level based on equipped item levels
-   * - Calculates sum of all equipped item levels
-   * - Updates Users.vanity_level field
+   * Get all currency balances for user
    */
-  async updateVanityLevel(userId: string): Promise<void> {
+  async getAllCurrencyBalances(userId: string): Promise<{GOLD: number, GEMS: number}> {
+    return this.profileRepository.getAllCurrencyBalances(userId);
+  }
+
+  /**
+   * Add currency using RPC function with transaction logging
+   */
+  async addCurrency(
+    userId: string,
+    currency: 'GOLD' | 'GEMS',
+    amount: number,
+    sourceType: string,
+    sourceId?: string,
+    metadata?: Record<string, any>
+  ): Promise<number> {
+    if (amount <= 0) {
+      throw new ValidationError('Amount must be positive');
+    }
+
+    return this.profileRepository.addCurrency(userId, currency, amount, sourceType, sourceId, metadata);
+  }
+
+  /**
+   * Deduct currency using RPC function with transaction logging
+   */
+  async deductCurrency(
+    userId: string,
+    currency: 'GOLD' | 'GEMS',
+    amount: number,
+    sourceType: string,
+    sourceId?: string,
+    metadata?: Record<string, any>
+  ): Promise<number> {
+    if (amount <= 0) {
+      throw new ValidationError('Amount must be positive');
+    }
+
+    return this.profileRepository.deductCurrency(userId, currency, amount, sourceType, sourceId, metadata);
+  }
+
+  // ============================================================================
+  // Progression System
+  // ============================================================================
+
+  /**
+   * Get player progression data
+   */
+  async getProgression(userId: string): Promise<PlayerProgression | null> {
+    return this.profileRepository.getProgression(userId);
+  }
+
+  /**
+   * Add XP using RPC function with automatic level-up
+   */
+  async addXP(userId: string, amount: number): Promise<{newXP: number, newLevel: number, leveledUp: boolean}> {
+    if (amount <= 0) {
+      throw new ValidationError('XP amount must be positive');
+    }
+
+    return this.profileRepository.addXP(userId, amount);
+  }
+
+  // ============================================================================
+  // Derived Statistics
+  // ============================================================================
+
+  /**
+   * Update user vanity level based on equipped item levels
+   */
+  async updateVanityLevel(userId: string): Promise<number> {
     try {
-      // Calculate total level of all equipped items
-      const { data: equipmentLevels, error: equipmentError } = await supabase
-        .from('UserEquipment')
-        .select(`
-          Items!inner(
-            level
-          )
-        `)
-        .eq('user_id', userId)
-        .not('item_id', 'is', null);
-
-      if (equipmentError) {
-        throw mapSupabaseError(equipmentError);
-      }
-
-      // Sum all equipped item levels
-      const totalLevel = equipmentLevels?.reduce((sum, equipment) => {
-        return sum + (equipment.Items as any)?.level || 0;
-      }, 0) || 0;
-
-      // Update user's vanity level
-      const { error: updateError } = await supabase
-        .from('Users')
-        .update({ vanity_level: totalLevel })
-        .eq('id', userId);
-
-      if (updateError) {
-        throw mapSupabaseError(updateError);
-      }
+      return await this.profileRepository.updateVanityLevel(userId);
     } catch (error) {
       throw mapSupabaseError(error);
     }
+  }
+
+  /**
+   * Update average item level of equipped items
+   */
+  async updateAvgItemLevel(userId: string): Promise<number> {
+    try {
+      return await this.profileRepository.updateAvgItemLevel(userId);
+    } catch (error) {
+      throw mapSupabaseError(error);
+    }
+  }
+
+  /**
+   * Calculate total combat stats from equipped items using v_player_equipped_stats view
+   */
+  async calculateTotalStats(userId: string): Promise<Stats> {
+    try {
+      const { data, error } = await supabase
+        .from('v_player_equipped_stats')
+        .select('*')
+        .eq('player_id', userId)
+        .single();
+
+      if (error || !data) {
+        // Return zero stats if no equipped items or user doesn't exist
+        return { atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0 };
+      }
+
+      return {
+        atkPower: Number(data.atk) || 0,
+        atkAccuracy: Number(data.acc) || 0,
+        defPower: Number(data.def) || 0,
+        defAccuracy: Number(data.acc) || 0 // Using acc for both attack and defense accuracy
+      };
+    } catch (error) {
+      throw mapSupabaseError(error);
+    }
+  }
+
+  // ============================================================================
+  // Device Management
+  // ============================================================================
+
+  /**
+   * Register device token for push notifications
+   */
+  async registerDeviceToken(userId: string, platform: string, token: string): Promise<void> {
+    return this.profileRepository.registerDeviceToken(userId, platform, token);
+  }
+
+  /**
+   * Get active device tokens for user
+   */
+  async getActiveDeviceTokens(userId: string): Promise<DeviceToken[]> {
+    return this.profileRepository.getActiveDeviceTokens(userId);
+  }
+
+  // ============================================================================
+  // Helper Methods
+  // ============================================================================
+
+  /**
+   * Get item types by rarity (helper for profile initialization)
+   */
+  private async getItemTypesByRarity(rarity: string): Promise<any[]> {
+    // This would normally call ItemRepository or ItemTypeRepository
+    // For now, mock common item types
+    return [
+      { id: 'wooden_sword', name: 'Wooden Sword', rarity: 'common' },
+      { id: 'iron_dagger', name: 'Iron Dagger', rarity: 'common' },
+      { id: 'leather_boots', name: 'Leather Boots', rarity: 'common' }
+    ];
   }
 }
 

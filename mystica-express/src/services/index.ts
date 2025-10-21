@@ -1,8 +1,20 @@
 // Service layer exports
-export { ProfileService, profileService } from './ProfileService';
-export { InventoryService, inventoryService } from './InventoryService';
-export { EquipmentService, equipmentService } from './EquipmentService';
-export { MaterialService, materialService } from './MaterialService';
-export { ItemService, itemService } from './ItemService';
-export { StatsService, statsService } from './StatsService';
-export { ImageGenerationService, imageGenerationService } from './ImageGenerationService';
+export { ProfileService, profileService } from './ProfileService.js';
+export { InventoryService, inventoryService } from './InventoryService.js';
+export { EquipmentService, equipmentService } from './EquipmentService.js';
+export { MaterialService, materialService } from './MaterialService.js';
+export { ItemService, itemService } from './ItemService.js';
+export { StatsService, statsService } from './StatsService.js';
+export { ImageGenerationService, imageGenerationService } from './ImageGenerationService.js';
+export { CombatService, combatService } from './CombatService.js';
+export { ChatterService, chatterService } from './ChatterService.js';
+export { EconomyService, economyService } from './EconomyService.js';
+export { LoadoutService, loadoutService } from './LoadoutService.js';
+export { LocationService, locationService } from './LocationService.js';
+export { StyleService, styleService } from './StyleService.js';
+export { AuthService, authService } from './AuthService.js';
+export { AnalyticsService, analyticsService } from './AnalyticsService.js';
+export { EnemyChatterService, enemyChatterService } from './EnemyChatterService.js';
+export { RarityService, rarityService } from './RarityService.js';
+export { PetService, petService } from './PetService.js';
+export { ProgressionService, progressionService } from './ProgressionService.js';

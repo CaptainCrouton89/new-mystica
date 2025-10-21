@@ -303,12 +303,10 @@ Generate appropriate dialogue for this situation.`;
 
   /**
    * Get combat session data
-   * Currently uses stub service since we're in development
    */
   private async getCombatSession(sessionId: string) {
-    // Use stub service for now since we're in development
-    const { combatStubService } = await import('./CombatStubService.js');
-    return combatStubService.getCombatSession(sessionId);
+    const { combatService } = await import('./CombatService.js');
+    return combatService.getCombatSession(sessionId);
   }
 
   /**
@@ -413,7 +411,7 @@ Generate appropriate dialogue for this situation.`;
     }
 
     return {
-      attempts: data.attempts || 0,
+      attempts: data.total_attempts || 0,
       victories: data.victories || 0,
       defeats: data.defeats || 0,
       current_streak: data.current_streak || 0,
@@ -430,16 +428,19 @@ Generate appropriate dialogue for this situation.`;
     errorMessage: string | null
   ): Promise<void> {
     try {
+      // Get enemy_type_id from session
+      const session = await this.getCombatSession(sessionId);
+
       const logEntry = {
         session_id: sessionId,
+        enemy_type_id: session.enemy_type_id,
         event_type: eventType,
-        dialogue_generated: response?.dialogue || null,
+        generated_dialogue: response?.dialogue || null,
         dialogue_tone: response?.dialogue_tone || null,
         generation_time_ms: response?.generation_time_ms || 0,
         was_ai_generated: response?.was_ai_generated || false,
-        player_context_used: response?.player_context_used || null,
-        error_message: errorMessage,
-        created_at: new Date().toISOString(),
+        player_metadata: response?.player_context_used ? response.player_context_used as any : null,
+        combat_context: errorMessage ? { error: errorMessage } as any : null,
       };
 
       const { error } = await supabase
