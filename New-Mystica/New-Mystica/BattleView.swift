@@ -30,9 +30,9 @@ struct BattleView: View, NavigableView {
     @State private var showCombatMessage: Bool = false
     @State private var animationTimer: Timer?
     
-    // Victory/Defeat popup states
-    @State private var showVictoryPopup: Bool = false
-    @State private var showDefeatPopup: Bool = false
+    // Victory/Defeat navigation states
+    @State private var navigateToVictory: Bool = false
+    @State private var navigateToDefeat: Bool = false
     
     var navigationTitle: String { "Battle" }
     
@@ -72,16 +72,6 @@ struct BattleView: View, NavigableView {
                 if showCombatMessage {
                     combatMessageOverlay
                 }
-                
-                // Victory Popup
-                if showVictoryPopup {
-                    victoryPopup
-                }
-                
-                // Defeat Popup
-                if showDefeatPopup {
-                    defeatPopup
-                }
             }
         }
         .onAppear {
@@ -93,6 +83,16 @@ struct BattleView: View, NavigableView {
             // Clean up timer when view disappears
             animationTimer?.invalidate()
             animationTimer = nil
+        }
+        .onChange(of: navigateToVictory) { _, newValue in
+            if newValue {
+                navigateToVictoryView()
+            }
+        }
+        .onChange(of: navigateToDefeat) { _, newValue in
+            if newValue {
+                navigateToDefeatView()
+            }
         }
     }
     
@@ -223,13 +223,6 @@ struct BattleView: View, NavigableView {
                     .frame(width: max(0, healthBarWidth(for: currentHealth, maxHealth: maxHealth)), height: 20)
                     .animation(.easeInOut(duration: 0.3), value: currentHealth)
                 
-                // Health Text
-                HStack {
-                    Spacer()
-                    NormalText("\(Int(currentHealth))/\(Int(maxHealth))", size: 12)
-                        .foregroundColor(Color.textPrimary)
-                    Spacer()
-                }
             }
             .frame(width: 200)
         }
@@ -337,35 +330,6 @@ struct BattleView: View, NavigableView {
         }
     }
     
-    // MARK: - Victory Popup
-    @ViewBuilder
-    private var victoryPopup: some View {
-        ActionPopup(
-            title: "Victory!",
-            imageName: "crown.fill",
-            description: "You have defeated the \(enemyName)!",
-            buttonText: "Claim Rewards",
-            isPresented: $showVictoryPopup,
-            onAction: {
-                claimVictoryRewards()
-            }
-        )
-    }
-    
-    // MARK: - Defeat Popup
-    @ViewBuilder
-    private var defeatPopup: some View {
-        ActionPopup(
-            title: "Defeat",
-            imageName: "exclamationmark.triangle.fill",
-            description: "You have been defeated by the \(enemyName).",
-            buttonText: "Return to Map",
-            isPresented: $showDefeatPopup,
-            onAction: {
-                returnToMap()
-            }
-        )
-    }
     
     // MARK: - Helper Functions
     
@@ -466,7 +430,7 @@ struct BattleView: View, NavigableView {
         // Check if enemy is defeated
         if enemyHealth <= 0 {
             audioManager.playVictory()
-            showVictoryPopup = true
+            navigateToVictory = true
             return
         }
         
@@ -492,7 +456,7 @@ struct BattleView: View, NavigableView {
         // Check if player is defeated
         if playerHealth <= 0 {
             audioManager.playDefeat()
-            showDefeatPopup = true
+            navigateToDefeat = true
             return
         }
         
@@ -525,17 +489,14 @@ struct BattleView: View, NavigableView {
         showCombatMessage = false
     }
     
-    private func claimVictoryRewards() {
-        // Play reward claiming audio
-        audioManager.playReward()
-        
-        // TODO: Implement reward claiming logic
-        // For now, just return to map
-        navigationManager.navigateTo(.map)
+    // MARK: - Navigation Logic
+    
+    private func navigateToVictoryView() {
+        navigationManager.navigateTo(.victory)
     }
     
-    private func returnToMap() {
-        navigationManager.navigateTo(.map)
+    private func navigateToDefeatView() {
+        navigationManager.navigateTo(.defeat)
     }
 }
 

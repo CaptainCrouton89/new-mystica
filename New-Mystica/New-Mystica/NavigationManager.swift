@@ -16,6 +16,8 @@ enum NavigationDestination: Hashable {
     case settings
     case profile
     case battle
+    case victory
+    case defeat
     
     var title: String {
         switch self {
@@ -31,6 +33,10 @@ enum NavigationDestination: Hashable {
             return "Profile"
         case .battle:
             return "Battle"
+        case .victory:
+            return "Victory"
+        case .defeat:
+            return "Defeat"
         }
     }
 }

@@ -60,6 +60,10 @@ struct ContentView: View {
             }
         case .battle:
             BattleView()
+        case .victory:
+            VictoryView()
+        case .defeat:
+            DefeatView()
         }
     }
 }
