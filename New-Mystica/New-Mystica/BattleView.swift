@@ -34,6 +34,9 @@ struct BattleView: View, NavigableView {
     @State private var navigateToVictory: Bool = false
     @State private var navigateToDefeat: Bool = false
     
+    // Floating text manager
+    @StateObject private var floatingTextView = FloatingTextView()
+    
     var navigationTitle: String { "Battle" }
     
     var body: some View {
@@ -72,6 +75,10 @@ struct BattleView: View, NavigableView {
                 if showCombatMessage {
                     combatMessageOverlay
                 }
+                
+                // Floating Text Overlay
+                FloatingTextOverlay(floatingTexts: $floatingTextView.floatingTexts)
+                    .allowsHitTesting(false)
             }
         }
         .onAppear {
@@ -291,11 +298,6 @@ struct BattleView: View, NavigableView {
                 stopDialAndExecuteAction()
             }
             
-            // Multiplier display
-            if !isDialSpinning {
-                NormalText("Multiplier: \(String(format: "%.1f", currentMultiplier))x", size: 12)
-                    .foregroundColor(Color.textPrimary)
-            }
         }
     }
     
@@ -329,6 +331,7 @@ struct BattleView: View, NavigableView {
             hideCombatMessage()
         }
     }
+    
     
     
     // MARK: - Helper Functions
@@ -404,6 +407,11 @@ struct BattleView: View, NavigableView {
         let adjustedRotation = normalizedRotation < 0 ? normalizedRotation + 360 : normalizedRotation
         currentMultiplier = calculateMultiplier(from: adjustedRotation)
         
+        // Show floating text for the multiplier at the dial position
+        // Dial is positioned at the bottom center of the screen
+        let dialPosition = CGPoint(x: 0, y: 200) // Offset from center to dial location
+        floatingTextView.showMultiplier(currentMultiplier, at: dialPosition)
+        
         // Execute action based on turn
         if isPlayerTurn {
             executePlayerAttack()
@@ -437,6 +445,10 @@ struct BattleView: View, NavigableView {
         // Play damage dealing audio
         audioManager.playDealDamage()
         
+        // Show floating damage text from enemy position
+        let enemyPosition = CGPoint(x: 0, y: -200) // Offset towards top of screen
+        floatingTextView.showDamage(totalDamage, isCritical: currentMultiplier > 1.5, at: enemyPosition)
+        
         // Show damage dealt message for non-fatal attacks
         combatMessage = "You dealt \(String(format: "%.1f", totalDamage)) damage!"
         showCombatMessage = true
@@ -462,6 +474,10 @@ struct BattleView: View, NavigableView {
         
         // Play damage receiving audio
         audioManager.playTakeDamage()
+        
+        // Show floating damage text from player position
+        let playerPosition = CGPoint(x: 0, y: 50) // Offset from center towards player avatar
+        floatingTextView.showDamage(defendedDamage, isCritical: false, at: playerPosition)
         
         // Show damage dealt message for non-fatal attacks
         combatMessage = "Enemy dealt \(String(format: "%.1f", defendedDamage)) damage! (Defended: \(String(format: "%.1f", currentMultiplier))x)"
