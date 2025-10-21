@@ -53,11 +53,24 @@ function normalizeNameForR2(name: string): string {
 }
 
 /**
- * Build R2 key for item or material
+ * Build R2 key for item, material, or monster
  */
-function buildR2Key(name: string, type: 'item' | 'material'): string {
+function buildR2Key(name: string, type: 'item' | 'material' | 'monster', noBackground?: boolean): string {
   const normalized = normalizeNameForR2(name);
-  const directory = type === 'item' ? 'items' : 'materials';
+  let directory: string;
+
+  if (type === 'item') {
+    directory = 'items';
+  } else if (type === 'material') {
+    directory = 'materials';
+  } else {
+    directory = 'monsters';
+  }
+
+  if (noBackground) {
+    directory = `${directory}/no-background`;
+  }
+
   return `${directory}/${normalized}.png`;
 }
 
@@ -69,11 +82,11 @@ function buildPublicUrl(key: string): string {
 }
 
 /**
- * Check if an item or material exists in R2
+ * Check if an item, material, or monster exists in R2
  */
-export async function checkR2AssetExists(name: string, type: 'item' | 'material'): Promise<boolean> {
+export async function checkR2AssetExists(name: string, type: 'item' | 'material' | 'monster', noBackground?: boolean): Promise<boolean> {
   const client = createR2Client();
-  const key = buildR2Key(name, type);
+  const key = buildR2Key(name, type, noBackground);
 
   try {
     await client.send(new HeadObjectCommand({
@@ -91,17 +104,17 @@ export async function checkR2AssetExists(name: string, type: 'item' | 'material'
 }
 
 /**
- * Get public URL for item or material if it exists in R2
+ * Get public URL for item, material, or monster if it exists in R2
  * Throws error if asset does not exist
  */
-export async function getR2AssetUrl(name: string, type: 'item' | 'material'): Promise<string> {
-  const exists = await checkR2AssetExists(name, type);
+export async function getR2AssetUrl(name: string, type: 'item' | 'material' | 'monster', noBackground?: boolean): Promise<string> {
+  const exists = await checkR2AssetExists(name, type, noBackground);
 
   if (!exists) {
     throw new Error(`Asset not found in R2: ${type} "${name}"`);
   }
 
-  const key = buildR2Key(name, type);
+  const key = buildR2Key(name, type, noBackground);
   return buildPublicUrl(key);
 }
 
@@ -111,14 +124,15 @@ export async function getR2AssetUrl(name: string, type: 'item' | 'material'): Pr
 export async function uploadToR2(
   localFilePath: string,
   name: string,
-  type: 'item' | 'material'
+  type: 'item' | 'material' | 'monster',
+  noBackground?: boolean
 ): Promise<string> {
   if (!fs.existsSync(localFilePath)) {
     throw new Error(`Local file not found: ${localFilePath}`);
   }
 
   const client = createR2Client();
-  const key = buildR2Key(name, type);
+  const key = buildR2Key(name, type, noBackground);
   const fileBuffer = fs.readFileSync(localFilePath);
 
   try {
@@ -144,11 +158,12 @@ export async function uploadToR2(
  */
 export async function checkMultipleAssets(
   names: string[],
-  type: 'item' | 'material'
+  type: 'item' | 'material' | 'monster',
+  noBackground?: boolean
 ): Promise<Map<string, boolean>> {
   const results = await Promise.all(
     names.map(async (name) => {
-      const exists = await checkR2AssetExists(name, type);
+      const exists = await checkR2AssetExists(name, type, noBackground);
       return { name, exists };
     })
   );
@@ -162,14 +177,15 @@ export async function checkMultipleAssets(
  */
 export async function getMultipleAssetUrls(
   names: string[],
-  type: 'item' | 'material'
+  type: 'item' | 'material' | 'monster',
+  noBackground?: boolean
 ): Promise<Map<string, string>> {
-  const existenceMap = await checkMultipleAssets(names, type);
+  const existenceMap = await checkMultipleAssets(names, type, noBackground);
   const urls = new Map<string, string>();
 
   for (const [name, exists] of existenceMap.entries()) {
     if (exists) {
-      const key = buildR2Key(name, type);
+      const key = buildR2Key(name, type, noBackground);
       urls.set(name, buildPublicUrl(key));
     }
   }

@@ -6,6 +6,7 @@
   "scripts": {
     "generate-image": "tsx generate-image.ts",
     "generate-raw-image": "tsx generate-raw-image.ts",
+    "generate-raw-monster": "tsx generate-raw-monster.ts",
     "analyze-image": "tsx analyze-image.ts"
   },
   "dependencies": {
