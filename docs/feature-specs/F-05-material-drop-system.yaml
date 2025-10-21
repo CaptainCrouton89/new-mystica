@@ -2,12 +2,12 @@ title: Technical Specification - Material Drop System
 template: ~/.claude/file-templates/init-project/feature-spec/feature-title.yaml
 feature_id: F-05
 status: planned
-last_updated: 2025-10-19
+last_updated: 2025-10-20
 
-summary: "Enemies drop gold (100% chance) and materials (60% chance). Material drops have 5% shiny rate. Gold amounts and material pools scale with enemy level. Enemy level equals player's average equipped item level."
+summary: "Enemies drop gold (100% chance) and materials (60% chance). Material drops inherit style from enemy type. Gold amounts and material pools scale with enemy level. Enemy level equals player's average equipped item level."
 
 functional_overview:
-  core_logic: "On combat victory, roll for material drop (60% chance). If success, select random material from enemy's drop pool and roll for shiny (5% chance). Always award gold (random amount in enemy's level-scaled range). Add materials to player_materials inventory and gold to player balance."
+  core_logic: "On combat victory, roll for material drop (60% chance). If success, select random material from enemy's drop pool and inherit style from enemy type. Always award gold (random amount in enemy's level-scaled range). Add materials to player_materials inventory and gold to player balance."
   data_schema: "enemies table with material_drop_pool JSON, combat_sessions with rewards, player_materials incremented"
   api_endpoints:
     - "POST /combat/complete (returns rewards)"
@@ -28,12 +28,12 @@ detailed_design:
         - "gold_min: INT (100 × level)"
         - "gold_max: INT (200 × level)"
         - "material_drop_rate: DECIMAL (0.6 = 60%)"
-        - "shiny_rate: DECIMAL (0.05 = 5%)"
+        - "style_id: STRING (FK to StyleDefinitions, determines material style)"
 
     - name: "combat_rewards (returned from API, not stored)"
       columns:
         - "gold_amount: INT"
-        - "material_dropped: {material_id, is_shiny} (null if no drop)"
+        - "material_dropped: {material_id, style_id} (null if no drop)"
 
   apis:
     - method: "POST"
@@ -47,12 +47,12 @@ detailed_design:
             material: {
               material_id: 'flame',
               name: 'Flame',
-              is_shiny: false
+              style_id: 'normal'
             } // null if no drop
           },
           updated_balance: {
             gold: 1850,
-            materials: [{material_id: 'flame', is_shiny: false, quantity: 3}] // updated after adding drop
+            materials: [{material_id: 'flame', style_id: 'normal', quantity: 3}] // updated after adding drop
           }
         }
       errors:
@@ -66,8 +66,8 @@ detailed_design:
     3. Roll for material drop: random(0, 1) < 0.6 ?
     4. If material drop success:
        a. Select random material from enemy.material_drop_pool
-       b. Roll for shiny: random(0, 1) < 0.05 ?
-       c. Create material reward: {material_id, is_shiny}
+       b. Inherit style from enemy: material.style_id = enemy.style_id
+       c. Create material reward: {material_id, style_id}
     5. Calculate gold drop: random(enemy.gold_min, enemy.gold_max)
     6. Update player inventory:
        - player.gold += gold_drop
@@ -97,10 +97,10 @@ detailed_design:
 
     Roll material drop: 0.57 < 0.6 → SUCCESS
     Select material: random choice → 'flame'
-    Roll shiny: 0.03 < 0.05 → SHINY!
+    Inherit style: enemy.style_id = 'volcanic' → material.style_id = 'volcanic'
     Gold amount: random(500, 1000) → 743
 
-    Rewards: {gold: 743, material: {material_id: 'flame', is_shiny: true}}
+    Rewards: {gold: 743, material: {material_id: 'flame', style_id: 'volcanic'}}
 
 dependencies:
   libraries: "None (server-side random number generation)"
@@ -110,12 +110,12 @@ dependencies:
 implementation_status:
   notes:
     - "Light MVP: Hardcoded enemy level = 3, fixed gold = 200, material drop = 100% for testing"
-    - "Full MVP: Dynamic enemy scaling, 60% material drop rate, 5% shiny rate, level-scaled gold"
+    - "Full MVP: Dynamic enemy scaling, 60% material drop rate, enemy style inheritance, level-scaled gold"
     - "Finished: Location-specific drop pools, rare material drops, daily bonus drops, streak bonuses"
 
 balancing_parameters:
   material_drop_rate: "60% (ensures steady material income without flooding inventory)"
-  shiny_rate: "5% (rare enough to be exciting, common enough to collect)"
+  style_inheritance: "Materials inherit enemy style_id (styled enemies drop styled materials, normal enemies drop normal materials)"
   gold_scaling: "100-200 × enemy_level (allows ~5 upgrades per combat at same level)"
   enemy_level_formula: "floor(avg_player_item_level) (enemies scale to player, always fair challenge)"
 

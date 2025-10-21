@@ -1,9 +1,10 @@
 template: ~/.claude/file-templates/init-project/api-contracts.yaml
+last_updated: 2025-01-20
 openapi: 3.0.0
 info:
   title: New Mystica API
-  version: 2.3.0
-  description: RESTful API for New Mystica location-based RPG with 8-slot equipment system, loadout management (F-09), material-based item crafting system (F-04), item upgrades (F-06), pet personalities (F-11), and enemy AI personalities (F-12)
+  version: 2.4.0
+  description: RESTful API for New Mystica location-based RPG with 8-slot equipment system, loadout management (F-09), material-based item crafting system (F-04), item upgrades (F-06), pet personalities (F-11), enemy AI personalities (F-12), and style system (F-13)
 servers:
   - url: https://api.mystica.app/v1
     description: Production server
@@ -23,7 +24,7 @@ components:
     # - Loadouts table stores saved equipment configurations
     # - LoadoutSlots table stores item assignments for each loadout
     # - PlayerItem schema no longer tracks equipment state directly
-    # - 8 equipment slots: weapon, shield, head, armor, feet, accessory_1, accessory_2, pet
+    # - 8 equipment slots: weapon, offhand, head, armor, feet, accessory_1, accessory_2, pet
 
     Location:
       type: object
@@ -66,10 +67,10 @@ components:
       properties:
         type:
           type: string
-          enum: [sword, shield, helmet, armor, boots, accessory, pet]
+          enum: [sword, offhand, head, armor, boots, accessory, pet]
         slot:
           type: string
-          enum: [weapon, shield, head, armor, feet, accessory_1, accessory_2, pet]
+          enum: [weapon, offhand, head, armor, feet, accessory_1, accessory_2, pet]
         base_stats:
           type: object
           properties:
@@ -99,7 +100,7 @@ components:
           format: uuid
         base_type:
           type: string
-          enum: [sword, shield, helmet, armor, boots, accessory, pet]
+          enum: [sword, offhand, head, armor, boots, accessory, pet]
         level:
           type: integer
           minimum: 1
@@ -110,14 +111,15 @@ components:
             properties:
               material_id:
                 type: string
-              is_shiny:
-                type: boolean
+              style_id:
+                type: string
+                description: Style ID referencing StyleDefinitions table (normal, pixel_art, watercolor, neon, etc.)
               slot_index:
                 type: integer
                 minimum: 0
                 maximum: 2
           maxItems: 3
-          description: Array of applied materials with shiny status and slot positions (max 3)
+          description: Array of applied materials with style ID and slot positions (max 3)
         computed_stats:
           type: object
           properties:
@@ -146,6 +148,9 @@ components:
         craft_count:
           type: integer
           description: Number of times this item has been crafted (materials applied)
+        is_styled:
+          type: boolean
+          description: True if ANY applied material has non-normal style
 
     Material:
       type: object
@@ -175,9 +180,9 @@ components:
               type: number
               format: float
           description: Modifiers that sum to 0
-        rarity:
+        style_id:
           type: string
-          enum: [common, uncommon, rare, epic]
+          description: Style ID referencing StyleDefinitions table (normal, pixel_art, watercolor, neon, etc.)
         theme:
           type: string
           enum: [defensive, offensive, balanced, exotic]
@@ -190,15 +195,12 @@ components:
           type: string
         name:
           type: string
-        is_shiny:
-          type: boolean
-          description: Shiny materials have 1.2x stat effectiveness
+        style_id:
+          type: string
+          description: Style ID referencing StyleDefinitions table (normal, pixel_art, watercolor, neon, etc.)
         quantity:
           type: integer
           minimum: 0
-        rarity:
-          type: string
-          enum: [common, uncommon, rare, epic]
         theme:
           type: string
           enum: [defensive, offensive, balanced, exotic]
@@ -276,8 +278,9 @@ components:
               type: string
             name:
               type: string
-            is_shiny:
-              type: boolean
+            style_id:
+              type: string
+              description: Style ID referencing StyleDefinitions table from enemy drop source
 
     UserProfile:
       type: object
@@ -452,7 +455,7 @@ components:
               type: string
               format: uuid
               nullable: true
-            shield:
+            offhand:
               type: string
               format: uuid
               nullable: true
@@ -721,7 +724,7 @@ paths:
                     properties:
                       weapon:
                         $ref: '#/components/schemas/PlayerItem'
-                      shield:
+                      offhand:
                         $ref: '#/components/schemas/PlayerItem'
                       head:
                         $ref: '#/components/schemas/PlayerItem'
@@ -797,7 +800,7 @@ paths:
               properties:
                 slot:
                   type: string
-                  enum: [weapon, shield, head, armor, feet, accessory_1, accessory_2, pet]
+                  enum: [weapon, offhand, head, armor, feet, accessory_1, accessory_2, pet]
       responses:
         '200':
           description: Item unequipped
@@ -987,7 +990,7 @@ paths:
                       type: string
                       format: uuid
                       nullable: true
-                    shield:
+                    offhand:
                       type: string
                       format: uuid
                       nullable: true
@@ -1047,7 +1050,7 @@ paths:
   /materials/inventory:
     get:
       summary: Get player's material inventory with stacking (F-04)
-      description: Returns MaterialStacks table data with quantities for each material type + shiny status
+      description: Returns MaterialStacks table data with quantities for each material type + style status
       security:
         - BearerAuth: []
       responses:
@@ -1086,15 +1089,16 @@ paths:
                 material_id:
                   type: string
                   description: Material template ID from seed data
-                is_shiny:
-                  type: boolean
-                  default: false
+                style_id:
+                  type: string
+                  description: Style ID referencing StyleDefinitions table (normal, pixel_art, watercolor, neon, etc.)
+                  default: "normal"
                 slot_index:
                   type: integer
                   minimum: 0
                   maximum: 2
                   description: Which material slot (0-2) to fill
-              required: [material_id, slot_index]
+              required: [material_id, style_id, slot_index]
       responses:
         '200':
           description: Material applied successfully
@@ -1153,13 +1157,14 @@ paths:
                 new_material_id:
                   type: string
                   description: New material template ID
-                new_is_shiny:
-                  type: boolean
-                  default: false
+                new_style_id:
+                  type: string
+                  description: New style ID referencing StyleDefinitions table
+                  default: "normal"
                 gold_cost:
                   type: integer
                   description: Expected gold cost (for confirmation)
-              required: [slot_index, new_material_id, gold_cost]
+              required: [slot_index, new_material_id, new_style_id, gold_cost]
       responses:
         '200':
           description: Material replaced successfully
@@ -1186,8 +1191,8 @@ paths:
                     properties:
                       material_id:
                         type: string
-                      is_shiny:
-                        type: boolean
+                      style_id:
+                        type: string
                     description: Material returned to inventory
         '400':
           description: Invalid request (insufficient gold, slot empty, material unavailable)

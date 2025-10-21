@@ -24,5 +24,5 @@ context:
 
 technical_notes:
   apis: "POST /equipment/equip with item_id and slot, POST /pets/activate with pet_id"
-  data: "Equipment slots: helmet, armor, weapon, shield, amulet, ring. One active pet. Stats sum all equipped."
+  data: "Equipment slots: helmet, armor, weapon, offhand, amulet, ring. One active pet. Stats sum all equipped."
   dependencies: "Real-time stat calculation, validation (1 item per slot, 1 active pet)"

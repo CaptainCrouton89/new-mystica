@@ -1,7 +1,7 @@
 title: Core Gameplay Loop
 template: ~/.claude/file-templates/init-project/user-flows/user-flow-title.yaml
 status: draft
-last_updated: 2025-10-19
+last_updated: 2025-10-20
 
 key_personas:
   - "Mobile RPG Player - Enjoys progression systems and combat strategy"
@@ -90,20 +90,21 @@ secondary_flows:
       - Player skips tutorial: can access from settings later
       - No nearby locations: tutorial uses virtual location
 
-  - name: "Shiny Discovery Flow"
-    trigger: "Player encounters rare shiny variant (low % chance)"
+  - name: "Style Discovery Flow"
+    trigger: "Player encounters enemy with distinct visual style (based on enemy type)"
     steps:
       - "Player initiates normal encounter"
-      - "Shiny animation/sparkle effect plays"
-      - "Enemy displayed with shiny visual variant"
+      - "Style animation/effect plays (pixel_art sparkles, watercolor drips, neon glow, sketch lines)"
+      - "Enemy displayed with styled visual variant"
       - "Combat proceeds normally"
-      - "On victory: shiny item/pet added to inventory"
-      - "Special notification: 'Shiny [Name] collected!'"
-      - "Shiny badge/marker visible in inventory"
-    outcome: "Player collects rare shiny variant for collection"
+      - "On victory: styled item/pet added to inventory"
+      - "Special notification: '[Style] [Name] collected!' (e.g., 'Pixel Art Wolf collected!')"
+      - "Style badge/marker visible in inventory showing style type"
+    outcome: "Player collects styled variant with unique visual appearance"
     edge_cases: |
-      - Player loses shiny combat: shiny is lost, cannot retry
-      - Shiny chance: independent per encounter
+      - Player loses styled combat: styled variant is lost, cannot retry
+      - Style determined by enemy type, not random chance
+      - Multiple style types available: pixel_art, watercolor, neon, sketch
 
   - name: "Premium Item Discovery Flow"
     trigger: "Player visits special premium item location"

@@ -23,5 +23,5 @@ context:
 
 technical_notes:
   apis: "POST /ai/generate-item with schema: {type, level, generation}. Returns {description, stat_distribution}"
-  data: "Item types: helmet, armor, amulet, ring, sword, axe, shield. Stats: ATK/DEF/HP (0-1, sum=1). Level scales absolute values."
+  data: "Item types: helmet, armor, amulet, ring, sword, axe, offhand. Stats: ATK/DEF/HP (0-1, sum=1). Level scales absolute values."
   dependencies: "AI provider (OpenAI/Anthropic), database schema for items, caching to avoid regeneration"

@@ -64,7 +64,7 @@ secondary_flows:
     steps:
       - "Player taps profile icon from main menu"
       - "System displays player name, level, total stats"
-      - "System shows collection stats (items collected, shinies, etc.)"
+      - "System shows collection stats (items collected, styled variants, etc.)"
       - "System shows combat stats (battles won, locations visited)"
       - "Player can view equipped loadout summary"
     outcome: "Player sees their progress and achievements"

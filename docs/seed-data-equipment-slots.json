@@ -7,10 +7,10 @@
       "description": "Primary offensive equipment - swords, guns, keys, umbrellas, and other items used for attack."
     },
     {
-      "slot_name": "shield",
-      "display_name": "Shield",
+      "slot_name": "offhand",
+      "display_name": "Offhand",
       "sort_order": 2,
-      "description": "Defensive equipment for blocking attacks and providing protection."
+      "description": "Secondary equipment slot for shields, orbs, secondary weapons, or utility items."
     },
     {
       "slot_name": "head",

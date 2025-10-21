@@ -114,9 +114,9 @@ layouts_components:
       - "Filter buttons: All / Equipped / By Type"
       - "Sort dropdown: Type / Generation / Stats"
       - "Item grid (2 columns on iPhone, 3 on iPad)"
-      - "Item card: image, name, stats, shiny badge, equipped badge"
+      - "Item card: image, name, stats, style badge, equipped badge"
       - "Tap card → Detail view"
-    notes: "Shiny items have gold border + sparkle animation. Equipped items show green checkmark badge. Long-press for quick actions (equip/craft)."
+    notes: "Styled items have unique visual treatment by style type (borders, effects, animations). Equipped items show green checkmark badge. Long-press for quick actions (equip/craft)."
 
   - screen: "Item Detail View"
     description: "Full-screen overlay showing item details and actions"
@@ -124,7 +124,7 @@ layouts_components:
       - "Item image (large, centered)"
       - "Item name and type"
       - "Material slots indicator (0-3 applied)"
-      - "Shiny badge (if applicable)"
+      - "Style badge (if applicable)"
       - "Stats breakdown: ATK / DEF / HP (color-coded)"
       - "Description text (AI-generated)"
       - "Equip button (or Unequip if equipped)"
@@ -136,7 +136,7 @@ layouts_components:
     description: "Visual loadout showing all equipped items and active pet"
     components:
       - "Character silhouette (center)"
-      - "Equipment slots (overlay on silhouette): helmet, armor, weapon, shield, amulet, rings"
+      - "Equipment slots (overlay on silhouette): helmet, armor, weapon, offhand, amulet, rings"
       - "Active pet (bottom-left of character)"
       - "Total stats display (bottom): ATK / DEF / HP"
       - "Tap slot → Open item selector"
@@ -158,10 +158,10 @@ layouts_components:
     description: "Combat completion with reward display"
     components:
       - "Victory banner/animation"
-      - "Reward card: item/pet image, stats, shiny badge"
+      - "Reward card: item/pet image, stats, style badge"
       - "Collection message: 'New [Type] collected!'"
       - "Continue button → Returns to map"
-    notes: "Celebratory animation with confetti effect. Shiny rewards have enhanced animation (gold sparkles). Haptic feedback on victory."
+    notes: "Celebratory animation with confetti effect. Styled rewards have enhanced animations matching their visual style (pixel sparkles, watercolor swirls, neon glows). Haptic feedback on victory."
 
   - screen: "Profile Screen"
     description: "Player stats, achievements, and settings"
@@ -176,7 +176,7 @@ layouts_components:
 accessibility:
   color_contrast: "WCAG AA compliant for all text (4.5:1 minimum). Combat damage numbers use high contrast (white text on dark background with border). Colorblind-friendly: Use icons + labels in addition to color-coding."
   keyboard_navigation: "Not applicable (mobile touch-first). VoiceOver labels on all interactive elements."
-  screen_reader: "VoiceOver support: All buttons labeled, stats announced as 'Attack 50, Defense 30, Health 100'. Combat dial provides audio cue on tap. Item cards announce type, generation, shiny status."
+  screen_reader: "VoiceOver support: All buttons labeled, stats announced as 'Attack 50, Defense 30, Health 100'. Combat dial provides audio cue on tap. Item cards announce type, generation, style variant (Normal, Pixel Art, Watercolor, Neon, Sketch)."
 
 responsive_behavior: |
   - iPhone (compact): Single column layouts, bottom sheets for details
@@ -222,7 +222,7 @@ interaction_specs:
     states:
       - "default: Charcoal Gray background, rounded corners (8pt)"
       - "equipped: green border (2pt), checkmark badge"
-      - "shiny: gold border (2pt), sparkle animation (infinite loop, 3s duration)"
+      - "styled: visual treatment by style type - Normal: default appearance, Pixel Art: pixelated border (2pt) + blocky effect, Watercolor: soft gradient border + subtle blur, Neon: glowing border (2pt) + pulsing effect, Sketch: hand-drawn border + sketchy animation"
       - "pressed: scale 0.95, haptic feedback"
     animation: "scale transition 100ms, sparkle keyframe animation"
     notes: "Show item image (top), name (below), stats (bottom, small text). Generation badge in top-right corner."
@@ -263,7 +263,60 @@ animations_timing:
   - name: "Celebrations"
     duration: "2s"
     easing: "spring (bounce)"
-    notes: "Victory screen, shiny reveals, level-ups"
+    notes: "Victory screen, style reveals (matching visual style), level-ups"
+
+visual_style_system:
+  normal:
+    description: "Default appearance with clean lines and standard colors"
+    border: "Standard gray border (1pt), no special effects"
+    background: "Standard item card background"
+    animation: "None"
+    badge_color: "#B0B0B0"
+    badge_text: "Normal"
+    accessibility: "Standard contrast ratios, no additional visual indicators needed"
+
+  pixel_art:
+    description: "Retro pixel art aesthetic with blocky, 8-bit inspired visuals"
+    border: "Pixelated border effect (2pt), blocky corners (2pt radius)"
+    background: "Slightly darkened with pixel texture overlay"
+    animation: "Subtle pixelated shimmer effect (2s loop)"
+    badge_color: "#8B4513"
+    badge_text: "Pixel"
+    accessibility: "High contrast pixelated pattern, distinct from other styles"
+
+  watercolor:
+    description: "Soft, artistic appearance with blended colors and gentle effects"
+    border: "Soft gradient border (2pt) with watercolor blend effect"
+    background: "Subtle watercolor texture with soft edges"
+    animation: "Gentle color flow animation (4s loop)"
+    badge_color: "#4682B4"
+    badge_text: "Watercolor"
+    accessibility: "Soft blue tint with maintained contrast ratios"
+
+  neon:
+    description: "Bright, glowing cyberpunk aesthetic with electric effects"
+    border: "Glowing neon border (2pt) with outer glow effect (4pt)"
+    background: "Darkened background to enhance glow contrast"
+    animation: "Pulsing glow effect (1.5s loop), occasional electric spark"
+    badge_color: "#00FFFF"
+    badge_text: "Neon"
+    accessibility: "High contrast glow effect, blue-cyan color for colorblind support"
+
+  sketch:
+    description: "Hand-drawn appearance with rough lines and artistic imperfections"
+    border: "Hand-drawn style border (2pt) with slight irregularities"
+    background: "Subtle paper texture with slight off-white tint"
+    animation: "Sketchy line animation (3s loop), simulates drawing motion"
+    badge_color: "#696969"
+    badge_text: "Sketch"
+    accessibility: "Distinct sketchy pattern, maintained readability with consistent line weight"
+
+style_implementation_guidelines:
+  badge_design: "Small rounded rectangle (16x8pt) in top-right corner of item cards. Text uses SF Pro Text 8pt bold. Colors defined per style above."
+  animation_performance: "All style animations use Core Animation for 60fps performance. Animations can be disabled in accessibility settings."
+  style_distribution: "Normal: 70%, Pixel Art: 10%, Watercolor: 8%, Neon: 7%, Sketch: 5% (configurable in backend)"
+  scalability: "Visual system designed to support additional styles in future updates. Each style requires: border treatment, background effect, animation, badge design."
+  colorblind_support: "Each style uses distinct patterns and shapes in addition to color. Neon uses cyan (colorblind-safe), Watercolor uses blue tones, Pixel uses brown earth tones."
 
 design_tokens:
   spacing:
@@ -286,13 +339,15 @@ design_tokens:
 
 icons:
   source: "SF Symbols (iOS native)"
-  custom: "Item type icons (helmet, sword, shield, etc.) - to be designed or sourced from asset pack"
+  custom: "Item type icons (helmet, sword, offhand, etc.) - to be designed or sourced from asset pack"
   notes: "Use SF Symbols for UI controls, custom icons for game items/enemies"
 
 implementation_notes: |
-  - Light MVP: Basic layouts with native iOS components, no custom animations
-  - Full MVP: Custom components (attack dial, stat bars), basic animations
-  - Finished: Polished animations, haptic feedback, accessibility, dark mode support
-  - Use SwiftUI previews for rapid iteration
-  - Extract reusable components into design system module
-  - Document component API and usage in separate file (future)
+  - Light MVP: Basic layouts with native iOS components, no custom animations, Normal style only
+  - Full MVP: Custom components (attack dial, stat bars), basic animations, implement all 5 visual styles with Core Animation
+  - Finished: Polished style animations, haptic feedback, accessibility, dark mode support, style-specific victory animations
+  - Multi-Style System: Converted from binary shiny/normal to 5 distinct visual styles (Normal, Pixel Art, Watercolor, Neon, Sketch)
+  - Style Implementation: Each style requires unique border treatment, background effect, animation loop, and accessibility considerations
+  - Use SwiftUI previews for rapid iteration of style variants
+  - Extract reusable style components into design system module
+  - Document style system API and usage guidelines in separate file (future)

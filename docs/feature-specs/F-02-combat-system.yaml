@@ -2,12 +2,12 @@ title: Technical Specification - Combat System
 template: ~/.claude/file-templates/init-project/feature-spec/feature-title.yaml
 feature_id: F-02
 status: planned
-last_updated: 2025-10-19
+last_updated: 2025-10-20
 
 summary: "Turn-based combat with timing-based attack mechanic. Player taps moving dial to optimize damage multiplier. Stats calculated from equipped items + pet. Enemy counterattacks after player turn. Combat ends when either HP reaches 0."
 
 functional_overview:
-  core_logic: "Initiate combat when player taps active location. Load enemy data for location. Display attack dial with moving indicator. On tap, stop indicator and calculate multiplier based on distance from center. Apply damage: (player_ATK * multiplier) - enemy_DEF. Enemy counterattacks: (enemy_ATK) - player_DEF. Repeat until winner determined."
+  core_logic: "Initiate combat when player taps active location. Load enemy data for location including style_id. Display attack dial with moving indicator. On tap, stop indicator and calculate multiplier based on distance from center. Apply damage: (player_ATK * multiplier) - enemy_DEF. Enemy counterattacks: (enemy_ATK) - player_DEF. Victory rewards materials matching enemy's style_id. Repeat until winner determined."
   data_schema: "Combat sessions (temporary), enemies table, player stats (derived from equipment)"
   api_endpoints:
     - "POST /combat/start"
@@ -18,6 +18,7 @@ functional_overview:
     - "Pets system (F-04) for pet bonus"
     - "Location system (F-01) for enemy spawn"
     - "Pool System: Enemy selection via EnemyPools based on combat level and location attributes"
+    - "Style System: Enemy styles determine reward material styles (styled enemies always drop styled materials)"
 
 detailed_design:
   data_structures:
@@ -29,7 +30,7 @@ detailed_design:
         - "base_def: INT"
         - "base_hp: INT"
         - "generation: INT (1-3)"
-        - "is_shiny: BOOLEAN"
+        - "style_id: UUID (FK to style_definitions, default normal)"
         - "location_id: UUID (FK to locations)"
         - "created_at: TIMESTAMP"
 
@@ -47,7 +48,7 @@ detailed_design:
     - method: "POST"
       endpoint: "/combat/start"
       request: "{location_id: UUID}"
-      response: "{session_id, enemy: {id, type, atk, def, hp, is_shiny}, player_stats: {atk, def, hp}}"
+      response: "{session_id, enemy: {id, type, atk, def, hp, style_id}, player_stats: {atk, def, hp}}"
       errors:
         - "404: Location not found or no enemy at location"
         - "401: Unauthorized"
@@ -63,15 +64,15 @@ detailed_design:
     - method: "POST"
       endpoint: "/combat/complete"
       request: "{session_id: UUID, result: 'victory|defeat'}"
-      response: "{reward: {item_id, type, stats, is_shiny}} (null if defeat)"
+      response: "{reward: {item_id, type, stats, style_id}} (null if defeat)"
       errors:
         - "404: Session not found"
 
   diagrams: |
     Combat Flow:
     1. Player taps active location
-    2. Client: POST /combat/start → Get enemy + player stats
-    3. Display combat UI: enemy image, stats, HP bars
+    2. Client: POST /combat/start → Get enemy + player stats (includes enemy style_id)
+    3. Display combat UI: enemy image, stats, HP bars (styled based on enemy style_id)
     4. Player's turn: Show attack dial (SwiftUI animation)
     5. Player taps → Calculate tap_accuracy (0.0 = edge, 1.0 = center)
     6. Client: POST /combat/attack with tap_accuracy
@@ -82,7 +83,8 @@ detailed_design:
     11. Client: Display damage numbers, update HP bars
     12. If ongoing: Repeat from step 4
     13. If victory/defeat: POST /combat/complete
-    14. Display result screen with reward (if victory)
+    14. Server: Generate reward material with enemy's style_id (styled enemies always drop styled materials)
+    15. Display result screen with styled reward (if victory)
 
 dependencies:
   libraries: "SwiftUI for animations, Haptic feedback (UIImpactFeedbackGenerator)"

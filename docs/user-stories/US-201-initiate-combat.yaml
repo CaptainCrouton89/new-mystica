@@ -3,7 +3,7 @@ story_id: US-201
 feature_id: F-02
 template: ~/.claude/file-templates/init-project/user-stories/story-title.yaml
 status: planned
-last_updated: 2025-10-19
+last_updated: 2025-10-20
 
 user_story:
   as_a: "Mobile RPG Player"
@@ -23,5 +23,5 @@ context:
 
 technical_notes:
   apis: "GET /encounters/:location_id to fetch enemy data, POST /combat/start to initialize session"
-  data: "Enemy schema: type, base_stats, generation, shiny_flag. Player stats: sum of equipped items + active pet"
+  data: "Enemy schema: type, base_stats, generation, style_id. Player stats: sum of equipped items + active pet"
   dependencies: "Requires items and pets systems to calculate player stats"

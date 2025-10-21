@@ -3,7 +3,7 @@ story_id: US-203
 feature_id: F-02
 template: ~/.claude/file-templates/init-project/user-stories/story-title.yaml
 status: planned
-last_updated: 2025-10-19
+last_updated: 2025-10-20
 
 user_story:
   as_a: "Collector"
@@ -12,9 +12,9 @@ user_story:
 
 acceptance_criteria:
   - "[ ] Given enemy HP reaches 0, when defeated, then show victory animation and reward screen"
-  - "[ ] Given victory, when reward displayed, then show collected item/pet with stats and shiny status"
+  - "[ ] Given victory, when reward displayed, then show collected item/pet with stats and style status"
   - "[ ] Given reward shown, when player taps continue, then add item/pet to inventory"
-  - "[ ] Given shiny enemy, when defeated, then award shiny variant with visual indicator"
+  - "[ ] Given styled enemy, when defeated, then award styled variant with visual indicator"
   - "[ ] Given player HP reaches 0, when defeated, then show loss screen with retry option"
   - "[ ] Given loss, when retry selected, then restart combat from beginning with same enemy"
 
@@ -24,5 +24,5 @@ context:
 
 technical_notes:
   apis: "POST /combat/complete with result (win/loss), returns item/pet data on win"
-  data: "Reward schema matches enemy: type, stats, generation, shiny_flag. Added to player inventory."
+  data: "Reward schema matches enemy: type, stats, generation, style_id. Added to player inventory."
   dependencies: "Inventory system must accept new items/pets, handle duplicates"

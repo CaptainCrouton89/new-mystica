@@ -2,7 +2,7 @@
 # Architecture, components, data flow, and technical decisions.
 
 status: draft
-last_updated: 2025-10-20
+last_updated: 2025-01-27
 
 overview:
   goal: "Build a location-based mobile RPG with real-time GPS tracking, combat mechanics, and crafting progression. System must handle location queries, combat sessions, AI item generation, and persistent user data. Designed for thousands of concurrent mobile clients with low latency (<500ms API response)."
@@ -30,20 +30,26 @@ overview:
             N[Redis Cache]
         end
 
+        subgraph "Style System"
+            O[StyleDefinitions]
+            P[Style Inheritance Logic]
+        end
+
         subgraph "External Services"
-            O[Google Maps API]
-            P[AI Provider (OpenAI/Anthropic)]
+            Q[Google Maps API]
+            R[AI Provider (OpenAI/Anthropic)]
         end
 
         A -->|HTTPS/JSON| E
         B -->|Coordinates| A
-        D -->|Map Tiles| O
+        D -->|Map Tiles| Q
         G --> L
         H --> L
         H --> N
         I --> L
         J --> L
-        K --> P
+        J --> O
+        K --> R
         K --> L
         F --> M
     ```
@@ -73,11 +79,12 @@ core_components:
       - "Pool member tables for weighted random selection"
 
   - component: "Combat Service"
-    description: "Manages combat sessions in-memory (Redis) with TTL expiration. Calculates damage based on player stats, enemy stats, and timing multiplier. Awards items/pets on victory. Uses level-aware pool system to dynamically select enemies and loot drops based on player level and location attributes."
+    description: "Manages combat sessions in-memory (Redis) with TTL expiration. Calculates damage based on player stats, enemy stats, and timing multiplier. Awards items/pets on victory. Uses level-aware pool system to dynamically select enemies and loot drops based on player level and location attributes. Enemies with style_id drop materials with matching style_id for visual consistency."
     dependencies:
       - "Redis for session storage (TTL: 15 min)"
       - "Items and enemies tables"
       - "EnemyPools and LootPools for dynamic assignment"
+      - "StyleDefinitions table for enemy style inheritance"
       - "Stat calculation logic"
 
   - component: "Inventory Service"
@@ -89,30 +96,42 @@ core_components:
       - "Users table for ownership validation"
 
   - component: "Material Application Service"
-    description: "Handles applying up to 3 materials to items (F-04). Manages material stacking (MaterialStacks), creates MaterialInstances when applied, updates ItemMaterials junction table. Computes deterministic combo_hash for image lookup. If image not cached in ItemImageCache, synchronously generates unique composite image (20s via AI) showing item + materials, uploads to R2, caches globally for reuse."
+    description: "Handles applying up to 3 materials to items (F-04). Manages material stacking (MaterialStacks keyed by user_id, material_id, style_id), creates MaterialInstances when applied, updates ItemMaterials junction table. Computes deterministic combo_hash including style_ids for image lookup. Sets item.is_styled=true if ANY applied material has style_id != 'normal'. If image not cached in ItemImageCache, synchronously generates unique composite image (20s via AI) showing item + materials with style effects, uploads to R2, caches globally for reuse."
     dependencies:
-      - "MaterialStacks table (inventory)"
-      - "MaterialInstances table (applied materials)"
+      - "MaterialStacks table (inventory with style_id key)"
+      - "MaterialInstances table (applied materials with style_id)"
       - "ItemMaterials table (junction)"
-      - "ItemImageCache table (global cache)"
+      - "StyleDefinitions table for style inheritance logic"
+      - "ItemImageCache table (global cache with style-aware hashing)"
       - "AI Image Generation Service (R2 + Replicate)"
       - "R2 storage for generated images"
 
   - component: "AI Generation Service"
     description: "Generates unique item descriptions and stat distributions via AI (OpenAI/Anthropic). Also generates pet personality dialogue (F-11) and enemy trash-talk (F-12) during combat. Validates stat distributions sum to 1.0. Caches generated items to avoid regeneration. For pet chatter (F-11), uses personality prompts and combat context to generate supportive dialogue. For enemy chatter (F-12), uses enemy type traits and player history to generate antagonistic trash-talk."
     dependencies:
-      - "OpenAI or Anthropic API (GPT-4.1-nano or GPT-4o-mini recommended)"
+      - "OpenAI or Anthropic API (gpt-4.1-nano or gpt-4.1-mini recommended)"
       - "Item_templates table for caching"
       - "Pet_personalities seed data for dialogue generation (F-11)"
       - "Enemy_types seed data for trash-talk generation (F-12)"
       - "Player_combat_history for enemy AI context (F-12)"
       - "Combat session context from Redis (F-11, F-12)"
 
+  - component: "Style System (StyleDefinitions)"
+    description: "Manages visual style variants for items and materials (F-05). StyleDefinitions table defines available styles with spawn_rate, style_name, and visual_modifier. Enemies with style_id drop materials with matching style_id. Items inherit styled status (is_styled=true) when ANY applied material has style_id != 'normal'. MaterialStacks keyed by (user_id, material_id, style_id) to separate inventory by style. Style inheritance ensures visual consistency across combat→materials→items."
+    dependencies:
+      - "StyleDefinitions table with spawn rates and visual modifiers"
+      - "EnemyTypes.style_id for determining material drops"
+      - "MaterialStacks with style_id composite key"
+      - "MaterialInstances.style_id for applied materials"
+      - "Items.is_styled computed from applied materials"
+      - "Image generation system for style-aware combo_hash"
+
   - component: "Supabase PostgreSQL"
-    description: "Primary database for all persistent data including core entities (Users, Items, ItemTypes, Materials, MaterialInstances), normalized equipment (UserEquipment, Loadouts, LoadoutSlots), materials system (ItemMaterials), pet system (Pets, PetPersonalities), enemy AI (EnemyTypes, PlayerCombatHistory), and analytics (CombatChatterLog, EnemyChatterLog). Full schema documented in data-plan.yaml including normalized equipment and materials tracking. Provides geospatial queries via PostGIS, ACID transactions, and row-level security."
+    description: "Primary database for all persistent data including core entities (Users, Items, ItemTypes, Materials, MaterialInstances), normalized equipment (UserEquipment, Loadouts, LoadoutSlots), materials system (ItemMaterials), style system (StyleDefinitions, MaterialStacks with style_id), pet system (Pets, PetPersonalities), enemy AI (EnemyTypes with style_id, PlayerCombatHistory), and analytics (CombatChatterLog, EnemyChatterLog). Full schema documented in data-plan.yaml including style inheritance architecture. Provides geospatial queries via PostGIS, ACID transactions, and row-level security."
     dependencies:
       - "Supabase hosted PostgreSQL"
       - "PostGIS extension for location queries"
+      - "StyleDefinitions table for visual style system"
       - "Comprehensive schema design in data-plan.yaml"
 
   - component: "Supabase Auth"
@@ -157,21 +176,24 @@ data_flow: |
   13. Repeat until victory/defeat
   14. Client → Backend API: POST /combat/complete {session_id, result}
   15. Backend → PostgreSQL: Use stored LootPools to calculate drops (if victory)
-  16. Backend → PostgreSQL: INSERT materials/items (if victory)
-  17. Backend → Client: {reward: {items, materials}}
+  15a. Backend → PostgreSQL: SELECT enemy style_id from combat session
+  15b. Backend → PostgreSQL: INSERT materials with matching style_id (if victory)
+  16. Backend → PostgreSQL: INSERT items (if victory)
+  17. Backend → Client: {reward: {items, materials_with_styles}}
 
   **Material Application Flow (F-04, with Image Generation):**
   1. Client → Backend API: POST /items/{item_id}/materials/apply {material_instance_id, slot_index}
   2. Backend → PostgreSQL: BEGIN TRANSACTION
   3. Backend → PostgreSQL: Validate material ownership, slot availability (max 3)
   4. Backend → PostgreSQL: INSERT ItemMaterials {item_id, material_instance_id, slot_index}
-  5. Backend → PostgreSQL: Compute material_combo_hash (sorted material_ids + shiny flags)
+  5. Backend → PostgreSQL: Compute material_combo_hash (sorted material_ids + style_ids)
   6. Backend → PostgreSQL: SELECT ItemImageCache WHERE item_type_id={type} AND combo_hash={hash}
   7a. If cached: Backend → PostgreSQL: UPDATE ItemImageCache.craft_count++, UPDATE Items.generated_image_url
   7b. If not cached: Backend → AI Image Service: Generate image (item + materials, 20s sync)
   8. (If 7b) Backend → R2: Upload generated image to R2 bucket
   9. (If 7b) Backend → PostgreSQL: INSERT ItemImageCache {item_type_id, combo_hash, image_url, craft_count=1}
-  10. Backend → PostgreSQL: UPDATE Items {material_combo_hash, generated_image_url, image_generation_status='complete'}
+  10a. Backend → PostgreSQL: Check if ANY applied material has style_id != 'normal'
+  10b. Backend → PostgreSQL: UPDATE Items {material_combo_hash, generated_image_url, is_styled, image_generation_status='complete'}
   11. Backend → PostgreSQL: COMMIT
   12. Backend → Client: {item, stats, image_url, is_first_craft: boolean, total_crafts: int}
 
@@ -215,6 +237,17 @@ data_flow: |
   13. Client: Display dialogue in speech bubble above enemy sprite (2-3s duration)
   14. If AI timeout/error → Fallback: select random example_taunt from enemy_types.example_taunts
   15. On combat end: Backend → PostgreSQL: UPDATE player_combat_history (increment attempts, victories/defeats, update streak)
+
+  **Style Inheritance Flow (F-05):**
+  1. Enemy spawns with style_id from EnemyTypes table
+  2. Combat victory → Backend determines material drops with enemy's style_id
+  3. Backend → PostgreSQL: INSERT MaterialStacks {user_id, material_id, style_id, quantity}
+  4. Player applies styled material → Material Application Service checks style_id
+  5. Backend → PostgreSQL: INSERT MaterialInstances {material_id, style_id, applied_to_item_id}
+  6. Backend → PostgreSQL: Check if ANY MaterialInstances for item have style_id != 'normal'
+  7. Backend → PostgreSQL: UPDATE Items.is_styled = (ANY applied material is styled)
+  8. Image generation → Include all style_ids in combo_hash for visual consistency
+  9. Generated item displays combined visual effects from all applied styled materials
 
 tech_stack:
   frontend: "SwiftUI (native iOS/macOS), SwiftData (local persistence), CoreLocation (GPS), Google Maps SDK (map rendering)"

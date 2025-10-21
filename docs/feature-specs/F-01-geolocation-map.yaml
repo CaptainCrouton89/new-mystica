@@ -7,7 +7,7 @@ last_updated: 2025-10-20
 summary: "Integrate Google Maps to display player location and nearby enemy spawn points. Enable location-based discovery by tracking GPS position and calculating proximity to spawn locations."
 
 functional_overview:
-  core_logic: "Track player GPS coordinates continuously. Query backend for spawn locations within radius. Display markers on map. Activate locations when player within 50m threshold. Handle permission requests and GPS errors gracefully."
+  core_logic: "Track player GPS coordinates continuously. Query backend for spawn locations within radius. Display markers on map. Activate locations when player within 50m threshold. GPS permission required to proceed - show permission request popup on app launch and block progression until granted."
   data_schema: "Locations table: id, lat, lng, city_id, enemy_type, item_type, spawn_radius. Player location tracked client-side."
   api_endpoints:
     - "GET /locations/nearby?lat={lat}&lng={lng}&radius={meters}"
@@ -50,13 +50,21 @@ detailed_design:
 
   diagrams: |
     Map View Flow:
-    1. App launches → Request location permissions
-    2. CLLocationManager starts tracking
-    3. On location update → Center map, query /locations/nearby
-    4. Render markers on map
-    5. Monitor distance to each location
-    6. When distance < spawn_radius → Activate marker (change color/icon)
-    7. Player taps active marker → Launch encounter (trigger F-02)
+    1. App launches → Request location permissions via popup
+    2. If permission denied → Show blocking alert explaining GPS is required, re-request permission (loop until granted)
+    3. Once permission granted → CLLocationManager starts tracking
+    4. On location update → Center map, query /locations/nearby
+    5. Render markers on map
+    6. Monitor distance to each location
+    7. When distance < spawn_radius → Activate marker (change color/icon)
+    8. Player taps active marker → Launch encounter (trigger F-02)
+
+    Permission Handling:
+    - On first launch: Request "When In Use" location permission
+    - On denial: Block app with modal explaining GPS is required for gameplay
+    - Provide "Open Settings" button to guide user to enable location services
+    - Re-check permission status when app returns from background
+    - No fallback mode - GPS is mandatory for core gameplay
 
 dependencies:
   libraries: "Google Maps SDK for iOS (pod 'GoogleMaps'), CoreLocation"

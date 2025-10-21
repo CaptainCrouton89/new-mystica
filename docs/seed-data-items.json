@@ -94,7 +94,7 @@
     {
       "id": "umbrella",
       "name": "Umbrella",
-      "slot": "shield",
+      "slot": "offhand",
       "base_stats": {
         "atkPower": 0.15,
         "atkAccuracy": 0.15,
@@ -120,7 +120,7 @@
     {
       "id": "trash_can_lid",
       "name": "Trash Can Lid",
-      "slot": "shield",
+      "slot": "offhand",
       "base_stats": {
         "atkPower": 0.2,
         "atkAccuracy": 0.1,
@@ -263,14 +263,14 @@
     {
       "id": "pizza_box",
       "name": "Pizza Box",
-      "slot": "shield",
+      "slot": "offhand",
       "base_stats": {
         "atkPower": 0.1,
         "atkAccuracy": 0.2,
         "defPower": 0.45,
         "defAccuracy": 0.25
       },
-      "description": "Greasy cardboard shield with lingering cheese aroma",
+      "description": "Greasy cardboard offhand with lingering cheese aroma",
       "rarity": "common"
     },
     {
