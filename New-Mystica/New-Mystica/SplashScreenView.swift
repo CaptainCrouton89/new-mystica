@@ -31,6 +31,7 @@ struct SplashScreenView: View {
                     .aspectRatio(contentMode: .fill)
                     .frame(width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
                     .clipped()
+                    .ignoresSafeArea()
                     .opacity(opacity)
                     .scaleEffect(scale)
                     .animation(.easeInOut(duration: 1.0), value: opacity)
