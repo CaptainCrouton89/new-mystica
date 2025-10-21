@@ -2,8 +2,8 @@ title: Equip Items and Pets
 story_id: US-302
 feature_id: F-09
 template: ~/.claude/file-templates/init-project/user-stories/story-title.yaml
-status: planned
-last_updated: 2025-10-19
+status: in-progress
+last_updated: 2025-10-21
 
 user_story:
   as_a: "Mobile RPG Player"
@@ -14,7 +14,7 @@ acceptance_criteria:
   - "[ ] Given inventory open, when player taps item, then show 'Equip' button if item is equippable"
   - "[ ] Given equip button tapped, when action confirmed, then equip item to appropriate slot (helmet, armor, weapon, etc.)"
   - "[ ] Given item equipped, when equipped, then update player total stats (ATK/DEF/HP) in real-time"
-  - "[ ] Given equipment screen, when displayed, then show all equipped slots with current items"
+  - "[✓] Given equipment screen, when displayed, then show all equipped slots with current items"
   - "[ ] Given pet selected, when activated, then set as active pet and add pet stats to player totals"
   - "[ ] Given only 1 pet active, when new pet selected, then replace previous active pet"
 

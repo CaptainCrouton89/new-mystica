@@ -2,7 +2,7 @@
 # Architecture, components, data flow, and technical decisions.
 
 status: draft
-last_updated: 2025-01-27
+last_updated: 2025-10-21
 
 overview:
   goal: "Build a location-based mobile RPG with real-time GPS tracking, combat mechanics, and crafting progression. System must handle location queries, combat sessions, AI item generation, and persistent user data. Designed for thousands of concurrent mobile clients with low latency (<500ms API response)."
@@ -27,7 +27,6 @@ overview:
         subgraph "Data Layer"
             L[Supabase PostgreSQL]
             M[Supabase Auth]
-            N[Redis Cache]
         end
 
         subgraph "Style System"
@@ -45,7 +44,6 @@ overview:
         D -->|Map Tiles| Q
         G --> L
         H --> L
-        H --> N
         I --> L
         J --> L
         J --> O
@@ -79,13 +77,14 @@ core_components:
       - "Pool member tables for weighted random selection"
 
   - component: "Combat Service"
-    description: "Manages combat sessions in-memory (Redis) with TTL expiration. Calculates damage based on player stats, enemy stats, and timing multiplier. Awards items/pets on victory. Uses level-aware pool system to dynamically select enemies and loot drops based on player level and location attributes. Enemies with style_id drop materials with matching style_id for visual consistency."
+    description: "Manages combat sessions in CombatSessions table with automatic cleanup of expired sessions (15min TTL via scheduled job). Calculates damage based on player stats, enemy stats, and timing multiplier. Awards items/pets on victory. Uses level-aware pool system to dynamically select enemies and loot drops based on player level and location attributes. Enemies with style_id drop materials with matching style_id for visual consistency."
     dependencies:
-      - "Redis for session storage (TTL: 15 min)"
+      - "CombatSessions table for persistent session storage"
       - "Items and enemies tables"
       - "EnemyPools and LootPools for dynamic assignment"
       - "StyleDefinitions table for enemy style inheritance"
       - "Stat calculation logic"
+      - "Database cleanup job for expired sessions (WHERE created_at < NOW() - INTERVAL '15 minutes')"
 
   - component: "Inventory Service"
     description: "Manages player-owned items and pets. Handles equipping/unequipping via UserEquipment table, stat aggregation from ItemMaterials and UserEquipment joins. Validates item ownership before mutations."
@@ -114,7 +113,7 @@ core_components:
       - "Pet_personalities seed data for dialogue generation (F-11)"
       - "Enemy_types seed data for trash-talk generation (F-12)"
       - "Player_combat_history for enemy AI context (F-12)"
-      - "Combat session context from Redis (F-11, F-12)"
+      - "CombatSessions table for combat context (F-11, F-12)"
 
   - component: "Style System (StyleDefinitions)"
     description: "Manages visual style variants for items and materials (F-05). StyleDefinitions table defines available styles with spawn_rate, style_name, and visual_modifier. Enemies with style_id drop materials with matching style_id. Items inherit styled status (is_styled=true) when ANY applied material has style_id != 'normal'. MaterialStacks keyed by (user_id, material_id, style_id) to separate inventory by style. Style inheritance ensures visual consistency across combat→materials→items."
@@ -127,11 +126,12 @@ core_components:
       - "Image generation system for style-aware combo_hash"
 
   - component: "Supabase PostgreSQL"
-    description: "Primary database for all persistent data including core entities (Users, Items, ItemTypes, Materials, MaterialInstances), normalized equipment (UserEquipment, Loadouts, LoadoutSlots), materials system (ItemMaterials), style system (StyleDefinitions, MaterialStacks with style_id), pet system (Pets, PetPersonalities), enemy AI (EnemyTypes with style_id, PlayerCombatHistory), and analytics (CombatChatterLog, EnemyChatterLog). Full schema documented in data-plan.yaml including style inheritance architecture. Provides geospatial queries via PostGIS, ACID transactions, and row-level security."
+    description: "Primary database for all persistent data including core entities (Users, Items, ItemTypes, Materials, MaterialInstances), normalized equipment (UserEquipment, Loadouts, LoadoutSlots), materials system (ItemMaterials), style system (StyleDefinitions, MaterialStacks with style_id), pet system (Pets, PetPersonalities), enemy AI (EnemyTypes with style_id, PlayerCombatHistory), combat sessions (CombatSessions with 15min soft TTL), and analytics (CombatChatterLog, EnemyChatterLog, CombatLogEvents). Full schema documented in data-plan.yaml including style inheritance architecture. Provides geospatial queries via PostGIS, ACID transactions, and row-level security."
     dependencies:
       - "Supabase hosted PostgreSQL"
       - "PostGIS extension for location queries"
       - "StyleDefinitions table for visual style system"
+      - "CombatSessions table for active combat state"
       - "Comprehensive schema design in data-plan.yaml"
 
   - component: "Supabase Auth"
@@ -140,10 +140,6 @@ core_components:
       - "Supabase Auth service"
       - "Email provider for verification emails"
 
-  - component: "Redis Cache"
-    description: "In-memory cache for combat sessions, active location markers, and frequently accessed data. Reduces database load and improves API response time."
-    dependencies:
-      - "Redis Cloud or Railway Redis addon"
 
 data_flow: |
   **User Registration Flow:**
@@ -168,18 +164,19 @@ data_flow: |
   5. Backend → PostgreSQL: Aggregate EnemyPoolMembers, select enemy via weighted random
   6. Backend → PostgreSQL: Query matching LootPools for later drop calculation
   7. Backend → PostgreSQL: SELECT Items JOIN UserEquipment WHERE user_id = {player_id} AND UserEquipment.item_id IS NOT NULL
-  8. Backend → Redis: Store combat session {player_hp, enemy_hp, stats, applied_pools}
+  8. Backend → PostgreSQL: INSERT CombatSessions {player_hp, enemy_hp, stats, applied_pools, combat_log}
   9. Backend → Client: {session_id, enemy, player_stats}
   10. Client → Backend API: POST /combat/attack {session_id, tap_accuracy}
-  11. Backend → Redis: GET session, calculate damage, update HPs
+  11. Backend → PostgreSQL: SELECT CombatSessions WHERE id = {session_id}, calculate damage, UPDATE player_hp/enemy_hp/combat_log
   12. Backend → Client: {damage_dealt, enemy_damage, player_hp, enemy_hp, status}
   13. Repeat until victory/defeat
   14. Client → Backend API: POST /combat/complete {session_id, result}
-  15. Backend → PostgreSQL: Use stored LootPools to calculate drops (if victory)
+  15. Backend → PostgreSQL: SELECT CombatSessions to retrieve LootPools and calculate drops (if victory)
   15a. Backend → PostgreSQL: SELECT enemy style_id from combat session
   15b. Backend → PostgreSQL: INSERT materials with matching style_id (if victory)
   16. Backend → PostgreSQL: INSERT items (if victory)
-  17. Backend → Client: {reward: {items, materials_with_styles}}
+  17. Backend → PostgreSQL: UPDATE CombatSessions SET outcome = {result}, rewards = {json}
+  18. Backend → Client: {reward: {items, materials_with_styles}}
 
   **Material Application Flow (F-04, with Image Generation):**
   1. Client → Backend API: POST /items/{item_id}/materials/apply {material_instance_id, slot_index}
@@ -222,7 +219,7 @@ data_flow: |
   3. Backend → PostgreSQL: SELECT/INSERT player_combat_history {player_id, location_id} (initialize if first attempt)
   4. During combat: Combat event occurs (player hits, enemy hits, HP threshold, etc.)
   5. Client → Backend API: POST /combat/enemy-chatter {session_id, event_type, event_details}
-  6. Backend → Redis: GET combat_session {enemy_type, player_id, location_id, combat_state}
+  6. Backend → PostgreSQL: SELECT CombatSessions WHERE id = {session_id} → {enemy_type, player_id, location_id, player_hp, enemy_hp}
   7. Backend → PostgreSQL: SELECT enemy_types WHERE type = {enemy_type}
   8. Backend → PostgreSQL: SELECT player_combat_history WHERE player_id + location_id
   9. Backend → AI Service: Construct prompt with enemy personality + combat context + player history
@@ -251,9 +248,9 @@ data_flow: |
 
 tech_stack:
   frontend: "SwiftUI (native iOS/macOS), SwiftData (local persistence), CoreLocation (GPS), Google Maps SDK (map rendering)"
-  backend: "Express.js 4.16.x (Node.js), Supabase SDK (auth + database), Redis (session cache), OpenAI/Anthropic SDK (AI generation)"
-  database: "Supabase PostgreSQL with PostGIS (geospatial queries), Redis (in-memory cache for sessions)"
-  infrastructure: "Railway (backend hosting with auto-deploy), Supabase Cloud (database + auth), Redis Cloud (cache), Google Cloud (Maps API), OpenAI/Anthropic (AI API)"
+  backend: "Express.js 4.16.x (Node.js), Supabase SDK (auth + database), OpenAI/Anthropic SDK (AI generation)"
+  database: "Supabase PostgreSQL with PostGIS (geospatial queries, combat session storage with TTL cleanup)"
+  infrastructure: "Railway (backend hosting with auto-deploy), Supabase Cloud (database + auth), Google Cloud (Maps API), OpenAI/Anthropic (AI API)"
 
 scalability_reliability:
   load_expectations: |
@@ -290,14 +287,16 @@ performance_optimizations:
     - Combat animations at 60fps (hardware-accelerated SwiftUI)
 
   backend: |
-    - Redis caches active combat sessions (avoid DB queries per attack)
+    - Combat sessions stored in PostgreSQL with indexed lookups (CombatSessions.id primary key)
     - Location queries use PostGIS spatial index (O(log n) lookups)
     - AI-generated items cached in item_templates (avoid redundant API calls)
     - Database connection pooling (max 20 connections via Supabase)
+    - Scheduled cleanup job removes expired combat sessions (created_at < NOW() - INTERVAL '15 minutes')
 
   database: |
-    - Indexes on: owner_id, location_id, is_equipped, session_id
+    - Indexes on: owner_id, location_id, is_equipped, session_id, created_at (for TTL cleanup)
     - Geospatial index on locations (lat, lng) via PostGIS
+    - CombatSessions.created_at indexed for efficient expired session cleanup
 
 future_considerations:
   - Real-time multiplayer: WebSocket server for live co-op battles (Phase 2)
