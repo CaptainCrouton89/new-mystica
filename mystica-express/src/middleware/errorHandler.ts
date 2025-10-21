@@ -1,69 +1,13 @@
 import { Request, Response, NextFunction } from 'express';
-// TODO: Import from utils/logger when available
-// import { logger } from '../utils/logger';
-// TODO: Import custom error classes when available
-// import {
-//   ValidationError,
-//   AuthenticationError,
-//   AuthorizationError,
-//   NotFoundError,
-//   ConflictError,
-//   DatabaseError,
-//   ExternalAPIError
-// } from '../utils/errors';
-
-/**
- * Custom error types for proper error handling
- * TODO: Move these to ../utils/errors.ts when created
- */
-class ValidationError extends Error {
-  constructor(message: string, public details?: unknown) {
-    super(message);
-    this.name = 'ValidationError';
-  }
-}
-
-class AuthenticationError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'AuthenticationError';
-  }
-}
-
-class AuthorizationError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'AuthorizationError';
-  }
-}
-
-class NotFoundError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'NotFoundError';
-  }
-}
-
-class ConflictError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'ConflictError';
-  }
-}
-
-class DatabaseError extends Error {
-  constructor(message: string, public originalError?: Error) {
-    super(message);
-    this.name = 'DatabaseError';
-  }
-}
-
-class ExternalAPIError extends Error {
-  constructor(message: string, public statusCode?: number) {
-    super(message);
-    this.name = 'ExternalAPIError';
-  }
-}
+import {
+  ValidationError,
+  AuthenticationError,
+  AuthorizationError,
+  NotFoundError,
+  ConflictError,
+  DatabaseError,
+  ExternalAPIError
+} from '../utils/errors';
 
 /**
  * Error response structure for consistent API responses
@@ -118,37 +62,40 @@ export const errorHandler = (
   let details: unknown = undefined;
 
   if (error instanceof ValidationError) {
-    statusCode = 400;
-    errorCode = 'VALIDATION_ERROR';
+    statusCode = error.statusCode;
+    errorCode = error.code;
     message = error.message;
     details = error.details;
   } else if (error instanceof AuthenticationError) {
-    statusCode = 401;
-    errorCode = 'AUTHENTICATION_ERROR';
+    statusCode = error.statusCode;
+    errorCode = error.code;
     message = error.message;
+    details = error.details;
   } else if (error instanceof AuthorizationError) {
-    statusCode = 403;
-    errorCode = 'AUTHORIZATION_ERROR';
+    statusCode = error.statusCode;
+    errorCode = error.code;
     message = error.message;
+    details = error.details;
   } else if (error instanceof NotFoundError) {
-    statusCode = 404;
-    errorCode = 'NOT_FOUND_ERROR';
+    statusCode = error.statusCode;
+    errorCode = error.code;
     message = error.message;
+    details = error.details;
   } else if (error instanceof ConflictError) {
-    statusCode = 409;
-    errorCode = 'CONFLICT_ERROR';
+    statusCode = error.statusCode;
+    errorCode = error.code;
     message = error.message;
+    details = error.details;
   } else if (error instanceof DatabaseError) {
-    statusCode = 500;
-    errorCode = 'DATABASE_ERROR';
-    message = 'Database operation failed';
-    // Don't expose internal database errors to clients
-    details = process.env.NODE_ENV === 'development' ? error.originalError?.message : undefined;
+    statusCode = error.statusCode;
+    errorCode = error.code;
+    message = process.env.NODE_ENV === 'development' ? error.message : 'Database operation failed';
+    details = error.details;
   } else if (error instanceof ExternalAPIError) {
-    statusCode = 502;
-    errorCode = 'EXTERNAL_API_ERROR';
+    statusCode = error.statusCode;
+    errorCode = error.code;
     message = error.message;
-    details = process.env.NODE_ENV === 'development' ? { statusCode: error.statusCode } : undefined;
+    details = error.details;
   } else {
     // Generic/unexpected errors
     statusCode = 500;

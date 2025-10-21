@@ -1,17 +1,44 @@
 import { Request, Response, NextFunction } from 'express';
-import type { SupabaseClient } from '@supabase/supabase-js';
-// TODO: Import from config/supabase when available
-// import { supabase } from '../config/supabase';
+import { createClient } from '@supabase/supabase-js';
+import { env } from '../config/env.js';
+
+interface JWTClaims {
+  sub: string;
+  email?: string;
+  exp?: number;
+  iat?: number;
+  [key: string]: unknown;
+}
 
 /**
- * JWT Authentication Middleware
+ * Supabase client for JWT validation (uses anon key, not service role)
  *
- * Validates JWT tokens from Authorization header via Supabase Auth.
- * Attaches user information to req.user for downstream middleware/controllers.
+ * Per Supabase docs: Use anon key client with getClaims() for auth validation.
+ * This respects RLS policies and validates tokens via asymmetric keys (RS256).
+ */
+const supabaseAuth = createClient(
+  env.SUPABASE_URL,
+  env.SUPABASE_ANON_KEY,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+      detectSessionInUrl: false
+    }
+  }
+);
+
+/**
+ * JWT Authentication Middleware (Modern getClaims approach)
  *
- * @param req Express request object
- * @param res Express response object
- * @param next Next middleware function
+ * Validates JWT tokens using Supabase's getClaims() method:
+ * - Fast local verification with cached JWKS (5-15ms vs 100-500ms with getUser)
+ * - Works with asymmetric keys (RS256/ECC) for zero-network validation
+ * - Falls back to getUser() for legacy HS256 projects
+ *
+ * Attaches user information to req.user for downstream use.
+ *
+ * @see https://supabase.com/docs/guides/auth/server-side
  */
 export const authenticate = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
@@ -20,7 +47,7 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       res.status(401).json({
         error: {
-          code: 'AUTHENTICATION_ERROR',
+          code: 'missing_token',
           message: 'Missing or invalid authorization header. Expected format: Bearer <token>'
         }
       });
@@ -32,24 +59,20 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
     if (!token.trim()) {
       res.status(401).json({
         error: {
-          code: 'AUTHENTICATION_ERROR',
+          code: 'empty_token',
           message: 'JWT token is empty'
         }
       });
       return;
     }
 
-    // TODO: Replace with actual supabase client when config is available
-    // For now, create a placeholder that will be replaced
-    const supabase = null as unknown as SupabaseClient;
+    // Validate JWT using getClaims (fast with asymmetric keys)
+    const { data, error } = await supabaseAuth.auth.getClaims(token);
 
-    // Validate JWT token with Supabase Auth
-    const { data: { user }, error } = await supabase.auth.getUser(token);
-
-    if (error || !user) {
+    if (error || !data) {
       res.status(401).json({
         error: {
-          code: 'AUTHENTICATION_ERROR',
+          code: 'invalid_token',
           message: 'Invalid or expired JWT token',
           details: error?.message
         }
@@ -57,17 +80,29 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
       return;
     }
 
-    // Attach user information to request for downstream use
+    // Check token expiration
+    const claims = data.claims as JWTClaims;
+    if (claims.exp && claims.exp < Date.now() / 1000) {
+      res.status(401).json({
+        error: {
+          code: 'token_expired',
+          message: 'Token has expired. Please refresh your session.'
+        }
+      });
+      return;
+    }
+
+    // Attach user information to request
     req.user = {
-      id: user.id,
-      email: user.email || ''
+      id: claims.sub,
+      email: claims.email || ''
     };
 
     next();
   } catch (error) {
     res.status(401).json({
       error: {
-        code: 'AUTHENTICATION_ERROR',
+        code: 'auth_error',
         message: 'Failed to authenticate request',
         details: error instanceof Error ? error.message : 'Unknown error'
       }
@@ -100,19 +135,21 @@ export const optionalAuthenticate = async (req: Request, res: Response, next: Ne
       return;
     }
 
-    // TODO: Replace with actual supabase client when config is available
-    const supabase = null as unknown as SupabaseClient;
+    const { data, error } = await supabaseAuth.auth.getClaims(token);
 
-    const { data: { user }, error } = await supabase.auth.getUser(token);
-
-    if (error || !user) {
+    if (error || !data) {
       // Don't throw error for optional auth - just proceed without user
       req.user = undefined;
     } else {
-      req.user = {
-        id: user.id,
-        email: user.email || ''
-      };
+      const claims = data.claims as JWTClaims;
+      if (claims.exp && claims.exp < Date.now() / 1000) {
+        req.user = undefined;
+      } else {
+        req.user = {
+          id: claims.sub,
+          email: claims.email || ''
+        };
+      }
     }
 
     next();

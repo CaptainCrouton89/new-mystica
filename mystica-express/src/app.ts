@@ -41,11 +41,13 @@ app.get('/', (req, res) => {
     status: 'operational',
     endpoints: {
       health: '/api/v1/health',
+      auth: '/api/v1/auth',
       profile: '/api/v1/profile',
       inventory: '/api/v1/inventory',
       equipment: '/api/v1/equipment',
       materials: '/api/v1/materials',
-      items: '/api/v1/items'
+      items: '/api/v1/items',
+      locations: '/api/v1/locations'
     }
   });
 });
@@ -79,7 +81,7 @@ app.use((error: any, req: express.Request, res: express.Response, next: express.
   // Don't leak error details in production
   const isDevelopment = process.env.NODE_ENV === 'development';
 
-  res.status(error.status || 500).json({
+  res.status(error.statusCode || error.status || 500).json({
     error: {
       code: error.code || 'INTERNAL_ERROR',
       message: error.message || 'An unexpected error occurred',

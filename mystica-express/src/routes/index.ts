@@ -1,11 +1,13 @@
 import { Router } from 'express';
 
 // Import route modules
+import authRoutes from './auth';
 import profileRoutes from './profile';
 import inventoryRoutes from './inventory';
 import equipmentRoutes from './equipment';
 import materialsRoutes from './materials';
 import itemsRoutes from './items';
+import locationRoutes from './locations';
 
 /**
  * API Routes Index
@@ -14,21 +16,25 @@ import itemsRoutes from './items';
  * All routes are prefixed with /api/v1 in the main app configuration.
  *
  * MVP1 Endpoints:
+ * - Auth: POST /auth/register, POST /auth/login, POST /auth/logout, POST /auth/refresh, GET /auth/me
  * - Profile: POST /profile/init, GET /profile
  * - Inventory: GET /inventory
  * - Equipment: GET /equipment, POST /equipment/equip, POST /equipment/unequip
  * - Materials: GET /materials/inventory, POST /items/:id/materials/apply, POST /items/:id/materials/replace
  * - Items: GET /items/:id, GET /items/:id/upgrade-cost, POST /items/:id/upgrade
+ * - Locations: GET /locations/nearby, GET /locations/:id
  */
 
 const router = Router();
 
 // Register route modules
+router.use('/auth', authRoutes);
 router.use('/profile', profileRoutes);
 router.use('/inventory', inventoryRoutes);
 router.use('/equipment', equipmentRoutes);
 router.use('/materials', materialsRoutes);
 router.use('/items', itemsRoutes);
+router.use('/locations', locationRoutes);
 
 // Health check endpoint
 router.get('/health', (req, res) => {

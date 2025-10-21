@@ -39,12 +39,5 @@ export {
   createCustomCors
 } from './cors';
 
-// Type exports
-export type {
-  AuthenticatedUser,
-  RequestContext,
-  AuthenticatedMiddleware,
-  AuthenticatedRouteHandler
-} from '../types/express';
-
-export { isAuthenticated } from '../types/express';
+// Type exports are now available globally via @types/express/index.d.ts
+// No need to re-export them here
