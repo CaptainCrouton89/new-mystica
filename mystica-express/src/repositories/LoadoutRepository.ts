@@ -14,6 +14,8 @@ import {
   BulkEquipmentUpdate
 } from '../types/repository.types.js';
 import { Database } from '../types/database.types.js';
+import { supabase } from '../config/supabase.js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 type Loadout = Database['public']['Tables']['loadouts']['Row'];
 type LoadoutSlot = Database['public']['Tables']['loadoutslots']['Row'];
@@ -29,8 +31,8 @@ type LoadoutSlot = Database['public']['Tables']['loadoutslots']['Row'];
  * - Item ownership validation
  */
 export class LoadoutRepository extends BaseRepository<Loadout> {
-  constructor() {
-    super('loadouts');
+  constructor(client: SupabaseClient = supabase) {
+    super('loadouts', client);
   }
 
   // ============================================================================

@@ -7,6 +7,7 @@
  * Tables: users, usercurrencybalances, economytransactions, playerprogression, devicetokens
  */
 
+import { SupabaseClient } from '@supabase/supabase-js';
 import { BaseRepository } from './BaseRepository.js';
 import { BusinessLogicError, ValidationError } from '../utils/errors.js';
 import {
@@ -62,8 +63,8 @@ interface XpRpcResponse {
  * CRITICAL: ALL currency changes MUST use RPC functions for atomic operations.
  */
 export class ProfileRepository extends BaseRepository<User> {
-  constructor() {
-    super('users');
+  constructor(client?: SupabaseClient) {
+    super('users', client);
   }
 
   // ============================================================================

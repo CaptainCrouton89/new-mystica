@@ -9,6 +9,8 @@
 import { BaseRepository } from './BaseRepository.js';
 import { Database } from '../types/database.types.js';
 import { DatabaseError, ValidationError } from '../utils/errors.js';
+import { supabase } from '../config/supabase.js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 // Type aliases for cleaner code
 type RarityDefinition = Database['public']['Tables']['raritydefinitions']['Row'];
@@ -31,8 +33,8 @@ interface MaterialTierResult {
 }
 
 export class RarityRepository extends BaseRepository<RarityDefinition> {
-  constructor() {
-    super('raritydefinitions');
+  constructor(client: SupabaseClient = supabase) {
+    super('raritydefinitions', client);
   }
 
   // ================== RARITY DEFINITIONS (ITEMS ONLY) ==================

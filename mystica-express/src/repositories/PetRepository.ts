@@ -9,6 +9,7 @@
  * - Personality template lookups
  */
 
+import { SupabaseClient } from '@supabase/supabase-js';
 import { BaseRepository } from './BaseRepository.js';
 import { Database } from '../types/database.types.js';
 import { ValidationError, BusinessLogicError } from '../utils/errors.js';
@@ -20,8 +21,8 @@ type PetUpdate = Database['public']['Tables']['pets']['Update'];
 type PetPersonality = Database['public']['Tables']['petpersonalities']['Row'];
 
 export class PetRepository extends BaseRepository<Pet> {
-  constructor() {
-    super('pets');
+  constructor(client?: SupabaseClient) {
+    super('pets', client);
   }
 
   // ================================
