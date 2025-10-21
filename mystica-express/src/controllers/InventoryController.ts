@@ -17,10 +17,10 @@ export class InventoryController {
       const inventory = await inventoryService.getPlayerInventory(userId);
 
       res.json({
-        items: inventory.items,
-        stacks: inventory.stacks,
-        total_items: inventory.items.length,
-        total_stacks: inventory.stacks.length
+        data: {
+          items: inventory.items,
+          stacks: inventory.stacks
+        }
       });
     } catch (error) {
       next(error);

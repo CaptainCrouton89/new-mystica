@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { profileService } from '../services/ProfileService';
+import { profileService } from '../services/ProfileService.js';
 
 /**
  * Profile Controller
@@ -13,9 +13,8 @@ export class ProfileController {
   initProfile = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const userId = req.user!.id;
-      const email = req.user!.email || '';
 
-      const profile = await profileService.initializeProfile(userId, email);
+      const profile = await profileService.initializeProfile(userId);
 
       res.status(201).json({
         success: true,

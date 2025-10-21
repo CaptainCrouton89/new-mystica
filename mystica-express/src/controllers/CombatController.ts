@@ -1,8 +1,9 @@
 import { Request, Response, NextFunction } from 'express';
-import { combatStubService } from '../services/CombatStubService.js';
+import { combatService } from '../services/CombatService.js';
 import { enemyChatterService } from '../services/EnemyChatterService.js';
+import { chatterService } from '../services/ChatterService.js';
 import { ValidationError, NotFoundError, ExternalAPIError, NotImplementedError } from '../utils/errors.js';
-import type { EnemyChatterRequest, StartCombatRequest, AttackRequest, CompleteCombatRequest } from '../types/schemas.js';
+import type { EnemyChatterRequest, StartCombatRequest, AttackRequest, CompleteCombatRequest, DefenseRequest, PetChatterRequest } from '../types/schemas.js';
 import type { CombatEventDetails } from '../types/combat.types.js';
 
 /**
@@ -17,9 +18,11 @@ export class CombatController {
   startCombat = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const { location_id } = req.body as StartCombatRequest;
+      const userId = req.user!.id; // Auth middleware ensures user exists
 
-      // TODO: Implement in CombatService
-      throw new NotImplementedError('Combat session creation not yet implemented');
+      const combatSession = await combatService.startCombat(userId, location_id);
+
+      res.status(201).json(combatSession);
 
     } catch (error) {
       next(error);
@@ -32,10 +35,11 @@ export class CombatController {
    */
   attack = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const { session_id, tap_position } = req.body as AttackRequest;
+      const { session_id, tap_position_degrees } = req.body as AttackRequest;
 
-      // TODO: Implement in CombatService
-      throw new NotImplementedError('Combat attack mechanics not yet implemented');
+      const attackResult = await combatService.executeAttack(session_id, tap_position_degrees);
+
+      res.json(attackResult);
 
     } catch (error) {
       next(error);
@@ -50,10 +54,74 @@ export class CombatController {
     try {
       const { session_id, result } = req.body as CompleteCombatRequest;
 
-      // TODO: Implement in CombatService
-      throw new NotImplementedError('Combat completion and loot generation not yet implemented');
+      const combatRewards = await combatService.completeCombat(session_id, result);
+
+      res.json(combatRewards);
 
     } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * POST /combat/defend
+   * Execute defense action in combat
+   */
+  defend = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { session_id, defense_accuracy } = req.body as DefenseRequest;
+
+      const defenseResult = await combatService.executeDefense(session_id, defense_accuracy);
+
+      res.json(defenseResult);
+
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * POST /combat/pet-chatter
+   * Generate AI-powered pet dialogue for combat events
+   */
+  generatePetChatter = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { session_id, event_type, event_details } = req.body as PetChatterRequest;
+
+      // Convert request format to internal CombatEventDetails format
+      const combatEventDetails = {
+        turn_number: event_details?.turn_number ?? 1,
+        player_hp_pct: 1.0, // Default values since pet chatter schema doesn't require these
+        enemy_hp_pct: 1.0,
+        damage: event_details?.damage,
+        accuracy: event_details?.accuracy,
+        is_critical: event_details?.is_critical
+      };
+
+      const dialogueResponse = await chatterService.generatePetChatter(
+        session_id,
+        event_type,
+        combatEventDetails
+      );
+
+      res.json({
+        success: true,
+        dialogue_response: dialogueResponse,
+        cached: false // Always false for real-time generation per spec
+      });
+
+    } catch (error) {
+      if (error instanceof ExternalAPIError) {
+        // Return 503 Service Unavailable for AI service failures
+        res.status(503).json({
+          error: {
+            code: 'AI_SERVICE_UNAVAILABLE',
+            message: 'AI service temporarily unavailable (fallback to canned phrases)',
+            details: error.message
+          }
+        });
+        return;
+      }
       next(error);
     }
   };
@@ -72,7 +140,7 @@ export class CombatController {
       // Validate combat session exists
       let combatSession;
       try {
-        combatSession = await combatStubService.getCombatSession(session_id);
+        combatSession = await combatService.getCombatSession(session_id);
       } catch (error) {
         if (error instanceof NotFoundError) {
           throw new NotFoundError('Combat session', session_id);

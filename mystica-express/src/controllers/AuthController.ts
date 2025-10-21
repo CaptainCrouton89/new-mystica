@@ -1,41 +1,26 @@
 import { Request, Response } from 'express';
-import { createClient } from '@supabase/supabase-js';
-import { env } from '../config/env.js';
-import { supabase as supabaseAdmin } from '../config/supabase.js';
-import { AuthError } from '@supabase/supabase-js';
-import { generateAnonymousToken } from '../utils/jwt.js';
-import { v4 as uuidv4 } from 'uuid';
-
-/**
- * Supabase client for authentication operations (uses anon key)
- *
- * Note: Auth operations use anon key client, NOT service role.
- * This properly handles email verification, rate limiting, and auth flows.
- */
-const supabaseAuth = createClient(
-  env.SUPABASE_URL,
-  env.SUPABASE_ANON_KEY,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-      detectSessionInUrl: false
-    }
-  }
-);
+import { authService } from '../services/AuthService.js';
+import {
+  ValidationError,
+  ConflictError,
+  NotFoundError,
+  BusinessLogicError
+} from '../utils/errors.js';
 
 /**
  * Auth Controller
  *
- * Handles authentication operations via Supabase Auth:
+ * Handles authentication operations by delegating to AuthService:
+ * - Device registration (anonymous authentication)
  * - User registration (email/password)
  * - Login (email/password)
  * - Logout (revoke refresh token)
  * - Token refresh
  * - Password reset flow
  * - Email verification
+ * - Get current user profile
  *
- * All operations delegate to Supabase Auth - no manual JWT handling.
+ * All business logic is handled in the AuthService layer.
  */
 export class AuthController {
   /**
@@ -50,80 +35,44 @@ export class AuthController {
     try {
       const { email, password } = req.body;
 
-      if (!email || !password) {
-        res.status(400).json({
-          error: {
-            code: 'missing_credentials',
-            message: 'Email and password are required'
-          }
-        });
-        return;
-      }
+      const result = await authService.register({ email, password });
 
-      // Validate password strength
-      if (password.length < 8) {
-        res.status(422).json({
-          error: {
-            code: 'weak_password',
-            message: 'Password must be at least 8 characters long'
-          }
-        });
-        return;
-      }
-
-      const { data, error } = await supabaseAuth.auth.signUp({
-        email,
-        password
-      });
-
-      if (error) {
-        // Handle specific error cases
-        if (error.message.includes('already registered')) {
+      res.status(201).json(result);
+    } catch (error) {
+      if (error instanceof ValidationError) {
+        if (error.message.includes('8 characters')) {
           res.status(422).json({
             error: {
-              code: 'email_exists',
-              message: 'Email already registered. Please login or reset your password.'
+              code: 'WEAK_PASSWORD',
+              message: error.message
             }
           });
-          return;
+        } else {
+          res.status(400).json({
+            error: {
+              code: 'MISSING_CREDENTIALS',
+              message: error.message
+            }
+          });
         }
+        return;
+      }
 
-        res.status(400).json({
+      if (error instanceof ConflictError) {
+        res.status(422).json({
           error: {
-            code: error.name || 'registration_failed',
+            code: 'EMAIL_EXISTS',
             message: error.message
           }
         });
         return;
       }
 
-      // Create user profile in database (F-07)
-      if (data.user) {
-        const { error: profileError } = await supabaseAdmin
-          .from('users')
-          .insert({
-            id: data.user.id,
-            email: data.user.email,
-            created_at: new Date().toISOString(),
-            last_login: new Date().toISOString()
-          });
-
-        if (profileError && profileError.code !== '23505') { // Ignore duplicate key errors
-          console.error('Failed to create user profile:', profileError);
-        }
-      }
-
-      res.status(201).json({
-        user: data.user,
-        session: data.session,
-        message: 'Registration successful. Please check your email for verification link.'
-      });
-    } catch (error) {
       console.error('Registration error:', error);
       res.status(500).json({
         error: {
-          code: 'internal_error',
-          message: 'Registration failed due to server error'
+          code: 'INTERNAL_ERROR',
+          message: 'Server error during registration'
         }
       });
     }
@@ -141,50 +90,34 @@ export class AuthController {
     try {
       const { email, password } = req.body;
 
-      if (!email || !password) {
-        res.status(400).json({
-          error: {
-            code: 'missing_credentials',
-            message: 'Email and password are required'
-          }
-        });
-        return;
-      }
+      const result = await authService.login({ email, password });
 
-      const { data, error } = await supabaseAuth.auth.signInWithPassword({
-        email,
-        password
-      });
-
-      if (error) {
-        // Treat all login errors as invalid credentials for security
-        res.status(401).json({
-          error: {
-            code: 'invalid_credentials',
-            message: 'Invalid email or password'
-          }
-        });
-        return;
-      }
-
-      // Update last login timestamp
-      if (data.user) {
-        await supabaseAdmin
-          .from('users')
-          .update({ last_login: new Date().toISOString() })
-          .eq('id', data.user.id);
-      }
-
-      res.status(200).json({
-        user: data.user,
-        session: data.session
-      });
+      res.status(200).json(result);
     } catch (error) {
+      if (error instanceof ValidationError) {
+        if (error.message.includes('Invalid email or password')) {
+          res.status(401).json({
+            error: {
+              code: 'INVALID_CREDENTIALS',
+              message: error.message
+            }
+          });
+        } else {
+          res.status(400).json({
+            error: {
+              code: 'MISSING_CREDENTIALS',
+              message: error.message
+            }
+          });
+        }
+        return;
+      }
+
       console.error('Login error:', error);
       res.status(500).json({
         error: {
-          code: 'internal_error',
-          message: 'Login failed due to server error'
+          code: 'INTERNAL_ERROR',
+          message: 'Server error during login'
         }
       });
     }
@@ -205,8 +138,8 @@ export class AuthController {
       if (!authHeader || !authHeader.startsWith('Bearer ')) {
         res.status(401).json({
           error: {
-            code: 'missing_token',
-            message: 'Authorization header required'
+            code: 'MISSING_TOKEN',
+            message: 'Authorization header missing or malformed'
           }
         });
         return;
@@ -214,13 +147,7 @@ export class AuthController {
 
       const token = authHeader.substring(7);
 
-      // Revoke session via Supabase
-      const { error } = await supabaseAuth.auth.admin.signOut(token);
-
-      if (error) {
-        console.error('Logout error:', error);
-        // Don't fail logout if error - token may already be invalid
-      }
+      await authService.logout(token);
 
       res.status(200).json({
         message: 'Logout successful'
@@ -229,8 +156,8 @@ export class AuthController {
       console.error('Logout error:', error);
       res.status(500).json({
         error: {
-          code: 'internal_error',
-          message: 'Logout failed due to server error'
+          code: 'INTERNAL_ERROR',
+          message: 'Server error (non-critical, logout still succeeds)'
         }
       });
     }
@@ -248,39 +175,34 @@ export class AuthController {
     try {
       const { refresh_token } = req.body;
 
-      if (!refresh_token) {
-        res.status(400).json({
-          error: {
-            code: 'missing_refresh_token',
-            message: 'Refresh token is required'
-          }
-        });
-        return;
-      }
+      const result = await authService.refresh({ refresh_token });
 
-      const { data, error } = await supabaseAuth.auth.refreshSession({
-        refresh_token
-      });
-
-      if (error) {
-        res.status(401).json({
-          error: {
-            code: 'invalid_refresh_token',
-            message: 'Invalid or expired refresh token'
-          }
-        });
-        return;
-      }
-
-      res.status(200).json({
-        session: data.session
-      });
+      res.status(200).json(result);
     } catch (error) {
+      if (error instanceof ValidationError) {
+        if (error.message.includes('Refresh token is required')) {
+          res.status(400).json({
+            error: {
+              code: 'MISSING_REFRESH_TOKEN',
+              message: error.message
+            }
+          });
+        } else {
+          res.status(401).json({
+            error: {
+              code: 'INVALID_REFRESH_TOKEN',
+              message: error.message
+            }
+          });
+        }
+        return;
+      }
+
       console.error('Refresh token error:', error);
       res.status(500).json({
         error: {
-          code: 'internal_error',
-          message: 'Token refresh failed due to server error'
+          code: 'INTERNAL_ERROR',
+          message: 'Server error during refresh'
         }
       });
     }
@@ -298,35 +220,25 @@ export class AuthController {
     try {
       const { email } = req.body;
 
-      if (!email) {
+      const result = await authService.resetPassword({ email });
+
+      res.status(200).json(result);
+    } catch (error) {
+      if (error instanceof ValidationError) {
         res.status(400).json({
           error: {
-            code: 'missing_email',
-            message: 'Email is required'
+            code: 'MISSING_EMAIL',
+            message: error.message
           }
         });
         return;
       }
 
-      const { error } = await supabaseAuth.auth.resetPasswordForEmail(email, {
-        redirectTo: `${env.SUPABASE_URL}/auth/v1/verify`
-      });
-
-      if (error) {
-        console.error('Password reset error:', error);
-        // Don't reveal if email exists or not (security)
-      }
-
-      // Always return success to prevent email enumeration
-      res.status(200).json({
-        message: 'If an account with that email exists, a password reset link has been sent.'
-      });
-    } catch (error) {
       console.error('Password reset error:', error);
       res.status(500).json({
         error: {
-          code: 'internal_error',
-          message: 'Password reset failed due to server error'
+          code: 'INTERNAL_ERROR',
+          message: 'Server error (returns success message for security)'
         }
       });
     }
@@ -344,36 +256,25 @@ export class AuthController {
     try {
       const { email } = req.body;
 
-      if (!email) {
+      const result = await authService.resendVerification({ email });
+
+      res.status(200).json(result);
+    } catch (error) {
+      if (error instanceof ValidationError) {
         res.status(400).json({
           error: {
-            code: 'missing_email',
-            message: 'Email is required'
+            code: 'MISSING_EMAIL',
+            message: error.message
           }
         });
         return;
       }
 
-      const { error } = await supabaseAuth.auth.resend({
-        type: 'signup',
-        email
-      });
-
-      if (error) {
-        console.error('Resend verification error:', error);
-        // Don't reveal if email exists or not (security)
-      }
-
-      // Always return success to prevent email enumeration
-      res.status(200).json({
-        message: 'If an account with that email exists, a verification link has been sent.'
-      });
-    } catch (error) {
       console.error('Resend verification error:', error);
       res.status(500).json({
         error: {
-          code: 'internal_error',
-          message: 'Verification resend failed due to server error'
+          code: 'INTERNAL_ERROR',
+          message: 'Server error (returns success message for security)'
         }
       });
     }
@@ -391,139 +292,45 @@ export class AuthController {
     try {
       const { device_id } = req.body;
 
-      if (!device_id) {
+      const result = await authService.registerDevice({ device_id });
+
+      const statusCode = result.message.includes('registered') ? 201 : 200;
+      res.status(statusCode).json(result);
+    } catch (error) {
+      if (error instanceof ValidationError) {
         res.status(400).json({
           error: {
-            code: 'missing_device_id',
-            message: 'Device ID is required'
+            code: 'MISSING_DEVICE_ID',
+            message: 'Device ID missing or invalid format'
           }
         });
         return;
       }
 
-      // Check if device already exists
-      const { data: existingUser, error: lookupError } = await supabaseAdmin
-        .from('users')
-        .select('id, device_id, account_type, created_at, last_login')
-        .eq('device_id', device_id)
-        .eq('account_type', 'anonymous')
-        .single();
-
-      if (lookupError && lookupError.code !== 'PGRST116') { // PGRST116 = no rows found
-        console.error('Device lookup error:', lookupError);
-        res.status(500).json({
-          error: {
-            code: 'lookup_failed',
-            message: 'Failed to check device registration'
-          }
-        });
-        return;
-      }
-
-      let userId: string;
-      let isNewUser = false;
-
-      if (existingUser) {
-        // Device already registered - return existing user with new tokens
-        userId = existingUser.id;
-
-        // Update last login
-        await supabaseAdmin
-          .from('users')
-          .update({ last_login: new Date().toISOString() })
-          .eq('id', userId);
-      } else {
-        // New device - create anonymous user
-        userId = uuidv4();
-        isNewUser = true;
-
-        const { error: insertError } = await supabaseAdmin
-          .from('users')
-          .insert({
-            id: userId,
-            device_id,
-            account_type: 'anonymous',
-            is_anonymous: true,
-            email: null,
-            created_at: new Date().toISOString(),
-            last_login: new Date().toISOString(),
-            vanity_level: 0,
-            gold_balance: 500
-          });
-
-        if (insertError) {
-          // Check if it's a unique constraint violation (race condition)
-          if (insertError.code === '23505' && insertError.message.includes('device_id')) {
-            // Another request created this device_id concurrently - try lookup again
-            const { data: raceUser, error: raceError } = await supabaseAdmin
-              .from('users')
-              .select('id, device_id, account_type, created_at, last_login')
-              .eq('device_id', device_id)
-              .eq('account_type', 'anonymous')
-              .single();
-
-            if (raceError || !raceUser) {
-              res.status(500).json({
-                error: {
-                  code: 'race_condition_failed',
-                  message: 'Failed to resolve concurrent device registration'
-                }
-              });
-              return;
+      if (error instanceof BusinessLogicError) {
+        if (error.message.includes('concurrent')) {
+          res.status(500).json({
+            error: {
+              code: 'RACE_CONDITION_FAILED',
+              message: 'Concurrent registration race condition'
             }
-
-            userId = raceUser.id;
-            isNewUser = false;
-          } else {
-            console.error('User creation error:', insertError);
-            res.status(500).json({
-              error: {
-                code: 'user_creation_failed',
-                message: 'Failed to create anonymous user account'
-              }
-            });
-            return;
-          }
+          });
+        } else {
+          res.status(500).json({
+            error: {
+              code: 'USER_CREATION_FAILED',
+              message: 'User creation failed'
+            }
+          });
         }
-      }
-
-      // Generate custom JWT tokens for anonymous user (30-day expiry)
-      const tokenData = generateAnonymousToken(userId, device_id);
-
-      // Fetch user profile for response
-      const { data: userProfile, error: profileError } = await supabaseAdmin
-        .from('users')
-        .select('id, device_id, account_type, created_at, last_login, vanity_level, avg_item_level')
-        .eq('id', userId)
-        .single();
-
-      if (profileError || !userProfile) {
-        res.status(500).json({
-          error: {
-            code: 'profile_fetch_failed',
-            message: 'User created but profile retrieval failed'
-          }
-        });
         return;
       }
 
-      res.status(isNewUser ? 201 : 200).json({
-        user: userProfile,
-        session: {
-          access_token: tokenData.access_token,
-          refresh_token: null, // Anonymous users don't get refresh tokens
-          expires_in: tokenData.expires_in,
-          expires_at: tokenData.expires_at,
-          token_type: 'bearer'
-        },
-        message: isNewUser ? 'Device registered successfully' : 'Device login successful'
-      });
-    } catch (error) {
       console.error('Device registration error:', error);
       res.status(500).json({
         error: {
-          code: 'internal_error',
-          message: 'Device registration failed due to server error'
+          code: 'INTERNAL_ERROR',
+          message: 'General server error'
         }
       });
     }
@@ -544,39 +351,42 @@ export class AuthController {
       if (!user) {
         res.status(401).json({
           error: {
-            code: 'unauthorized',
-            message: 'Authentication required'
+            code: 'UNAUTHORIZED',
+            message: 'Missing or invalid token, user not found in req.user'
           }
         });
         return;
       }
 
-      // Fetch full user profile from database
-      const { data: profile, error } = await supabaseAdmin
-        .from('users')
-        .select('id, email, device_id, account_type, created_at, last_login, vanity_level, avg_item_level')
-        .eq('id', user.id)
-        .single();
+      const result = await authService.getCurrentUser(user.id);
 
-      if (error || !profile) {
+      res.status(200).json(result);
+    } catch (error) {
+      if (error instanceof NotFoundError) {
         res.status(404).json({
           error: {
-            code: 'profile_not_found',
-            message: 'User profile not found'
+            code: 'PROFILE_NOT_FOUND',
+            message: 'User ID not found in database'
           }
         });
         return;
       }
 
-      res.status(200).json({
-        user: profile
-      });
-    } catch (error) {
+      if (error instanceof ValidationError) {
+        res.status(401).json({
+          error: {
+            code: 'UNAUTHORIZED',
+            message: 'Missing or invalid token, user not found in req.user'
+          }
+        });
+        return;
+      }
+
       console.error('Get current user error:', error);
       res.status(500).json({
         error: {
-          code: 'internal_error',
-          message: 'Failed to retrieve user profile'
+          code: 'INTERNAL_ERROR',
+          message: 'Server error retrieving profile'
         }
       });
     }

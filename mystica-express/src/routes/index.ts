@@ -10,6 +10,12 @@ import itemsRoutes from './items';
 import locationRoutes from './locations';
 import combatRoutes from './combat';
 import enemyRoutes from './enemies';
+import loadoutRoutes from './loadouts';
+import petRoutes from './pets';
+import economyRoutes from './economy';
+import styleRoutes from './styles';
+import rarityRoutes from './rarities';
+import progressionRoutes from './progression';
 
 /**
  * API Routes Index
@@ -25,8 +31,13 @@ import enemyRoutes from './enemies';
  * - Materials: GET /materials/inventory, POST /items/:id/materials/apply, POST /items/:id/materials/replace
  * - Items: GET /items/:id, GET /items/:id/upgrade-cost, POST /items/:id/upgrade
  * - Locations: GET /locations/nearby, GET /locations/:id
- * - Combat: POST /combat/enemy-chatter
- * - Enemies: GET /enemies/types, GET /enemies/players/combat-history/:location_id
+ * - Combat: POST /combat/pet-chatter, POST /combat/enemy-chatter
+ * - Enemies: GET /enemies/types, GET /enemies/personality-types, GET /enemies/players/combat-history/:location_id
+ * - Pets: GET /pets/personalities, PUT /pets/:id/personality
+ * - Economy: GET /economy/balances, GET /economy/balance/:currency, POST /economy/affordability, POST /economy/add, POST /economy/deduct
+ * - Styles: GET /styles
+ * - Rarities: GET /rarities
+ * - Progression: GET /progression, POST /progression/level-up, POST /progression/award-xp
  */
 
 const router = Router();
@@ -41,6 +52,12 @@ router.use('/items', itemsRoutes);
 router.use('/locations', locationRoutes);
 router.use('/combat', combatRoutes);
 router.use('/enemies', enemyRoutes);
+router.use('/loadouts', loadoutRoutes);
+router.use('/pets', petRoutes);
+router.use('/economy', economyRoutes);
+router.use('/styles', styleRoutes);
+router.use('/rarities', rarityRoutes);
+router.use('/progression', progressionRoutes);
 
 // Health check endpoint
 router.get('/health', (req, res) => {

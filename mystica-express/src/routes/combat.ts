@@ -4,8 +4,10 @@ import { authenticate } from '../middleware/auth.js';
 import { combatController } from '../controllers/CombatController.js';
 import {
   EnemyChatterRequestSchema,
+  PetChatterSchema,
   StartCombatSchema,
   AttackSchema,
+  DefenseSchema,
   CompleteCombatSchema
 } from '../types/schemas.js';
 
@@ -16,7 +18,9 @@ const router = Router();
  *
  * POST /combat/start - Start a new combat session
  * POST /combat/attack - Execute attack action in combat
+ * POST /combat/defend - Execute defense action in combat
  * POST /combat/complete - Complete combat and award loot
+ * POST /combat/pet-chatter - Generate AI-powered pet dialogue for combat events
  * POST /combat/enemy-chatter - Generate AI-powered enemy dialogue for combat events
  */
 
@@ -36,12 +40,28 @@ router.post(
   combatController.attack
 );
 
+// Execute defense action
+router.post(
+  '/defend',
+  authenticate,
+  validate({ body: DefenseSchema }),
+  combatController.defend
+);
+
 // Complete combat session
 router.post(
   '/complete',
   authenticate,
   validate({ body: CompleteCombatSchema }),
   combatController.completeCombat
+);
+
+// Generate pet dialogue for combat events
+router.post(
+  '/pet-chatter',
+  authenticate,
+  validate({ body: PetChatterSchema }),
+  combatController.generatePetChatter
 );
 
 // Generate enemy dialogue for combat events
