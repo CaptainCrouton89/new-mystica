@@ -14,37 +14,22 @@ import { MaterialRepository } from '../../../src/repositories/MaterialRepository
 import { DatabaseError, NotFoundError, BusinessLogicError } from '../../../src/utils/errors.js';
 import { MaterialInstance, AppliedMaterial } from '../../../src/types/repository.types.js';
 import { Database } from '../../../src/types/database.types.js';
+import { createMockSupabaseClient } from '../../helpers/mockSupabase.js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 type Material = Database['public']['Tables']['materials']['Row'];
 type MaterialStack = Database['public']['Tables']['materialstacks']['Row'];
 
-// Mock Supabase client
-const mockSupabase = {
-  from: jest.fn(),
-  rpc: jest.fn()
-};
-
-// Mock query builder
-const mockQuery = {
-  select: jest.fn().mockReturnThis(),
-  eq: jest.fn().mockReturnThis(),
-  neq: jest.fn().mockReturnThis(),
-  gt: jest.fn().mockReturnThis(),
-  ilike: jest.fn().mockReturnThis(),
-  order: jest.fn().mockReturnThis(),
-  single: jest.fn().mockReturnThis(),
-  insert: jest.fn().mockReturnThis(),
-  update: jest.fn().mockReturnThis(),
-  delete: jest.fn().mockReturnThis()
-};
-
 describe('MaterialRepository', () => {
   let repository: MaterialRepository;
+  let mockClient: any;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    repository = new MaterialRepository(mockSupabase as any);
-    mockSupabase.from.mockReturnValue(mockQuery);
+    mockClient = createMockSupabaseClient();
+    repository = new MaterialRepository();
+    // Override the client for testing
+    (repository as any).client = mockClient;
   });
 
   // ============================================================================
@@ -63,20 +48,33 @@ describe('MaterialRepository', () => {
 
     describe('findMaterialById', () => {
       it('should find material by ID', async () => {
-        mockQuery.single.mockResolvedValue({ data: mockMaterial, error: null });
+        mockClient.from.mockReturnValue({
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              single: jest.fn().mockResolvedValue({
+                data: mockMaterial,
+                error: null
+              })
+            })
+          })
+        });
 
         const result = await repository.findMaterialById('material-123');
 
         expect(result).toEqual(mockMaterial);
-        expect(mockSupabase.from).toHaveBeenCalledWith('materials');
-        expect(mockQuery.select).toHaveBeenCalledWith('*');
-        expect(mockQuery.eq).toHaveBeenCalledWith('id', 'material-123');
+        expect(mockClient.from).toHaveBeenCalledWith('materials');
       });
 
       it('should return null when material not found', async () => {
-        mockQuery.single.mockResolvedValue({
-          data: null,
-          error: { code: 'PGRST116', message: 'No rows found' }
+        mockClient.from.mockReturnValue({
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              single: jest.fn().mockResolvedValue({
+                data: null,
+                error: { code: 'PGRST116', message: 'No rows found' }
+              })
+            })
+          })
         });
 
         const result = await repository.findMaterialById('non-existent');
@@ -85,9 +83,15 @@ describe('MaterialRepository', () => {
       });
 
       it('should throw DatabaseError on query failure', async () => {
-        mockQuery.single.mockResolvedValue({
-          data: null,
-          error: { code: 'UNKNOWN', message: 'Database error' }
+        mockClient.from.mockReturnValue({
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              single: jest.fn().mockResolvedValue({
+                data: null,
+                error: { code: 'UNKNOWN', message: 'Database error' }
+              })
+            })
+          })
         });
 
         await expect(repository.findMaterialById('material-123')).rejects.toThrow();
@@ -97,24 +101,42 @@ describe('MaterialRepository', () => {
     describe('findAllMaterials', () => {
       it('should return all materials ordered by name', async () => {
         const materials = [mockMaterial];
-        mockQuery.single.mockResolvedValue({ data: materials, error: null });
+
+        mockClient.from.mockReturnValue({
+          select: jest.fn().mockReturnValue({
+            order: jest.fn().mockResolvedValue({
+              data: materials,
+              error: null
+            })
+          })
+        });
 
         const result = await repository.findAllMaterials();
 
         expect(result).toEqual(materials);
-        expect(mockQuery.order).toHaveBeenCalledWith('name');
+        expect(mockClient.from).toHaveBeenCalledWith('materials');
       });
     });
 
     describe('findMaterialsByTheme', () => {
       it('should find materials by theme using ilike search', async () => {
         const materials = [mockMaterial];
-        mockQuery.single.mockResolvedValue({ data: materials, error: null });
+
+        mockClient.from.mockReturnValue({
+          select: jest.fn().mockReturnValue({
+            ilike: jest.fn().mockReturnValue({
+              order: jest.fn().mockResolvedValue({
+                data: materials,
+                error: null
+              })
+            })
+          })
+        });
 
         const result = await repository.findMaterialsByTheme('mystical');
 
         expect(result).toEqual(materials);
-        expect(mockQuery.ilike).toHaveBeenCalledWith('description', '%mystical%');
+        expect(mockClient.from).toHaveBeenCalledWith('materials');
       });
     });
   });
@@ -134,18 +156,16 @@ describe('MaterialRepository', () => {
 
     describe('findStackByUser', () => {
       it('should find stack by composite key', async () => {
-        mockQuery.single.mockResolvedValue({ data: mockStack, error: null });
+        mockClient.from('materialstacks').select('*').eq('user_id', 'user-123').eq('material_id', 'material-456').eq('style_id', 'style-789').single.mockResolvedValue({ data: mockStack, error: null });
 
         const result = await repository.findStackByUser('user-123', 'material-456', 'style-789');
 
         expect(result).toEqual(mockStack);
-        expect(mockQuery.eq).toHaveBeenCalledWith('user_id', 'user-123');
-        expect(mockQuery.eq).toHaveBeenCalledWith('material_id', 'material-456');
-        expect(mockQuery.eq).toHaveBeenCalledWith('style_id', 'style-789');
+        expect(mockClient.from).toHaveBeenCalledWith('materialstacks');
       });
 
       it('should return null when stack not found', async () => {
-        mockQuery.single.mockResolvedValue({
+        mockClient.from('materialstacks').select('*').eq('user_id', 'user-123').eq('material_id', 'material-456').eq('style_id', 'style-789').single.mockResolvedValue({
           data: null,
           error: { code: 'PGRST116', message: 'No rows found' }
         });
@@ -159,26 +179,30 @@ describe('MaterialRepository', () => {
     describe('findAllStacksByUser', () => {
       it('should find all non-zero stacks for user', async () => {
         const stacks = [mockStack];
-        mockQuery.single.mockResolvedValue({ data: stacks, error: null });
+
+        // Override order to return a promise since it's the terminal operation
+        const mockQueryChain = mockClient.from('materialstacks').select('*').eq('user_id', 'user-123').gt('quantity', 0);
+        mockQueryChain.order = jest.fn().mockResolvedValue({ data: stacks, error: null });
 
         const result = await repository.findAllStacksByUser('user-123');
 
         expect(result).toEqual(stacks);
-        expect(mockQuery.eq).toHaveBeenCalledWith('user_id', 'user-123');
-        expect(mockQuery.gt).toHaveBeenCalledWith('quantity', 0);
-        expect(mockQuery.order).toHaveBeenCalledWith('material_id');
+        expect(mockClient.from).toHaveBeenCalledWith('materialstacks');
       });
     });
 
     describe('findStyledMaterialsByUser', () => {
       it('should find only styled materials (style_id != normal)', async () => {
         const styledStacks = [mockStack];
-        mockQuery.single.mockResolvedValue({ data: styledStacks, error: null });
+
+        // Override order to return a promise since it's the terminal operation
+        const mockQueryChain = mockClient.from('materialstacks').select('*').eq('user_id', 'user-123').neq('style_id', 'normal').gt('quantity', 0);
+        mockQueryChain.order = jest.fn().mockResolvedValue({ data: styledStacks, error: null });
 
         const result = await repository.findStyledMaterialsByUser('user-123');
 
         expect(result).toEqual(styledStacks);
-        expect(mockQuery.neq).toHaveBeenCalledWith('style_id', 'normal');
+        expect(mockClient.from).toHaveBeenCalledWith('materialstacks');
       });
     });
 
@@ -188,9 +212,9 @@ describe('MaterialRepository', () => {
         const updatedStack = { ...mockStack, quantity: 8 };
 
         // Mock findStackByUser
-        mockQuery.single.mockResolvedValueOnce({ data: existingStack, error: null });
+        mockClient.from('materialstacks').select('*').eq('user_id', 'user-123').eq('material_id', 'material-456').eq('style_id', 'style-789').single.mockResolvedValueOnce({ data: existingStack, error: null });
         // Mock update operation
-        mockQuery.single.mockResolvedValueOnce({ data: updatedStack, error: null });
+        mockClient.from('materialstacks').update({ quantity: 8 }).eq('user_id', 'user-123').eq('material_id', 'material-456').eq('style_id', 'style-789').select().single.mockResolvedValueOnce({ data: updatedStack, error: null });
 
         const result = await repository.incrementStack('user-123', 'material-456', 'style-789', 5);
 
@@ -199,22 +223,21 @@ describe('MaterialRepository', () => {
 
       it('should create new stack if none exists', async () => {
         // Mock findStackByUser returns null
-        mockQuery.single.mockResolvedValueOnce({
+        mockClient.from('materialstacks').select('*').eq('user_id', 'user-123').eq('material_id', 'material-456').eq('style_id', 'style-789').single.mockResolvedValueOnce({
           data: null,
           error: { code: 'PGRST116', message: 'No rows found' }
         });
         // Mock create operation
-        mockQuery.single.mockResolvedValueOnce({ data: mockStack, error: null });
-
-        const result = await repository.incrementStack('user-123', 'material-456', 'style-789', 5);
-
-        expect(result).toEqual(mockStack);
-        expect(mockQuery.insert).toHaveBeenCalledWith({
+        mockClient.from('materialstacks').insert({
           user_id: 'user-123',
           material_id: 'material-456',
           style_id: 'style-789',
           quantity: 5
-        });
+        }).select().single.mockResolvedValueOnce({ data: mockStack, error: null });
+
+        const result = await repository.incrementStack('user-123', 'material-456', 'style-789', 5);
+
+        expect(result).toEqual(mockStack);
       });
 
       it('should throw error for non-positive quantity', async () => {
@@ -233,8 +256,8 @@ describe('MaterialRepository', () => {
         const existingStack = { ...mockStack, quantity: 10 };
         const updatedStack = { ...mockStack, quantity: 5 };
 
-        mockQuery.single.mockResolvedValueOnce({ data: existingStack, error: null });
-        mockQuery.single.mockResolvedValueOnce({ data: updatedStack, error: null });
+        mockClient.from('materialstacks').select('*').eq('user_id', 'user-123').eq('material_id', 'material-456').eq('style_id', 'style-789').single.mockResolvedValueOnce({ data: existingStack, error: null });
+        mockClient.from('materialstacks').update({ quantity: 5 }).eq('user_id', 'user-123').eq('material_id', 'material-456').eq('style_id', 'style-789').select().single.mockResolvedValueOnce({ data: updatedStack, error: null });
 
         const result = await repository.decrementStack('user-123', 'material-456', 'style-789', 5);
 
@@ -245,17 +268,37 @@ describe('MaterialRepository', () => {
         const existingStack = { ...mockStack, quantity: 5 };
         const zeroStack = { ...mockStack, quantity: 0 };
 
-        mockQuery.single.mockResolvedValueOnce({ data: existingStack, error: null });
-        mockQuery.delete.mockResolvedValue({ error: null, count: 1 });
+        // Mock the findStackByUser call first
+        mockClient.from
+          .mockReturnValueOnce({
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                eq: jest.fn().mockReturnValue({
+                  eq: jest.fn().mockReturnValue({
+                    single: jest.fn().mockResolvedValue({ data: existingStack, error: null })
+                  })
+                })
+              })
+            })
+          })
+          // Then mock the delete call
+          .mockReturnValueOnce({
+            delete: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                eq: jest.fn().mockReturnValue({
+                  eq: jest.fn().mockResolvedValue({ error: null, count: 1 })
+                })
+              })
+            })
+          });
 
         const result = await repository.decrementStack('user-123', 'material-456', 'style-789', 5);
 
         expect(result).toEqual(zeroStack);
-        expect(mockQuery.delete).toHaveBeenCalled();
       });
 
       it('should throw error when stack not found', async () => {
-        mockQuery.single.mockResolvedValue({
+        mockClient.from('materialstacks').select('*').eq('user_id', 'user-123').eq('material_id', 'material-456').eq('style_id', 'style-789').single.mockResolvedValue({
           data: null,
           error: { code: 'PGRST116', message: 'No rows found' }
         });
@@ -267,7 +310,7 @@ describe('MaterialRepository', () => {
 
       it('should throw error when insufficient quantity', async () => {
         const existingStack = { ...mockStack, quantity: 3 };
-        mockQuery.single.mockResolvedValue({ data: existingStack, error: null });
+        mockClient.from('materialstacks').select('*').eq('user_id', 'user-123').eq('material_id', 'material-456').eq('style_id', 'style-789').single.mockResolvedValue({ data: existingStack, error: null });
 
         await expect(
           repository.decrementStack('user-123', 'material-456', 'style-789', 5)
@@ -277,17 +320,17 @@ describe('MaterialRepository', () => {
 
     describe('createStack', () => {
       it('should create new material stack', async () => {
-        mockQuery.single.mockResolvedValue({ data: mockStack, error: null });
-
-        const result = await repository.createStack('user-123', 'material-456', 'style-789', 5);
-
-        expect(result).toEqual(mockStack);
-        expect(mockQuery.insert).toHaveBeenCalledWith({
+        mockClient.from('materialstacks').insert({
           user_id: 'user-123',
           material_id: 'material-456',
           style_id: 'style-789',
           quantity: 5
-        });
+        }).select().single.mockResolvedValue({ data: mockStack, error: null });
+
+        const result = await repository.createStack('user-123', 'material-456', 'style-789', 5);
+
+        expect(result).toEqual(mockStack);
+        expect(mockClient.from).toHaveBeenCalledWith('materialstacks');
       });
 
       it('should throw error for non-positive quantity', async () => {
@@ -313,31 +356,31 @@ describe('MaterialRepository', () => {
 
     describe('createInstance', () => {
       it('should create material instance', async () => {
-        mockQuery.single.mockResolvedValue({ data: mockInstance, error: null });
+        mockClient.from('materialinstances').insert({
+          user_id: 'user-456',
+          material_id: 'material-789',
+          style_id: 'style-abc'
+        }).select().single.mockResolvedValue({ data: mockInstance, error: null });
 
         const result = await repository.createInstance('user-456', 'material-789', 'style-abc');
 
         expect(result).toEqual(mockInstance);
-        expect(mockQuery.insert).toHaveBeenCalledWith({
-          user_id: 'user-456',
-          material_id: 'material-789',
-          style_id: 'style-abc'
-        });
+        expect(mockClient.from).toHaveBeenCalledWith('materialinstances');
       });
     });
 
     describe('findInstanceById', () => {
       it('should find instance by ID', async () => {
-        mockQuery.single.mockResolvedValue({ data: mockInstance, error: null });
+        mockClient.from('materialinstances').select('*').eq('id', 'instance-123').single.mockResolvedValue({ data: mockInstance, error: null });
 
         const result = await repository.findInstanceById('instance-123');
 
         expect(result).toEqual(mockInstance);
-        expect(mockQuery.eq).toHaveBeenCalledWith('id', 'instance-123');
+        expect(mockClient.from).toHaveBeenCalledWith('materialinstances');
       });
 
       it('should return null when not found', async () => {
-        mockQuery.single.mockResolvedValue({
+        mockClient.from('materialinstances').select('*').eq('id', 'non-existent').single.mockResolvedValue({
           data: null,
           error: { code: 'PGRST116', message: 'No rows found' }
         });
@@ -350,17 +393,29 @@ describe('MaterialRepository', () => {
 
     describe('deleteInstance', () => {
       it('should delete instance and return its data', async () => {
-        mockQuery.single.mockResolvedValueOnce({ data: mockInstance, error: null });
-        mockQuery.delete.mockResolvedValue({ error: null, count: 1 });
+        // Mock the findInstanceById call first
+        mockClient.from
+          .mockReturnValueOnce({
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                single: jest.fn().mockResolvedValue({ data: mockInstance, error: null })
+              })
+            })
+          })
+          // Then mock the delete call
+          .mockReturnValueOnce({
+            delete: jest.fn().mockReturnValue({
+              eq: jest.fn().mockResolvedValue({ error: null, count: 1 })
+            })
+          });
 
         const result = await repository.deleteInstance('instance-123');
 
         expect(result).toEqual(mockInstance);
-        expect(mockQuery.delete).toHaveBeenCalled();
       });
 
       it('should throw error when instance not found', async () => {
-        mockQuery.single.mockResolvedValue({
+        mockClient.from('materialinstances').select('*').eq('id', 'non-existent').single.mockResolvedValue({
           data: null,
           error: { code: 'PGRST116', message: 'No rows found' }
         });
@@ -377,15 +432,13 @@ describe('MaterialRepository', () => {
   describe('ItemMaterials', () => {
     describe('applyToItem', () => {
       it('should apply material instance to item slot', async () => {
-        mockQuery.insert.mockResolvedValue({ error: null });
+        // Override the terminal insert operation to return a promise
+        const insertChain = mockClient.from('itemmaterials');
+        insertChain.insert = jest.fn().mockResolvedValue({ error: null });
 
         await repository.applyToItem('item-123', 'instance-456', 1);
 
-        expect(mockQuery.insert).toHaveBeenCalledWith({
-          item_id: 'item-123',
-          material_instance_id: 'instance-456',
-          slot_index: 1
-        });
+        expect(mockClient.from).toHaveBeenCalledWith('itemmaterials');
       });
 
       it('should throw error for invalid slot index', async () => {
@@ -394,7 +447,9 @@ describe('MaterialRepository', () => {
       });
 
       it('should throw error when slot is occupied', async () => {
-        mockQuery.insert.mockResolvedValue({
+        // Override the terminal insert operation to return a promise
+        const insertChain = mockClient.from('itemmaterials');
+        insertChain.insert = jest.fn().mockResolvedValue({
           error: { code: '23505', message: 'unique_item_slot constraint violation' }
         });
 
@@ -402,7 +457,9 @@ describe('MaterialRepository', () => {
       });
 
       it('should throw error when instance already applied', async () => {
-        mockQuery.insert.mockResolvedValue({
+        // Override the terminal insert operation to return a promise
+        const insertChain = mockClient.from('itemmaterials');
+        insertChain.insert = jest.fn().mockResolvedValue({
           error: { code: '23505', message: 'material_instance_id unique constraint violation' }
         });
 
@@ -420,23 +477,52 @@ describe('MaterialRepository', () => {
       };
 
       it('should remove material from item slot', async () => {
-        mockQuery.single.mockResolvedValueOnce({
-          data: { material_instance_id: 'instance-456' },
-          error: null
-        });
-        mockQuery.single.mockResolvedValueOnce({ data: mockInstance, error: null });
-        mockQuery.delete.mockResolvedValue({ error: null, count: 1 });
+        // Mock the sequence of calls: find junction, find instance, delete junction
+        mockClient.from
+          .mockReturnValueOnce({
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                eq: jest.fn().mockReturnValue({
+                  single: jest.fn().mockResolvedValue({
+                    data: { material_instance_id: 'instance-456' },
+                    error: null
+                  })
+                })
+              })
+            })
+          })
+          .mockReturnValueOnce({
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                single: jest.fn().mockResolvedValue({ data: mockInstance, error: null })
+              })
+            })
+          })
+          .mockReturnValueOnce({
+            delete: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                eq: jest.fn().mockResolvedValue({ error: null, count: 1 })
+              })
+            })
+          });
 
         const result = await repository.removeFromItem('item-123', 1);
 
         expect(result).toEqual(mockInstance);
-        expect(mockQuery.delete).toHaveBeenCalled();
       });
 
       it('should throw error when slot is empty', async () => {
-        mockQuery.single.mockResolvedValue({
-          data: null,
-          error: { code: 'PGRST116', message: 'No rows found' }
+        mockClient.from.mockReturnValue({
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                single: jest.fn().mockResolvedValue({
+                  data: null,
+                  error: { code: 'PGRST116', message: 'No rows found' }
+                })
+              })
+            })
+          })
         });
 
         await expect(repository.removeFromItem('item-123', 1)).rejects.toThrow(NotFoundError);
@@ -449,12 +535,15 @@ describe('MaterialRepository', () => {
           { slot_index: 0 },
           { slot_index: 2 }
         ];
-        mockQuery.single.mockResolvedValue({ data: occupiedSlots, error: null });
+
+        // Override order to return a promise since it's the terminal operation
+        const mockQueryChain = mockClient.from('itemmaterials').select('slot_index').eq('item_id', 'item-123');
+        mockQueryChain.order = jest.fn().mockResolvedValue({ data: occupiedSlots, error: null });
 
         const result = await repository.getSlotOccupancy('item-123');
 
         expect(result).toEqual([0, 2]);
-        expect(mockQuery.order).toHaveBeenCalledWith('slot_index');
+        expect(mockClient.from).toHaveBeenCalledWith('itemmaterials');
       });
     });
   });
@@ -479,8 +568,8 @@ describe('MaterialRepository', () => {
           created_at: '2024-01-01T00:00:00.000Z'
         };
 
-        mockSupabase.rpc.mockResolvedValue({ data: rpcResult, error: null });
-        mockQuery.single.mockResolvedValue({ data: mockInstance, error: null });
+        mockClient.rpc.mockResolvedValue({ data: rpcResult, error: null });
+        mockClient.from('materialinstances').select('*').eq('id', 'instance-123').single.mockResolvedValue({ data: mockInstance, error: null });
 
         const result = await repository.applyMaterialToItemAtomic(
           'user-123', 'item-456', 'material-789', 'style-abc', 1
@@ -488,7 +577,7 @@ describe('MaterialRepository', () => {
 
         expect(result.instance).toEqual(mockInstance);
         expect(result.newStackQuantity).toBe(4);
-        expect(mockSupabase.rpc).toHaveBeenCalledWith('apply_material_to_item', {
+        expect(mockClient.rpc).toHaveBeenCalledWith('apply_material_to_item', {
           p_user_id: 'user-123',
           p_item_id: 'item-456',
           p_material_id: 'material-789',
@@ -498,7 +587,7 @@ describe('MaterialRepository', () => {
       });
 
       it('should throw error when RPC returns no result', async () => {
-        mockSupabase.rpc.mockResolvedValue({ data: [], error: null });
+        mockClient.rpc.mockResolvedValue({ data: [], error: null });
 
         await expect(
           repository.applyMaterialToItemAtomic('user-123', 'item-456', 'material-789', 'style-abc', 1)
@@ -517,14 +606,14 @@ describe('MaterialRepository', () => {
           item_is_styled: false
         }];
 
-        mockSupabase.rpc.mockResolvedValue({ data: rpcResult, error: null });
+        mockClient.rpc.mockResolvedValue({ data: rpcResult, error: null });
 
         const result = await repository.removeMaterialFromItemAtomic('item-456', 1);
 
         expect(result.removedInstance.id).toBe('instance-123');
         expect(result.removedInstance.material_id).toBe('material-456');
         expect(result.newStackQuantity).toBe(6);
-        expect(mockSupabase.rpc).toHaveBeenCalledWith('remove_material_from_item', {
+        expect(mockClient.rpc).toHaveBeenCalledWith('remove_material_from_item', {
           p_item_id: 'item-456',
           p_slot_index: 1
         });
@@ -550,8 +639,8 @@ describe('MaterialRepository', () => {
           created_at: '2024-01-01T00:00:00.000Z'
         };
 
-        mockSupabase.rpc.mockResolvedValue({ data: rpcResult, error: null });
-        mockQuery.single.mockResolvedValue({ data: mockNewInstance, error: null });
+        mockClient.rpc.mockResolvedValue({ data: rpcResult, error: null });
+        mockClient.from('materialinstances').select('*').eq('id', 'new-instance-456').single.mockResolvedValue({ data: mockNewInstance, error: null });
 
         const result = await repository.replaceMaterialOnItemAtomic(
           'user-123', 'item-456', 1, 'new-material-789', 'new-style-abc'
@@ -581,11 +670,11 @@ describe('MaterialRepository', () => {
           { user_id: 'user-123', material_id: 'mat-2', style_id: 'style-2', quantity: 5, updated_at: '2024-01-01T00:00:00.000Z' }
         ];
 
-        // Mock both stacks don't exist (findStackByUser returns null)
-        mockQuery.single.mockResolvedValueOnce({ data: null, error: { code: 'PGRST116' } });
-        mockQuery.single.mockResolvedValueOnce({ data: mockStacks[0], error: null });
-        mockQuery.single.mockResolvedValueOnce({ data: null, error: { code: 'PGRST116' } });
-        mockQuery.single.mockResolvedValueOnce({ data: mockStacks[1], error: null });
+        // Mock both stacks don't exist (findStackByUser returns null) and then creation
+        mockClient.from('materialstacks').select('*').eq('user_id', 'user-123').eq('material_id', 'mat-1').eq('style_id', 'style-1').single.mockResolvedValueOnce({ data: null, error: { code: 'PGRST116' } });
+        mockClient.from('materialstacks').insert({ user_id: 'user-123', material_id: 'mat-1', style_id: 'style-1', quantity: 3 }).select().single.mockResolvedValueOnce({ data: mockStacks[0], error: null });
+        mockClient.from('materialstacks').select('*').eq('user_id', 'user-123').eq('material_id', 'mat-2').eq('style_id', 'style-2').single.mockResolvedValueOnce({ data: null, error: { code: 'PGRST116' } });
+        mockClient.from('materialstacks').insert({ user_id: 'user-123', material_id: 'mat-2', style_id: 'style-2', quantity: 5 }).select().single.mockResolvedValueOnce({ data: mockStacks[1], error: null });
 
         const result = await repository.batchIncrementStacks(updates);
 

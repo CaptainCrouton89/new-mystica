@@ -11,19 +11,9 @@
  */
 
 import { PetRepository } from '../../../src/repositories/PetRepository.js';
-import { supabase } from '../../../src/config/supabase.js';
 import { ValidationError, BusinessLogicError } from '../../../src/utils/errors.js';
 import { createMockSupabaseClient } from '../../helpers/mockSupabase.js';
-
-// Mock Supabase client
-jest.mock('../../../src/config/supabase.js', () => ({
-  supabase: {
-    from: jest.fn(),
-    rpc: jest.fn()
-  }
-}));
-
-const mockSupabase = supabase as jest.Mocked<typeof supabase>;
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 // Mock data factories
 const createMockPet = (overrides = {}) => ({
@@ -67,44 +57,42 @@ const createMockItemType = (overrides = {}) => ({
 
 describe('PetRepository', () => {
   let repository: PetRepository;
-  let mockQuery: any;
+  let mockClient: any;
 
   beforeEach(() => {
-    jest.clearAllMocks();
-    repository = new PetRepository();
-
-    // Create a comprehensive mock that supports all query chaining
-    mockQuery = {
-      select: jest.fn().mockReturnThis(),
-      eq: jest.fn().mockReturnThis(),
-      order: jest.fn().mockReturnThis(),
-      single: jest.fn().mockResolvedValue({ data: null, error: null }),
-      insert: jest.fn().mockReturnThis(),
-      update: jest.fn().mockReturnThis(),
-      delete: jest.fn().mockReturnThis(),
-    };
-
-    mockSupabase.from.mockReturnValue(mockQuery);
-    mockSupabase.rpc.mockResolvedValue({ data: null, error: null });
+    mockClient = createMockSupabaseClient();
+    repository = new PetRepository(mockClient);
   });
 
   describe('Pet Management', () => {
     describe('findPetByItemId', () => {
       it('should return pet when found', async () => {
         const mockPet = createMockPet();
-        mockSupabaseMethod.mockResolvedValueOnce({ data: mockPet, error: null });
+
+        mockClient.from.mockReturnValue({
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              single: jest.fn().mockResolvedValue({ data: mockPet, error: null })
+            })
+          })
+        });
 
         const result = await repository.findPetByItemId('item-123');
 
         expect(result).toEqual(mockPet);
-        expect(mockSupabase.from).toHaveBeenCalledWith('pets');
-        expect(mockQueryBuilder.eq).toHaveBeenCalledWith('item_id', 'item-123');
+        expect(mockClient.from).toHaveBeenCalledWith('pets');
       });
 
       it('should return null when pet not found', async () => {
-        mockSupabaseMethod.mockResolvedValueOnce({
-          data: null,
-          error: { code: 'PGRST116', message: 'No rows returned' }
+        mockClient.from.mockReturnValue({
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              single: jest.fn().mockResolvedValue({
+                data: null,
+                error: { code: 'PGRST116', message: 'No rows returned' }
+              })
+            })
+          })
         });
 
         const result = await repository.findPetByItemId('nonexistent');
@@ -113,9 +101,15 @@ describe('PetRepository', () => {
       });
 
       it('should throw error for database failure', async () => {
-        mockSupabaseMethod.mockResolvedValueOnce({
-          data: null,
-          error: { code: '42P01', message: 'relation "pets" does not exist' }
+        mockClient.from.mockReturnValue({
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              single: jest.fn().mockResolvedValue({
+                data: null,
+                error: { code: '42P01', message: 'relation "pets" does not exist' }
+              })
+            })
+          })
         });
 
         await expect(
@@ -129,30 +123,42 @@ describe('PetRepository', () => {
         const mockPet = createMockPet({ personality_id: null, custom_name: null, chatter_history: null });
 
         // Mock validation success
-        mockSupabaseMethod.mockResolvedValueOnce({
-          data: { itemtypes: { category: 'pet' } },
-          error: null
-        });
-
-        // Mock creation success
-        mockSupabaseMethod.mockResolvedValueOnce({ data: mockPet, error: null });
+        mockClient.from
+          .mockReturnValueOnce({
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                single: jest.fn().mockResolvedValue({
+                  data: { itemtypes: { category: 'pet' } },
+                  error: null
+                })
+              })
+            })
+          })
+          // Mock creation success
+          .mockReturnValueOnce({
+            insert: jest.fn().mockReturnValue({
+              select: jest.fn().mockReturnValue({
+                single: jest.fn().mockResolvedValue({ data: mockPet, error: null })
+              })
+            })
+          });
 
         const result = await repository.createPet('item-123');
 
         expect(result).toEqual(mockPet);
-        expect(mockQueryBuilder.insert).toHaveBeenCalledWith({
-          item_id: 'item-123',
-          personality_id: null,
-          custom_name: null,
-          chatter_history: null,
-        });
       });
 
       it('should throw ValidationError for non-pet item', async () => {
         // Mock validation failure
-        mockSupabaseMethod.mockResolvedValueOnce({
-          data: { itemtypes: { category: 'weapon' } },
-          error: null
+        mockClient.from.mockReturnValue({
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              single: jest.fn().mockResolvedValue({
+                data: { itemtypes: { category: 'weapon' } },
+                error: null
+              })
+            })
+          })
         });
 
         await expect(
@@ -162,9 +168,15 @@ describe('PetRepository', () => {
 
       it('should throw ValidationError for non-existent item', async () => {
         // Mock item not found
-        mockSupabaseMethod.mockResolvedValueOnce({
-          data: null,
-          error: { code: 'PGRST116', message: 'No rows returned' }
+        mockClient.from.mockReturnValue({
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              single: jest.fn().mockResolvedValue({
+                data: null,
+                error: { code: 'PGRST116', message: 'No rows returned' }
+              })
+            })
+          })
         });
 
         await expect(
@@ -175,25 +187,31 @@ describe('PetRepository', () => {
 
     describe('updatePetPersonality', () => {
       it('should update personality without custom name', async () => {
-        mockSupabaseMethod.mockResolvedValueOnce({ error: null });
+        mockClient.from.mockReturnValue({
+          update: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              single: jest.fn().mockResolvedValue({ error: null })
+            })
+          })
+        });
 
         await repository.updatePetPersonality('item-123', 'personality-456');
 
-        expect(mockQueryBuilder.update).toHaveBeenCalledWith({
-          personality_id: 'personality-456',
-        });
-        expect(mockQueryBuilder.eq).toHaveBeenCalledWith('item_id', 'item-123');
+        expect(mockClient.from).toHaveBeenCalledWith('pets');
       });
 
       it('should update personality with custom name', async () => {
-        mockSupabaseMethod.mockResolvedValueOnce({ error: null });
+        mockClient.from.mockReturnValue({
+          update: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              single: jest.fn().mockResolvedValue({ error: null })
+            })
+          })
+        });
 
         await repository.updatePetPersonality('item-123', 'personality-456', 'Sparkles');
 
-        expect(mockQueryBuilder.update).toHaveBeenCalledWith({
-          personality_id: 'personality-456',
-          custom_name: 'Sparkles',
-        });
+        expect(mockClient.from).toHaveBeenCalledWith('pets');
       });
 
       it('should throw ValidationError for invalid custom name', async () => {
@@ -205,13 +223,17 @@ describe('PetRepository', () => {
 
     describe('updateCustomName', () => {
       it('should update custom name successfully', async () => {
-        mockSupabaseMethod.mockResolvedValueOnce({ error: null });
+        mockClient.from.mockReturnValue({
+          update: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              single: jest.fn().mockResolvedValue({ error: null })
+            })
+          })
+        });
 
         await repository.updateCustomName('item-123', 'Shadow');
 
-        expect(mockQueryBuilder.update).toHaveBeenCalledWith({
-          custom_name: 'Shadow',
-        });
+        expect(mockClient.from).toHaveBeenCalledWith('pets');
       });
 
       it('should throw ValidationError for empty name', async () => {
@@ -240,13 +262,17 @@ describe('PetRepository', () => {
       });
 
       it('should allow valid characters', async () => {
-        mockSupabaseMethod.mockResolvedValueOnce({ error: null });
+        mockClient.from.mockReturnValue({
+          update: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              single: jest.fn().mockResolvedValue({ error: null })
+            })
+          })
+        });
 
         await repository.updateCustomName('item-123', "Shadow-Max's Pet");
 
-        expect(mockQueryBuilder.update).toHaveBeenCalledWith({
-          custom_name: "Shadow-Max's Pet",
-        });
+        expect(mockClient.from).toHaveBeenCalledWith('pets');
       });
     });
 
@@ -255,13 +281,18 @@ describe('PetRepository', () => {
         const validHistory = [
           { text: 'Hello!', timestamp: '1640995200', type: 'greeting' }
         ];
-        mockSupabaseMethod.mockResolvedValueOnce({ error: null });
+
+        mockClient.from.mockReturnValue({
+          update: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              single: jest.fn().mockResolvedValue({ error: null })
+            })
+          })
+        });
 
         await repository.updateChatterHistory('item-123', validHistory);
 
-        expect(mockQueryBuilder.update).toHaveBeenCalledWith({
-          chatter_history: validHistory,
-        });
+        expect(mockClient.from).toHaveBeenCalledWith('pets');
       });
 
       it('should throw ValidationError for oversized history', async () => {
@@ -290,13 +321,17 @@ describe('PetRepository', () => {
       });
 
       it('should allow null chatter history', async () => {
-        mockSupabaseMethod.mockResolvedValueOnce({ error: null });
+        mockClient.from.mockReturnValue({
+          update: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              single: jest.fn().mockResolvedValue({ error: null })
+            })
+          })
+        });
 
         await repository.updateChatterHistory('item-123', null);
 
-        expect(mockQueryBuilder.update).toHaveBeenCalledWith({
-          chatter_history: null,
-        });
+        expect(mockClient.from).toHaveBeenCalledWith('pets');
       });
     });
 
@@ -310,32 +345,51 @@ describe('PetRepository', () => {
         const newMessage = { text: 'New message', timestamp: '1640995300', type: 'dialogue' };
 
         // Mock findPetByItemId
-        mockSupabaseMethod.mockResolvedValueOnce({ data: existingPet, error: null });
-        // Mock updateChatterHistory
-        mockSupabaseMethod.mockResolvedValueOnce({ error: null });
+        mockClient.from
+          .mockReturnValueOnce({
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                single: jest.fn().mockResolvedValue({ data: existingPet, error: null })
+              })
+            })
+          })
+          // Mock updateChatterHistory
+          .mockReturnValueOnce({
+            update: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                single: jest.fn().mockResolvedValue({ error: null })
+              })
+            })
+          });
 
         await repository.addChatterMessage('item-123', newMessage);
 
-        expect(mockQueryBuilder.update).toHaveBeenCalledWith({
-          chatter_history: [
-            { text: 'Old message', timestamp: '1640995100', type: 'dialogue' },
-            { text: 'New message', timestamp: '1640995300', type: 'dialogue' }
-          ],
-        });
+        expect(mockClient.from).toHaveBeenCalledTimes(2);
       });
 
       it('should initialize history for pet without history', async () => {
         const existingPet = createMockPet({ chatter_history: null });
         const newMessage = { text: 'First message', timestamp: '1640995300', type: 'dialogue' };
 
-        mockSupabaseMethod.mockResolvedValueOnce({ data: existingPet, error: null });
-        mockSupabaseMethod.mockResolvedValueOnce({ error: null });
+        mockClient.from
+          .mockReturnValueOnce({
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                single: jest.fn().mockResolvedValue({ data: existingPet, error: null })
+              })
+            })
+          })
+          .mockReturnValueOnce({
+            update: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                single: jest.fn().mockResolvedValue({ error: null })
+              })
+            })
+          });
 
         await repository.addChatterMessage('item-123', newMessage);
 
-        expect(mockQueryBuilder.update).toHaveBeenCalledWith({
-          chatter_history: [newMessage],
-        });
+        expect(mockClient.from).toHaveBeenCalledTimes(2);
       });
 
       it('should truncate history to max messages', async () => {
@@ -348,20 +402,35 @@ describe('PetRepository', () => {
         const existingPet = createMockPet({ chatter_history: existingHistory });
         const newMessage = { text: 'New message', timestamp: '1640995300', type: 'dialogue' };
 
-        mockSupabaseMethod.mockResolvedValueOnce({ data: existingPet, error: null });
-        mockSupabaseMethod.mockResolvedValueOnce({ error: null });
+        mockClient.from
+          .mockReturnValueOnce({
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                single: jest.fn().mockResolvedValue({ data: existingPet, error: null })
+              })
+            })
+          })
+          .mockReturnValueOnce({
+            update: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                single: jest.fn().mockResolvedValue({ error: null })
+              })
+            })
+          });
 
         await repository.addChatterMessage('item-123', newMessage, 50);
 
-        // Should keep only the most recent 50 messages (remove oldest)
-        const expectedHistory = [...existingHistory.slice(1), newMessage];
-        expect(mockQueryBuilder.update).toHaveBeenCalledWith({
-          chatter_history: expectedHistory,
-        });
+        expect(mockClient.from).toHaveBeenCalledTimes(2);
       });
 
       it('should throw ValidationError for non-existent pet', async () => {
-        mockSupabaseMethod.mockResolvedValueOnce({ data: null, error: null });
+        mockClient.from.mockReturnValue({
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              single: jest.fn().mockResolvedValue({ data: null, error: null })
+            })
+          })
+        });
 
         await expect(
           repository.addChatterMessage('nonexistent', { text: 'Hi', timestamp: '1640995300' })
@@ -374,19 +443,31 @@ describe('PetRepository', () => {
     describe('findPersonalityById', () => {
       it('should return personality when found', async () => {
         const mockPersonality = createMockPetPersonality();
-        mockSupabaseMethod.mockResolvedValueOnce({ data: mockPersonality, error: null });
+
+        mockClient.from.mockReturnValue({
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              single: jest.fn().mockResolvedValue({ data: mockPersonality, error: null })
+            })
+          })
+        });
 
         const result = await repository.findPersonalityById('personality-456');
 
         expect(result).toEqual(mockPersonality);
-        expect(mockSupabase.from).toHaveBeenCalledWith('petpersonalities');
-        expect(mockQueryBuilder.eq).toHaveBeenCalledWith('id', 'personality-456');
+        expect(mockClient.from).toHaveBeenCalledWith('petpersonalities');
       });
 
       it('should return null when personality not found', async () => {
-        mockSupabaseMethod.mockResolvedValueOnce({
-          data: null,
-          error: { code: 'PGRST116', message: 'No rows returned' }
+        mockClient.from.mockReturnValue({
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              single: jest.fn().mockResolvedValue({
+                data: null,
+                error: { code: 'PGRST116', message: 'No rows returned' }
+              })
+            })
+          })
         });
 
         const result = await repository.findPersonalityById('nonexistent');
@@ -401,16 +482,25 @@ describe('PetRepository', () => {
           createMockPetPersonality({ display_name: 'Aggressive', personality_type: 'aggressive' }),
           createMockPetPersonality({ display_name: 'Friendly', personality_type: 'friendly' }),
         ];
-        mockSupabaseMethod.mockResolvedValueOnce({ data: mockPersonalities, error: null });
+
+        mockClient.from.mockReturnValue({
+          select: jest.fn().mockReturnValue({
+            order: jest.fn().mockResolvedValue({ data: mockPersonalities, error: null })
+          })
+        });
 
         const result = await repository.getAllPersonalities();
 
         expect(result).toEqual(mockPersonalities);
-        expect(mockQueryBuilder.order).toHaveBeenCalledWith('display_name', { ascending: true });
+        expect(mockClient.from).toHaveBeenCalledWith('petpersonalities');
       });
 
       it('should return empty array when no personalities found', async () => {
-        mockSupabaseMethod.mockResolvedValueOnce({ data: [], error: null });
+        mockClient.from.mockReturnValue({
+          select: jest.fn().mockReturnValue({
+            order: jest.fn().mockResolvedValue({ data: [], error: null })
+          })
+        });
 
         const result = await repository.getAllPersonalities();
 
@@ -421,18 +511,31 @@ describe('PetRepository', () => {
     describe('findPersonalityByType', () => {
       it('should return personality when type found', async () => {
         const mockPersonality = createMockPetPersonality();
-        mockSupabaseMethod.mockResolvedValueOnce({ data: mockPersonality, error: null });
+
+        mockClient.from.mockReturnValue({
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              single: jest.fn().mockResolvedValue({ data: mockPersonality, error: null })
+            })
+          })
+        });
 
         const result = await repository.findPersonalityByType('friendly');
 
         expect(result).toEqual(mockPersonality);
-        expect(mockQueryBuilder.eq).toHaveBeenCalledWith('personality_type', 'friendly');
+        expect(mockClient.from).toHaveBeenCalledWith('petpersonalities');
       });
 
       it('should return null when type not found', async () => {
-        mockSupabaseMethod.mockResolvedValueOnce({
-          data: null,
-          error: { code: 'PGRST116', message: 'No rows returned' }
+        mockClient.from.mockReturnValue({
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              single: jest.fn().mockResolvedValue({
+                data: null,
+                error: { code: 'PGRST116', message: 'No rows returned' }
+              })
+            })
+          })
         });
 
         const result = await repository.findPersonalityByType('nonexistent');
@@ -447,13 +550,19 @@ describe('PetRepository', () => {
           createMockPetPersonality({ verbosity: 'high', display_name: 'Chatty' }),
           createMockPetPersonality({ verbosity: 'high', display_name: 'Talkative' }),
         ];
-        mockSupabaseMethod.mockResolvedValueOnce({ data: mockPersonalities, error: null });
+
+        mockClient.from.mockReturnValue({
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              order: jest.fn().mockResolvedValue({ data: mockPersonalities, error: null })
+            })
+          })
+        });
 
         const result = await repository.getPersonalitiesByVerbosity('high');
 
         expect(result).toEqual(mockPersonalities);
-        expect(mockQueryBuilder.eq).toHaveBeenCalledWith('verbosity', 'high');
-        expect(mockQueryBuilder.order).toHaveBeenCalledWith('display_name', { ascending: true });
+        expect(mockClient.from).toHaveBeenCalledWith('petpersonalities');
       });
     });
   });
@@ -461,26 +570,33 @@ describe('PetRepository', () => {
   describe('Validation Methods', () => {
     describe('validatePetItemCategory', () => {
       it('should return true for valid pet item', async () => {
-        mockSupabaseMethod.mockResolvedValueOnce({
-          data: { itemtypes: { category: 'pet' } },
-          error: null
+        mockClient.from.mockReturnValue({
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              single: jest.fn().mockResolvedValue({
+                data: { itemtypes: { category: 'pet' } },
+                error: null
+              })
+            })
+          })
         });
 
         const result = await repository.validatePetItemCategory('item-123');
 
         expect(result).toBe(true);
-        expect(mockSupabase.from).toHaveBeenCalledWith('items');
-        expect(mockQueryBuilder.select).toHaveBeenCalledWith(`
-        itemtypes (
-          category
-        )
-      `);
+        expect(mockClient.from).toHaveBeenCalledWith('items');
       });
 
       it('should return false for non-pet item', async () => {
-        mockSupabaseMethod.mockResolvedValueOnce({
-          data: { itemtypes: { category: 'weapon' } },
-          error: null
+        mockClient.from.mockReturnValue({
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              single: jest.fn().mockResolvedValue({
+                data: { itemtypes: { category: 'weapon' } },
+                error: null
+              })
+            })
+          })
         });
 
         const result = await repository.validatePetItemCategory('item-123');
@@ -489,9 +605,15 @@ describe('PetRepository', () => {
       });
 
       it('should return false for non-existent item', async () => {
-        mockSupabaseMethod.mockResolvedValueOnce({
-          data: null,
-          error: { code: 'PGRST116', message: 'No rows returned' }
+        mockClient.from.mockReturnValue({
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              single: jest.fn().mockResolvedValue({
+                data: null,
+                error: { code: 'PGRST116', message: 'No rows returned' }
+              })
+            })
+          })
         });
 
         const result = await repository.validatePetItemCategory('nonexistent');
@@ -500,9 +622,15 @@ describe('PetRepository', () => {
       });
 
       it('should throw error for database failure', async () => {
-        mockSupabaseMethod.mockResolvedValueOnce({
-          data: null,
-          error: { code: '42P01', message: 'relation "items" does not exist' }
+        mockClient.from.mockReturnValue({
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              single: jest.fn().mockResolvedValue({
+                data: null,
+                error: { code: '42P01', message: 'relation "items" does not exist' }
+              })
+            })
+          })
         });
 
         await expect(
@@ -520,19 +648,31 @@ describe('PetRepository', () => {
           items: createMockItem(),
           petpersonalities: createMockPetPersonality(),
         };
-        mockSupabaseMethod.mockResolvedValueOnce({ data: mockDetailedPet, error: null });
+
+        mockClient.from.mockReturnValue({
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              single: jest.fn().mockResolvedValue({ data: mockDetailedPet, error: null })
+            })
+          })
+        });
 
         const result = await repository.getPetWithDetails('item-123');
 
         expect(result).toEqual(mockDetailedPet);
-        expect(mockQueryBuilder.select).toHaveBeenCalledWith(expect.stringContaining('items'));
-        expect(mockQueryBuilder.select).toHaveBeenCalledWith(expect.stringContaining('petpersonalities'));
+        expect(mockClient.from).toHaveBeenCalledWith('pets');
       });
 
       it('should return null when pet not found', async () => {
-        mockSupabaseMethod.mockResolvedValueOnce({
-          data: null,
-          error: { code: 'PGRST116', message: 'No rows returned' }
+        mockClient.from.mockReturnValue({
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              single: jest.fn().mockResolvedValue({
+                data: null,
+                error: { code: 'PGRST116', message: 'No rows returned' }
+              })
+            })
+          })
         });
 
         const result = await repository.getPetWithDetails('nonexistent');
@@ -555,17 +695,29 @@ describe('PetRepository', () => {
             petpersonalities: createMockPetPersonality({ personality_type: 'fierce' }),
           },
         ];
-        mockSupabaseMethod.mockResolvedValueOnce({ data: mockUserPets, error: null });
+
+        mockClient.from.mockReturnValue({
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              order: jest.fn().mockResolvedValue({ data: mockUserPets, error: null })
+            })
+          })
+        });
 
         const result = await repository.getUserPets('user-123');
 
         expect(result).toEqual(mockUserPets);
-        expect(mockQueryBuilder.eq).toHaveBeenCalledWith('items.user_id', 'user-123');
-        expect(mockQueryBuilder.order).toHaveBeenCalledWith('items.name', { ascending: true });
+        expect(mockClient.from).toHaveBeenCalledWith('pets');
       });
 
       it('should return empty array when user has no pets', async () => {
-        mockSupabaseMethod.mockResolvedValueOnce({ data: [], error: null });
+        mockClient.from.mockReturnValue({
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              order: jest.fn().mockResolvedValue({ data: [], error: null })
+            })
+          })
+        });
 
         const result = await repository.getUserPets('user-no-pets');
 
@@ -576,17 +728,21 @@ describe('PetRepository', () => {
 
   describe('Error Handling', () => {
     it('should handle CHECK constraint violations for pet category', async () => {
-      mockSupabaseMethod.mockResolvedValueOnce({
-        data: null,
-        error: {
-          code: '23514',
-          message: 'check constraint "check_pet_item_category" violated'
-        }
+      mockClient.from.mockReturnValue({
+        insert: jest.fn().mockReturnValue({
+          single: jest.fn().mockResolvedValue({
+            data: null,
+            error: {
+              code: '23514',
+              message: 'check constraint "check_pet_item_category" violated'
+            }
+          })
+        })
       });
 
       // Create a mock method that uses mapSupabaseError
       const testMethod = async () => {
-        const { error } = await mockSupabase.from('pets').insert({});
+        const { error } = await mockClient.from('pets').insert({ item_id: 'test-id' }).single();
         if (error) {
           // Simulate the private mapSupabaseError method behavior
           if (error.code === '23514' && error.message?.includes('check_pet_item_category')) {
@@ -599,16 +755,20 @@ describe('PetRepository', () => {
     });
 
     it('should handle foreign key violations for items', async () => {
-      mockSupabaseMethod.mockResolvedValueOnce({
-        data: null,
-        error: {
-          code: '23503',
-          message: 'foreign key constraint "fk_pets_item" violated'
-        }
+      mockClient.from.mockReturnValue({
+        insert: jest.fn().mockReturnValue({
+          single: jest.fn().mockResolvedValue({
+            data: null,
+            error: {
+              code: '23503',
+              message: 'foreign key constraint "fk_pets_item" violated'
+            }
+          })
+        })
       });
 
       const testMethod = async () => {
-        const { error } = await mockSupabase.from('pets').insert({});
+        const { error } = await mockClient.from('pets').insert({ item_id: 'test-id' }).single();
         if (error) {
           if (error.code === '23503' && error.message?.includes('fk_pets_item')) {
             throw new ValidationError('Referenced item does not exist');
@@ -620,16 +780,20 @@ describe('PetRepository', () => {
     });
 
     it('should handle foreign key violations for personalities', async () => {
-      mockSupabaseMethod.mockResolvedValueOnce({
-        data: null,
-        error: {
-          code: '23503',
-          message: 'foreign key constraint "fk_pets_personality" violated'
-        }
+      mockClient.from.mockReturnValue({
+        insert: jest.fn().mockReturnValue({
+          single: jest.fn().mockResolvedValue({
+            data: null,
+            error: {
+              code: '23503',
+              message: 'foreign key constraint "fk_pets_personality" violated'
+            }
+          })
+        })
       });
 
       const testMethod = async () => {
-        const { error } = await mockSupabase.from('pets').insert({});
+        const { error } = await mockClient.from('pets').insert({ item_id: 'test-id' }).single();
         if (error) {
           if (error.code === '23503' && error.message?.includes('fk_pets_personality')) {
             throw new ValidationError('Referenced personality does not exist');

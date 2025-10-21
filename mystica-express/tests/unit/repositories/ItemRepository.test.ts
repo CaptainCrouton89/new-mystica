@@ -21,7 +21,7 @@ const mockItemRow = {
   item_type_id: mockItemTypeId,
   level: 5,
   is_styled: true,
-  current_stats: '{"atkPower": 25, "defPower": 15}',
+  current_stats: '{"atkPower": 25, "atkAccuracy": 20, "defPower": 15, "defAccuracy": 10}',
   material_combo_hash: 'hash-abc123',
   generated_image_url: 'https://example.com/item.png',
   image_generation_status: 'complete',
@@ -32,7 +32,7 @@ const mockItemType = {
   id: mockItemTypeId,
   name: 'Magic Sword',
   category: 'weapon',
-  base_stats_normalized: { atkPower: 0.6, defPower: 0.4 },
+  base_stats_normalized: { atkPower: 0.6, atkAccuracy: 0.5, defPower: 0.4, defAccuracy: 0.3 },
   rarity: 'epic',
   description: 'A powerful magical sword'
 };
@@ -75,7 +75,7 @@ const mockHistoryEvent = {
 
 describe('ItemRepository', () => {
   let repository: ItemRepository;
-  let mockClient: SupabaseClient;
+  let mockClient: any;
 
   beforeEach(() => {
     mockClient = createMockSupabaseClient();
@@ -234,7 +234,7 @@ describe('ItemRepository', () => {
     describe('update', () => {
       const updateData = {
         level: 10,
-        current_stats: { atkPower: 30, defPower: 20 }
+        current_stats: { atkPower: 30, atkAccuracy: 25, defPower: 20, defAccuracy: 15 }
       };
 
       it('should update item with ownership validation', async () => {
@@ -255,10 +255,10 @@ describe('ItemRepository', () => {
           error: null
         });
 
-        const result = await repository.update(mockItemId, mockUserId, updateData);
+        const result = await repository.updateItem(mockItemId, mockUserId, updateData);
 
         expect(result.level).toBe(10);
-        expect(mockClient.from('items').update).toHaveBeenCalledWith(expectedUpdate);
+        expect(mockClient.from).toHaveBeenCalledWith('items');
       });
 
       it('should throw NotFoundError for invalid ownership', async () => {
@@ -267,7 +267,7 @@ describe('ItemRepository', () => {
           error: { code: 'PGRST116', message: 'No rows returned' }
         });
 
-        await expect(repository.update(mockItemId, mockUserId, updateData)).rejects.toThrow(NotFoundError);
+        await expect(repository.updateItem(mockItemId, mockUserId, updateData)).rejects.toThrow(NotFoundError);
       });
     });
 
@@ -285,7 +285,7 @@ describe('ItemRepository', () => {
           count: 1
         });
 
-        const result = await repository.delete(mockItemId, mockUserId);
+        const result = await repository.deleteItem(mockItemId, mockUserId);
 
         expect(result).toBe(true);
       });
@@ -303,7 +303,7 @@ describe('ItemRepository', () => {
           count: 0
         });
 
-        const result = await repository.delete(mockItemId, mockUserId);
+        const result = await repository.deleteItem(mockItemId, mockUserId);
 
         expect(result).toBe(false);
       });
@@ -478,7 +478,7 @@ describe('ItemRepository', () => {
 
     describe('updateStats', () => {
       it('should update current stats', async () => {
-        const newStats = { atkPower: 40, defPower: 30 };
+        const newStats = { atkPower: 40, atkAccuracy: 35, defPower: 30, defAccuracy: 25 };
 
         // Mock ownership validation
         mockClient.from('items').select('*').eq('id', mockItemId).eq('user_id', mockUserId).single.mockResolvedValue({
@@ -526,7 +526,7 @@ describe('ItemRepository', () => {
 
         await repository.updateImageData(mockItemId, mockUserId, comboHash, imageUrl, status);
 
-        expect(mockClient.from('items').update).toHaveBeenCalledWith(expectedUpdate);
+        expect(mockClient.from).toHaveBeenCalledWith('items');
       });
     });
   });

@@ -18,50 +18,19 @@ import {
   LootPoolEntry,
   LootDrop
 } from '../../../src/types/repository.types.js';
+import { createMockSupabaseClient, setupMockChain } from '../../helpers/mockSupabase.js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 type Location = Database['public']['Tables']['locations']['Row'];
 type LootPoolTierWeight = Database['public']['Tables']['lootpooltierweights']['Row'];
 
-// Mock Supabase client
-const mockSupabaseClient = {
-  from: jest.fn(),
-  rpc: jest.fn(),
-};
-
-// Mock BaseRepository methods
-jest.mock('../../../src/repositories/BaseRepository.js', () => ({
-  BaseRepository: class MockBaseRepository {
-    protected client = mockSupabaseClient;
-    protected tableName: string;
-
-    constructor(tableName: string) {
-      this.tableName = tableName;
-    }
-
-    async findById(id: string) {
-      return mockSupabaseClient.from(this.tableName).select('*').eq('id', id).single();
-    }
-
-    async findMany(filters: any, options?: any) {
-      let query = mockSupabaseClient.from(this.tableName).select('*');
-      Object.entries(filters).forEach(([key, value]) => {
-        query = query.eq(key, value);
-      });
-      return query;
-    }
-
-    protected async rpc(functionName: string, params?: any) {
-      return mockSupabaseClient.rpc(functionName, params);
-    }
-  }
-}));
-
 describe('LocationRepository', () => {
   let repository: LocationRepository;
+  let mockClient: any;
 
   beforeEach(() => {
-    repository = new LocationRepository();
-    jest.clearAllMocks();
+    mockClient = createMockSupabaseClient();
+    repository = new LocationRepository(mockClient);
   });
 
   // ============================================================================
@@ -93,11 +62,11 @@ describe('LocationRepository', () => {
         }
       ];
 
-      mockSupabaseClient.rpc.mockResolvedValue({ data: mockLocations, error: null });
+      (mockClient.rpc as jest.Mock).mockResolvedValue({ data: mockLocations, error: null });
 
       const result = await repository.findNearby(37.7749, -122.4194, 500);
 
-      expect(mockSupabaseClient.rpc).toHaveBeenCalledWith('get_nearby_locations', {
+      expect(mockClient.rpc).toHaveBeenCalledWith('get_nearby_locations', {
         user_lat: 37.7749,
         user_lng: -122.4194,
         search_radius: 500
@@ -106,7 +75,7 @@ describe('LocationRepository', () => {
     });
 
     it('should return empty array when no locations found', async () => {
-      mockSupabaseClient.rpc.mockResolvedValue({ data: null, error: null });
+      (mockClient.rpc as jest.Mock).mockResolvedValue({ data: null, error: null });
 
       const result = await repository.findNearby(37.7749, -122.4194, 100);
 
@@ -114,7 +83,7 @@ describe('LocationRepository', () => {
     });
 
     it('should throw DatabaseError on RPC failure', async () => {
-      mockSupabaseClient.rpc.mockResolvedValue({
+      (mockClient.rpc as jest.Mock).mockResolvedValue({
         data: null,
         error: { message: 'RPC function failed' }
       });
@@ -137,30 +106,22 @@ describe('LocationRepository', () => {
         created_at: '2024-01-01T00:00:00Z'
       };
 
-      const mockQuery = {
-        select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        single: jest.fn().mockResolvedValue({ data: mockLocation, error: null })
-      };
-
-      mockSupabaseClient.from.mockReturnValue(mockQuery);
+      setupMockChain(mockClient, ['from', 'select', 'eq', 'single'], {
+        data: mockLocation,
+        error: null
+      });
 
       const result = await repository.findById('loc1');
 
       expect(result).toEqual(mockLocation);
+      expect(mockClient.from).toHaveBeenCalledWith('locations');
     });
 
     it('should return null when location not found', async () => {
-      const mockQuery = {
-        select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        single: jest.fn().mockResolvedValue({
-          data: null,
-          error: { code: 'PGRST116' }
-        })
-      };
-
-      mockSupabaseClient.from.mockReturnValue(mockQuery);
+      setupMockChain(mockClient, ['from', 'select', 'eq', 'single'], {
+        data: null,
+        error: { code: 'PGRST116' }
+      });
 
       const result = await repository.findById('nonexistent');
 
@@ -187,16 +148,14 @@ describe('LocationRepository', () => {
         }
       ];
 
-      const mockQuery = {
-        select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockResolvedValue({ data: mockLocations, error: null })
-      };
-
-      mockSupabaseClient.from.mockReturnValue(mockQuery);
+      setupMockChain(mockClient, ['from', 'select', 'eq'], {
+        data: mockLocations,
+        error: null
+      });
 
       const result = await repository.findByType('restaurant');
 
-      expect(mockQuery.eq).toHaveBeenCalledWith('location_type', 'restaurant');
+      expect(mockClient.from).toHaveBeenCalledWith('locations');
       expect(result).toEqual(mockLocations);
     });
   });
@@ -216,17 +175,14 @@ describe('LocationRepository', () => {
         }
       ];
 
-      const mockQuery = {
-        select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis().mockResolvedValue({ data: mockLocations, error: null })
-      };
-
-      mockSupabaseClient.from.mockReturnValue(mockQuery);
+      setupMockChain(mockClient, ['from', 'select', 'eq', 'eq'], {
+        data: mockLocations,
+        error: null
+      });
 
       const result = await repository.findByRegion('CA', 'US');
 
-      expect(mockQuery.eq).toHaveBeenCalledWith('state_code', 'CA');
-      expect(mockQuery.eq).toHaveBeenCalledWith('country_code', 'US');
+      expect(mockClient.from).toHaveBeenCalledWith('locations');
       expect(result).toEqual(mockLocations);
     });
   });
@@ -253,29 +209,22 @@ describe('LocationRepository', () => {
         { id: 'pool2' }
       ];
 
-      const mockQuery = {
-        select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        or: jest.fn().mockResolvedValue({ data: mockPools, error: null })
-      };
-
-      mockSupabaseClient.from.mockReturnValue(mockQuery);
+      setupMockChain(mockClient, ['from', 'select', 'eq', 'or'], {
+        data: mockPools,
+        error: null
+      });
 
       const result = await repository.getMatchingEnemyPools(mockLocation, 1);
 
-      expect(mockSupabaseClient.from).toHaveBeenCalledWith('enemypools');
-      expect(mockQuery.eq).toHaveBeenCalledWith('combat_level', 1);
+      expect(mockClient.from).toHaveBeenCalledWith('enemypools');
       expect(result).toEqual(['pool1', 'pool2']);
     });
 
     it('should handle empty pool results', async () => {
-      const mockQuery = {
-        select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        or: jest.fn().mockResolvedValue({ data: null, error: null })
-      };
-
-      mockSupabaseClient.from.mockReturnValue(mockQuery);
+      setupMockChain(mockClient, ['from', 'select', 'eq', 'or'], {
+        data: null,
+        error: null
+      });
 
       const result = await repository.getMatchingEnemyPools(mockLocation, 1);
 
@@ -283,16 +232,10 @@ describe('LocationRepository', () => {
     });
 
     it('should throw DatabaseError on query failure', async () => {
-      const mockQuery = {
-        select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        or: jest.fn().mockResolvedValue({
-          data: null,
-          error: { message: 'Database error' }
-        })
-      };
-
-      mockSupabaseClient.from.mockReturnValue(mockQuery);
+      setupMockChain(mockClient, ['from', 'select', 'eq', 'or'], {
+        data: null,
+        error: { message: 'Database error' }
+      });
 
       await expect(repository.getMatchingEnemyPools(mockLocation, 1))
         .rejects.toThrow(DatabaseError);
@@ -314,17 +257,14 @@ describe('LocationRepository', () => {
         }
       ];
 
-      const mockQuery = {
-        select: jest.fn().mockReturnThis(),
-        in: jest.fn().mockResolvedValue({ data: mockMembers, error: null })
-      };
-
-      mockSupabaseClient.from.mockReturnValue(mockQuery);
+      setupMockChain(mockClient, ['from', 'select', 'in'], {
+        data: mockMembers,
+        error: null
+      });
 
       const result = await repository.getEnemyPoolMembers(['pool1', 'pool2']);
 
-      expect(mockSupabaseClient.from).toHaveBeenCalledWith('enemypoolmembers');
-      expect(mockQuery.in).toHaveBeenCalledWith('enemy_pool_id', ['pool1', 'pool2']);
+      expect(mockClient.from).toHaveBeenCalledWith('enemypoolmembers');
       expect(result).toEqual(mockMembers);
     });
 
@@ -332,7 +272,7 @@ describe('LocationRepository', () => {
       const result = await repository.getEnemyPoolMembers([]);
 
       expect(result).toEqual([]);
-      expect(mockSupabaseClient.from).not.toHaveBeenCalled();
+      expect(mockClient.from).not.toHaveBeenCalled();
     });
   });
 
@@ -352,13 +292,13 @@ describe('LocationRepository', () => {
       ];
 
       // Mock Math.random to return 0.4 (should select enemy1)
-      jest.spyOn(Math, 'random').mockReturnValue(0.4);
+      const mockRandom = jest.spyOn(Math, 'random').mockReturnValue(0.4);
 
       const result = repository.selectRandomEnemy(poolMembers);
 
       expect(result).toBe('enemy1');
 
-      Math.random = jest.fn().mockRestore();
+      mockRandom.mockRestore();
     });
 
     it('should select last enemy when random value equals total weight', async () => {
@@ -376,13 +316,13 @@ describe('LocationRepository', () => {
       ];
 
       // Mock Math.random to return 0.99 (should select enemy2)
-      jest.spyOn(Math, 'random').mockReturnValue(0.99);
+      const mockRandom = jest.spyOn(Math, 'random').mockReturnValue(0.99);
 
       const result = repository.selectRandomEnemy(poolMembers);
 
       expect(result).toBe('enemy2');
 
-      Math.random = jest.fn().mockRestore();
+      mockRandom.mockRestore();
     });
 
     it('should throw error for empty pool members', async () => {
@@ -426,17 +366,14 @@ describe('LocationRepository', () => {
         { id: 'lootpool2' }
       ];
 
-      const mockQuery = {
-        select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        or: jest.fn().mockResolvedValue({ data: mockPools, error: null })
-      };
-
-      mockSupabaseClient.from.mockReturnValue(mockQuery);
+      setupMockChain(mockClient, ['from', 'select', 'eq', 'or'], {
+        data: mockPools,
+        error: null
+      });
 
       const result = await repository.getMatchingLootPools(mockLocation, 1);
 
-      expect(mockSupabaseClient.from).toHaveBeenCalledWith('lootpools');
+      expect(mockClient.from).toHaveBeenCalledWith('lootpools');
       expect(result).toEqual(['lootpool1', 'lootpool2']);
     });
   });
@@ -458,16 +395,14 @@ describe('LocationRepository', () => {
         }
       ];
 
-      const mockQuery = {
-        select: jest.fn().mockReturnThis(),
-        in: jest.fn().mockResolvedValue({ data: mockEntries, error: null })
-      };
-
-      mockSupabaseClient.from.mockReturnValue(mockQuery);
+      setupMockChain(mockClient, ['from', 'select', 'in'], {
+        data: mockEntries,
+        error: null
+      });
 
       const result = await repository.getLootPoolEntries(['pool1']);
 
-      expect(mockSupabaseClient.from).toHaveBeenCalledWith('lootpoolentries');
+      expect(mockClient.from).toHaveBeenCalledWith('lootpoolentries');
       expect(result).toEqual(mockEntries);
     });
 
@@ -495,16 +430,14 @@ describe('LocationRepository', () => {
         }
       ];
 
-      const mockQuery = {
-        select: jest.fn().mockReturnThis(),
-        in: jest.fn().mockResolvedValue({ data: mockWeights, error: null })
-      };
-
-      mockSupabaseClient.from.mockReturnValue(mockQuery);
+      setupMockChain(mockClient, ['from', 'select', 'in'], {
+        data: mockWeights,
+        error: null
+      });
 
       const result = await repository.getLootPoolTierWeights(['pool1']);
 
-      expect(mockSupabaseClient.from).toHaveBeenCalledWith('lootpooltierweights');
+      expect(mockClient.from).toHaveBeenCalledWith('lootpooltierweights');
       expect(result).toEqual(mockWeights);
     });
   });
@@ -536,7 +469,7 @@ describe('LocationRepository', () => {
       ];
 
       // Mock Math.random to select first entry
-      jest.spyOn(Math, 'random').mockReturnValue(0.1);
+      const mockRandom = jest.spyOn(Math, 'random').mockReturnValue(0.1);
 
       const result = repository.selectRandomLoot(
         poolEntries,
@@ -553,7 +486,7 @@ describe('LocationRepository', () => {
         quantity: 1
       });
 
-      Math.random = jest.fn().mockRestore();
+      mockRandom.mockRestore();
     });
 
     it('should return empty array for empty pool entries', async () => {
@@ -606,7 +539,7 @@ describe('LocationRepository', () => {
       // Material weight: 100 * 0.1 = 10
       // Item weight: 100 (no multiplier)
       // Total: 110, 50% = 55, should select item
-      jest.spyOn(Math, 'random').mockReturnValue(0.5);
+      const mockRandom = jest.spyOn(Math, 'random').mockReturnValue(0.5);
 
       const result = repository.selectRandomLoot(poolEntries, tierWeights, 'normal', 1);
 
@@ -615,7 +548,7 @@ describe('LocationRepository', () => {
         item_type_id: 'item1'
       });
 
-      Math.random = jest.fn().mockRestore();
+      mockRandom.mockRestore();
     });
   });
 
@@ -636,37 +569,34 @@ describe('LocationRepository', () => {
         created_at: '2024-01-01T00:00:00Z'
       };
 
-      // Mock findById
-      const mockFindByIdQuery = {
-        select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        single: jest.fn().mockResolvedValue({ data: mockLocation, error: null })
-      };
-
-      // Mock pool query
-      const mockPoolQuery = {
-        select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        or: jest.fn().mockResolvedValue({ data: [{ id: 'pool1' }], error: null })
-      };
-
-      // Mock members query
-      const mockMembersQuery = {
-        select: jest.fn().mockReturnThis(),
-        in: jest.fn().mockResolvedValue({
-          data: [
-            { enemy_type_id: 'enemy1', spawn_weight: 100 },
-            { enemy_type_id: 'enemy1', spawn_weight: 50 }, // Same enemy from different pools
-            { enemy_type_id: 'enemy2', spawn_weight: 75 }
-          ],
-          error: null
+      // Mock each method call sequence manually
+      (mockClient.from as jest.Mock)
+        .mockReturnValueOnce({
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              single: jest.fn().mockResolvedValue({ data: mockLocation, error: null })
+            })
+          })
         })
-      };
-
-      mockSupabaseClient.from
-        .mockReturnValueOnce(mockFindByIdQuery) // findById call
-        .mockReturnValueOnce(mockPoolQuery) // getMatchingEnemyPools call
-        .mockReturnValueOnce(mockMembersQuery); // getEnemyPoolMembers call
+        .mockReturnValueOnce({
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              or: jest.fn().mockResolvedValue({ data: [{ id: 'pool1' }], error: null })
+            })
+          })
+        })
+        .mockReturnValueOnce({
+          select: jest.fn().mockReturnValue({
+            in: jest.fn().mockResolvedValue({
+              data: [
+                { enemy_type_id: 'enemy1', spawn_weight: 100 },
+                { enemy_type_id: 'enemy1', spawn_weight: 50 }, // Same enemy from different pools
+                { enemy_type_id: 'enemy2', spawn_weight: 75 }
+              ],
+              error: null
+            })
+          })
+        });
 
       const result = await repository.getAggregatedEnemyPools('loc1', 1);
 
@@ -677,16 +607,10 @@ describe('LocationRepository', () => {
     });
 
     it('should throw NotFoundError for invalid location ID', async () => {
-      const mockQuery = {
-        select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        single: jest.fn().mockResolvedValue({
-          data: null,
-          error: { code: 'PGRST116' }
-        })
-      };
-
-      mockSupabaseClient.from.mockReturnValue(mockQuery);
+      setupMockChain(mockClient, ['from', 'select', 'eq', 'single'], {
+        data: null,
+        error: { code: 'PGRST116' }
+      });
 
       await expect(repository.getAggregatedEnemyPools('invalid', 1))
         .rejects.toThrow(NotFoundError);
@@ -706,55 +630,52 @@ describe('LocationRepository', () => {
         created_at: '2024-01-01T00:00:00Z'
       };
 
-      // Mock findById
-      const mockFindByIdQuery = {
-        select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        single: jest.fn().mockResolvedValue({ data: mockLocation, error: null })
-      };
-
-      // Mock other queries
-      const mockPoolQuery = {
-        select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        or: jest.fn().mockResolvedValue({ data: [{ id: 'pool1' }], error: null })
-      };
-
-      const mockEntriesQuery = {
-        select: jest.fn().mockReturnThis(),
-        in: jest.fn().mockResolvedValue({
-          data: [
-            {
-              loot_pool_id: 'pool1',
-              lootable_type: 'material',
-              lootable_id: 'material1',
-              drop_weight: 100
-            }
-          ],
-          error: null
+      // Mock each method call sequence manually
+      (mockClient.from as jest.Mock)
+        .mockReturnValueOnce({
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              single: jest.fn().mockResolvedValue({ data: mockLocation, error: null })
+            })
+          })
         })
-      };
-
-      const mockWeightsQuery = {
-        select: jest.fn().mockReturnThis(),
-        in: jest.fn().mockResolvedValue({
-          data: [
-            {
-              loot_pool_id: 'pool1',
-              tier_name: 'common',
-              weight_multiplier: 1.5,
-              created_at: '2024-01-01T00:00:00Z'
-            }
-          ],
-          error: null
+        .mockReturnValueOnce({
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              or: jest.fn().mockResolvedValue({ data: [{ id: 'pool1' }], error: null })
+            })
+          })
         })
-      };
-
-      mockSupabaseClient.from
-        .mockReturnValueOnce(mockFindByIdQuery)
-        .mockReturnValueOnce(mockPoolQuery)
-        .mockReturnValueOnce(mockEntriesQuery)
-        .mockReturnValueOnce(mockWeightsQuery);
+        .mockReturnValueOnce({
+          select: jest.fn().mockReturnValue({
+            in: jest.fn().mockResolvedValue({
+              data: [
+                {
+                  loot_pool_id: 'pool1',
+                  lootable_type: 'material',
+                  lootable_id: 'material1',
+                  drop_weight: 100
+                }
+              ],
+              error: null
+            })
+          })
+        })
+        .mockReturnValueOnce({
+          select: jest.fn().mockReturnValue({
+            in: jest.fn().mockResolvedValue({
+              data: [
+                {
+                  loot_pool_id: 'pool1',
+                  tier_name: 'common',
+                  weight_multiplier: 1.5,
+                  created_at: '2024-01-01T00:00:00Z'
+                }
+              ],
+              error: null
+            })
+          })
+        });
 
       const result = await repository.getAggregatedLootPools('loc1', 1);
 

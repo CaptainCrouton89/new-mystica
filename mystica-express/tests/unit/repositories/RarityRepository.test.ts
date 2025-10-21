@@ -12,35 +12,33 @@
 
 import { RarityRepository } from '../../../src/repositories/RarityRepository.js';
 import { DatabaseError, ValidationError } from '../../../src/utils/errors.js';
-
-// Mock Supabase client
-const mockSupabase = {
-  from: jest.fn(),
-  rpc: jest.fn()
-};
-
-// Mock query builder
-const mockQuery = {
-  select: jest.fn().mockReturnThis(),
-  eq: jest.fn().mockReturnThis(),
-  gte: jest.fn().mockReturnThis(),
-  lte: jest.fn().mockReturnThis(),
-  order: jest.fn().mockReturnThis(),
-  single: jest.fn().mockReturnThis(),
-  insert: jest.fn().mockReturnThis(),
-  update: jest.fn().mockReturnThis(),
-  delete: jest.fn().mockReturnThis()
-};
+import { createMockSupabaseClient } from '../../helpers/mockSupabase.js';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 describe('RarityRepository', () => {
   let repository: RarityRepository;
+  let mockClient: any;
+  let mockQuery: any;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    repository = new RarityRepository();
-    // Override the client with our mock
-    (repository as any).client = mockSupabase;
-    mockSupabase.from.mockReturnValue(mockQuery);
+    mockClient = createMockSupabaseClient();
+    repository = new RarityRepository(mockClient as SupabaseClient);
+
+    // Create mock query builder that supports chaining
+    mockQuery = {
+      select: jest.fn().mockReturnThis(),
+      eq: jest.fn().mockReturnThis(),
+      gte: jest.fn().mockReturnThis(),
+      lte: jest.fn().mockReturnThis(),
+      order: jest.fn().mockReturnThis(),
+      single: jest.fn().mockReturnThis(),
+      insert: jest.fn().mockReturnThis(),
+      update: jest.fn().mockReturnThis(),
+      delete: jest.fn().mockReturnThis()
+    };
+
+    mockClient.from.mockReturnValue(mockQuery);
   });
 
   // ============================================================================
@@ -63,7 +61,7 @@ describe('RarityRepository', () => {
 
         const result = await repository.findRarityByName('rare');
 
-        expect(mockSupabase.from).toHaveBeenCalledWith('raritydefinitions');
+        expect(mockClient.from).toHaveBeenCalledWith('raritydefinitions');
         expect(mockQuery.select).toHaveBeenCalledWith('*');
         expect(mockQuery.eq).toHaveBeenCalledWith('rarity', 'rare');
         expect(mockQuery.single).toHaveBeenCalled();
@@ -197,7 +195,7 @@ describe('RarityRepository', () => {
 
         const result = await repository.findMaterialTier('mat-123');
 
-        expect(mockSupabase.from).toHaveBeenCalledWith('v_material_tiers');
+        expect(mockClient.from).toHaveBeenCalledWith('v_material_tiers');
         expect(mockQuery.select).toHaveBeenCalledWith('material_id, abs_sum, tier_name');
         expect(mockQuery.eq).toHaveBeenCalledWith('material_id', 'mat-123');
         expect(mockQuery.single).toHaveBeenCalled();
@@ -236,7 +234,7 @@ describe('RarityRepository', () => {
         mockQuery.single.mockImplementation(() => {
           throw new Error('Should not call single');
         });
-        mockSupabase.from.mockReturnValue({
+        mockClient.from.mockReturnValue({
           ...mockQuery,
           single: undefined
         });
@@ -244,7 +242,7 @@ describe('RarityRepository', () => {
 
         const result = await repository.getAllMaterialTiers();
 
-        expect(mockSupabase.from).toHaveBeenCalledWith('materialstrengthtiers');
+        expect(mockClient.from).toHaveBeenCalledWith('materialstrengthtiers');
         expect(mockQuery.select).toHaveBeenCalledWith('*');
         expect(mockQuery.order).toHaveBeenCalledWith('min_abs_sum', { ascending: true });
         expect(result).toEqual(mockTiers);
@@ -310,7 +308,7 @@ describe('RarityRepository', () => {
 
         const result = await repository.findTierForAbsSum(15.0);
 
-        expect(mockSupabase.from).toHaveBeenCalledWith('materialstrengthtiers');
+        expect(mockClient.from).toHaveBeenCalledWith('materialstrengthtiers');
         expect(mockQuery.select).toHaveBeenCalledWith('tier_name');
         expect(mockQuery.gte).toHaveBeenCalledWith('max_abs_sum', 15.0);
         expect(mockQuery.lte).toHaveBeenCalledWith('min_abs_sum', 15.0);
@@ -374,7 +372,7 @@ describe('RarityRepository', () => {
 
         const result = await repository.getMaterialsByTier('medium');
 
-        expect(mockSupabase.from).toHaveBeenCalledWith('v_material_tiers');
+        expect(mockClient.from).toHaveBeenCalledWith('v_material_tiers');
         expect(mockQuery.select).toHaveBeenCalledWith('material_id, abs_sum, tier_name');
         expect(mockQuery.eq).toHaveBeenCalledWith('tier_name', 'medium');
         expect(mockQuery.order).toHaveBeenCalledWith('abs_sum', { ascending: false });
@@ -406,7 +404,7 @@ describe('RarityRepository', () => {
 
         const result = await repository.getTierDistribution();
 
-        expect(mockSupabase.from).toHaveBeenCalledWith('v_material_tiers');
+        expect(mockClient.from).toHaveBeenCalledWith('v_material_tiers');
         expect(mockQuery.select).toHaveBeenCalledWith('tier_name');
         expect(mockQuery.order).toHaveBeenCalledWith('tier_name');
         expect(result).toEqual({
