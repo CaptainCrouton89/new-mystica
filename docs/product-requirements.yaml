@@ -53,7 +53,7 @@ features:
     status: "planned"
 
   - id: "F-04"
-    description: "Materials System - Collectible materials that modify item stats (max 3 per item), with normal and styled variants, replaceable for gold"
+    description: "Materials System - Collectible materials that modify item stats (max 3 per item, hard limit), with normal and styled variants, removable for gold (100 × item level). Global image cache with craft count tracking."
     priority: "critical"
     status: "planned"
 
@@ -78,12 +78,12 @@ features:
     status: "planned"
 
   - id: "F-09"
-    description: "Inventory Management - View, organize, and equip collected items and pets"
+    description: "Inventory Management - View, filter, and sort all owned items; equip/unequip items to 8 equipment slots; save up to 5 loadout configurations for quick switching (post-MVP)"
     priority: "high"
     status: "planned"
 
   - id: "F-10"
-    description: "Premium Items - Special single-location items available through premium currency"
+    description: "Premium Items & Monetization - Multi-currency system (GOLD active, GEMS reserved for future IAP); premium item catalog and special content (placeholder spec - IAP not yet implemented)"
     priority: "medium"
     status: "planned"
 
@@ -96,6 +96,72 @@ features:
     description: "Enemy AI Personality System - AI-powered enemy personalities that generate contextual trash-talk during combat based on enemy type, game state, and player history (attempts, win/loss record, streaks)"
     priority: "high"
     status: "planned"
+
+  - id: "F-13"
+    description: "Progression Balance & Endgame Content - Long-term progression with soft level caps, prestige/rebirth system, additional gold sinks, and endgame achievement goals"
+    priority: "medium"
+    status: "planned"
+
+core_systems:
+  economy:
+    currencies:
+      - code: GOLD
+        status: active
+        description: "Primary currency earned from combat, quests, achievements"
+        sources: "Combat victories (avg 50 gold), daily quests (200 gold), achievements (500-2000 gold)"
+        sinks: "Item upgrades (100-5000 gold), material replacement (50-1250 gold), cosmetic features (250-5000 gold)"
+
+      - code: GEMS
+        status: reserved
+        description: "Premium currency reserved for future in-app purchases"
+        sources: "IAP (not yet implemented)"
+        sinks: "Premium items, cosmetics, convenience features (not yet implemented)"
+
+    ledger:
+      table: EconomyTransactions
+      description: "All currency changes audited for inflation tracking and abuse detection"
+      track: "Every gold/gem change with source, amount, balance snapshot"
+
+  progression:
+    player_levels:
+      table: PlayerProgression
+      description: "Account-level XP and level system separate from item levels"
+      xp_sources: "Combat, quests, achievements, milestones"
+      soft_cap: "Level 50 - exponential scaling beyond (1.5x multiplier per level)"
+      max_level: "100 (theoretical, near-impossible)"
+
+    prestige:
+      status: post-MVP
+      description: "Reset level to 1, keep items, earn permanent gold bonus"
+      requirement: "Level 50+"
+      max_prestige: 10
+      bonus: "5% permanent gold bonus per prestige rank"
+
+    vanity_level:
+      description: "Sum of all equipped item levels (cached, trigger-maintained)"
+      purpose: "Visual progression indicator, achievement milestones"
+
+  notifications:
+    push:
+      table: DeviceTokens
+      platforms: ["iOS", "Android", "web"]
+      triggers: "Styled material collected, daily quest available, friend activity"
+
+    in_game:
+      types: "Level up, achievement unlocked, combat victory, material drop"
+
+  analytics:
+    tutorial_funnel:
+      events: ["tutorial_started", "tutorial_completed", "first_combat", "first_upgrade", "first_craft"]
+      purpose: "Measure onboarding conversion and identify drop-off points"
+
+    progression_tracking:
+      events: ["xp_gained", "level_up", "prestige_activated"]
+      purpose: "Monitor player advancement and engagement"
+
+    economy_monitoring:
+      events: ["currency_balance_changed", "item_upgraded", "material_replaced"]
+      purpose: "Track gold flow, inflation, and spending patterns"
 
 technical_constraints:
   platforms:
@@ -163,6 +229,21 @@ success_metrics:
   - metric: "Upgrade Engagement"
     target: "Average 2+ item upgrades per active user per day"
 
+  - metric: "Currency Inflation Rate"
+    target: "Gold supply growth < 10% per month (economy balance)"
+
+  - metric: "Tutorial Completion Rate"
+    target: "60%+ of registered users complete tutorial"
+
+  - metric: "First Combat Conversion"
+    target: "80%+ of tutorial completers engage in first combat within 5 minutes"
+
+  - metric: "Loadout Usage"
+    target: "40%+ of level 20+ players create at least one loadout"
+
+  - metric: "Prestige Adoption"
+    target: "20%+ of level 50+ players prestige at least once"
+
 notes: |
   Core gameplay loop:
   1. Navigate to real-world location using map
@@ -184,9 +265,15 @@ notes: |
   Material System Details:
   - Base items have normalized stats: {atkPower, atkAccuracy, defPower, defAccuracy} sum to 1.0
   - Materials apply modifiers like +0.2 atkPower, -0.1 defSpeed (must sum to 0)
-  - Max 3 materials per item (prevents excessive stacking)
-  - Materials can be replaced for gold cost (old material destroyed)
+  - Max 3 materials per item (hard limit, absolute maximum)
+  - Materials can be removed for gold (100 × item level), returns to stack
+  - To replace: remove old material + apply new material (two operations)
   - Styled materials: visual variants with normal stat effectiveness
+  - Image generation: 20s sync for MVP, async with crafting times in later MVP
+  - Global ItemImageCache stores combo images with craft_count tracking
+  - Material Rarity: Auto-classified into strength tiers (common/uncommon/rare/epic) based on stat modifier magnitude (not a stored property)
+  - Drop Frequency: Tier-based system controls how often materials drop per location using tier multipliers (common=1.0, epic=0.15)
+  - Level Gating: Inappropriate materials (e.g., Hello Kitty) excluded from early-level pools, unlocked at higher levels
 
   Combat Mechanics:
   - Attack dial: Timing determines damage multiplier (atkAccuracy = hit window size)
@@ -196,5 +283,30 @@ notes: |
 
   Progression Systems:
   - Item levels: Spend gold to level up items (stats scale proportionally)
-  - Vanity level: Increases based on total item levels across all items
+  - Vanity level: Sum of all equipped item levels (8 slots), cached and trigger-maintained
+  - Player level: Separate XP-based progression tracked in PlayerProgression table
   - Enemy difficulty: Scales dynamically to player's average item level
+
+  Economy & Progression Details:
+  - Multi-currency system: GOLD (active), GEMS (reserved for IAP)
+  - All currency changes tracked via EconomyTransactions ledger
+  - Player progression separate from item levels (PlayerProgression table)
+  - XP formula: Linear to level 50, exponential beyond (soft cap)
+  - Prestige system (post-MVP): Reset to level 1, keep items, +5% gold bonus per rank
+  - Gold sinks: Item upgrades, material replacement, cosmetics, loadout expansion, fast travel
+  - Economy balance: ~1000-2000 gold/day income, major sinks 1000-5000 gold
+
+  Inventory & Equipment:
+  - 8 equipment slots: weapon, offhand, head, armor, feet, accessory_1, accessory_2, pet
+  - Loadout system (post-MVP): Save up to 5 equipment configurations
+  - Quick loadout switching for different playstyles (combat, farming, exploration)
+  - Inventory filtering by slot type, sorting by level/rarity/date
+  - No inventory size limit in MVP (soft cap post-MVP)
+
+  Endgame Content (Post-MVP):
+  - Combat Mastery: Defeat each enemy type 100 times
+  - Collection Completion: Obtain all 26 item types and all style variants
+  - Vanity Milestone: Reach vanity level 500
+  - Gold Hoarder: Accumulate 100,000 gold
+  - Prestige Ranks: Reach prestige level 5-10
+  - Seasonal leaderboards and challenges
