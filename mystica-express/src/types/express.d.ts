@@ -20,12 +20,17 @@ declare namespace Express {
      *
      * Set by auth middleware after successful JWT token validation.
      * Will be undefined for unauthenticated requests or when using optional auth.
+     * Supports both email-based and device-based (anonymous) users.
      */
     user?: {
       /** Supabase user ID (UUID format) */
       id: string;
-      /** User's email address */
-      email: string;
+      /** User's email address (null for anonymous users) */
+      email: string | null;
+      /** Device ID for anonymous users (null for email users) */
+      device_id?: string | null;
+      /** Account type: 'email' or 'anonymous' */
+      account_type?: 'email' | 'anonymous';
     };
 
     /**

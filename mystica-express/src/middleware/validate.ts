@@ -65,7 +65,7 @@ export const validate = (config: ValidationConfig) => {
       // Validate query parameters
       if (config.query) {
         try {
-          req.query = config.query.parse(req.query);
+          req.query = config.query.parse(req.query) as any;
         } catch (error) {
           if (error instanceof ZodError) {
             errors.push(...formatZodErrors(error, 'query'));
@@ -81,7 +81,7 @@ export const validate = (config: ValidationConfig) => {
       // Validate route parameters
       if (config.params) {
         try {
-          req.params = config.params.parse(req.params);
+          req.params = config.params.parse(req.params) as any;
         } catch (error) {
           if (error instanceof ZodError) {
             errors.push(...formatZodErrors(error, 'params'));

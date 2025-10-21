@@ -8,6 +8,8 @@ import equipmentRoutes from './equipment';
 import materialsRoutes from './materials';
 import itemsRoutes from './items';
 import locationRoutes from './locations';
+import combatRoutes from './combat';
+import enemyRoutes from './enemies';
 
 /**
  * API Routes Index
@@ -23,6 +25,8 @@ import locationRoutes from './locations';
  * - Materials: GET /materials/inventory, POST /items/:id/materials/apply, POST /items/:id/materials/replace
  * - Items: GET /items/:id, GET /items/:id/upgrade-cost, POST /items/:id/upgrade
  * - Locations: GET /locations/nearby, GET /locations/:id
+ * - Combat: POST /combat/enemy-chatter
+ * - Enemies: GET /enemies/types, GET /enemies/players/combat-history/:location_id
  */
 
 const router = Router();
@@ -35,6 +39,8 @@ router.use('/equipment', equipmentRoutes);
 router.use('/materials', materialsRoutes);
 router.use('/items', itemsRoutes);
 router.use('/locations', locationRoutes);
+router.use('/combat', combatRoutes);
+router.use('/enemies', enemyRoutes);
 
 // Health check endpoint
 router.get('/health', (req, res) => {

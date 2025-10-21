@@ -3,6 +3,8 @@ import { createClient } from '@supabase/supabase-js';
 import { env } from '../config/env.js';
 import { supabase as supabaseAdmin } from '../config/supabase.js';
 import { AuthError } from '@supabase/supabase-js';
+import { generateAnonymousToken } from '../utils/jwt.js';
+import { v4 as uuidv4 } from 'uuid';
 
 /**
  * Supabase client for authentication operations (uses anon key)
@@ -378,6 +380,156 @@ export class AuthController {
   }
 
   /**
+   * Register device for anonymous authentication
+   *
+   * POST /auth/register-device
+   * Body: { device_id: string }
+   *
+   * Response: { user, session } with custom JWT tokens (30-day expiry)
+   */
+  static async registerDevice(req: Request, res: Response): Promise<void> {
+    try {
+      const { device_id } = req.body;
+
+      if (!device_id) {
+        res.status(400).json({
+          error: {
+            code: 'missing_device_id',
+            message: 'Device ID is required'
+          }
+        });
+        return;
+      }
+
+      // Check if device already exists
+      const { data: existingUser, error: lookupError } = await supabaseAdmin
+        .from('users')
+        .select('id, device_id, account_type, created_at, last_login')
+        .eq('device_id', device_id)
+        .eq('account_type', 'anonymous')
+        .single();
+
+      if (lookupError && lookupError.code !== 'PGRST116') { // PGRST116 = no rows found
+        console.error('Device lookup error:', lookupError);
+        res.status(500).json({
+          error: {
+            code: 'lookup_failed',
+            message: 'Failed to check device registration'
+          }
+        });
+        return;
+      }
+
+      let userId: string;
+      let isNewUser = false;
+
+      if (existingUser) {
+        // Device already registered - return existing user with new tokens
+        userId = existingUser.id;
+
+        // Update last login
+        await supabaseAdmin
+          .from('users')
+          .update({ last_login: new Date().toISOString() })
+          .eq('id', userId);
+      } else {
+        // New device - create anonymous user
+        userId = uuidv4();
+        isNewUser = true;
+
+        const { error: insertError } = await supabaseAdmin
+          .from('users')
+          .insert({
+            id: userId,
+            device_id,
+            account_type: 'anonymous',
+            is_anonymous: true,
+            email: null,
+            created_at: new Date().toISOString(),
+            last_login: new Date().toISOString(),
+            vanity_level: 0,
+            gold_balance: 500
+          });
+
+        if (insertError) {
+          // Check if it's a unique constraint violation (race condition)
+          if (insertError.code === '23505' && insertError.message.includes('device_id')) {
+            // Another request created this device_id concurrently - try lookup again
+            const { data: raceUser, error: raceError } = await supabaseAdmin
+              .from('users')
+              .select('id, device_id, account_type, created_at, last_login')
+              .eq('device_id', device_id)
+              .eq('account_type', 'anonymous')
+              .single();
+
+            if (raceError || !raceUser) {
+              res.status(500).json({
+                error: {
+                  code: 'race_condition_failed',
+                  message: 'Failed to resolve concurrent device registration'
+                }
+              });
+              return;
+            }
+
+            userId = raceUser.id;
+            isNewUser = false;
+          } else {
+            console.error('User creation error:', insertError);
+            res.status(500).json({
+              error: {
+                code: 'user_creation_failed',
+                message: 'Failed to create anonymous user account'
+              }
+            });
+            return;
+          }
+        }
+      }
+
+      // Generate custom JWT tokens for anonymous user (30-day expiry)
+      const tokenData = generateAnonymousToken(userId, device_id);
+
+      // Fetch user profile for response
+      const { data: userProfile, error: profileError } = await supabaseAdmin
+        .from('users')
+        .select('id, device_id, account_type, created_at, last_login, vanity_level, avg_item_level')
+        .eq('id', userId)
+        .single();
+
+      if (profileError || !userProfile) {
+        res.status(500).json({
+          error: {
+            code: 'profile_fetch_failed',
+            message: 'User created but profile retrieval failed'
+          }
+        });
+        return;
+      }
+
+      res.status(isNewUser ? 201 : 200).json({
+        user: userProfile,
+        session: {
+          access_token: tokenData.access_token,
+          refresh_token: null, // Anonymous users don't get refresh tokens
+          expires_in: tokenData.expires_in,
+          expires_at: tokenData.expires_at,
+          token_type: 'bearer'
+        },
+        message: isNewUser ? 'Device registered successfully' : 'Device login successful'
+      });
+    } catch (error) {
+      console.error('Device registration error:', error);
+      res.status(500).json({
+        error: {
+          code: 'internal_error',
+          message: 'Device registration failed due to server error'
+        }
+      });
+    }
+  }
+
+  /**
    * Get current user info (requires authentication)
    *
    * GET /auth/me
@@ -402,7 +554,7 @@ export class AuthController {
       // Fetch full user profile from database
       const { data: profile, error } = await supabaseAdmin
         .from('users')
-        .select('id, email, created_at, last_login, vanity_level, avg_item_level')
+        .select('id, email, device_id, account_type, created_at, last_login, vanity_level, avg_item_level')
         .eq('id', user.id)
         .single();
 

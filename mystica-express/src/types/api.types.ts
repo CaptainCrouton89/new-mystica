@@ -64,6 +64,7 @@ export interface Material {
   name: string;
   rarity: Rarity;
   stat_modifiers: Stats;
+  theme: 'defensive' | 'offensive' | 'balanced' | 'exotic';
   image_url?: string;
   description?: string;
 }

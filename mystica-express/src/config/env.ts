@@ -35,6 +35,7 @@ const EnvSchema = z.object({
   PORT: z.coerce.number().int().min(1).max(65535).default(3000),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('debug'),
+  JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters for security').default('your-super-secret-jwt-key-for-anonymous-users-must-be-32-chars-minimum'),
 
   // Database Configuration
   DATABASE_URL: z.string().url().optional(), // For direct PostgreSQL if needed
@@ -52,7 +53,7 @@ if (!parsed.success) {
   const errorDetails = parsed.error.issues.map(issue => ({
     field: issue.path.join('.'),
     message: issue.message,
-    received: issue.code === 'invalid_type' ? typeof process.env[issue.path[0]] : 'unknown'
+    received: issue.code === 'invalid_type' ? typeof process.env[issue.path[0] as string] : 'unknown'
   }));
 
   console.error('❌ Environment validation failed:');

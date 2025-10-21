@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { createClient } from '@supabase/supabase-js';
 import { env } from '../config/env.js';
+import { verifyAnonymousToken } from '../utils/jwt.js';
 
 interface JWTClaims {
   sub: string;
@@ -66,7 +67,21 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
       return;
     }
 
-    // Validate JWT using getClaims (fast with asymmetric keys)
+    // Try to verify as anonymous token first (custom JWT)
+    const anonymousPayload = verifyAnonymousToken(token);
+    if (anonymousPayload) {
+      // Valid anonymous token
+      req.user = {
+        id: anonymousPayload.sub,
+        email: null,
+        device_id: anonymousPayload.device_id,
+        account_type: 'anonymous'
+      };
+      next();
+      return;
+    }
+
+    // Not an anonymous token, try Supabase JWT validation
     const { data, error } = await supabaseAuth.auth.getClaims(token);
 
     if (error || !data) {
@@ -80,7 +95,7 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
       return;
     }
 
-    // Check token expiration
+    // Check token expiration for Supabase tokens
     const claims = data.claims as JWTClaims;
     if (claims.exp && claims.exp < Date.now() / 1000) {
       res.status(401).json({
@@ -92,10 +107,12 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
       return;
     }
 
-    // Attach user information to request
+    // Attach email user information to request
     req.user = {
       id: claims.sub,
-      email: claims.email || ''
+      email: claims.email || null,
+      device_id: null,
+      account_type: 'email'
     };
 
     next();
@@ -135,6 +152,20 @@ export const optionalAuthenticate = async (req: Request, res: Response, next: Ne
       return;
     }
 
+    // Try to verify as anonymous token first
+    const anonymousPayload = verifyAnonymousToken(token);
+    if (anonymousPayload) {
+      req.user = {
+        id: anonymousPayload.sub,
+        email: null,
+        device_id: anonymousPayload.device_id,
+        account_type: 'anonymous'
+      };
+      next();
+      return;
+    }
+
+    // Try Supabase JWT validation
     const { data, error } = await supabaseAuth.auth.getClaims(token);
 
     if (error || !data) {
@@ -147,7 +178,9 @@ export const optionalAuthenticate = async (req: Request, res: Response, next: Ne
       } else {
         req.user = {
           id: claims.sub,
-          email: claims.email || ''
+          email: claims.email || null,
+          device_id: null,
+          account_type: 'email'
         };
       }
     }

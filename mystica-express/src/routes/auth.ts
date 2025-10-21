@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { AuthController } from '../controllers/AuthController.js';
 import { authenticate } from '../middleware/auth.js';
+import { validate } from '../middleware/validate.js';
+import { RegisterDeviceBodySchema } from '../types/schemas.js';
 
 const router = Router();
 
@@ -12,6 +14,7 @@ const router = Router();
  *
  * Public routes (no auth required):
  * - POST /auth/register - Create new account
+ * - POST /auth/register-device - Register device for anonymous auth (F-07)
  * - POST /auth/login - Sign in with credentials
  * - POST /auth/refresh - Get new access token
  * - POST /auth/reset-password - Request password reset email
@@ -24,6 +27,7 @@ const router = Router();
 
 // Public routes
 router.post('/register', AuthController.register);
+router.post('/register-device', validate({ body: RegisterDeviceBodySchema }), AuthController.registerDevice);
 router.post('/login', AuthController.login);
 router.post('/refresh', AuthController.refresh);
 router.post('/reset-password', AuthController.resetPassword);

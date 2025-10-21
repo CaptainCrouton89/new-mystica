@@ -13,7 +13,7 @@ export class ProfileController {
   initProfile = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const userId = req.user!.id;
-      const email = req.user!.email;
+      const email = req.user!.email || '';
 
       const profile = await profileService.initializeProfile(userId, email);
 

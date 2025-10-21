@@ -82,7 +82,7 @@ export const StartCombatSchema = z.object({
 
 export const AttackSchema = z.object({
   session_id: UUIDSchema,
-  attack_accuracy: z.number().min(0).max(1, 'Attack accuracy must be between 0 and 1')
+  tap_position: z.number().min(0).max(1, 'Tap position must be between 0.0 and 1.0 (0 to 360 degrees)')
 });
 
 export const DefenseSchema = z.object({
@@ -138,20 +138,20 @@ export const PetChatterSchema = z.object({
 });
 
 // Enemy chatter endpoints (F-12)
-export const EnemyChatterSchema = z.object({
+export const EnemyChatterRequestSchema = z.object({
   session_id: UUIDSchema,
   event_type: z.enum([
     'combat_start', 'player_hit', 'player_miss', 'enemy_hit',
     'low_player_hp', 'near_victory', 'defeat', 'victory'
   ]),
   event_details: z.object({
-    damage: z.number().int().optional(),
-    accuracy: z.number().optional(),
+    damage: z.number().int().nonnegative('Damage must be non-negative').optional(),
+    accuracy: z.number().min(0.0, 'Accuracy must be between 0.0 and 1.0').max(1.0, 'Accuracy must be between 0.0 and 1.0').optional(),
     is_critical: z.boolean().optional(),
-    turn_number: z.number().int().optional(),
-    player_hp_pct: z.number().optional(),
-    enemy_hp_pct: z.number().optional()
-  }).optional()
+    turn_number: z.number().int().positive('Turn number must be positive'),
+    player_hp_pct: z.number().min(0.0, 'Player HP percentage must be between 0.0 and 1.0').max(1.0, 'Player HP percentage must be between 0.0 and 1.0'),
+    enemy_hp_pct: z.number().min(0.0, 'Enemy HP percentage must be between 0.0 and 1.0').max(1.0, 'Enemy HP percentage must be between 0.0 and 1.0')
+  })
 });
 
 // Type exports for use in controllers
@@ -170,6 +170,15 @@ export type UpdateLoadoutRequest = z.infer<typeof UpdateLoadoutSchema>;
 export type UpdateLoadoutSlotsRequest = z.infer<typeof UpdateLoadoutSlotsSchema>;
 export type AssignPetPersonalityRequest = z.infer<typeof AssignPetPersonalitySchema>;
 export type PetChatterRequest = z.infer<typeof PetChatterSchema>;
-export type EnemyChatterRequest = z.infer<typeof EnemyChatterSchema>;
+export type EnemyChatterRequest = z.infer<typeof EnemyChatterRequestSchema>;
 export type NearbyLocationsQuery = z.infer<typeof NearbyLocationsQuerySchema>;
 export type LocationParams = z.infer<typeof LocationParamsSchema>;
+export type LocationIdParams = z.infer<typeof LocationIdParamsSchema>;
+
+// Auth endpoints (F-07)
+export const RegisterDeviceBodySchema = z.object({
+  device_id: z.string().uuid('Device ID must be a valid UUID')
+});
+
+// Type exports for auth
+export type RegisterDeviceRequest = z.infer<typeof RegisterDeviceBodySchema>;
