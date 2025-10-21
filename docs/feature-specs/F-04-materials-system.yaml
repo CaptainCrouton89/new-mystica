@@ -4,16 +4,16 @@ feature_id: F-04
 status: planned
 last_updated: 2025-10-20
 
-summary: "Collectible materials that modify item stats with zero-sum trade-offs. Materials stack in inventory (MaterialStacks), convert to unique instances when applied (MaterialInstances). Max 3 materials per item. Styled materials are visual variants with normal stat effectiveness. Image generation creates combo-specific visuals cached globally with craft count tracking."
+summary: "Collectible materials that modify item stats with zero-sum trade-offs. Materials stack in inventory (MaterialStacks), convert to unique instances when applied (MaterialInstances). Max 3 materials per item (hard limit). Styled materials are visual variants with normal stat effectiveness. Image generation creates combo-specific visuals cached globally with craft count tracking (20s sync for MVP, async with crafting times in later MVP)."
 
 functional_overview:
-  core_logic: "Materials stack in player inventory (MaterialStacks table). Applying material decrements stack, creates MaterialInstance, links via ItemMaterials. Triggers image generation on first application of new combo (20s sync). Global ItemImageCache stores combo images with craft_count. Material replacement costs gold and returns original to stack."
+  core_logic: "Materials stack in player inventory (MaterialStacks table). Applying material decrements stack, creates MaterialInstance, links via ItemMaterials. Triggers image generation on first application of new combo (20s sync). Global ItemImageCache stores combo images with craft_count. Material removal costs gold (100 × item level) and returns material to stack. To replace material: remove old (costs gold, returns to stack) then apply new (consumes from stack)."
   data_schema: "Materials (seed data), MaterialStacks (inventory), MaterialInstances (applied materials), ItemMaterials (junction), ItemImageCache (combo images)"
   api_endpoints:
     - "GET /materials"
     - "GET /materials/inventory"
     - "POST /items/{item_id}/materials/apply"
-    - "POST /items/{item_id}/materials/replace"
+    - "POST /items/{item_id}/materials/remove"
   integration_points:
     - "Base items (F-03) receive material modifications"
     - "Drop system (F-05) awards materials from combat"
@@ -97,16 +97,14 @@ detailed_design:
         - "423: Image generation in progress (20s), try again"
 
     - method: "POST"
-      endpoint: "/items/{item_id}/materials/replace"
-      request: "{old_material_index: INT (0-2), new_material_id: UUID, new_style_id: UUID, gold_cost: INT}"
-      note: "Deletes old ItemMaterials row, increments old MaterialStacks, decrements new MaterialStacks, creates new MaterialInstance and ItemMaterials row"
-      clarification: "Old material returns to stack, new material consumed from stack"
-      response: "{success: true, gold_spent: INT, item: {updated item}, is_first_craft: BOOLEAN, craft_count: INT}"
+      endpoint: "/items/{item_id}/materials/remove"
+      request: "{material_index: INT (0-2), gold_cost: INT}"
+      note: "Deletes ItemMaterials row, deletes MaterialInstance, increments MaterialStacks (returns material to stack). Recomputes combo_hash and triggers image generation if new combo."
+      response: "{success: true, gold_spent: INT, item: {updated item with removed material}, is_first_craft: BOOLEAN, craft_count: INT}"
       errors:
         - "400: Insufficient gold"
-        - "400: Invalid material index"
-        - "404: Item or new material not found"
-        - "400: New material not owned or quantity = 0"
+        - "400: Invalid material index or slot empty"
+        - "404: Item not found"
         - "423: Image generation in progress (20s), try again"
 
   diagrams: |
@@ -126,22 +124,20 @@ detailed_design:
     12. System recalculates item stats (base + all material modifiers × level)
     13. Client displays updated item stats, image, and "X players have crafted this combo" if craft_count > 1
 
-    Material Replacement Flow (Stack ↔ Stack):
-    1. Player views item with 3 materials already applied
-    2. Player taps "Replace Material" button
-    3. System shows applied materials with "Replace" buttons
-    4. Player selects material to replace
-    5. Player selects new material from MaterialStacks
-    6. System displays gold cost (e.g., 100 × item level)
-    7. Player confirms
-    8. System validates sufficient gold AND new MaterialStacks.quantity >= 1
-    9. System deletes old ItemMaterials row, deletes old MaterialInstance
-    10. System increments old MaterialStacks.quantity (returns to stack)
-    11. System decrements new MaterialStacks.quantity, creates new MaterialInstance
-    12. System creates new ItemMaterials row
-    13. System recomputes combo_hash and triggers image generation workflow (steps 10-11 above)
-    14. System recalculates item stats
-    15. Client displays updated item, image, and gold balance
+    Material Removal Flow (Returns to Stack):
+    1. Player views item with materials applied
+    2. Player taps "Remove Material" button on specific material slot
+    3. System displays gold cost (100 × item level)
+    4. Player confirms removal
+    5. System validates sufficient gold
+    6. System deletes ItemMaterials row for that slot
+    7. System deletes MaterialInstance
+    8. System increments MaterialStacks.quantity (returns material to stack)
+    9. System recomputes combo_hash and triggers image generation workflow (steps 10-11 above)
+    10. System recalculates item stats
+    11. Client displays updated item, image, and gold balance
+
+    Note: To replace a material, player must remove old material (returns to stack), then apply new material (consumes from stack). Two separate operations.
 
     Image Generation Workflow (20s Sync on First Craft):
     1. System computes combo_hash: SHA256(sorted[material_ids] + style_flags)
@@ -164,9 +160,7 @@ detailed_design:
     Combined = base + sum(material modifiers)
     {atkPower: 0.4-0.1+0.2+0 = 0.5, atkAccuracy: 0.2+0-0.1+0.1 = 0.2, defPower: 0.3+0.1-0.1+0 = 0.3, defAccuracy: 0.1}
 
-    Styled material example (Material 1 has non-normal style):
-    Material 1 (styled): modifiers × 1.2 = {atkPower: -0.12, defPower: +0.12}
-    Combined: {atkPower: 0.4-0.12+0.2 = 0.48, atkAccuracy: 0.2-0.1+0.1 = 0.2, defPower: 0.3+0.12-0.1 = 0.32, defAccuracy: 0.1}
+    Note: Styled materials have normal stat effectiveness (same modifiers as non-styled variants). Style only affects visual appearance.
 
 dependencies:
   libraries: "AWS S3 SDK (for R2 operations), crypto (for combo_hash generation)"
@@ -176,10 +170,14 @@ dependencies:
 implementation_status:
   notes:
     - "Light MVP: MaterialStacks table, hardcode 10 common materials, local stat calculation, simple apply (no replace), no image generation"
-    - "Full MVP: Backend API, 50 materials seed data, MaterialStacks ↔ MaterialInstances flow, material replacement, styled materials (visual variants with normal stat effectiveness), ItemImageCache with combo_hash, 20s sync image generation, craft_count tracking"
+    - "Full MVP: Backend API, 50 materials seed data, MaterialStacks ↔ MaterialInstances flow, material removal (100 × item level gold cost), styled materials (visual variants with normal stat effectiveness), ItemImageCache with combo_hash, 20s sync image generation, craft_count tracking"
+    - "Later MVP: Async image generation with crafting times, push notifications on completion, placeholder images during generation"
     - "Finished: Visual effects for styled materials, material preview before apply, undo last material (grace period), material trading/gifting, 'X players crafted this combo' notifications, is_first_craft celebrations"
+    - "Note: Material removal + apply = replacement flow. Two separate operations for clarity."
     - "Materials range from tame (Coffee, Gum, Paper) to edgy (Cocaine, Lube) to extreme (Diamond, Plasma, Lightning)"
     - "Image generation: On-demand combo images cached globally, deterministic combo_hash for cache hits, R2 storage at items-crafted/{item_type_slug}/{combo_hash}.png"
+    - "Material Rarity: Auto-classified into strength tiers (common/uncommon/rare/epic) based on stat modifier magnitude. Tiers are derived at runtime using MaterialStrengthTiers thresholds - not stored as material property."
+    - "Drop Rate Control: base_drop_weight serves as per-material baseline for drop calculations. Final drop weights computed as base_drop_weight × tier_multiplier from LootPoolTierWeights system."
 
 seed_data_example: |
   Full seed data available in: docs/seed-data-materials.json
@@ -210,4 +208,4 @@ seed_data_example: |
 
 user_stories:
   - US-303 (new: Apply Material to Item)
-  - US-304 (new: Replace Material on Item)
+  - US-304 (new: Remove Material from Item)
