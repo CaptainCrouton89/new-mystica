@@ -32,7 +32,7 @@ export class MaterialService {
     userId: string,
     itemId: string,
     materialId: string,
-    isShiny: boolean,
+    styleId: string,
     slotIndex: number
   ): Promise<ApplyMaterialResult> {
     // TODO: Implement material application workflow
@@ -53,7 +53,7 @@ export class MaterialService {
 
   /**
    * Replace existing material on item with new one
-   * - Costs gold to replace (higher for shiny materials)
+   * - Costs gold to replace (higher for styled materials)
    * - Returns old material to inventory as stack
    * - Regenerates image if combo changes
    */
@@ -62,7 +62,7 @@ export class MaterialService {
     itemId: string,
     slotIndex: number,
     newMaterialId: string,
-    newIsShiny: boolean,
+    newStyleId: string,
     goldCost: number
   ): Promise<ReplaceMaterialResult> {
     // TODO: Implement material replacement workflow
@@ -71,7 +71,7 @@ export class MaterialService {
     // 3. Get existing MaterialInstance from slot
     // 4. Check user has new material in MaterialStacks
     // 5. Deduct gold from user profile
-    // 6. Update MaterialInstance with new material/shiny status
+    // 6. Update MaterialInstance with new material/style_id
     // 7. Increment MaterialStacks for old material (return to inventory)
     // 8. Decrement MaterialStacks for new material
     // 9. Recompute combo_hash
