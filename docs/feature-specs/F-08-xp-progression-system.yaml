@@ -1,0 +1,344 @@
+title: Technical Specification - XP Progression System
+template: ~/.claude/file-templates/init-project/feature-spec/feature-title.yaml
+feature_id: F-08
+status: planned
+last_updated: 2025-01-27
+
+summary: "Core player experience point (XP) system enabling account-level progression separate from item levels. Players earn XP from combat victories, unlock features at milestone levels, and gain a sense of long-term advancement. Provides foundation for future progression features like prestige system (F-13)."
+
+functional_overview:
+  core_logic: "Players gain XP from combat victories and other activities. XP accumulates to increase account level with linear progression up to level 50. Level unlocks provide gameplay features, rewards, and serve as gates for advanced systems. XP calculation uses simple formulas to ensure predictable progression pacing."
+  data_schema: "PlayerProgression table tracks user XP/level state. XP thresholds computed via level-based formula. Combat victories award base 50 XP with potential modifiers."
+  api_endpoints:
+    - "GET /progression/status"
+    - "POST /progression/claim-level-reward"
+  integration_points:
+    - "Combat system (F-02) awards XP on victory"
+    - "User authentication (F-07) links progression to accounts"
+    - "Analytics system tracks xp_gained events"
+    - "Future: Prestige system (F-13) reads progression state"
+
+detailed_design:
+  data_structures:
+    - name: "PlayerProgression"
+      purpose: "Account-level progression tracking separate from item levels"
+      status: "defined in data-plan, needs implementation"
+      columns:
+        - "user_id: UUID (PK, FK to Users)"
+        - "xp: INT (total experience points earned)"
+        - "level: INT (current account level, computed from xp)"
+        - "xp_to_next_level: INT (cached XP required for next level)"
+        - "last_level_up_at: TIMESTAMP (nullable, when last leveled up)"
+        - "created_at: TIMESTAMP"
+        - "updated_at: TIMESTAMP"
+      indexes:
+        - "INDEX on (level DESC, xp DESC) for leaderboards"
+      constraints:
+        - "FK user_id → Users.id ON DELETE CASCADE"
+        - "CHECK (xp >= 0)"
+        - "CHECK (level >= 1)"
+      initialization: "New users start with xp=0, level=1"
+
+    - name: "LevelRewards (seed data)"
+      purpose: "Define rewards/unlocks for reaching specific levels"
+      status: "new table for MVP"
+      columns:
+        - "level: INT (PK)"
+        - "reward_type: VARCHAR (gold, feature_unlock, cosmetic)"
+        - "reward_value: INT (gold amount or feature flag)"
+        - "reward_description: TEXT (user-facing description)"
+        - "is_claimable: BOOLEAN (false for automatic unlocks)"
+        - "created_at: TIMESTAMP"
+      examples:
+        - "{level: 5, reward_type: 'gold', reward_value: 500, reward_description: 'Bonus starter gold', is_claimable: true}"
+        - "{level: 10, reward_type: 'feature_unlock', reward_value: 'loadouts', reward_description: 'Loadout system unlocked', is_claimable: false}"
+        - "{level: 20, reward_type: 'gold', reward_value: 1000, reward_description: 'Combat mastery bonus', is_claimable: true}"
+
+    - name: "UserLevelRewards"
+      purpose: "Track which level rewards user has claimed"
+      status: "new table for MVP"
+      columns:
+        - "user_id: UUID (part of composite PK, FK to Users)"
+        - "level: INT (part of composite PK, FK to LevelRewards.level)"
+        - "claimed_at: TIMESTAMP"
+        - "reward_amount: INT (snapshot of reward value when claimed)"
+      constraints:
+        - "PRIMARY KEY (user_id, level)"
+        - "FK user_id → Users.id ON DELETE CASCADE"
+        - "FK level → LevelRewards.level ON DELETE RESTRICT"
+
+  formulas:
+    - name: "XP to Next Level"
+      description: "Linear progression up to level 50 (foundation for F-13 soft cap)"
+      formula: |
+        def xp_to_next_level(current_level):
+            base_xp = 100
+            return base_xp * current_level
+
+        # Examples:
+        # Level 1 → 2: 100 XP (2 combat victories)
+        # Level 5 → 6: 500 XP (10 combat victories)
+        # Level 10 → 11: 1,000 XP (20 combat victories)
+        # Level 50 → 51: 5,000 XP (100 combat victories)
+
+    - name: "Total XP for Level"
+      description: "Cumulative XP required to reach specific level"
+      formula: |
+        def total_xp_for_level(target_level):
+            total = 0
+            for level in range(1, target_level):
+                total += xp_to_next_level(level)
+            return total
+
+        # Examples:
+        # Level 1: 0 XP
+        # Level 5: 1,000 XP (100+200+300+400)
+        # Level 10: 4,500 XP
+        # Level 50: 122,500 XP
+
+    - name: "XP Award Calculation"
+      description: "Base XP from activities with potential modifiers"
+      formula: |
+        def calculate_xp_award(activity_type, base_xp=50, modifiers={}):
+            xp = base_xp
+
+            # Activity type modifiers
+            if activity_type == 'combat_victory':
+                xp = 50  # Base combat XP
+            elif activity_type == 'daily_quest':
+                xp = 100  # Future: daily quest bonus
+            elif activity_type == 'achievement':
+                xp = 200  # Future: achievement milestone
+
+            # Potential future modifiers
+            # xp *= (1 + prestige_bonus)  # F-13: prestige XP bonus
+            # xp *= weekend_event_multiplier  # Future: event bonuses
+
+            return int(xp)
+
+  apis:
+    - method: "GET"
+      endpoint: "/progression/status"
+      description: "Get player's current XP, level, and progress to next level"
+      request: "No body"
+      response: "{user_id: UUID, level: int, xp: int, xp_to_next_level: int, xp_progress_percentage: float, level_rewards_available: [{level, reward_type, reward_description}]}"
+      caching: "Cache for 1 minute, invalidate on XP changes"
+      example_response: |
+        {
+          "user_id": "123e4567-e89b-12d3-a456-426614174000",
+          "level": 12,
+          "xp": 6800,
+          "xp_to_next_level": 1200,
+          "xp_progress_percentage": 85.0,
+          "level_rewards_available": [
+            {
+              "level": 10,
+              "reward_type": "gold",
+              "reward_description": "Combat mastery bonus: 1000 gold"
+            }
+          ]
+        }
+
+    - method: "POST"
+      endpoint: "/progression/claim-level-reward"
+      description: "Claim available level reward (gold, cosmetics, etc.)"
+      request: "{level: int}"
+      response: "{success: boolean, level: int, reward_type: string, reward_amount: int, new_gold_balance: int}"
+      validation:
+        - "Player must be at or above specified level"
+        - "Reward must be claimable (is_claimable = true)"
+        - "Reward must not already be claimed"
+      side_effects:
+        - "Add gold to user balance via EconomyTransactions"
+        - "Create UserLevelRewards entry"
+        - "Log event: level_reward_claimed"
+      errors:
+        - "400: Invalid level or reward not available"
+        - "409: Reward already claimed"
+        - "401: Unauthorized"
+
+    - method: "INTERNAL"
+      endpoint: "/progression/award-xp"
+      description: "Internal API for awarding XP from game activities"
+      request: "{user_id: UUID, xp_amount: int, source: string, source_id: UUID}"
+      response: "{success: boolean, old_level: int, new_level: int, leveled_up: boolean, total_xp: int}"
+      usage: "Called by combat system on victory, future quest/achievement systems"
+      side_effects:
+        - "Update PlayerProgression.xp and PlayerProgression.level"
+        - "Set last_level_up_at if level increased"
+        - "Log event: xp_gained"
+        - "Trigger level_up event if applicable"
+      level_calculation: |
+        # Recalculate level from total XP
+        def calculate_level_from_xp(total_xp):
+            level = 1
+            cumulative_xp = 0
+            while cumulative_xp + xp_to_next_level(level) <= total_xp:
+                cumulative_xp += xp_to_next_level(level)
+                level += 1
+            return level
+
+  progression_gates:
+    - level: 1
+      unlocks: "Basic combat and item collection"
+
+    - level: 5
+      unlocks: "Material application system (F-04)"
+      reward: "500 gold bonus"
+
+    - level: 10
+      unlocks: "Loadout system (F-09)"
+      reward: "1000 gold bonus"
+
+    - level: 15
+      unlocks: "Item upgrade system (F-06)"
+      reward: "Starter upgrade materials"
+
+    - level: 20
+      unlocks: "Advanced combat mechanics"
+      reward: "1500 gold bonus"
+
+    - level: 25
+      unlocks: "Pet personality system (F-11)"
+      reward: "Pet starter kit"
+
+    - level: 30
+      unlocks: "Enemy reputation tracking"
+      reward: "Combat analytics access"
+
+    - level: 40
+      unlocks: "Prestige preparation rewards"
+      reward: "Prestige preview information"
+
+    - level: 50
+      unlocks: "Prestige system eligibility (F-13)"
+      reward: "Prestige achievement + 5000 gold"
+
+dependencies:
+  libraries: "SwiftUI for level-up notifications, progress bars"
+  services: "Backend progression calculation, XP award processing, level reward distribution"
+  data_sources: "Combat victory events, future quest/achievement completion events"
+
+implementation_status:
+  notes:
+    - "MVP Phase 1: PlayerProgression table creation, basic XP award from combat victories"
+    - "MVP Phase 2: Level reward system, progression API endpoints"
+    - "MVP Phase 3: Level-gated feature unlocks integration"
+    - "Post-MVP: Integration with prestige system (F-13), daily quests, achievements"
+    - "Critical: XP formula must align with F-13 progression balance for prestige transition"
+
+acceptance_criteria:
+  xp_calculation:
+    - id: "AC-08-01"
+      description: "XP requirements scale linearly with level"
+      test: "Verify xp_to_next_level(n) = 100 * n for levels 1-50"
+
+    - id: "AC-08-02"
+      description: "Total XP calculation matches cumulative formula"
+      test: "Verify total_xp_for_level matches sum of individual level requirements"
+
+    - id: "AC-08-03"
+      description: "Level calculation from XP is consistent"
+      test: "calculate_level_from_xp(total_xp_for_level(n)) == n for all levels"
+
+  xp_awards:
+    - id: "AC-08-04"
+      description: "Combat victories award 50 XP"
+      test: "Combat victory triggers xp_gained event with amount=50"
+
+    - id: "AC-08-05"
+      description: "XP awards trigger level calculation"
+      test: "XP award updates PlayerProgression.level if threshold crossed"
+
+    - id: "AC-08-06"
+      description: "Level-up triggers appropriate events"
+      test: "Level increase sets last_level_up_at and triggers level_up event"
+
+  level_rewards:
+    - id: "AC-08-07"
+      description: "Level rewards display correctly"
+      test: "GET /progression/status shows available unclaimed rewards"
+
+    - id: "AC-08-08"
+      description: "Reward claiming grants correct benefits"
+      test: "POST /progression/claim-level-reward adds gold via EconomyTransactions"
+
+    - id: "AC-08-09"
+      description: "Claimed rewards cannot be reclaimed"
+      test: "Second claim attempt returns 409 error"
+
+  feature_gates:
+    - id: "AC-08-10"
+      description: "Feature unlocks respect level requirements"
+      test: "Level-gated features only accessible at appropriate levels"
+
+    - id: "AC-08-11"
+      description: "Progression gates prevent premature access"
+      test: "Material system, loadouts, upgrades blocked until level requirements met"
+
+events:
+  - event_name: "xp_gained"
+    trigger: "Player earns experience points"
+    properties:
+      - "user_id: UUID"
+      - "xp_amount: int"
+      - "source: string (combat, quest, achievement, etc.)"
+      - "new_total_xp: int"
+      - "new_level: int"
+      - "leveled_up: boolean"
+      - "timestamp: datetime"
+    destinations: ["Backend Analytics DB"]
+
+  - event_name: "level_up"
+    trigger: "Player reaches new level threshold"
+    properties:
+      - "user_id: UUID"
+      - "old_level: int"
+      - "new_level: int"
+      - "total_xp: int"
+      - "time_to_level_up_seconds: int"
+      - "xp_source_breakdown: object {combat: 80%, quest: 20%}"
+      - "timestamp: datetime"
+    destinations: ["Backend Analytics DB"]
+
+  - event_name: "level_reward_claimed"
+    trigger: "Player claims level milestone reward"
+    properties:
+      - "user_id: UUID"
+      - "level: int"
+      - "reward_type: string"
+      - "reward_amount: int"
+      - "new_gold_balance: int"
+      - "time_since_level_up_seconds: int"
+      - "timestamp: datetime"
+    destinations: ["Backend Analytics DB"]
+
+open_questions:
+  - "Should XP be awarded for non-combat activities like material collection or item crafting?"
+  - "Should there be XP bonuses for consecutive combat victories or win streaks?"
+  - "How should XP be handled for failed combat encounters (partial XP vs none)?"
+  - "Should level progression be visible to other players for social comparison?"
+  - "What should be the maximum reasonable level before prestige becomes mandatory?"
+  - "Should weekend/event XP multipliers be implemented from MVP or post-MVP?"
+
+implementation_priority:
+  mvp: "Core XP system with combat awards, level calculation, basic progression API"
+  post_mvp_phase_1: "Level reward system, feature unlocks, progression notifications"
+  post_mvp_phase_2: "Integration with achievements, daily quests, social features"
+  future: "Advanced progression mechanics, seasonal XP events, prestige preparation"
+
+related_features:
+  - "F-02: Combat System (primary XP source from victories)"
+  - "F-06: Item Upgrade System (unlocked at level 15)"
+  - "F-09: Inventory Management (unlocked at level 10)"
+  - "F-11: Pet Personality System (unlocked at level 25)"
+  - "F-13: Progression Balance & Endgame (prestige system at level 50+)"
+  - "Users table (FK relationship for progression tracking)"
+  - "EconomyTransactions (level reward gold distribution)"
+
+user_stories:
+  - "US-0801: As a new player, I want to gain XP from combat to feel progression beyond item collection"
+  - "US-0802: As a progressing player, I want clear level milestones with meaningful rewards"
+  - "US-0803: As a dedicated player, I want to track my XP progress toward major feature unlocks"
+  - "US-0804: As a competitive player, I want my account level to reflect my investment and skill"
+  - "US-0805: As a returning player, I want to see my progression status and available rewards"
