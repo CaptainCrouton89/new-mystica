@@ -1044,6 +1044,13 @@ database_schema:
     LootPools → LootPoolEntries → Materials|ItemTypes (pool-based loot drops)
     Locations.{location_type, state_code, country_code, lat, lng} → EnemyPools.{filter_type, filter_value} (pool matching logic)
 
+    **Material Rarity System (Option D - Derived Tiering):**
+    Materials.stat_modifiers → v_material_tiers (computed tier classification)
+    MaterialStrengthTiers (tier thresholds) → v_material_tiers (tier assignment)
+    LootPools → LootPoolTierWeights (per-pool tier multipliers)
+    v_loot_pool_material_weights (final computed drop weights combining base_drop_weight × tier_multiplier)
+    LootPoolEntries (optional per-material overrides, takes precedence over computed weights)
+
     **Combat Flow:**
     Users → CombatSessions → EnemyTypes (selected via EnemyPools)
     Users → PlayerCombatHistory (per location performance tracking)
