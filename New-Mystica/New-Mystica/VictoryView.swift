@@ -83,13 +83,14 @@ struct VictoryView: View, NavigableView {
                 // Rewards Grid
                 ScrollView {
                     LazyVGrid(columns: columns, spacing: 16) {
-                        ForEach(battleRewards) { reward in
+                        ForEach(Array(battleRewards.enumerated()), id: \.element.id) { index, reward in
                             RewardItemView(reward: reward)
                                 .onTapGesture {
                                     audioManager.playMenuButtonClick()
                                     selectedReward = reward
                                     showRewardPopup = true
                                 }
+                                .staggerIn(index: index)
                         }
                     }
                     .padding(.horizontal, 16)
@@ -135,19 +136,23 @@ struct VictoryView: View, NavigableView {
                     .font(.system(size: 32, weight: .medium))
                     .foregroundColor(Color.textPrimary)
             }
+            .popup(delay: 0.0)
             
             // Victory Text
             VStack(spacing: 8) {
                 TitleText("Victory!", size: 28)
                     .foregroundColor(Color.accentSecondary)
+                    .slideInFromBottom(delay: 0.1)
                 
                 NormalText("You have defeated the enemy!", size: 16)
                     .foregroundColor(Color.textPrimary)
                     .multilineTextAlignment(.center)
+                    .slideInFromBottom(delay: 0.2)
                 
                 NormalText("Claim your rewards below:", size: 14)
                     .foregroundColor(Color.textSecondary)
                     .multilineTextAlignment(.center)
+                    .slideInFromBottom(delay: 0.3)
             }
         }
         .padding(.horizontal, 20)
@@ -168,6 +173,7 @@ struct VictoryView: View, NavigableView {
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 16)
+            .slideInFromBottom(delay: 0.3)
         }
         .background(Color.backgroundPrimary)
     }
