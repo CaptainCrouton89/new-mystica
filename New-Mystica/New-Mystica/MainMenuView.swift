@@ -72,6 +72,18 @@ struct MainMenuView: View {
 
                         Button {
                             audioManager.playMenuButtonClick()
+                            navigationManager.navigateTo(.equipment)
+                        } label: {
+                            MenuOptionView(
+                                title: "Equipment",
+                                icon: "shield.fill",
+                                gradientColors: [Color.accent, Color.accentSecondary]
+                            )
+                        }
+                        .buttonStyle(PlainButtonStyle())
+
+                        Button {
+                            audioManager.playMenuButtonClick()
                             navigationManager.navigateTo(.settings)
                         } label: {
                             MenuOptionView(

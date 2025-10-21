@@ -32,6 +32,8 @@ struct ContentView: View {
             MapView()
         case .collection:
             CollectionView()
+        case .equipment:
+            EquipmentView()
         case .settings:
             SettingsView()
         case .profile:
@@ -39,11 +41,11 @@ struct ContentView: View {
             SimpleNavigableView(title: "Profile") {
                 VStack(spacing: 20) {
                     Spacer()
-                    
+
                     TitleText("Profile")
-                    
+
                     NormalText("Coming Soon")
-                    
+
                     Spacer()
                 }
             }

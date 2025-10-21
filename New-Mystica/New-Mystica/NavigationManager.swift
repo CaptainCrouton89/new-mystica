@@ -13,6 +13,7 @@ enum NavigationDestination: Hashable {
     case mainMenu
     case map
     case collection
+    case equipment
     case settings
     case profile
     case battle
@@ -27,6 +28,8 @@ enum NavigationDestination: Hashable {
             return "Map"
         case .collection:
             return "Collection"
+        case .equipment:
+            return "Equipment"
         case .settings:
             return "Settings"
         case .profile:
