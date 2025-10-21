@@ -39,15 +39,26 @@ export class ProfileService {
 
       // Transform database row to UserProfile format
       // Note: gold comes from UserCurrencyBalances, not the users table
+      const profileData = data as {
+        id: string;
+        email: string;
+        username: string | null;
+        vanity_level: number;
+        avg_item_level: number;
+        created_at: string;
+        updated_at: string;
+      };
+
       const userProfile: UserProfile = {
-        id: data.id,
-        user_id: data.id, // In our schema, user ID is the primary key
-        username: data.username || '', // Username starts null, empty string for API
+        id: profileData.id,
+        user_id: profileData.id, // In our schema, user ID is the primary key
+        username: profileData.username || '', // Username starts null, empty string for API
+        email: profileData.email,
         gold: 0, // Starting gold is 0 as per requirements
-        vanity_level: data.vanity_level,
-        avg_item_level: data.avg_item_level,
-        created_at: data.created_at,
-        updated_at: data.updated_at
+        vanity_level: profileData.vanity_level,
+        avg_item_level: profileData.avg_item_level,
+        created_at: profileData.created_at,
+        updated_at: profileData.updated_at
       };
 
       return userProfile;

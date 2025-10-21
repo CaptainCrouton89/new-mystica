@@ -13,8 +13,9 @@ export class ProfileController {
   initProfile = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const userId = req.user!.id;
+      const email = req.user!.email;
 
-      const profile = await profileService.initializeProfile(userId);
+      const profile = await profileService.initializeProfile(userId, email);
 
       res.status(201).json({
         success: true,
