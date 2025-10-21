@@ -1,8 +1,8 @@
 title: Technical Specification - Combat System
 template: ~/.claude/file-templates/init-project/feature-spec/feature-title.yaml
 feature_id: F-02
-status: planned
-last_updated: 2025-10-20
+status: in-progress
+last_updated: 2025-10-21
 
 summary: "Turn-based combat with weapon-specific timing dial mechanics. MVP0 uses single_arc pattern only, constant dial speed. Player taps moving dial with zone-based outcomes (miss/graze/normal/crit). Player accuracy stat scales zone sizes. Stats calculated from equipped items + pet. Enemy counterattacks after player turn. Combat ends when either HP reaches 0."
 
@@ -152,16 +152,30 @@ dependencies:
   data_sources: "Player equipment from F-03 via v_player_equipped_stats, Weapons table for dial patterns, EnemyTypes with tier scaling, Tiers table (1-20+ tiers)"
 
 implementation_status:
-  progress: 0  # No implementation started
-  completed_components: []
-  in_progress_components: []
-  blocked_items: []
+  progress: 40  # Database functions and pool system implemented
+  completed_components:
+    - "PostgreSQL combat functions: fn_weapon_bands_adjusted(), fn_expected_mul_quick(), fn_acc_scale(), combat_rating(), effective_hp()"
+    - "Database tables: CombatSessions, EnemyPools, EnemyPoolMembers, LootPools, LootPoolEntries, Weapons"
+    - "Enemy seed data: 5 enemy types (Spray Paint Goblin, Goopy Floating Eye, Feral Unicorn, Bipedal Deer, Politician) across 5 tiers"
+    - "Enemy pools: 3 universal pools (levels 1, 5, 10) with 8 pool member assignments"
+    - "Loot pools: 3 universal pools (levels 1, 5, 10) with 123 weighted loot entries (materials + item types)"
+    - "Material seed data: 15 materials (Cactus, Coffee, Feather, Gum, Flame, Sparkles, etc.)"
+  in_progress_components:
+    - "Backend CombatService implementation (stub exists in mystica-express/src/services/CombatStubService.ts)"
+    - "Redis session management integration"
+    - "Weighted random pool selection logic"
+  blocked_items:
+    - "Weapons table empty - need single universal weapon dial config (all weapons use same pattern for MVP0)"
+    - "Frontend SwiftUI combat UI not started"
+    - "Location-specific enemy/loot pools (gym, park, coffee_shop) need content"
   notes:
-    - "Light MVP planned: single_arc pattern only, constant dial speed, difficulty via enemy stats"
-    - "MVP0 constraints: No dial speed scaling for difficulty, level 1 enemies stay weak permanently, player should crush low-level enemies"
-    - "Full MVP planned: All 5 weapon patterns implemented, fn_weapon_bands_adjusted() for accuracy scaling, backend combat sessions (in-memory cache), tier-scaled enemies (1-10 tiers), zone-based hit detection, RNG crit bonuses"
-    - "Post-MVP planned: Dial speed variations for variety (not difficulty), polished animations for all patterns, weapon-specific haptics, balanced zone sizing, 20+ enemy tiers"
-    - "Critical: Difficulty scaling purely through enemy stats. Weapon patterns reserved for post-MVP variety, not difficulty compensation."
+    - "Database foundation complete with combat math functions and pool system"
+    - "MVP0 uses single universal weapon config - all items that can be equipped as weapons use same dial pattern"
+    - "Current pools are 'universal' filter_type - can add location-specific pools (filter_type='location_type', filter_value='gym')"
+    - "Pool system supports weighted random selection (spawn_weight, drop_weight columns)"
+    - "Enemy tier scaling via Tiers table (5 tiers currently seeded)"
+    - "Style system integrated: enemies with style_id drop materials with matching style_id"
+    - "Next steps: (1) Create universal weapon dial config, (2) Flesh out location-specific pools, (3) Implement CombatService backend"
 
 user_stories:
   - US-201

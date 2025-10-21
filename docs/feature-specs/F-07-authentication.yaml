@@ -4,16 +4,15 @@ feature_id: F-07
 status: in-progress
 last_updated: 2025-10-21
 
-summary: "Secure user registration, login, and session management via Supabase Auth. Supports email/password authentication with email verification, password reset, and persistent sessions."
+summary: "Device-based anonymous authentication for MVP0 zero-friction onboarding. Uses iOS device UUID auto-registration with long-lived JWT tokens (30 days). Email linking deferred to post-MVP0 for multi-device support."
 
 functional_overview:
-  core_logic: "Supabase Auth handles user accounts, password hashing, email verification, and JWT token generation. Client stores session token securely. On app launch, check for valid session and auto-login. All API requests include Authorization header with JWT token."
+  core_logic: "Device UUID (iOS identifierForVendor) auto-registers anonymous accounts on first launch. Backend issues 30-day JWT tokens (no refresh needed). Client stores tokens in Keychain. Device loss = account loss (acceptable MVP0 limitation). All API requests include Authorization header with JWT token."
   data_schema: "Supabase auth.users table (managed by Supabase), custom users table for game profile"
   api_endpoints:
-    - "Supabase: supabase.auth.signUp()"
-    - "Supabase: supabase.auth.signInWithPassword()"
-    - "Supabase: supabase.auth.signOut()"
-    - "Custom: GET /profile"
+    - "POST /api/v1/auth/register-device (device UUID → JWT tokens)"
+    - "GET /api/v1/auth/me (verify token, get user profile)"
+    - "POST /api/v1/auth/logout (revoke tokens, cleanup)"
   integration_points:
     - "Supabase Auth service"
     - "All backend APIs require auth"
@@ -22,8 +21,10 @@ detailed_design:
   data_structures:
     - name: "users (custom game profile)"
       columns:
-        - "id: UUID (PK, matches Supabase auth.users.id)"
-        - "email: VARCHAR (from Supabase)"
+        - "id: UUID (PK, backend-generated)"
+        - "device_id: VARCHAR (iOS identifierForVendor UUID)"
+        - "account_type: ENUM ('anonymous', 'email') - default 'anonymous'"
+        - "email: VARCHAR (nullable, for future email linking)"
         - "username: VARCHAR (optional, unique)"
         - "level: INT (default 1)"
         - "total_atk: INT (from equipped items)"
@@ -34,98 +35,78 @@ detailed_design:
 
   apis:
     - method: "POST"
-      endpoint: "Supabase Auth: signUp"
-      request: "{email, password}"
-      response: "{user: {id, email}, session: {access_token, refresh_token}}"
+      endpoint: "/api/v1/auth/register-device"
+      request: "{device_id: 'UUID'}"
+      response: "{user: {id, device_id, account_type: 'anonymous'}, session: {access_token, expires_in: 2592000}}"
       errors:
-        - "400: Invalid email or weak password"
-        - "422: Email already registered"
-
-    - method: "POST"
-      endpoint: "Supabase Auth: signInWithPassword"
-      request: "{email, password}"
-      response: "{user: {id, email}, session: {access_token, refresh_token}}"
-      errors:
-        - "400: Invalid credentials"
+        - "400: Invalid device_id format (must be valid UUID)"
+        - "409: Device already registered (returns existing session)"
 
     - method: "GET"
-      endpoint: "/profile"
+      endpoint: "/api/v1/auth/me"
       request: "Header: Authorization Bearer {access_token}"
-      response: "{id, email, username, level, total_atk, total_def, total_hp, created_at}"
+      response: "{id, device_id, account_type, username, vanity_level, total_stats, created_at}"
       errors:
         - "401: Unauthorized (invalid or expired token)"
 
     - method: "POST"
-      endpoint: "Supabase Auth: signOut"
+      endpoint: "/api/v1/auth/logout"
       request: "Header: Authorization Bearer {access_token}"
       response: "{success: true}"
       errors: []
 
   diagrams: |
-    Registration Flow:
-    1. Player enters email/password → Client validates format
-    2. Client: supabase.auth.signUp({email, password})
-    3. Supabase: Create user in auth.users, send verification email
-    4. Supabase: Return session tokens (access_token, refresh_token)
-    5. Client: Store tokens in Keychain (secure)
-    6. Client: Create game profile via POST /profile/init
-    7. Backend: Create user record in users table
-    8. Client: Redirect to onboarding/map
+    Device Registration Flow (First Launch):
+    1. App launch → Generate/read iOS identifierForVendor UUID
+    2. Client: POST /api/v1/auth/register-device {device_id: UUID}
+    3. Backend: Create anonymous user record, generate 30-day JWT
+    4. Backend: Return {user, session} with long-lived access_token
+    5. Client: Store access_token in Keychain
+    6. Client: Initialize user profile via POST /profile/init
+    7. Client: Navigate to map (instant play)
 
-    Login Flow:
-    1. Player enters email/password
-    2. Client: supabase.auth.signInWithPassword({email, password})
-    3. Supabase: Validate credentials, return session tokens
-    4. Client: Store tokens in Keychain
-    5. Client: GET /profile to load player data
-    6. Client: Redirect to map
+    Subsequent App Launches:
+    1. App launch → Check Keychain for access_token
+    2. Client: GET /api/v1/auth/me with stored token
+    3. On success: Load user data, navigate to map
+    4. On 401: Token expired, clear Keychain, re-register device
 
     Session Management:
-    - Access token expires after 1 hour
-    - Refresh token used to get new access token
-    - On app launch: Check for valid session → Auto-login
-    - On API 401 error: Refresh token → Retry request
-    - On refresh failure: Redirect to login
+    - Access token expires after 30 days (no refresh needed)
+    - On token expiry: Re-register device (seamless to user)
+    - Device loss = account loss (acceptable MVP0 limitation)
+    - Email linking (future): Convert anonymous → email account
 
 dependencies:
-  libraries: "Supabase Swift SDK (pod 'Supabase'), Keychain for token storage"
-  services: "Supabase Auth service, backend profile API"
-  data_sources: "Supabase auth.users (managed), custom users table"
+  libraries: "Keychain for secure token storage, CoreFoundation for device UUID"
+  services: "Backend device registration API, profile initialization API"
+  data_sources: "Custom users table with device_id field, no Supabase auth.users"
 
 implementation_status:
-  progress: 60  # Backend complete, frontend integration pending
+  progress: 10  # Device auth being implemented by backend-developer agent
   completed_components:
-    - "POST /api/v1/auth/register endpoint (AuthController.register)"
-    - "POST /api/v1/auth/login endpoint (AuthController.login)"
-    - "POST /api/v1/auth/logout endpoint (AuthController.logout)"
-    - "POST /api/v1/auth/refresh endpoint (AuthController.refresh)"
-    - "POST /api/v1/auth/reset-password endpoint (AuthController.resetPassword)"
-    - "POST /api/v1/auth/resend-verification endpoint (AuthController.resendVerification)"
-    - "GET /api/v1/auth/me endpoint (AuthController.getCurrentUser)"
-    - "JWT authentication middleware (middleware/auth.ts)"
-    - "Supabase Auth integration with anon key and service role clients"
-    - "User profile creation on registration (users table insert)"
-    - "Email verification flow via Supabase"
-    - "Password reset flow via Supabase"
-    - "8 comprehensive integration test suites (tests/integration/auth.test.ts)"
-    - "Token expiration handling and validation"
-    - "Security: Email enumeration prevention in reset/verification endpoints"
-    - "Password strength validation (min 8 characters)"
-    - "Last login timestamp tracking"
-  in_progress_components: []
+    - "JWT authentication middleware (middleware/auth.ts) - reusable for device auth"
+    - "User profile infrastructure (users table, profile endpoints)"
+    - "Token validation and expiration handling"
+    - "Frontend requirements analysis and strategy pivot documentation"
+  in_progress_components:
+    - "Device registration endpoint (POST /auth/register-device) - backend-developer agent_621481"
+    - "Device UUID validation and anonymous user creation"
+    - "30-day JWT token generation without refresh requirement"
   blocked_items:
-    - item: "SwiftUI authentication views and Keychain integration"
-      reason: "Frontend implementation pending - needs login/register views and secure token storage"
-    - item: "Session persistence and auto-login on app launch"
-      reason: "Requires SwiftUI implementation of session management"
+    - "Frontend implementation - waiting for backend device auth completion"
   notes:
-    - "Backend: Fully implemented with AuthController (432 lines), all 7 auth endpoints working"
-    - "Testing: 8 test suites covering registration, login, logout, refresh, reset, verification, me, and edge cases"
-    - "Security: Uses Supabase Auth best practices - anon key for auth operations, service role for admin"
-    - "Database: users table tracks id, email, created_at, last_login, vanity_level, avg_item_level"
-    - "MVP0 status: Backend ready for frontend integration, all API contracts implemented"
-    - "Frontend blocked: Needs Supabase Swift SDK integration, Keychain storage, login/register views"
-    - "Future planned: OAuth providers (Google/Apple), account deletion, enhanced security features"
+    - "MVP0 strategy change: Zero-friction device-based authentication instead of email/password"
+    - "Device auth rationale: Instant play without registration barriers, critical for MVP0 user acquisition"
+    - "Backend: Email auth endpoints exist but unused for MVP0 (keep for future email linking)"
+    - "Device limitations: Lose device = lose progress, acceptable tradeoff for MVP0 simplicity"
+    - "Security: Device UUID stored securely, 30-day JWT tokens reduce refresh complexity"
+    - "Database: users table extended with device_id and account_type fields"
+    - "Frontend scope simplified: 4 new files (AuthService, HTTPService, KeychainService, User model), 3 modified files (NavigationDestination, ContentView, SplashScreenView)"
+    - "No login/register/verification screens needed - automatic device registration on first launch"
+    - "Session management: Single 30-day token in Keychain, re-register on expiry"
+    - "Post-MVP0 planned: Email linking for multi-device support, account migration, cloud save"
+    - "Out of scope for MVP0: Email auth UI, password reset, OAuth providers, account recovery"
 
 user_stories:
   - US-601

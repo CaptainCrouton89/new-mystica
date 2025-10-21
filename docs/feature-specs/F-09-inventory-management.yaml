@@ -246,6 +246,7 @@ implementation_status:
 
 user_stories:
   - US-302
+  - US-701
 
 acceptance_criteria:
   mvp_inventory_viewing:

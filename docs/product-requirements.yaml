@@ -68,7 +68,7 @@ features:
     status: "planned"
 
   - id: "F-07"
-    description: "User Authentication - Secure registration, login, and persistent user profiles"
+    description: "User Authentication - Device-based anonymous authentication for MVP0 zero-friction onboarding. Email linking deferred to post-MVP0."
     priority: "critical"
     status: "planned"
 
@@ -217,7 +217,7 @@ mvp_phases:
       - id: "F-06"
         description: "Upgrade system with simplified formula (no rarity multiplier)"
       - id: "F-07"
-        description: "Authentication (Supabase)"
+        description: "Device-based anonymous authentication (30-day JWT tokens)"
       - id: "F-09"
         description: "Inventory with 100 item cap"
       - id: "F-11"

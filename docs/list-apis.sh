@@ -137,14 +137,14 @@ get_endpoints() {
 
 # Format HTTP method with color
 format_method() {
-    local method="$1"
-    case "${method^^}" in
+    local method="$(echo "$1" | tr '[:lower:]' '[:upper:]')"
+    case "$method" in
         GET) echo -e "${GREEN}GET   ${NC}" ;;
         POST) echo -e "${BLUE}POST  ${NC}" ;;
         PUT) echo -e "${YELLOW}PUT   ${NC}" ;;
         DELETE) echo -e "${RED}DELETE${NC}" ;;
         PATCH) echo -e "${CYAN}PATCH ${NC}" ;;
-        *) echo -e "${NC}${method^^}${NC}" ;;
+        *) echo -e "${NC}${method}${NC}" ;;
     esac
 }
 

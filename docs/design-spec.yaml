@@ -1,14 +1,26 @@
 # Design Specification
 # UI/UX design details, components, and interaction patterns.
 
-status: draft
-last_updated: 2025-10-20
+status: in-progress
+last_updated: 2025-10-21
 
 overview:
-  design_goals: "Create an immersive RPG experience with clear visual hierarchy, responsive animations, and intuitive touch interactions. Emphasize fantasy aesthetic while maintaining modern iOS design patterns. Prioritize readability for stats and combat feedback."
+  design_goals: "Create a cyberpunk-inspired dark RPG experience with neon accents, clean typography, and smooth animations. Dark gray backgrounds with neon pink/blue accents provide high contrast and modern aesthetic. Prioritize readability and visual impact."
+
+  visual_summary: |
+    AESTHETIC: Dark minimalist cyberpunk
+    - Base: Deep black/dark gray (#1A1A1A, #2F2F2F)
+    - Accents: Neon pink (#FF1493) primary, neon blue (#00BFFF) secondary
+    - Typography: Bungee-Regular (bold display font) for ALL text
+    - Mood: Sleek, modern, high-tech with vibrant neon pops
+    - Inspiration: Cyberpunk 2077 UI, neon-lit dark interfaces, retro-futuristic
+
   design_links:
-    - "TBD: Figma designs to be created during Full MVP phase"
-  design_system: "Custom design system built on SwiftUI, leveraging SF Symbols for icons and native iOS components for familiarity. Custom components for combat dial, stat displays, and item cards."
+    - "Implemented in SwiftUI: Colors.swift (color tokens), FontManager.swift (typography)"
+    - "Component library: ButtonComponents.swift, TextComponents.swift, PopupComponents.swift"
+    - "Assets: mystica_logo.png, SF Symbols for icons"
+
+  design_system: "Custom SwiftUI design system with semantic color tokens, centralized font management (Bungee primary font with system font fallback), reusable components (TextButton, IconButton, BackButton, TitleText, NormalText, SmallText). All interactive elements use consistent animation timing (150ms micro-interactions, 300ms transitions)."
 
 color_palette:
   primary:
@@ -52,23 +64,19 @@ color_palette:
       usage: "Error states, warnings, negative feedback"
 
 typography:
-  display:
-    family: "SF Pro Display"
-    weight: "Bold"
-    sizes: "32pt (titles), 24pt (headings)"
-    usage: "Screen titles, combat damage numbers, feature headers"
+  primary:
+    family: "Bungee-Regular"
+    fallback: "System Bold (if Bungee unavailable)"
+    sizes: "30pt (title), 22pt (subtitle), 17pt (body), 13pt (caption), 11pt (small)"
+    usage: "ALL text in app - titles, buttons, labels, body text. Applied via FontManager.title, .subtitle, .body, .caption, .small"
+    notes: "FontManager.swift handles font loading with automatic fallback. testWithSystemFont flag available for debugging."
 
-  body:
-    family: "SF Pro Text"
-    weight: "Regular / Medium"
-    sizes: "17pt (body), 15pt (secondary)"
-    usage: "Item descriptions, stats, button labels"
-
-  mono:
-    family: "SF Mono"
-    weight: "Medium"
-    sizes: "13pt"
-    usage: "Numeric stats, generation indicators"
+  system_fallback:
+    family: "System Font"
+    weight: "Bold/Medium"
+    sizes: "Same as primary"
+    usage: "Automatic fallback if Bungee font fails to load"
+    notes: "SF Symbols used for icons (20pt medium weight in IconButton, 16pt medium in BackButton)"
 
 layouts_components:
   - screen: "Launch / Login Screen"
@@ -80,9 +88,19 @@ layouts_components:
       - "Login button (primary CTA)"
       - "Sign Up link (text button)"
       - "Forgot Password link (text button)"
-    notes: "Gradient background (Deep Indigo → Mystic Purple). Auto-focus email field. Show password strength indicator on registration."
+    notes: "Dark gray background (#1A1A1A). Neon pink primary buttons. White text on dark. (Login not yet implemented - placeholder spec)"
 
-  - screen: "Map View (Main Screen)"
+  - screen: "Main Menu"
+    description: "Entry screen with mystica logo and navigation to Map/Collection"
+    components:
+      - "Mystica logo (centered top, max 400x200pt)"
+      - "Map button (gradient neon pink → bright pink, map.fill icon)"
+      - "Collection button (gradient neon blue → neon pink, square.grid.3x3.fill icon)"
+      - "Dark gray background (#1A1A1A)"
+    implementation: "MainMenuView.swift, uses MenuOptionView component with gradient circle icons, chevron.right indicators"
+    notes: "Menu options have 60pt gradient circle icons, 24pt spacing between buttons, 24pt padding in cards, 16pt corner radius"
+
+  - screen: "Map View"
     description: "Google Maps integration showing player location and nearby spawn points"
     components:
       - "Google Maps view (full screen)"
@@ -90,22 +108,23 @@ layouts_components:
       - "Spawn location markers (colored pins by type)"
       - "Active location marker (glowing, tappable)"
       - "Bottom sheet: selected location info"
-      - "Profile button (top-left)"
-      - "Inventory button (top-right)"
+      - "Profile button (top-left IconButton)"
+      - "Inventory button (top-right IconButton)"
       - "Location distance indicator (overlay on map)"
-    notes: "Map centered on player. Markers color-coded by item type (red=weapon, blue=armor, etc.). Active markers glow with animation. Bottom sheet shows enemy type, distance, and 'Start Combat' CTA."
+    implementation: "MapView.swift (placeholder - Google Maps SDK integration pending)"
+    notes: "Map centered on player. Markers color-coded by item type. Bottom sheet shows enemy type, distance, neon pink 'Start Combat' button."
 
-  - screen: "Combat Screen"
+  - screen: "Combat Screen (BattleView)"
     description: "Turn-based combat interface with attack dial and HP bars"
     components:
-      - "Enemy card (top): image, name, type, stats"
-      - "Enemy HP bar (below card, animated)"
-      - "Player HP bar (bottom area, animated)"
-      - "Attack dial (center): rotating indicator, tap zone"
-      - "Player stats display (bottom): ATK/DEF/HP totals"
-      - "Damage numbers (floating, animated)"
-      - "Back button (top-left, cancels combat)"
-    notes: "Dark background for focus. Attack dial has concentric circles (center = best multiplier). Indicator rotates 2 seconds per cycle. Damage numbers float up with fade-out animation. HP bars decrease smoothly with color transition (green → yellow → red)."
+      - "Enemy section (top): SF Symbol icon (e.g., pawprint.fill), name, HP bar"
+      - "VS Indicator (center): neon pink divider with 'VS' text"
+      - "Player section (middle): 'You' label, HP bar"
+      - "Combat dial (bottom): spinning dial with tap to attack, multiplier zones"
+      - "Back button (BaseView navigation - top-left BackButton)"
+      - "Combat message overlay (temporary)"
+    implementation: "BattleView.swift with BaseView wrapper. Uses NavigableView protocol. Dial rotation animation with Timer."
+    notes: "Dark background (#1A1A1A). HP bars use RoundedRectangle with gradient fills. Scale animations on damage (enemyScale/playerScale state). Combat messages show temporarily. Navigation to VictoryView/DefeatView on combat end."
 
   - screen: "Inventory Screen"
     description: "Grid view of collected items and pets with filtering"
@@ -185,21 +204,23 @@ responsive_behavior: |
   - Orientation: Portrait optimized, landscape supported (map view stretches horizontally)
 
 interaction_specs:
-  - component: "Primary Button"
+  - component: "Primary Button (TextButton)"
     states:
-      - "default: Mystic Purple background, white text, 12pt corner radius"
-      - "pressed: 90% opacity, scale 0.95"
-      - "disabled: 30% opacity, no interaction"
-    animation: "scale and opacity transition 100ms ease-out"
-    notes: "Use for main CTAs (Login, Start Combat, Confirm Craft). Minimum tap target 44x44pt."
+      - "default: Neon Pink (#FF1493) background, white text, 12pt corner radius, height 48pt"
+      - "pressed: Bright Pink (#FF69B4) background, scale 0.98, haptic feedback"
+      - "disabled: secondary background (#2F2F2F), gray text (#B0B0B0), 30% opacity"
+    animation: "scale transition 100ms ease-out, color transition 150ms"
+    implementation: "TextButton component (ButtonComponents.swift:52-94). Uses FontManager.body, longPress gesture for state tracking"
+    notes: "Use for main CTAs. Full-width by default. Audio feedback via AudioManager.playMenuButtonClick()"
 
   - component: "Icon Button"
     states:
-      - "default: SF Symbol icon, Soft White color, 20pt size"
-      - "pressed: Gold Accent color, haptic feedback"
-      - "disabled: 30% opacity"
-    animation: "color transition 150ms"
-    notes: "Use for Back, Profile, Inventory actions. Positioned in nav bar corners."
+      - "default: 44x44pt frame, gray text (#B0B0B0), dark background (#1A1A1A), neon pink border (#FF1493), 8pt corner radius"
+      - "pressed: subtle gray background (#B0B0B0), bright pink border (#FF69B4), scale 0.95, haptic feedback"
+      - "disabled: secondary background (#2F2F2F), subtle border (#B0B0B0), 30% opacity"
+    animation: "color transition 150ms ease-out, scale 100ms"
+    implementation: "IconButton component (ButtonComponents.swift:4-49). 20pt medium SF Symbol icons, longPress gesture"
+    notes: "Use for Profile, Inventory, navigation actions. Audio feedback via AudioManager. Minimum 44x44pt tap target."
 
   - component: "Attack Dial"
     states:
@@ -325,29 +346,107 @@ design_tokens:
     md: "16pt"
     lg: "24pt"
     xl: "32pt"
+    xxl: "40pt"
+    notes: "MainMenuView uses 40pt VStack spacing, 24pt button spacing, 32pt horizontal padding"
 
   corner_radius:
     small: "4pt"
     medium: "8pt"
     large: "12pt"
     card: "16pt"
+    notes: "TextButton uses 12pt, IconButton uses 8pt, MenuOptionView cards use 16pt"
 
   shadows:
-    light: "0 2 4 rgba(0,0,0,0.1)"
-    medium: "0 4 8 rgba(0,0,0,0.15)"
-    heavy: "0 8 16 rgba(0,0,0,0.2)"
+    text_shadow: "black 30% opacity, radius 2, offset (0,2)"
+    notes: "TitleText applies shadow for depth. Card shadows not currently used (dark theme minimalism)"
+
+component_implementations:
+  TextButton:
+    file: "ButtonComponents.swift:52-94"
+    usage: "TextButton('Start Combat', height: 48) { action }"
+    styling: "Full-width, 48pt height, 12pt corner radius, neon pink background"
+    states: "default → pressed (bright pink, scale 0.98) → disabled (gray, 30% opacity)"
+    audio: "AudioManager.playMenuButtonClick() on tap"
+
+  IconButton:
+    file: "ButtonComponents.swift:4-49"
+    usage: "IconButton(icon: 'map.fill', size: 44) { action }"
+    styling: "44x44pt default size, 8pt corner radius, neon pink border, dark background"
+    states: "default → pressed (gray bg, bright pink border, scale 0.95) → disabled"
+    audio: "AudioManager.playMenuButtonClick() on tap"
+
+  BackButton:
+    file: "ButtonComponents.swift:97-140"
+    usage: "BackButton(size: 40) { navigationManager.navigateBack() }"
+    styling: "40pt circle, chevron.left icon, neon pink border, transparent background"
+    states: "default → pressed (dark bg, bright pink border, scale 0.95)"
+    audio: "AudioManager.playBackButtonClick() on tap"
+    notes: "Auto-included in BaseView wrapper for NavigableView screens"
+
+  TitleText:
+    file: "TextComponents.swift:4-21"
+    usage: "TitleText('Battle', size: 30)"
+    styling: "30pt Bungee font, white color, 0.5pt kerning, black shadow"
+
+  NormalText:
+    file: "TextComponents.swift:24-41"
+    usage: "NormalText('Description here')"
+    styling: "17pt Bungee font, gray (#B0B0B0) color, 0.2pt kerning, 2pt line spacing"
+
+  SmallText:
+    file: "TextComponents.swift:44-61"
+    usage: "SmallText('Caption')"
+    styling: "13pt Bungee font, gray color, 0.2pt kerning, 1pt line spacing"
+
+  MenuOptionView:
+    file: "MainMenuView.swift:69-118"
+    usage: "MenuOptionView(title: 'Map', icon: 'map.fill', gradientColors: [.accent, .accentInteractive])"
+    styling: "60pt gradient circle icon, 16pt corner radius card, 24pt padding, chevron.right indicator"
+    notes: "Used in MainMenuView for navigation buttons"
+
+  BaseView:
+    file: "NavigableView.swift (implied by BattleView usage)"
+    usage: "BaseView(title: 'Battle') { content }"
+    styling: "Wraps NavigableView screens, provides back button, title display"
+    notes: "Requires NavigationManager in environment"
 
 icons:
-  source: "SF Symbols (iOS native)"
-  custom: "Item type icons (helmet, sword, offhand, etc.) - to be designed or sourced from asset pack"
-  notes: "Use SF Symbols for UI controls, custom icons for game items/enemies"
+  source: "SF Symbols (iOS native) - system(size:weight:) API"
+  sizes: "20pt medium (IconButton), 16pt medium (BackButton chevron), 24pt semibold (MenuOptionView)"
+  custom: "mystica_logo.png (MainMenuView), enemy icons use SF Symbols (e.g., pawprint.fill for Shadow Wolf)"
+  implementation: "Image(systemName:) for SF Symbols, Image(named:) for custom assets"
+  notes: "SF Symbols provide consistent icon set. Custom game assets stored in Assets catalog."
 
 implementation_notes: |
-  - Light MVP: Basic layouts with native iOS components, no custom animations, Normal style only
-  - Full MVP: Custom components (attack dial, stat bars), basic animations, implement all 5 visual styles with Core Animation
-  - Finished: Polished style animations, haptic feedback, accessibility, dark mode support, style-specific victory animations
-  - Multi-Style System: Converted from binary shiny/normal to 5 distinct visual styles (Normal, Pixel Art, Watercolor, Neon, Sketch)
-  - Style Implementation: Each style requires unique border treatment, background effect, animation loop, and accessibility considerations
-  - Use SwiftUI previews for rapid iteration of style variants
-  - Extract reusable style components into design system module
-  - Document style system API and usage guidelines in separate file (future)
+  CURRENT STATUS (Light MVP):
+  - ✅ Color system implemented: Colors.swift with semantic naming (primary, secondary, accent, text*, background*, border*)
+  - ✅ Typography system: FontManager.swift with Bungee-Regular primary font + system fallback
+  - ✅ Component library: TextButton, IconButton, BackButton (ButtonComponents.swift), TitleText, NormalText, SmallText (TextComponents.swift)
+  - ✅ Animation system: 150ms micro-interactions, 300ms screen transitions, longPress gesture state tracking
+  - ✅ Audio integration: AudioManager with playMenuButtonClick(), playBackButtonClick() on all interactive elements
+  - ✅ Navigation system: NavigationManager singleton with NavigableView protocol, BaseView wrapper with back button
+  - ✅ Main screens: MainMenuView (logo + gradient buttons), BattleView (combat dial + HP bars), VictoryView, DefeatView
+  - ⚠️ MapView placeholder (Google Maps SDK not integrated yet)
+  - ⚠️ CollectionView placeholder (inventory grid not implemented)
+  - ⚠️ Normal style only - no visual style variants yet
+
+  NEXT STEPS (Full MVP):
+  - Implement Google Maps SDK integration in MapView
+  - Build CollectionView with 2-column grid, filter/sort
+  - Add Item Detail modal overlay
+  - Implement Equipment screen with character silhouette + slot overlay
+  - Add Materials Application screen
+  - Implement all 5 visual styles (Normal, Pixel Art, Watercolor, Neon, Sketch) with Core Animation
+  - Add haptic feedback (currently audio only)
+  - Polish combat dial with zone visualization and multiplier display
+  - Add HP bar color transitions (green → yellow → red)
+
+  DESIGN SYSTEM ARCHITECTURE:
+  - Colors.swift: Semantic color tokens (avoid hardcoded hex in views)
+  - FontManager.swift: Single source of truth for typography (Bungee primary, system fallback)
+  - ButtonComponents.swift: TextButton, IconButton, BackButton with consistent state management
+  - TextComponents.swift: TitleText, NormalText, SmallText with Bungee font + semantic colors
+  - PopupComponents.swift: PopupView for modals/overlays
+  - NavigationManager.swift: Global navigation state with history tracking (max 10 items)
+  - AudioManager.swift: Centralized sound effects (menu clicks, back navigation)
+  - All components use @EnvironmentObject for NavigationManager + AudioManager injection

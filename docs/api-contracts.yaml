@@ -291,6 +291,16 @@ components:
         email:
           type: string
           format: email
+          nullable: true
+          description: "Null for anonymous accounts, set when email linking is performed"
+        device_id:
+          type: string
+          nullable: true
+          description: "iOS device UUID for anonymous accounts"
+        account_type:
+          type: string
+          enum: [anonymous, email]
+          description: "Account type (anonymous for device-based, email for linked accounts)"
         username:
           type: string
           nullable: true
@@ -519,9 +529,86 @@ components:
             $ref: '#/components/schemas/Error'
 
 paths:
+  /auth/register-device:
+    post:
+      summary: Register device for anonymous authentication (F-07)
+      description: Auto-register iOS device UUID, return long-lived JWT tokens (30 days)
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                device_id:
+                  type: string
+                  format: uuid
+                  description: iOS identifierForVendor UUID
+              required: [device_id]
+      responses:
+        '201':
+          description: Device registered, tokens issued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      device_id:
+                        type: string
+                      account_type:
+                        type: string
+                        enum: [anonymous]
+                  session:
+                    type: object
+                    properties:
+                      access_token:
+                        type: string
+                      expires_in:
+                        type: integer
+                        description: Token expiry in seconds (2592000 = 30 days)
+        '400':
+          description: Invalid device_id format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Device already registered (returns existing session)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                      device_id:
+                        type: string
+                      account_type:
+                        type: string
+                        enum: [anonymous]
+                  session:
+                    type: object
+                    properties:
+                      access_token:
+                        type: string
+                      expires_in:
+                        type: integer
+
   /auth/register:
     post:
-      summary: Register new user (F-07)
+      summary: Register new user with email/password (F-07) - Email auth deferred to post-MVP0
       description: Create new account with email and password. Sends email verification.
       tags:
         - Authentication
@@ -556,6 +643,9 @@ paths:
                       email:
                         type: string
                         format: email
+                      account_type:
+                        type: string
+                        enum: [email]
                   session:
                     type: object
                     properties:
@@ -578,7 +668,7 @@ paths:
 
   /auth/login:
     post:
-      summary: Login with email and password (F-07)
+      summary: Login with email and password (F-07) - Email auth deferred to post-MVP0
       tags:
         - Authentication
       requestBody:
@@ -610,6 +700,9 @@ paths:
                         format: uuid
                       email:
                         type: string
+                      account_type:
+                        type: string
+                        enum: [email]
                   session:
                     type: object
                     properties:
@@ -760,8 +853,16 @@ paths:
                       id:
                         type: string
                         format: uuid
+                      device_id:
+                        type: string
+                        nullable: true
+                        description: "Device UUID for anonymous accounts"
+                      account_type:
+                        type: string
+                        enum: [anonymous, email]
                       email:
                         type: string
+                        nullable: true
                       created_at:
                         type: string
                         format: date-time
