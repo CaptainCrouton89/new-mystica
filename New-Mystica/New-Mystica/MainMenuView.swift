@@ -40,7 +40,6 @@ struct MainMenuView: View {
                         } label: {
                             MenuOptionView(
                                 title: "Map",
-                                subtitle: "Explore the world",
                                 icon: "map.fill",
                                 gradientColors: [Color.accent, Color.accentInteractive]
                             )
@@ -53,7 +52,6 @@ struct MainMenuView: View {
                         } label: {
                             MenuOptionView(
                                 title: "Collection",
-                                subtitle: "View your items",
                                 icon: "square.grid.3x3.fill",
                                 gradientColors: [Color.accentSecondary, Color.accent]
                             )
@@ -63,10 +61,6 @@ struct MainMenuView: View {
                     .padding(.horizontal, 32)
                     
                     Spacer()
-                    
-                    // Footer
-                    SmallText("Tap to begin your journey")
-                        .padding(.bottom, 32)
                 }
             }
     }
@@ -74,7 +68,6 @@ struct MainMenuView: View {
 
 struct MenuOptionView: View {
     let title: String
-    let subtitle: String
     let icon: String
     let gradientColors: [Color]
     
@@ -103,10 +96,6 @@ struct MenuOptionView: View {
                 Text(title)
                     .font(FontManager.subtitle)
                     .foregroundColor(Color.textPrimary)
-                
-                Text(subtitle)
-                    .font(FontManager.body)
-                    .foregroundColor(Color.textSecondary)
             }
             
             Spacer()

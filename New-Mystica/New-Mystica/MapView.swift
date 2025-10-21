@@ -130,26 +130,6 @@ struct MapView: View, NavigableView {
                 }
                 .ignoresSafeArea()
                 
-                // Refresh button
-                VStack {
-                    HStack {
-                        Spacer()
-                        Button(action: {
-                            generateRandomBattleLocations()
-                        }) {
-                            Image(systemName: "arrow.clockwise")
-                                .font(.system(size: 20, weight: .medium))
-                                .foregroundColor(.white)
-                                .frame(width: 44, height: 44)
-                                .background(Color.accentSecondary)
-                                .clipShape(Circle())
-                                .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
-                        }
-                        .padding(.trailing, 20)
-                        .padding(.top, 20)
-                    }
-                    Spacer()
-                }
             }
         }
         .onAppear {
