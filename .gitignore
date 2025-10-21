@@ -6,6 +6,7 @@ node_modules/
 
 # Xcode
 *.xcodeproj/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcshareddata/
 *.xcworkspace/xcuserdata/
 *.xcuserstate
 *.xcuserdatad
@@ -21,4 +22,16 @@ image-refs/
 scripts/output/
 
 # Wrangler/Cloudflare local state
-.wrangler/state/
+.wrangler/
+.mcp.json
+
+# TypeScript
+dist/
+*.tsbuildinfo
+
+# Additional Environment
+logs/
+
+# Supabase
+.supabase/
+supabase/
