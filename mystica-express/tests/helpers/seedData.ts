@@ -73,7 +73,7 @@ interface SeedEquipmentSlot {
 function transformSeedItem(seed: SeedItemType): ItemType {
   // Map simplified seed slot names to full equipment slot names
   let equipmentSlot: EquipmentSlot;
-  let category: 'weapon' | 'shield' | 'head' | 'armor' | 'feet' | 'accessory' | 'pet';
+  let category: 'weapon' | 'offhand' | 'head' | 'armor' | 'feet' | 'accessory' | 'pet';
 
   switch (seed.slot) {
     case 'weapon':
@@ -81,8 +81,8 @@ function transformSeedItem(seed: SeedItemType): ItemType {
       category = 'weapon';
       break;
     case 'offhand':
-      equipmentSlot = 'shield'; // offhand maps to shield in equipment system
-      category = 'shield';
+      equipmentSlot = 'offhand'; // offhand maps to offhand in equipment system
+      category = 'offhand';
       break;
     case 'head':
       equipmentSlot = 'head';
@@ -129,6 +129,7 @@ function transformSeedMaterial(seed: SeedMaterial): Material {
     name: seed.name,
     rarity: seed.rarity,
     stat_modifiers: seed.stat_modifiers,
+    theme: 'balanced', // Default theme for seed materials
     description: seed.description
   };
 }

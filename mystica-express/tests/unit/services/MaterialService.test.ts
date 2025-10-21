@@ -233,7 +233,7 @@ describe('MaterialService (TDD)', () => {
     });
 
     it('should set is_styled=true when applying non-normal style', async () => {
-      const item = ItemFactory.createBase('shield', 1);
+      const item = ItemFactory.createBase('offhand', 1);
 
       // Apply pixel_art styled material
       mockedSupabase.from.mockImplementation(() => ({

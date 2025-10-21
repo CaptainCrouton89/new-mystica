@@ -114,7 +114,7 @@ export function expectValidItemType(itemType: ItemType): void {
   expect(itemType.rarity).toBeTruthy();
 
   // Valid equipment slot (after transformation from seed data)
-  const validSlots = ['weapon', 'shield', 'head', 'armor', 'feet', 'accessory_1', 'accessory_2', 'pet'];
+  const validSlots = ['weapon', 'offhand', 'head', 'armor', 'feet', 'accessory_1', 'accessory_2', 'pet'];
   expect(validSlots).toContain(itemType.equipment_slot);
 
   // Valid rarity
@@ -127,8 +127,8 @@ export function expectValidItemType(itemType: ItemType): void {
   // Category should match slot logic
   if (itemType.equipment_slot === 'accessory_1' || itemType.equipment_slot === 'accessory_2') {
     expect(itemType.category).toBe('accessory');
-  } else if (itemType.equipment_slot === 'shield') {
-    expect(itemType.category).toBe('shield');
+  } else if (itemType.equipment_slot === 'offhand') {
+    expect(itemType.category).toBe('offhand');
   } else {
     expect(itemType.category).toBe(itemType.equipment_slot);
   }
@@ -261,7 +261,7 @@ export function expectValidRarity(rarity: string): void {
  * Assert valid equipment slot value
  */
 export function expectValidEquipmentSlot(slot: string): void {
-  const validSlots = ['weapon', 'offhand', 'shield', 'head', 'armor', 'feet', 'accessory_1', 'accessory_2', 'pet'];
+  const validSlots = ['weapon', 'offhand', 'head', 'armor', 'feet', 'accessory_1', 'accessory_2', 'pet'];
   expect(validSlots).toContain(slot);
 }
 

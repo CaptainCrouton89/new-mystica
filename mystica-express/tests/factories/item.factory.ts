@@ -132,9 +132,9 @@ export class ItemFactory {
   }
 
   /**
-   * Create armor item (shield, helmet, chestplate, etc.)
+   * Create armor item (offhand, helmet, chestplate, etc.)
    */
-  static createArmor(armorType: string = 'shield', level: number = 1, overrides?: Partial<PlayerItem>): PlayerItem {
+  static createArmor(armorType: string = 'offhand', level: number = 1, overrides?: Partial<PlayerItem>): PlayerItem {
     return this.createBase(armorType, level, overrides);
   }
 
@@ -170,7 +170,7 @@ export class ItemFactory {
   private static getBaseStatsForType(type: string, level: number): Stats {
     const baseStats: Record<string, Stats> = {
       sword: { atkPower: 0.4, atkAccuracy: 0.2, defPower: 0.2, defAccuracy: 0.2 },
-      shield: { atkPower: 0.1, atkAccuracy: 0.1, defPower: 0.5, defAccuracy: 0.3 },
+      offhand: { atkPower: 0.1, atkAccuracy: 0.1, defPower: 0.5, defAccuracy: 0.3 },
       bow: { atkPower: 0.5, atkAccuracy: 0.3, defPower: 0.1, defAccuracy: 0.1 },
       staff: { atkPower: 0.3, atkAccuracy: 0.3, defPower: 0.2, defAccuracy: 0.2 },
       helmet: { atkPower: 0.1, atkAccuracy: 0.1, defPower: 0.4, defAccuracy: 0.4 },

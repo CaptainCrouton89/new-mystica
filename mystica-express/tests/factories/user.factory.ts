@@ -19,7 +19,7 @@ export class UserFactory {
    * Create anonymous user with device_id
    */
   static createAnonymous(overrides?: Partial<User>): User {
-    const deviceId = uuidv4();
+    const deviceId = generateUuid();
     const baseUser: User = {
       id: generateUuid(),
       email: `device_${deviceId}@mystica.local`,
