@@ -48,7 +48,7 @@ export interface Item {
 export interface ItemType {
   id: string;
   name: string;
-  category: 'weapon' | 'shield' | 'head' | 'armor' | 'feet' | 'accessory' | 'pet';
+  category: 'weapon' | 'offhand' | 'head' | 'armor' | 'feet' | 'accessory' | 'pet';
   equipment_slot: EquipmentSlot;
   base_stats: Stats;
   rarity: Rarity;
@@ -120,7 +120,7 @@ export interface Stats {
  */
 export type EquipmentSlot =
   | 'weapon'
-  | 'shield'
+  | 'offhand'
   | 'head'
   | 'armor'
   | 'feet'
@@ -133,7 +133,7 @@ export type EquipmentSlot =
  */
 export interface EquipmentSlots {
   weapon?: Item;
-  shield?: Item;
+  offhand?: Item;
   head?: Item;
   armor?: Item;
   feet?: Item;

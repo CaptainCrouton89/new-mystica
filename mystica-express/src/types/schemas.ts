@@ -9,7 +9,7 @@ import { z } from 'zod';
 export const UUIDSchema = z.string().uuid('Invalid UUID format');
 
 export const EquipmentSlotSchema = z.enum([
-  'weapon', 'shield', 'head', 'armor', 'feet', 'accessory_1', 'accessory_2', 'pet'
+  'weapon', 'offhand', 'head', 'armor', 'feet', 'accessory_1', 'accessory_2', 'pet'
 ]);
 
 // Equipment endpoints
@@ -107,7 +107,7 @@ export const UpdateLoadoutSchema = z.object({
 export const UpdateLoadoutSlotsSchema = z.object({
   slots: z.object({
     weapon: UUIDSchema.nullable().optional(),
-    shield: UUIDSchema.nullable().optional(),
+    offhand: UUIDSchema.nullable().optional(),
     head: UUIDSchema.nullable().optional(),
     armor: UUIDSchema.nullable().optional(),
     feet: UUIDSchema.nullable().optional(),

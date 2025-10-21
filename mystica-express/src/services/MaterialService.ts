@@ -32,7 +32,7 @@ export class MaterialService {
     userId: string,
     itemId: string,
     materialId: string,
-    styleId: string,
+    isShiny: boolean,
     slotIndex: number
   ): Promise<ApplyMaterialResult> {
     // TODO: Implement material application workflow
@@ -62,7 +62,7 @@ export class MaterialService {
     itemId: string,
     slotIndex: number,
     newMaterialId: string,
-    newStyleId: string,
+    newIsShiny: boolean,
     goldCost: number
   ): Promise<ReplaceMaterialResult> {
     // TODO: Implement material replacement workflow

@@ -13,18 +13,36 @@ export class EquipmentController {
    */
   getEquipment = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
+      console.log('⚔️  [EQUIPMENT] Get equipment request:', {
+        userId: req.user?.id,
+        accountType: req.user?.account_type,
+        deviceId: req.user?.device_id
+      });
+
       const userId = req.user!.id;
 
       const equipment = await equipmentService.getEquippedItems(userId);
+
+      console.log('✅ [EQUIPMENT] Equipment loaded successfully:', {
+        userId,
+        equippedCount: Object.keys(equipment.slots).filter(slot =>
+          equipment.slots[slot as keyof typeof equipment.slots] !== undefined
+        ).length,
+        totalStats: equipment.total_stats
+      });
 
       res.json({
         slots: equipment.slots,
         total_stats: equipment.total_stats,
         equipment_count: Object.keys(equipment.slots).filter(slot =>
-          equipment.slots[slot as keyof typeof equipment.slots] !== null
+          equipment.slots[slot as keyof typeof equipment.slots] !== undefined
         ).length
       });
     } catch (error) {
+      console.log('❌ [EQUIPMENT] Failed to get equipment:', {
+        userId: req.user?.id,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
       next(error);
     }
   };
