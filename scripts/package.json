@@ -9,11 +9,14 @@
     "analyze-image": "tsx analyze-image.ts"
   },
   "dependencies": {
+    "@ai-sdk/openai": "^2.0.53",
     "@aws-sdk/client-s3": "^3.913.0",
     "@aws-sdk/s3-request-presigner": "^3.913.0",
     "@google/generative-ai": "^0.24.1",
+    "ai": "^5.0.76",
     "dotenv": "^16.4.7",
-    "replicate": "^1.0.4"
+    "replicate": "^1.0.4",
+    "zod": "^4.1.12"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
