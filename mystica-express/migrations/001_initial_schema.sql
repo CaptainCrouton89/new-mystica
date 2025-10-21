@@ -606,7 +606,7 @@ CREATE TABLE LootPoolTierWeights (
 
 CREATE INDEX idx_loot_pool_tier_weights_loot_pool_id ON LootPoolTierWeights(loot_pool_id);
 
--- CombatSessions (stored in Redis with 15min TTL for active sessions)
+-- CombatSessions (persistent storage with 15min soft TTL cleanup via scheduled job)
 CREATE TABLE CombatSessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL,
