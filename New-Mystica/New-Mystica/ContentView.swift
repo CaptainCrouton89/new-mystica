@@ -33,18 +33,7 @@ struct ContentView: View {
         case .collection:
             CollectionView()
         case .settings:
-            // Example of how easy it is to create new views with navigation
-            SimpleNavigableView(title: "Settings") {
-                VStack(spacing: 20) {
-                    Spacer()
-                    
-                    TitleText("Settings")
-                    
-                    NormalText("Coming Soon")
-                    
-                    Spacer()
-                }
-            }
+            SettingsView()
         case .profile:
             // Another example of automatic navigation
             SimpleNavigableView(title: "Profile") {

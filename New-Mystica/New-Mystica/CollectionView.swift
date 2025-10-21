@@ -12,7 +12,8 @@ struct CollectionView: View, NavigableView {
     @EnvironmentObject private var audioManager: AudioManager
     @State private var selectedItem: CollectionItem? = nil
     @State private var showItemPopup = false
-    
+    @State private var goldAmount: Int = 1234 // TODO: Replace with actual user gold balance
+
     var navigationTitle: String { "Collection" }
     
     // Dummy data for the collection
@@ -34,20 +35,31 @@ struct CollectionView: View, NavigableView {
     
     var body: some View {
         BaseView(title: navigationTitle) {
-            // Collection Grid
-            ScrollView {
-                LazyVGrid(columns: columns, spacing: 16) {
-                    ForEach(dummyItems) { item in
-                        CollectionItemView(item: item)
-                            .onTapGesture {
-                                audioManager.playMenuButtonClick()
-                                selectedItem = item
-                                showItemPopup = true
-                            }
-                    }
+            VStack(spacing: 0) {
+                // Gold Balance Header
+                HStack {
+                    Spacer()
+                    GoldBalanceView(amount: goldAmount)
+                        .padding(.trailing, 16)
+                        .padding(.top, 8)
                 }
-                .padding(.horizontal, 16)
-                .padding(.top, 24)
+                .padding(.bottom, 8)
+
+                // Collection Grid
+                ScrollView {
+                    LazyVGrid(columns: columns, spacing: 16) {
+                        ForEach(dummyItems) { item in
+                            CollectionItemView(item: item)
+                                .onTapGesture {
+                                    audioManager.playMenuButtonClick()
+                                    selectedItem = item
+                                    showItemPopup = true
+                                }
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 16)
+                }
             }
         }
         .overlay(

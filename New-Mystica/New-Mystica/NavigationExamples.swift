@@ -10,20 +10,20 @@ import SwiftUI
 // MARK: - Example: How to Create New Views with Automatic Navigation
 
 // Method 1: Using NavigableView Protocol (Recommended for complex views)
-struct SettingsView: View, NavigableView {
+struct ExampleSettingsView: View, NavigableView {
     @EnvironmentObject private var navigationManager: NavigationManager
-    
+
     var navigationTitle: String { "Settings" }
-    
+
     var body: some View {
         BaseView(title: navigationTitle) {
             VStack(spacing: 20) {
                 Spacer()
-                
+
                 TitleText("Settings")
-                
+
                 NormalText("Configure your game preferences")
-                
+
                 // Example settings options
                 VStack(spacing: 16) {
                     SettingsRow(title: "Sound Effects", isOn: true)
@@ -31,7 +31,7 @@ struct SettingsView: View, NavigableView {
                     SettingsRow(title: "Notifications", isOn: false)
                 }
                 .padding(.horizontal, 32)
-                
+
                 Spacer()
             }
         }

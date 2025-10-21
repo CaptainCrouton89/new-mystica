@@ -12,6 +12,7 @@ import SwiftData
 struct New_MysticaApp: App {
     @StateObject private var navigationManager = NavigationManager()
     @StateObject private var audioManager = AudioManager.shared
+    @StateObject private var backgroundImageManager = BackgroundImageManager()
     
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
@@ -31,6 +32,8 @@ struct New_MysticaApp: App {
             SplashScreenView()
                 .environmentObject(navigationManager)
                 .environmentObject(audioManager)
+                .environmentObject(backgroundImageManager)
+                .environmentObject(AuthService.shared)
                 .onAppear {
                     // Debug: List all available fonts
                     print("🔍 Available font families:")

@@ -13,6 +13,7 @@ struct SplashScreenView: View {
     @State private var scale = 0.8
     @EnvironmentObject private var navigationManager: NavigationManager
     @EnvironmentObject private var audioManager: AudioManager
+    @EnvironmentObject private var authService: AuthService
     
     var body: some View {
         if isActive {
@@ -53,12 +54,25 @@ struct SplashScreenView: View {
                     opacity = 1.0
                     scale = 1.0
                 }
-                
-                // Transition to main app after delay
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
-                    withAnimation(.easeInOut(duration: 0.5)) {
-                        isActive = true
-                    }
+            }
+            .task {
+                // Check if device has authentication token
+                let hasToken = KeychainService.get(key: "mystica_access_token") != nil
+
+                if !hasToken {
+                    // Register device if no token exists
+                    try? await authService.registerDevice()
+                } else {
+                    // Bootstrap session if token exists
+                    _ = await authService.bootstrapSession()
+                }
+
+                // Navigate to map (user is now authenticated)
+                navigationManager.navigateTo(.map)
+
+                // Transition to main app
+                withAnimation(.easeInOut(duration: 0.5)) {
+                    isActive = true
                 }
             }
         }
@@ -67,4 +81,7 @@ struct SplashScreenView: View {
 
 #Preview {
     SplashScreenView()
+        .environmentObject(NavigationManager())
+        .environmentObject(AudioManager.shared)
+        .environmentObject(AuthService.shared)
 }

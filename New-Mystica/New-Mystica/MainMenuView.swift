@@ -10,11 +10,23 @@ import SwiftUI
 struct MainMenuView: View {
     @EnvironmentObject private var navigationManager: NavigationManager
     @EnvironmentObject private var audioManager: AudioManager
-    
+    @EnvironmentObject private var backgroundImageManager: BackgroundImageManager
+
     var body: some View {
             ZStack {
-                // Background
-                Color.backgroundPrimary
+                // Background Image
+                if let loadedImage = backgroundImageManager.loadedImage {
+                    Image(uiImage: loadedImage)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .ignoresSafeArea()
+                } else {
+                    Color.backgroundPrimary
+                        .ignoresSafeArea()
+                }
+
+                // Dark overlay for readability
+                Color.black.opacity(0.5)
                     .ignoresSafeArea()
                 
                 VStack(spacing: 40) {
@@ -45,7 +57,7 @@ struct MainMenuView: View {
                             )
                         }
                         .buttonStyle(PlainButtonStyle())
-                        
+
                         Button {
                             audioManager.playMenuButtonClick()
                             navigationManager.navigateTo(.collection)
@@ -54,6 +66,18 @@ struct MainMenuView: View {
                                 title: "Collection",
                                 icon: "square.grid.3x3.fill",
                                 gradientColors: [Color.accentSecondary, Color.accent]
+                            )
+                        }
+                        .buttonStyle(PlainButtonStyle())
+
+                        Button {
+                            audioManager.playMenuButtonClick()
+                            navigationManager.navigateTo(.settings)
+                        } label: {
+                            MenuOptionView(
+                                title: "Settings",
+                                icon: "gearshape.fill",
+                                gradientColors: [Color.accentInteractive, Color.accent]
                             )
                         }
                         .buttonStyle(PlainButtonStyle())
@@ -120,4 +144,6 @@ struct MenuOptionView: View {
 #Preview {
     MainMenuView()
         .environmentObject(NavigationManager())
+        .environmentObject(AudioManager.shared)
+        .environmentObject(BackgroundImageManager())
 }
