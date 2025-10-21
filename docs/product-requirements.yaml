@@ -14,7 +14,6 @@ scope:
     - Location-based enemy and item discovery via map integration
     - Tactical combat system with timing-based mechanics
     - Item and pet collection with rarity variants (standard/shiny)
-    - Crafting system with generational progression (up to 3rd gen)
     - AI-generated items with stat distributions
     - Native iOS/macOS application
     - Backend API for data persistence and AI generation
@@ -136,13 +135,13 @@ timeline:
         - Complete combat system with stats calculation
         - Items and pets system with equipping
         - AI item generation backend
-        - Basic crafting (1st generation only)
+        - Basic material application system
         - User authentication and profiles
 
     - phase: "Finished Product (2 months)"
       target: "2026-01-05"
       deliverables:
-        - Full crafting system (up to 3rd generation)
+        - Full material application system
         - Shiny variants and rarity system
         - Premium items with single-location spawns
         - Polished UI/UX across all screens

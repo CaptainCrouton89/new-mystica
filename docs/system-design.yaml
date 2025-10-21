@@ -81,17 +81,22 @@ core_components:
       - "Stat calculation logic"
 
   - component: "Inventory Service"
-    description: "Manages player-owned items and pets. Handles equipping/unequipping, stat aggregation, and inventory queries. Validates item ownership before mutations."
+    description: "Manages player-owned items and pets. Handles equipping/unequipping via UserEquipment table, stat aggregation from ItemMaterials and UserEquipment joins. Validates item ownership before mutations."
     dependencies:
-      - "Items table (owner_id FK)"
+      - "Items table (user_id FK)"
+      - "UserEquipment table for equipped state"
+      - "ItemMaterials table for material assignments"
       - "Users table for ownership validation"
 
-  - component: "Crafting Service"
-    description: "Handles item fusion with async timers. Validates crafting rules (same type, same generation, max Gen3). Consumes parent items immediately, generates child item on timer completion."
+  - component: "Material Application Service"
+    description: "Handles applying up to 3 materials to items (F-04). Manages material stacking (MaterialStacks), creates MaterialInstances when applied, updates ItemMaterials junction table. Computes deterministic combo_hash for image lookup. If image not cached in ItemImageCache, synchronously generates unique composite image (20s via AI) showing item + materials, uploads to R2, caches globally for reuse."
     dependencies:
-      - "Crafting_sessions table"
-      - "AI Generation Service for child items"
-      - "Background job queue (pg_cron or Redis Queue)"
+      - "MaterialStacks table (inventory)"
+      - "MaterialInstances table (applied materials)"
+      - "ItemMaterials table (junction)"
+      - "ItemImageCache table (global cache)"
+      - "AI Image Generation Service (R2 + Replicate)"
+      - "R2 storage for generated images"
 
   - component: "AI Generation Service"
     description: "Generates unique item descriptions and stat distributions via AI (OpenAI/Anthropic). Also generates pet personality dialogue (F-11) and enemy trash-talk (F-12) during combat. Validates stat distributions sum to 1.0. Caches generated items to avoid regeneration. For pet chatter (F-11), uses personality prompts and combat context to generate supportive dialogue. For enemy chatter (F-12), uses enemy type traits and player history to generate antagonistic trash-talk."
@@ -104,7 +109,7 @@ core_components:
       - "Combat session context from Redis (F-11, F-12)"
 
   - component: "Supabase PostgreSQL"
-    description: "Primary database for all persistent data including core entities (Users, Items, ItemTypes, Materials, MaterialInstances), pet system (Pets, PetPersonalities), enemy AI (EnemyTypes, PlayerCombatHistory), and analytics (CombatChatterLog, EnemyChatterLog). Full schema documented in data-plan.yaml. Provides geospatial queries via PostGIS, ACID transactions, and row-level security."
+    description: "Primary database for all persistent data including core entities (Users, Items, ItemTypes, Materials, MaterialInstances), normalized equipment (UserEquipment, Loadouts, LoadoutSlots), materials system (ItemMaterials), pet system (Pets, PetPersonalities), enemy AI (EnemyTypes, PlayerCombatHistory), and analytics (CombatChatterLog, EnemyChatterLog). Full schema documented in data-plan.yaml including normalized equipment and materials tracking. Provides geospatial queries via PostGIS, ACID transactions, and row-level security."
     dependencies:
       - "Supabase hosted PostgreSQL"
       - "PostGIS extension for location queries"
@@ -143,7 +148,7 @@ data_flow: |
   4. Backend → PostgreSQL: Query matching EnemyPools based on combat level and location filters
   5. Backend → PostgreSQL: Aggregate EnemyPoolMembers, select enemy via weighted random
   6. Backend → PostgreSQL: Query matching LootPools for later drop calculation
-  7. Backend → PostgreSQL: SELECT equipped items WHERE owner_id = {player_id}
+  7. Backend → PostgreSQL: SELECT Items JOIN UserEquipment WHERE user_id = {player_id} AND UserEquipment.item_id IS NOT NULL
   8. Backend → Redis: Store combat session {player_hp, enemy_hp, stats, applied_pools}
   9. Backend → Client: {session_id, enemy, player_stats}
   10. Client → Backend API: POST /combat/attack {session_id, tap_accuracy}
@@ -155,17 +160,20 @@ data_flow: |
   16. Backend → PostgreSQL: INSERT materials/items (if victory)
   17. Backend → Client: {reward: {items, materials}}
 
-  **Crafting Flow:**
-  1. Client → Backend API: POST /crafting/start {parent_item_1, parent_item_2}
-  2. Backend → PostgreSQL: Validate items, DELETE parents
-  3. Backend → PostgreSQL: INSERT crafting_session {duration, completion_time}
-  4. Backend → Client: {session_id, completion_time}
-  5. Background Job → (wait for timer)
-  6. Background Job → AI Service: Generate child item
-  7. Background Job → PostgreSQL: INSERT child item, UPDATE session status
-  8. Push Notification → Client: "Crafting complete!"
-  9. Client → Backend API: POST /crafting/complete {session_id}
-  10. Backend → Client: {child_item}
+  **Material Application Flow (F-04, with Image Generation):**
+  1. Client → Backend API: POST /items/{item_id}/materials/apply {material_instance_id, slot_index}
+  2. Backend → PostgreSQL: BEGIN TRANSACTION
+  3. Backend → PostgreSQL: Validate material ownership, slot availability (max 3)
+  4. Backend → PostgreSQL: INSERT ItemMaterials {item_id, material_instance_id, slot_index}
+  5. Backend → PostgreSQL: Compute material_combo_hash (sorted material_ids + shiny flags)
+  6. Backend → PostgreSQL: SELECT ItemImageCache WHERE item_type_id={type} AND combo_hash={hash}
+  7a. If cached: Backend → PostgreSQL: UPDATE ItemImageCache.craft_count++, UPDATE Items.generated_image_url
+  7b. If not cached: Backend → AI Image Service: Generate image (item + materials, 20s sync)
+  8. (If 7b) Backend → R2: Upload generated image to R2 bucket
+  9. (If 7b) Backend → PostgreSQL: INSERT ItemImageCache {item_type_id, combo_hash, image_url, craft_count=1}
+  10. Backend → PostgreSQL: UPDATE Items {material_combo_hash, generated_image_url, image_generation_status='complete'}
+  11. Backend → PostgreSQL: COMMIT
+  12. Backend → Client: {item, stats, image_url, is_first_craft: boolean, total_crafts: int}
 
   **Pet Chatter Flow (F-11):**
   1. Player equips pet → Client → Backend API: PUT /pets/{pet_id}/personality {personality_type}
@@ -257,7 +265,6 @@ performance_optimizations:
   database: |
     - Indexes on: owner_id, location_id, is_equipped, session_id
     - Geospatial index on locations (lat, lng) via PostGIS
-    - Partitioning items table by generation if >1M rows (future)
 
 future_considerations:
   - Real-time multiplayer: WebSocket server for live co-op battles (Phase 2)

@@ -2,8 +2,8 @@ template: ~/.claude/file-templates/init-project/api-contracts.yaml
 openapi: 3.0.0
 info:
   title: New Mystica API
-  version: 2.1.0
-  description: RESTful API for New Mystica location-based RPG with material-based item system, pet personalities (F-11), and enemy AI personalities (F-12)
+  version: 2.3.0
+  description: RESTful API for New Mystica location-based RPG with 8-slot equipment system, loadout management (F-09), material-based item crafting system (F-04), item upgrades (F-06), pet personalities (F-11), and enemy AI personalities (F-12)
 servers:
   - url: https://api.mystica.app/v1
     description: Production server
@@ -18,6 +18,13 @@ components:
       bearerFormat: JWT
 
   schemas:
+    # Equipment System Architecture:
+    # - UserEquipment table tracks current equipped items per slot (single source of truth)
+    # - Loadouts table stores saved equipment configurations
+    # - LoadoutSlots table stores item assignments for each loadout
+    # - PlayerItem schema no longer tracks equipment state directly
+    # - 8 equipment slots: weapon, shield, head, armor, feet, accessory_1, accessory_2, pet
+
     Location:
       type: object
       properties:
@@ -59,10 +66,10 @@ components:
       properties:
         type:
           type: string
-          enum: [sword, helmet, armor, amulet, ring, pet]
+          enum: [sword, shield, helmet, armor, boots, accessory, pet]
         slot:
           type: string
-          enum: [weapon, head, body, amulet, ring, pet]
+          enum: [weapon, shield, head, armor, feet, accessory_1, accessory_2, pet]
         base_stats:
           type: object
           properties:
@@ -92,16 +99,25 @@ components:
           format: uuid
         base_type:
           type: string
-          enum: [sword, helmet, armor, amulet, ring, pet]
+          enum: [sword, shield, helmet, armor, boots, accessory, pet]
         level:
           type: integer
           minimum: 1
         applied_materials:
           type: array
           items:
-            type: string
+            type: object
+            properties:
+              material_id:
+                type: string
+              is_shiny:
+                type: boolean
+              slot_index:
+                type: integer
+                minimum: 0
+                maximum: 2
           maxItems: 3
-          description: Array of material IDs (max 3)
+          description: Array of applied materials with shiny status and slot positions (max 3)
         computed_stats:
           type: object
           properties:
@@ -114,11 +130,22 @@ components:
             defAccuracy:
               type: number
           description: Final stats after materials and level scaling
-        is_equipped:
-          type: boolean
-        equipped_slot:
+        material_combo_hash:
           type: string
           nullable: true
+          description: Hash of applied materials for image caching
+        generated_image_url:
+          type: string
+          nullable: true
+          description: Generated image URL based on item + materials
+        image_generation_status:
+          type: string
+          enum: [pending, generating, complete, failed]
+          nullable: true
+          description: Status of AI image generation
+        craft_count:
+          type: integer
+          description: Number of times this item has been crafted (materials applied)
 
     Material:
       type: object
@@ -155,12 +182,10 @@ components:
           type: string
           enum: [defensive, offensive, balanced, exotic]
 
-    PlayerMaterial:
+    MaterialStack:
       type: object
+      description: Player's material inventory with stacking
       properties:
-        id:
-          type: string
-          format: uuid
         material_id:
           type: string
         name:
@@ -170,6 +195,28 @@ components:
           description: Shiny materials have 1.2x stat effectiveness
         quantity:
           type: integer
+          minimum: 0
+        rarity:
+          type: string
+          enum: [common, uncommon, rare, epic]
+        theme:
+          type: string
+          enum: [defensive, offensive, balanced, exotic]
+        stat_modifiers:
+          type: object
+          properties:
+            atkPower:
+              type: number
+              format: float
+            atkAccuracy:
+              type: number
+              format: float
+            defPower:
+              type: number
+              format: float
+            defAccuracy:
+              type: number
+              format: float
 
     Enemy:
       type: object
@@ -374,6 +421,66 @@ components:
           type: string
           format: date-time
 
+    Loadout:
+      type: object
+      description: Saved equipment configuration for quick switching (F-09)
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          maxLength: 50
+          description: Player-defined name like "Boss Build", "Farming Build"
+        is_active:
+          type: boolean
+          description: Only one loadout can be active per user
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        slots:
+          type: object
+          description: Equipment slot assignments (references to LoadoutSlots table)
+          properties:
+            weapon:
+              type: string
+              format: uuid
+              nullable: true
+            shield:
+              type: string
+              format: uuid
+              nullable: true
+            head:
+              type: string
+              format: uuid
+              nullable: true
+            armor:
+              type: string
+              format: uuid
+              nullable: true
+            feet:
+              type: string
+              format: uuid
+              nullable: true
+            accessory_1:
+              type: string
+              format: uuid
+              nullable: true
+            accessory_2:
+              type: string
+              format: uuid
+              nullable: true
+            pet:
+              type: string
+              format: uuid
+              nullable: true
+
     Error:
       type: object
       properties:
@@ -558,16 +665,17 @@ paths:
                       materials:
                         type: array
                         items:
-                          $ref: '#/components/schemas/PlayerMaterial'
+                          $ref: '#/components/schemas/MaterialStack'
 
   /inventory:
     get:
       summary: Get player inventory (all items) (F-09)
+      description: Returns both stacked items (base items only) and unique items (with materials applied)
       security:
         - BearerAuth: []
       responses:
         '200':
-          description: Player inventory
+          description: Player inventory with base stacks and unique items
           content:
             application/json:
               schema:
@@ -577,10 +685,27 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/PlayerItem'
+                  stacks:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        item_type_id:
+                          type: string
+                        level:
+                          type: integer
+                        quantity:
+                          type: integer
+                        base_stats:
+                          type: object
+                        icon_url:
+                          type: string
+                    description: Stackable base items (no materials applied)
 
   /equipment:
     get:
-      summary: Get equipped items (6 slots)
+      summary: Get equipped items (8 slots)
+      description: Returns current UserEquipment state across 8 equipment slots
       security:
         - BearerAuth: []
       responses:
@@ -596,13 +721,17 @@ paths:
                     properties:
                       weapon:
                         $ref: '#/components/schemas/PlayerItem'
+                      shield:
+                        $ref: '#/components/schemas/PlayerItem'
                       head:
                         $ref: '#/components/schemas/PlayerItem'
-                      body:
+                      armor:
                         $ref: '#/components/schemas/PlayerItem'
-                      amulet:
+                      feet:
                         $ref: '#/components/schemas/PlayerItem'
-                      ring:
+                      accessory_1:
+                        $ref: '#/components/schemas/PlayerItem'
+                      accessory_2:
                         $ref: '#/components/schemas/PlayerItem'
                       pet:
                         $ref: '#/components/schemas/PlayerItem'
@@ -617,10 +746,15 @@ paths:
                         type: number
                       defAccuracy:
                         type: number
+                  generated_image_url:
+                    type: string
+                    nullable: true
+                    description: Crafted item image based on materials applied
 
   /equipment/equip:
     post:
       summary: Equip item to slot
+      description: Updates UserEquipment table. Replaces existing item in slot if occupied.
       security:
         - BearerAuth: []
       requestBody:
@@ -651,6 +785,7 @@ paths:
   /equipment/unequip:
     post:
       summary: Unequip item from slot
+      description: Sets UserEquipment.item_id = NULL for the specified slot
       security:
         - BearerAuth: []
       requestBody:
@@ -662,7 +797,7 @@ paths:
               properties:
                 slot:
                   type: string
-                  enum: [weapon, head, body, amulet, ring, pet]
+                  enum: [weapon, shield, head, armor, feet, accessory_1, accessory_2, pet]
       responses:
         '200':
           description: Item unequipped
@@ -673,6 +808,225 @@ paths:
                 properties:
                   success:
                     type: boolean
+
+  /loadouts:
+    get:
+      summary: Get all loadouts for authenticated user (F-09)
+      description: Returns all saved equipment configurations with slot assignments
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of user's loadouts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  loadouts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Loadout'
+    post:
+      summary: Create new loadout (F-09)
+      description: Creates new loadout with specified name. Initially empty slots.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  maxLength: 50
+                  description: Unique name for this loadout
+              required: [name]
+      responses:
+        '201':
+          description: Loadout created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Loadout'
+        '400':
+          description: Name already exists or invalid
+
+  /loadouts/{loadout_id}:
+    get:
+      summary: Get specific loadout with slot assignments (F-09)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: loadout_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Loadout details with populated slots
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Loadout'
+        '404':
+          description: Loadout not found or not owned by user
+    put:
+      summary: Update loadout name (F-09)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: loadout_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  maxLength: 50
+              required: [name]
+      responses:
+        '200':
+          description: Loadout updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Loadout'
+        '400':
+          description: Name already exists or invalid
+        '404':
+          description: Loadout not found
+    delete:
+      summary: Delete loadout (F-09)
+      description: Removes loadout and all associated LoadoutSlots. Cannot delete active loadout.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: loadout_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Loadout deleted
+        '400':
+          description: Cannot delete active loadout
+        '404':
+          description: Loadout not found
+
+  /loadouts/{loadout_id}/activate:
+    put:
+      summary: Activate loadout (F-09)
+      description: Copies LoadoutSlots to UserEquipment, sets is_active=true. Deactivates other loadouts.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: loadout_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Loadout activated, equipment updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  active_loadout_id:
+                    type: string
+                    format: uuid
+                  updated_equipment:
+                    type: object
+                    description: New UserEquipment state after activation
+        '404':
+          description: Loadout not found
+
+  /loadouts/{loadout_id}/slots:
+    put:
+      summary: Update all slot assignments for loadout (F-09)
+      description: Replaces all LoadoutSlots entries for this loadout. Null values clear slots.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: loadout_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                slots:
+                  type: object
+                  properties:
+                    weapon:
+                      type: string
+                      format: uuid
+                      nullable: true
+                    shield:
+                      type: string
+                      format: uuid
+                      nullable: true
+                    head:
+                      type: string
+                      format: uuid
+                      nullable: true
+                    armor:
+                      type: string
+                      format: uuid
+                      nullable: true
+                    feet:
+                      type: string
+                      format: uuid
+                      nullable: true
+                    accessory_1:
+                      type: string
+                      format: uuid
+                      nullable: true
+                    accessory_2:
+                      type: string
+                      format: uuid
+                      nullable: true
+                    pet:
+                      type: string
+                      format: uuid
+                      nullable: true
+              required: [slots]
+      responses:
+        '200':
+          description: Loadout slots updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Loadout'
+        '400':
+          description: Invalid item IDs or items not owned by user
+        '404':
+          description: Loadout not found
 
   /materials:
     get:
@@ -690,14 +1044,15 @@ paths:
                     items:
                       $ref: '#/components/schemas/Material'
 
-  /materials/owned:
+  /materials/inventory:
     get:
-      summary: Get player's owned materials
+      summary: Get player's material inventory with stacking (F-04)
+      description: Returns MaterialStacks table data with quantities for each material type + shiny status
       security:
         - BearerAuth: []
       responses:
         '200':
-          description: Owned materials with quantities
+          description: Material inventory with stacked quantities
           content:
             application/json:
               schema:
@@ -706,11 +1061,12 @@ paths:
                   materials:
                     type: array
                     items:
-                      $ref: '#/components/schemas/PlayerMaterial'
+                      $ref: '#/components/schemas/MaterialStack'
 
-  /items/{item_id}/apply-material:
+  /items/{item_id}/materials/apply:
     post:
-      summary: Apply material to item (F-04)
+      summary: Apply material to item - creates crafted item (F-04)
+      description: Decrements MaterialStacks, creates MaterialInstance, triggers 20s image generation if not cached
       security:
         - BearerAuth: []
       parameters:
@@ -727,58 +1083,21 @@ paths:
             schema:
               type: object
               properties:
-                player_material_id:
+                material_id:
                   type: string
-                  format: uuid
-      responses:
-        '200':
-          description: Material applied
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                  item:
-                    $ref: '#/components/schemas/PlayerItem'
-        '400':
-          description: Max 3 materials already applied
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-
-  /items/{item_id}/replace-material:
-    post:
-      summary: Replace existing material with new one (costs gold)
-      security:
-        - BearerAuth: []
-      parameters:
-        - name: item_id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                old_material_index:
+                  description: Material template ID from seed data
+                is_shiny:
+                  type: boolean
+                  default: false
+                slot_index:
                   type: integer
                   minimum: 0
                   maximum: 2
-                  description: Index of material to replace (0-2)
-                new_player_material_id:
-                  type: string
-                  format: uuid
+                  description: Which material slot (0-2) to fill
+              required: [material_id, slot_index]
       responses:
         '200':
-          description: Material replaced
+          description: Material applied successfully
           content:
             application/json:
               schema:
@@ -786,10 +1105,94 @@ paths:
                 properties:
                   success:
                     type: boolean
-                  gold_spent:
-                    type: integer
                   item:
                     $ref: '#/components/schemas/PlayerItem'
+                  stats:
+                    type: object
+                    description: Updated computed stats
+                  image_url:
+                    type: string
+                    nullable: true
+                    description: Generated image URL (null if still generating)
+                  is_first_craft:
+                    type: boolean
+                    description: True if this is the first time this combo (item_type_id + material combo_hash) has been crafted globally. Based on ItemImageCache lookup - true if cache miss.
+                  total_crafts:
+                    type: integer
+                    description: Total number of times this exact combo has been crafted across all users (ItemImageCache.craft_count)
+        '400':
+          description: Invalid request (slot occupied, insufficient materials, max 3 materials)
+        '404':
+          description: Item not found or not owned by player
+
+  /items/{item_id}/materials/replace:
+    post:
+      summary: Replace existing material in slot (costs gold)
+      description: Removes MaterialInstance, returns material to MaterialStacks, applies new material
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: item_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                slot_index:
+                  type: integer
+                  minimum: 0
+                  maximum: 2
+                  description: Material slot to replace (0-2)
+                new_material_id:
+                  type: string
+                  description: New material template ID
+                new_is_shiny:
+                  type: boolean
+                  default: false
+                gold_cost:
+                  type: integer
+                  description: Expected gold cost (for confirmation)
+              required: [slot_index, new_material_id, gold_cost]
+      responses:
+        '200':
+          description: Material replaced successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  item:
+                    $ref: '#/components/schemas/PlayerItem'
+                  stats:
+                    type: object
+                    description: Updated computed stats
+                  image_url:
+                    type: string
+                    nullable: true
+                    description: Updated generated image URL
+                  gold_spent:
+                    type: integer
+                  returned_material:
+                    type: object
+                    properties:
+                      material_id:
+                        type: string
+                      is_shiny:
+                        type: boolean
+                    description: Material returned to inventory
+        '400':
+          description: Invalid request (insufficient gold, slot empty, material unavailable)
+        '404':
+          description: Item not found or not owned by player
 
   /items/{item_id}/upgrade-cost:
     get:
@@ -821,6 +1224,29 @@ paths:
                     type: integer
                   can_afford:
                     type: boolean
+
+  /items/{item_id}:
+    get:
+      summary: Get specific item with full details (F-03)
+      description: Returns item with computed stats, applied materials, and generated image URL
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: item_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Item details with image and materials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlayerItem'
+        '404':
+          description: Item not found or not owned by player
 
   /items/{item_id}/upgrade:
     post:

@@ -6,7 +6,7 @@ last_updated: 2025-10-20
 
 data_sources:
   - source: "Supabase PostgreSQL"
-    description: "Primary database for all persistent game data: users, items, pets, locations, enemies, combat sessions, crafting sessions"
+    description: "Primary database for all persistent game data: users, items, pets, locations, enemies, combat sessions, material inventory, image cache"
     owner: "Backend Team"
 
   - source: "CoreLocation (iOS)"
@@ -51,7 +51,7 @@ event_tracking:
       - "user_id: UUID"
       - "location_id: UUID"
       - "enemy_id: UUID"
-      - "enemy_generation: int"
+      - "enemy_type: string"
       - "enemy_is_shiny: boolean"
       - "player_total_stats: {atk, def, hp}"
       - "timestamp: datetime"
@@ -76,7 +76,7 @@ event_tracking:
       - "user_id: UUID"
       - "item_id: UUID"
       - "item_type: string"
-      - "item_generation: int"
+      - "item_level: int"
       - "slot: string"
       - "new_total_stats: {atk, def, hp}"
       - "timestamp: datetime"
@@ -232,33 +232,42 @@ database_schema:
     - email: VARCHAR (unique, from Supabase Auth)
     - created_at: TIMESTAMP
     - last_login: TIMESTAMP
-    - vanity_level: INT (cached sum of all equipped item levels)
+    - vanity_level: INT (cached sum of all equipped item levels, maintained by trigger)
     - gold_balance: INT (currency, default 500)
-    - avg_item_level: DECIMAL (cached average of equipped items for enemy scaling)
+    - avg_item_level: DECIMAL (cached average of equipped items for enemy scaling, maintained by trigger)
     - INDEX on (id, last_login)
 
-    **ItemTypes** (seed data, ~20 items, F-03 Base Items & Equipment)
+    **EquipmentSlots** (seed data, 8 slots, source of truth for F-03)
+    - slot_name: VARCHAR (PK: weapon, shield, head, armor, feet, accessory_1, accessory_2, pet)
+    - display_name: VARCHAR (Weapon, Shield, Head, Armor, Feet, Accessory 1, Accessory 2, Pet)
+    - sort_order: INT (UI display order)
+    - description: TEXT
+
+    **ItemTypes** (seed data, ~26 items across 8 slots, F-03 Base Items & Equipment)
     - id: UUID (PK)
-    - name: VARCHAR (Enormous Key, Shiny Coin, Halo, Cupcake, Jar of Jelly, A Rose, Gatling Gun, Sword, Umbrella, Dog, Dragon, Unicorn, Lil Buddy, Robot)
-    - category: VARCHAR (weapon, helmet, armor, amulet, ring, pet)
-    - base_stats_normalized: JSON {attack: 0.4, defense: 0.3, accuracy: 0.2, health: 0.1} (sum = 1.0)
+    - name: VARCHAR (Enormous Key, Umbrella, Halo, Cowboy Hat, Leather Jacket, Fuzzy Slippers, A Rose, Candle, Dog, Dragon, Robot, etc.)
+    - category: VARCHAR (weapon, shield, head, armor, feet, accessory, pet - maps to EquipmentSlots.slot_name)
+    - base_stats_normalized: JSON {atkPower: 0.4, atkAccuracy: 0.2, defPower: 0.3, defAccuracy: 0.1} (sum = 1.0)
     - rarity: VARCHAR (common, uncommon, rare, epic, legendary)
     - description: TEXT (whimsical descriptions)
     - appearance_data: JSON (sprite info, colors, animations)
     - created_at: TIMESTAMP
     - INDEX on (category, rarity)
+    - CHECK CONSTRAINT: (base_stats_normalized->>'atkPower')::numeric + (base_stats_normalized->>'atkAccuracy')::numeric + (base_stats_normalized->>'defPower')::numeric + (base_stats_normalized->>'defAccuracy')::numeric = 1.0
 
     **Items** (player-owned instances, F-03/F-06)
     - id: UUID (PK)
     - user_id: UUID (FK to Users)
     - item_type_id: UUID (FK to ItemTypes)
-    - level: INT (default 1, upgraded via F-06)
-    - current_stats: JSON (calculated: base_stats * level + material modifiers)
-    - applied_material_slots: JSON ARRAY [material_instance_id_1, material_instance_id_2, material_instance_id_3] (max 3, FK to MaterialInstances)
-    - equipped: BOOLEAN (default false)
+    - level: INT (default 1, upgraded via F-06 gold-based system)
+    - current_stats: JSON (optional cache: base_stats * level + material modifiers, maintained by trigger OR computed on-read)
+    - material_combo_hash: TEXT (nullable, deterministic hash of sorted material_ids + shiny flags for image lookup)
+    - generated_image_url: TEXT (nullable, R2 URL to composite image for this item+materials combo)
+    - image_generation_status: TEXT (nullable, CHECK IN ('pending','generating','complete','failed'))
     - created_at: TIMESTAMP
-    - INDEX on (user_id, equipped)
     - INDEX on (user_id, item_type_id)
+    - INDEX on (user_id, level DESC)
+    - INDEX on (material_combo_hash) WHERE material_combo_hash IS NOT NULL
 
     **UserUnlockedItemTypes** (F-03, tracking what players can craft/receive)
     - user_id: UUID (PK, FK to Users)
@@ -267,24 +276,88 @@ database_schema:
     - unlock_source: VARCHAR (combat_drop, starter_item, special_event)
     - UNIQUE (user_id, item_type_id)
 
+    **UserEquipment** (F-03, normalized equipment state - SINGLE SOURCE OF TRUTH)
+    - user_id: UUID (FK to Users, part of composite PK)
+    - slot_name: VARCHAR (FK to EquipmentSlots.slot_name, part of composite PK)
+    - item_id: UUID (nullable, FK to Items)
+    - equipped_at: TIMESTAMP (when item was equipped to this slot)
+    - PRIMARY KEY (user_id, slot_name)
+    - INDEX on (user_id, slot_name)
+    - INDEX on (item_id) WHERE item_id IS NOT NULL
+    - CHECK CONSTRAINT: item_id IS NULL OR item_id IN (SELECT id FROM Items WHERE user_id = UserEquipment.user_id)
+    - FK item_id → Items.id ON DELETE SET NULL
+    - FK user_id → Users.id ON DELETE CASCADE
+    - FK slot_name → EquipmentSlots.slot_name ON DELETE RESTRICT
+
+    **Loadouts** (F-09, saved equipment configurations)
+    - id: UUID (PK)
+    - user_id: UUID (FK to Users)
+    - name: VARCHAR (max 50 chars, player-defined name like "Boss Build", "Farming Build")
+    - is_active: BOOLEAN (default false, only ONE loadout can be active per user)
+    - created_at: TIMESTAMP
+    - updated_at: TIMESTAMP
+    - UNIQUE (user_id, name)
+    - UNIQUE (user_id, is_active) WHERE is_active = true (partial unique index)
+    - INDEX on (user_id, is_active)
+    - FK user_id → Users.id ON DELETE CASCADE
+
+    **LoadoutSlots** (F-09, items assigned to loadout slots)
+    - loadout_id: UUID (FK to Loadouts, part of composite PK)
+    - slot_name: VARCHAR (FK to EquipmentSlots.slot_name, part of composite PK)
+    - item_id: UUID (nullable, FK to Items)
+    - PRIMARY KEY (loadout_id, slot_name)
+    - INDEX on (loadout_id, slot_name)
+    - FK loadout_id → Loadouts.id ON DELETE CASCADE
+    - FK slot_name → EquipmentSlots.slot_name ON DELETE RESTRICT
+    - FK item_id → Items.id ON DELETE SET NULL
+
     **Materials** (seed data, ~20 materials, F-04 Materials System)
     - id: UUID (PK)
     - name: VARCHAR (Coffee, Gum, Feather, Propeller, Rainbow, Bubble, Slime, Diamond, Sparkles, A Cloud, Lava, Colorful Ribbon, Button, Candle, Pizza)
-    - stat_modifiers: JSON {attack: -0.1, defense: +0.1, accuracy: 0, health: 0} (sum = 0, zero-sum modifications)
+    - stat_modifiers: JSON {atkPower: -0.1, atkAccuracy: 0, defPower: +0.1, defAccuracy: 0} (sum = 0, zero-sum modifications)
     - rarity: VARCHAR (common, uncommon, rare, epic, legendary)
     - description: TEXT
     - created_at: TIMESTAMP
     - INDEX on (rarity)
+    - CHECK CONSTRAINT: (stat_modifiers->>'atkPower')::numeric + (stat_modifiers->>'atkAccuracy')::numeric + (stat_modifiers->>'defPower')::numeric + (stat_modifiers->>'defAccuracy')::numeric = 0
 
-    **MaterialInstances** (player-owned materials, F-04/F-05)
+    **MaterialInstances** (individual material instances when applied to items, F-04/F-05)
     - id: UUID (PK)
     - user_id: UUID (FK to Users)
     - material_id: UUID (FK to Materials)
     - is_shiny: BOOLEAN (5% drop rate, 1.2x stat effectiveness)
-    - applied_to_item_id: UUID (nullable, FK to Items when applied)
     - created_at: TIMESTAMP
     - INDEX on (user_id, material_id)
-    - INDEX on (applied_to_item_id) for quick lookup
+    - INDEX on (user_id, is_shiny) for inventory queries
+    - FK user_id → Users.id ON DELETE CASCADE
+    - FK material_id → Materials.id ON DELETE RESTRICT
+    - NOTE: This table tracks individual material instances that are applied to items via ItemMaterials. For inventory stacking, see MaterialStacks.
+
+    **MaterialStacks** (stackable material inventory, F-04/F-05)
+    - user_id: UUID (part of composite PK, FK to Users)
+    - material_id: UUID (part of composite PK, FK to Materials)
+    - is_shiny: BOOLEAN (part of composite PK - shiny/normal stack separately)
+    - quantity: INT NOT NULL CHECK (quantity >= 0) (how many of this material+shiny combo player owns)
+    - updated_at: TIMESTAMP (when stack was last modified)
+    - PRIMARY KEY (user_id, material_id, is_shiny)
+    - INDEX on (user_id, is_shiny) for shiny material queries
+    - FK user_id → Users.id ON DELETE CASCADE
+    - FK material_id → Materials.id ON DELETE RESTRICT
+    - NOTE: When materials are looted, increment quantity. When applied to items, decrement stack and create MaterialInstance row.
+
+    **ItemMaterials** (F-04, junction table for materials applied to items - SINGLE SOURCE OF TRUTH)
+    - id: UUID (PK)
+    - item_id: UUID (FK to Items)
+    - material_instance_id: UUID (FK to MaterialInstances, UNIQUE - prevents using same material twice)
+    - slot_index: SMALLINT (0-2, which of the 3 material slots this occupies)
+    - applied_at: TIMESTAMP
+    - UNIQUE (item_id, slot_index) - prevents duplicate slot usage on same item
+    - UNIQUE (material_instance_id) - prevents using same material instance on multiple items
+    - INDEX on (item_id)
+    - INDEX on (material_instance_id)
+    - CHECK CONSTRAINT: slot_index BETWEEN 0 AND 2
+    - FK item_id → Items.id ON DELETE CASCADE
+    - FK material_instance_id → MaterialInstances.id ON DELETE CASCADE
 
     **Pets** (extends Items where category=pet, F-11 Pet Personality System)
     - item_id: UUID (PK, FK to Items where ItemTypes.category='pet')
@@ -292,6 +365,35 @@ database_schema:
     - custom_name: VARCHAR (nullable, player-given name)
     - chatter_history: JSONB (recent dialogue for context)
     - INDEX on (item_id, personality_id)
+    - CHECK CONSTRAINT: item_id IN (SELECT id FROM Items WHERE item_type_id IN (SELECT id FROM ItemTypes WHERE category='pet'))
+    - FK item_id → Items.id ON DELETE CASCADE
+    - FK personality_id → PetPersonalities.id ON DELETE SET NULL
+
+    **ItemHistory** (audit trail for item lifecycle events)
+    - id: UUID (PK)
+    - item_id: UUID (FK to Items)
+    - user_id: UUID (FK to Users)
+    - event_type: VARCHAR (created, upgraded, material_applied, material_removed, equipped, unequipped, deleted)
+    - event_data: JSONB (flexible payload: {old_level, new_level, gold_spent, material_id, slot_name, etc.})
+    - created_at: TIMESTAMP
+    - INDEX on (item_id, created_at DESC)
+    - INDEX on (user_id, event_type, created_at DESC)
+    - FK item_id → Items.id ON DELETE CASCADE
+    - FK user_id → Users.id ON DELETE CASCADE
+
+    **ItemImageCache** (global cache for item+material combo images)
+    - id: UUID (PK)
+    - item_type_id: UUID (FK to ItemTypes)
+    - combo_hash: TEXT NOT NULL (deterministic hash: sorted material_ids + shiny flags, order-insensitive)
+    - image_url: TEXT NOT NULL (R2 URL to generated composite image)
+    - craft_count: INT NOT NULL DEFAULT 1 (how many times this combo has been crafted across all users)
+    - provider: VARCHAR (nullable, AI provider used: gemini, seedream, etc.)
+    - created_at: TIMESTAMP (when first generated)
+    - UNIQUE (item_type_id, combo_hash)
+    - INDEX on (combo_hash)
+    - INDEX on (item_type_id, craft_count DESC) for "most popular combos" queries
+    - FK item_type_id → ItemTypes.id ON DELETE CASCADE
+    - NOTE: Global cache reused across all users. When materials applied, compute combo_hash and lookup here. If exists, reuse image_url and increment craft_count. If not, generate image (20s sync), upload to R2, create row.
 
     **PetPersonalities** (seed data, F-11)
     - id: UUID (PK)
@@ -512,8 +614,34 @@ database_schema:
   data_relationships: |
     **Core Ownership Chain:**
     Users → Items (via user_id) → ItemTypes (via item_type_id)
-    Users → MaterialInstances (via user_id) → Materials (via material_id)
-    Items ← MaterialInstances (via applied_to_item_id, nullable)
+    Users → MaterialStacks (stackable material inventory)
+    Users → MaterialInstances (individual material instances for application)
+    MaterialStacks → Materials (via material_id)
+    MaterialInstances → Materials (via material_id)
+    Items ← ItemMaterials → MaterialInstances (junction table for materials applied to items)
+
+    **Equipment System (NEW - normalized):**
+    Users → UserEquipment → Items (8 slots: weapon, shield, head, armor, feet, accessory_1, accessory_2, pet)
+    Users → Loadouts (saved equipment configurations)
+    Loadouts → LoadoutSlots → Items (per-loadout slot assignments)
+    UserEquipment.slot_name → EquipmentSlots.slot_name (validates slot exists)
+    LoadoutSlots.slot_name → EquipmentSlots.slot_name (validates slot exists)
+
+    **Material Application (NEW - normalized):**
+    Items → ItemMaterials → MaterialInstances (max 3 per item, slot_index 0-2)
+    ItemMaterials enforces UNIQUE(material_instance_id) - prevents reusing same material
+    ItemMaterials enforces UNIQUE(item_id, slot_index) - prevents duplicate slot usage
+    MaterialStacks: When loot drops, increment quantity. When applying to item, decrement stack and create MaterialInstance.
+
+    **Image Generation Workflow:**
+    Items.material_combo_hash → ItemImageCache.combo_hash (lookup generated images)
+    ItemImageCache: Global cache across all users, keyed by (item_type_id, combo_hash)
+    On material application:
+      1. Compute combo_hash from sorted material_ids + shiny flags (order-insensitive)
+      2. Lookup ItemImageCache by (item_type_id, combo_hash)
+      3. If exists: Reuse image_url, increment craft_count, update Items.generated_image_url
+      4. If not exists: Generate image (20s sync via scripts/generate-image.ts), upload to R2, insert ItemImageCache row
+      5. Update Items: material_combo_hash, generated_image_url, image_generation_status='complete'
 
     **Location & Pool System:**
     Locations → CombatSessions (spawn point selection)
@@ -530,13 +658,17 @@ database_schema:
     CombatSessions.applied_loot_pools → LootPools (which pools will be used for loot drops)
 
     **Pet System:**
-    Items (where category='pet') → Pets → PetPersonalities
+    Items (where ItemTypes.category='pet') → Pets → PetPersonalities
     Pets → CombatChatterLog (dialogue generation)
+    Pets.item_id constrained to Items with category='pet' via CHECK constraint
 
     **Unlocks & Progression:**
     Users → UserUnlockedItemTypes → ItemTypes (what can be obtained)
     Items.level progression via F-06 Item Upgrade System
     MaterialInstances.is_shiny (5% drop rate, 1.2x effectiveness)
+
+    **Audit Trail:**
+    Items → ItemHistory (lifecycle events: created, upgraded, material_applied, equipped, etc.)
 
     **Pool Query Logic:**
     At combat initialization:
@@ -557,16 +689,41 @@ database_schema:
   constraints_and_indexes: |
     **Primary Constraints:**
     - Users.id matches Supabase Auth UUID (managed by Supabase)
-    - Items.applied_material_slots max 3 elements (enforced in application)
-    - Materials.stat_modifiers sum = 0 (zero-sum modifications)
-    - ItemTypes.base_stats_normalized sum = 1.0 (balanced base stats)
+    - Materials.stat_modifiers sum = 0 (enforced via CHECK constraint)
+    - ItemTypes.base_stats_normalized sum = 1.0 (enforced via CHECK constraint)
+    - ItemMaterials.slot_index BETWEEN 0 AND 2 (enforced via CHECK constraint)
+    - Pets.item_id must reference Items with category='pet' (enforced via CHECK constraint)
     - CombatSessions Redis TTL = 15 minutes (ephemeral active combat)
 
+    **Unique Constraints (prevent data inconsistencies):**
+    - UserEquipment: UNIQUE(user_id, slot_name) - one item per slot
+    - ItemMaterials: UNIQUE(item_id, slot_index) - no duplicate material slots
+    - ItemMaterials: UNIQUE(material_instance_id) - material can only be applied to one item
+    - Loadouts: UNIQUE(user_id, name) - unique loadout names per user
+    - Loadouts: UNIQUE(user_id, is_active) WHERE is_active = true - only one active loadout per user
+    - LoadoutSlots: UNIQUE(loadout_id, slot_name) - one item per slot per loadout
+    - MaterialStacks: PRIMARY KEY (user_id, material_id, is_shiny) - one stack per material+shiny combo
+    - ItemImageCache: UNIQUE(item_type_id, combo_hash) - one cached image per item+material combo
+
     **Performance Indexes:**
-    - Items: (user_id, equipped) for inventory queries
     - Items: (user_id, item_type_id) for duplicate detection
+    - Items: (user_id, level DESC) for inventory sorting
+    - Items: (material_combo_hash) WHERE material_combo_hash IS NOT NULL for image lookup
+    - UserEquipment: (user_id, slot_name) unique index for equipment queries
+    - UserEquipment: (item_id) WHERE item_id IS NOT NULL for reverse lookups
+    - Loadouts: (user_id, is_active) for active loadout queries
+    - LoadoutSlots: (loadout_id, slot_name) unique index
+    - ItemMaterials: (item_id) for material lookup by item
+    - ItemMaterials: (material_instance_id) for reverse material lookups
     - MaterialInstances: (user_id, material_id) for material inventory
-    - MaterialInstances: (applied_to_item_id) for quick item material lookup
+    - MaterialInstances: (user_id, is_shiny) for shiny material queries
+    - MaterialStacks: PRIMARY KEY (user_id, material_id, is_shiny) for inventory queries
+    - MaterialStacks: (user_id, is_shiny) for shiny material inventory
+    - ItemImageCache: (combo_hash) for fast image lookup
+    - ItemImageCache: (item_type_id, combo_hash) UNIQUE for cache integrity
+    - ItemImageCache: (item_type_id, craft_count DESC) for popular combo queries
+    - ItemHistory: (item_id, created_at DESC) for audit trail
+    - ItemHistory: (user_id, event_type, created_at DESC) for user event history
     - PlayerCombatHistory: (user_id, location_id) unique constraint
     - CombatChatterLog: (session_id, timestamp) for combat dialogue timeline
     - EnemyChatterLog: (session_id, timestamp) for enemy dialogue timeline
@@ -578,12 +735,27 @@ database_schema:
     - LootPools: (combat_level, filter_type) for pool query optimization
     - LootPoolEntries: (loot_pool_id) for pool entry lookup
     - LootPoolEntries: (lootable_type, lootable_id) for reverse lookups
+    - Pets: (item_id, personality_id) for pet personality queries
 
     **Foreign Key Relationships:**
     - All user_id fields → Users.id (CASCADE DELETE for GDPR compliance)
     - Items.item_type_id → ItemTypes.id (RESTRICT, seed data)
+    - UserEquipment.user_id → Users.id (CASCADE DELETE)
+    - UserEquipment.slot_name → EquipmentSlots.slot_name (RESTRICT)
+    - UserEquipment.item_id → Items.id (SET NULL on item deletion)
+    - Loadouts.user_id → Users.id (CASCADE DELETE)
+    - LoadoutSlots.loadout_id → Loadouts.id (CASCADE DELETE)
+    - LoadoutSlots.slot_name → EquipmentSlots.slot_name (RESTRICT)
+    - LoadoutSlots.item_id → Items.id (SET NULL on item deletion)
+    - MaterialStacks.user_id → Users.id (CASCADE DELETE)
+    - MaterialStacks.material_id → Materials.id (RESTRICT, seed data)
+    - MaterialInstances.user_id → Users.id (CASCADE DELETE)
     - MaterialInstances.material_id → Materials.id (RESTRICT, seed data)
-    - MaterialInstances.applied_to_item_id → Items.id (SET NULL on item deletion)
+    - ItemMaterials.item_id → Items.id (CASCADE DELETE)
+    - ItemMaterials.material_instance_id → MaterialInstances.id (CASCADE DELETE)
+    - ItemImageCache.item_type_id → ItemTypes.id (CASCADE DELETE)
+    - ItemHistory.item_id → Items.id (CASCADE DELETE)
+    - ItemHistory.user_id → Users.id (CASCADE DELETE)
     - Pets.item_id → Items.id (CASCADE DELETE)
     - Pets.personality_id → PetPersonalities.id (SET NULL, personality can be unassigned)
     - CombatSessions.location_id → Locations.id (RESTRICT, locations are persistent)
@@ -594,32 +766,86 @@ database_schema:
     - LootPoolEntries.lootable_id → Materials.id|ItemTypes.id (RESTRICT, depends on lootable_type)
     - PlayerCombatHistory.location_id → Locations.id (CASCADE DELETE if location removed)
 
+    **Database Triggers (for cache maintenance):**
+    - ON UserEquipment INSERT/UPDATE/DELETE → recalculate Users.vanity_level, Users.avg_item_level
+    - ON Items.level UPDATE → recalculate Users.vanity_level, Users.avg_item_level (if equipped)
+    - ON ItemMaterials INSERT/UPDATE/DELETE → recalculate Items.current_stats (if using cached stats)
+    - ON Items.level UPDATE → recalculate Items.current_stats (if using cached stats)
+    - ON ItemMaterials INSERT/UPDATE/DELETE → recompute Items.material_combo_hash (deterministic hash of sorted material_ids + shiny flags)
+    - ON Items.material_combo_hash UPDATE (when changed) → set image_generation_status='pending', lookup ItemImageCache, queue image generation if not exists
+
   migration_considerations: |
-    **Schema Evolution:**
-    - Start with minimal tables for MVP: Users, ItemTypes, Items, Materials, MaterialInstances
-    - Add Locations table when geolocation features (F-01) are implemented
-    - Add pool system tables (EnemyPools, EnemyPoolMembers, LootPools, LootPoolEntries) when level-aware spawning is needed
-    - Add pet system tables when F-11 is implemented
-    - Add enemy AI tables when F-12 is implemented
-    - Analytics tables can be added incrementally as events are defined
+    **5-Phase Migration Strategy:**
+
+    **Phase 1 - Foundation (additive, non-breaking):**
+    - Create EquipmentSlots seed table (8 slots: weapon, shield, head, armor, feet, accessory_1, accessory_2, pet)
+    - Create UserEquipment, ItemMaterials, ItemHistory junction tables
+    - Backfill UserEquipment from existing Items.equipped/equipped_slot if present
+    - Backfill ItemMaterials from Items.applied_material_slots JSON if present
+    - Add UNIQUE constraints on new tables
+    - Keep old fields temporarily for backward compatibility
+
+    **Phase 2 - Slot Model Alignment:**
+    - Standardize to 8-slot model across all docs (data-plan, api-contracts, F-03)
+    - Update ItemTypes.category to include: weapon, shield, head, armor, feet, accessory, pet
+    - Update seed-data-items.json to use standardized slot names
+    - Extend GET /equipment API response to return 8 slots
+    - Update frontend UI to support 8 equipment slots
+
+    **Phase 3 - Loadouts System:**
+    - Create Loadouts and LoadoutSlots tables
+    - Add Loadout API endpoints: GET/POST /loadouts, PUT /loadouts/{id}/activate
+    - Implement loadout switching logic (copy LoadoutSlots → UserEquipment on activate)
+    - Add loadout UI in frontend
+
+    **Phase 4 - Deprecations (breaking changes):**
+    - Deprecate Items.equipped and Items.equipped_slot columns
+    - Deprecate Items.applied_material_slots JSON column
+    - Migrate all client code to use UserEquipment and ItemMaterials
+    - Drop deprecated columns after migration grace period
+
+    **Phase 5 - Triggers and Optimization:**
+    - Add database triggers for Users.vanity_level and Users.avg_item_level maintenance
+    - Add trigger for Items.current_stats recalculation (if using cached stats)
+    - Add CHECK constraints for stat sums (Materials, ItemTypes)
+    - Add CHECK constraint for Pets.item_id category validation
+    - Add analytics table partitioning by month for time-series data (CombatChatterLog, EnemyChatterLog)
+
+    **Schema Evolution Roadmap:**
+    - MVP Phase 1: Users, EquipmentSlots, ItemTypes, Items, UserEquipment, Materials, MaterialStacks, MaterialInstances, ItemMaterials, ItemImageCache
+    - MVP Phase 2: Locations, EnemyTypes, LootPools, LootPoolEntries when geolocation (F-01) implemented
+    - Post-MVP: Loadouts, LoadoutSlots, ItemHistory, PetPersonalities, Pets when F-11 implemented
+    - Analytics: Add analytics tables incrementally as events are defined
 
     **Data Seeding Priority:**
-    1. ItemTypes (required for any item creation)
-    2. Materials (required for material drops)
-    3. Locations (required for spawn points)
-    4. EnemyTypes (required for combat enemies)
-    5. EnemyPools + EnemyPoolMembers (required for level-aware enemy spawning)
-    6. LootPools + LootPoolEntries (required for location-specific loot drops)
-    7. PetPersonalities (required for F-11)
+    1. EquipmentSlots (8 slots - required first)
+    2. ItemTypes (26 items across 8 slots)
+    3. Materials (20 materials with stat modifiers)
+    4. Locations (spawn points for combat)
+    5. EnemyTypes (combat enemies with AI personalities)
+    6. EnemyPools + EnemyPoolMembers (level-aware enemy spawning)
+    7. LootPools + LootPoolEntries (location-specific loot drops)
+    8. PetPersonalities (F-11 personality types)
 
     **Performance Considerations:**
-    - Items table will be largest (thousands per user)
-    - MaterialInstances will have high insert/update frequency (F-05 drops)
-    - CombatSessions in Redis avoids PostgreSQL load during active combat
-    - Locations table optimized with PostGIS spatial indexes for fast proximity queries
-    - Pool query logic optimized with composite indexes on (combat_level, filter_type)
-    - Pool member tables pre-computed for fast weighted random selection
-    - Analytics tables designed for time-series queries with timestamp indexes
+    - Items table will be largest (thousands per user, 10K-100K rows)
+    - MaterialStacks reduces rows compared to individual MaterialInstances (stackable inventory, ~20-100 rows per user)
+    - MaterialInstances only created on material application (moderate insert frequency, 1K-10K rows)
+    - UserEquipment normalized queries faster than JSON parsing (8 rows per user vs JSON field)
+    - ItemMaterials normalized queries faster than JSON parsing (3 rows per item vs JSON field)
+    - ItemImageCache global reuse reduces R2 API calls (one image per unique combo, ~5K-50K combos total)
+    - Image generation is sync (20s) but cached globally, so most combos will be instant lookups
+    - CombatSessions in Redis avoids PostgreSQL load during active combat (ephemeral)
+    - Locations table optimized with PostGIS spatial indexes (sub-50ms geospatial queries)
+    - Pool query logic optimized with composite indexes (combat_level, filter_type)
+    - Analytics tables will need partitioning by month after 1M+ rows (time-series optimization)
+    - Trigger overhead on UserEquipment changes: ~1-2ms for vanity_level recalculation (acceptable)
+    - Trigger overhead on ItemMaterials changes: ~2-3ms for combo_hash recalculation + image lookup (acceptable)
+
+    **Rollback Strategy:**
+    - Phase 1-3 are additive: can roll back by ignoring new tables
+    - Phase 4 requires migration rollback: restore Items.equipped/applied_material_slots from UserEquipment/ItemMaterials
+    - Phase 5 triggers can be dropped without data loss (revert to on-read computation)
 
 data_storage:
 

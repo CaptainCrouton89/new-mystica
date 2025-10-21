@@ -32,27 +32,26 @@ primary_flows:
       - Inventory full: prompt to discard item or manage inventory
       - GPS signal lost: pause encounter until signal restored
 
-  - name: "Crafting Flow"
-    trigger: "Player has 2+ items of same type and generation"
+  - name: "Material Application Flow"
+    trigger: "Player has items and materials to apply"
     steps:
       - "Player opens inventory screen"
       - "Player navigates to crafting section"
-      - "Player selects first item to craft"
-      - "System filters available items (same type, same generation)"
-      - "Player selects second item to craft"
-      - "System displays preview: parent stats, generation+1, crafting time"
-      - "Player confirms craft"
-      - "Both parent items consumed (removed from inventory)"
-      - "Crafting timer starts (duration based on generation)"
-      - "Player waits for timer or uses speed-up (if available)"
-      - "New item generated and added to inventory"
-      - "Player can equip or craft further"
-    outcome: "Player creates higher-generation item with improved stats"
+      - "Player selects item to enhance"
+      - "System shows available materials (stackable in inventory)"
+      - "Player selects 1-3 materials to apply"
+      - "System displays preview: enhanced stats, appearance changes"
+      - "Player confirms material application"
+      - "Selected materials consumed (removed from inventory)"
+      - "AI image generation starts (~20 seconds synchronous)"
+      - "Item is updated in-place with new materials"
+      - "Player can equip or apply more materials"
+    outcome: "Player creates customized item with material-based enhancements"
     edge_cases: |
-      - Trying to craft 3rd gen items: system blocks, shows max generation message
-      - Trying to craft different types: system filters prevent selection
-      - Trying to craft different generations: system filters prevent selection
-      - App closed during crafting: timer continues, item ready on next open
+      - No materials available: crafting section shows "collect materials" message
+      - Applying to already-enhanced item: shows current materials, allows additional
+      - Image generation fails: retry option or fallback to base item appearance
+      - Insufficient materials: selection disabled until requirements met
 
   - name: "Equipment Management Flow"
     trigger: "Player wants to optimize stats before combat"

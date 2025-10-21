@@ -2,18 +2,18 @@ title: Technical Specification - Materials System
 template: ~/.claude/file-templates/init-project/feature-spec/feature-title.yaml
 feature_id: F-04
 status: planned
-last_updated: 2025-10-19
+last_updated: 2025-01-21
 
-summary: "Collectible materials that modify item stats. Each material has stat modifiers (±0.1-0.3 that sum to 0). Max 3 materials per item. Materials can be normal or shiny (1.2x effectiveness). Materials are replaceable for gold cost."
+summary: "Collectible materials that modify item stats with zero-sum trade-offs. Materials stack in inventory (MaterialStacks), convert to unique instances when applied (MaterialInstances). Max 3 materials per item. Shiny materials have 1.2x effectiveness. Image generation creates combo-specific visuals cached globally with craft count tracking."
 
 functional_overview:
-  core_logic: "Materials are items in player inventory. Apply material to equipped item (consumes material, adds to item's applied_materials array). Material modifiers shift item's normalized stats. Max 3 materials per item. Replacing material costs gold and destroys old material. Shiny materials have 1.2x stat modifier effectiveness."
-  data_schema: "materials table (seed data), player_materials table (owned materials), player_items.applied_materials JSON array"
+  core_logic: "Materials stack in player inventory (MaterialStacks table). Applying material decrements stack, creates MaterialInstance, links via ItemMaterials. Triggers image generation on first application of new combo (20s sync). Global ItemImageCache stores combo images with craft_count. Material replacement costs gold and returns original to stack."
+  data_schema: "Materials (seed data), MaterialStacks (inventory), MaterialInstances (applied materials), ItemMaterials (junction), ItemImageCache (combo images)"
   api_endpoints:
     - "GET /materials"
-    - "GET /materials/owned"
-    - "POST /items/:item_id/apply-material"
-    - "POST /items/:item_id/replace-material"
+    - "GET /materials/inventory"
+    - "POST /items/{item_id}/materials/apply"
+    - "POST /items/{item_id}/materials/replace"
   integration_points:
     - "Base items (F-03) receive material modifications"
     - "Drop system (F-05) awards materials from combat"
@@ -30,14 +30,46 @@ detailed_design:
         - "rarity: VARCHAR (common: 20, uncommon: 15, rare: 10, epic: 5)"
         - "theme: VARCHAR (defensive, offensive, balanced, precision, chaotic)"
 
-    - name: "player_materials"
+    - name: "material_stacks (inventory stacking)"
+      columns:
+        - "user_id: UUID (part of composite PK, FK to users)"
+        - "material_id: UUID (part of composite PK, FK to materials)"
+        - "is_shiny: BOOLEAN (part of composite PK - shiny/normal stack separately)"
+        - "quantity: INT NOT NULL CHECK (quantity >= 0)"
+        - "updated_at: TIMESTAMP"
+        - "PRIMARY KEY (user_id, material_id, is_shiny)"
+        - "NOTE: When materials looted, increment quantity. When applied to items, decrement stack and create MaterialInstance."
+
+    - name: "material_instances (applied materials)"
       columns:
         - "id: UUID (PK)"
-        - "owner_id: UUID (FK to users)"
-        - "material_id: VARCHAR (FK to materials.id)"
+        - "user_id: UUID (FK to users)"
+        - "material_id: UUID (FK to materials)"
         - "is_shiny: BOOLEAN (1.2x stat effectiveness)"
-        - "quantity: INT (stackable, can own multiple of same material)"
         - "created_at: TIMESTAMP"
+        - "NOTE: Individual instances created when materials applied from MaterialStacks to items via ItemMaterials."
+
+    - name: "item_materials (junction table)"
+      columns:
+        - "id: UUID (PK)"
+        - "item_id: UUID (FK to items)"
+        - "material_instance_id: UUID (FK to material_instances, UNIQUE)"
+        - "slot_index: SMALLINT (0-2, which of 3 material slots)"
+        - "applied_at: TIMESTAMP"
+        - "UNIQUE (item_id, slot_index) - prevents duplicate slots"
+        - "UNIQUE (material_instance_id) - prevents reusing material"
+
+    - name: "item_image_cache (global combo cache)"
+      columns:
+        - "id: UUID (PK)"
+        - "item_type_id: UUID (FK to ItemTypes)"
+        - "combo_hash: TEXT NOT NULL (deterministic hash: sorted material_ids + shiny flags)"
+        - "image_url: TEXT NOT NULL (R2 URL to generated composite image)"
+        - "craft_count: INT NOT NULL DEFAULT 1 (how many times this combo crafted across all users)"
+        - "provider: VARCHAR (AI provider: gemini, seedream, etc.)"
+        - "created_at: TIMESTAMP"
+        - "UNIQUE (item_type_id, combo_hash)"
+        - "NOTE: Global cache reused across all users. On first combo application, generate image (20s sync), upload to R2, create row."
 
   apis:
     - method: "GET"
@@ -47,54 +79,82 @@ detailed_design:
       errors: []
 
     - method: "GET"
-      endpoint: "/materials/owned"
+      endpoint: "/materials/inventory"
       request: "Header: Authorization Bearer token"
-      response: "{materials: [{id, material_id, name, is_shiny, quantity}]}"
+      response: "{materials: [{material_id, name, is_shiny, quantity}]}"
+      note: "Returns MaterialStacks table directly - quantity available for application"
       errors:
         - "401: Unauthorized"
 
     - method: "POST"
-      endpoint: "/items/:item_id/apply-material"
-      request: "{player_material_id: UUID}"
-      response: "{success: true, item: {id, base_type, level, applied_materials, computed_stats}}"
+      endpoint: "/items/{item_id}/materials/apply"
+      request: "{material_id: UUID, is_shiny: BOOLEAN, slot_index: INT (0-2)}"
+      note: "Decrements MaterialStacks.quantity, creates MaterialInstance, links via ItemMaterials. Triggers image generation if new combo."
+      response: "{success: true, item: {id, base_type, level, applied_materials, computed_stats}, is_first_craft: BOOLEAN, craft_count: INT}"
       errors:
         - "400: Item already has 3 materials (max reached)"
         - "404: Item or material not found"
         - "400: Material not owned or quantity = 0"
+        - "423: Image generation in progress (20s), try again"
 
     - method: "POST"
-      endpoint: "/items/:item_id/replace-material"
-      request: "{old_material_index: INT (0-2), new_player_material_id: UUID, gold_cost: INT}"
-      response: "{success: true, gold_spent: INT, item: {updated item}}"
+      endpoint: "/items/{item_id}/materials/replace"
+      request: "{old_material_index: INT (0-2), new_material_id: UUID, new_is_shiny: BOOLEAN, gold_cost: INT}"
+      note: "Deletes old ItemMaterials row, increments old MaterialStacks, decrements new MaterialStacks, creates new MaterialInstance and ItemMaterials row"
+      clarification: "Old material returns to stack, new material consumed from stack"
+      response: "{success: true, gold_spent: INT, item: {updated item}, is_first_craft: BOOLEAN, craft_count: INT}"
       errors:
         - "400: Insufficient gold"
         - "400: Invalid material index"
         - "404: Item or new material not found"
+        - "400: New material not owned or quantity = 0"
+        - "423: Image generation in progress (20s), try again"
 
   diagrams: |
-    Material Application Flow:
+    Material Application Flow (MaterialStacks → MaterialInstances):
     1. Player views item detail screen
     2. Player taps "Apply Material" button
-    3. System shows owned materials (filtered: only materials not already on item)
-    4. Player selects material
-    5. System validates: item.applied_materials.length < 3
-    6. System consumes material from player_materials (decrement quantity)
-    7. System adds material_id to item.applied_materials array
-    8. System recalculates item stats (base + all material modifiers × level)
-    9. Client displays updated item stats
+    3. System shows MaterialStacks (material_id, is_shiny, quantity) filtered for materials not already on item
+    4. Player selects material from stack
+    5. System validates: item.applied_materials.length < 3 AND MaterialStacks.quantity >= 1
+    6. System decrements MaterialStacks.quantity by 1
+    7. System creates MaterialInstance row (user_id, material_id, is_shiny)
+    8. System creates ItemMaterials row linking item_id + material_instance_id + slot_index
+    9. System computes combo_hash from sorted material_ids + shiny flags (order-independent)
+    10. System checks ItemImageCache for existing combo image
+    11a. If cache hit: use existing image_url, increment craft_count
+    11b. If cache miss: trigger 20s sync image generation, upload to R2, create ItemImageCache row with craft_count=1
+    12. System recalculates item stats (base + all material modifiers × level)
+    13. Client displays updated item stats, image, and "X players have crafted this combo" if craft_count > 1
 
-    Material Replacement Flow:
+    Material Replacement Flow (Stack ↔ Stack):
     1. Player views item with 3 materials already applied
     2. Player taps "Replace Material" button
     3. System shows applied materials with "Replace" buttons
     4. Player selects material to replace
-    5. Player selects new material from owned materials
+    5. Player selects new material from MaterialStacks
     6. System displays gold cost (e.g., 100 × item level)
     7. Player confirms
-    8. System validates sufficient gold
-    9. System deducts gold, removes old material (destroyed), adds new material
-    10. System recalculates item stats
-    11. Client displays updated item and gold balance
+    8. System validates sufficient gold AND new MaterialStacks.quantity >= 1
+    9. System deletes old ItemMaterials row, deletes old MaterialInstance
+    10. System increments old MaterialStacks.quantity (returns to stack)
+    11. System decrements new MaterialStacks.quantity, creates new MaterialInstance
+    12. System creates new ItemMaterials row
+    13. System recomputes combo_hash and triggers image generation workflow (steps 10-11 above)
+    14. System recalculates item stats
+    15. Client displays updated item, image, and gold balance
+
+    Image Generation Workflow (20s Sync on First Craft):
+    1. System computes combo_hash: SHA256(sorted[material_ids] + shiny_flags)
+    2. System queries ItemImageCache WHERE item_type_id AND combo_hash
+    3a. Cache HIT: return image_url, increment craft_count, notify if is_first_craft=false
+    3b. Cache MISS: proceed to generation
+    4. System calls generate-image.ts with item_type + materials + shiny flags
+    5. AI pipeline checks R2 for item/material reference images (generates missing ones)
+    6. AI generates composite image using R2 references (Gemini/Seedream, ~20s)
+    7. System uploads final image to R2 at items-crafted/{item_type_slug}/{combo_hash}.png
+    8. System creates ItemImageCache row (item_type_id, combo_hash, image_url, craft_count=1)
+    9. System returns image_url to client with is_first_craft=true notification
 
     Stat Modifier Combination:
     Base item: {atkPower: 0.4, atkAccuracy: 0.2, defPower: 0.3, defAccuracy: 0.1}
@@ -110,16 +170,17 @@ detailed_design:
     Combined: {atkPower: 0.4-0.12+0.2 = 0.48, atkAccuracy: 0.2-0.1+0.1 = 0.2, defPower: 0.3+0.12-0.1 = 0.32, defAccuracy: 0.1}
 
 dependencies:
-  libraries: "None"
-  services: "Backend materials API, stat calculation service"
-  data_sources: "Materials seed data (JSON file), player_materials table, player_items table"
+  libraries: "AWS S3 SDK (for R2 operations), crypto (for combo_hash generation)"
+  services: "Backend materials API, stat calculation service, AI image generation pipeline (generate-image.ts), Cloudflare R2 storage, Replicate/OpenAI APIs"
+  data_sources: "Materials seed data (JSON file), MaterialStacks table, MaterialInstances table, ItemMaterials table, ItemImageCache table"
 
 implementation_status:
   notes:
-    - "Light MVP: Hardcode 10 common materials, local stat calculation, simple apply (no replace)"
-    - "Full MVP: Backend API, 50 materials seed data across all rarities, material replacement, shiny materials (5% drop rate, 1.2x effectiveness), quantity tracking"
-    - "Finished: Visual effects for shiny materials, material preview before apply, undo last material (grace period), material trading/gifting"
+    - "Light MVP: MaterialStacks table, hardcode 10 common materials, local stat calculation, simple apply (no replace), no image generation"
+    - "Full MVP: Backend API, 50 materials seed data across all rarities, MaterialStacks ↔ MaterialInstances flow, material replacement, shiny materials (5% drop rate, 1.2x effectiveness), ItemImageCache with combo_hash, 20s sync image generation, craft_count tracking"
+    - "Finished: Visual effects for shiny materials, material preview before apply, undo last material (grace period), material trading/gifting, 'X players crafted this combo' notifications, is_first_craft celebrations"
     - "Materials range from tame (Coffee, Gum, Paper) to edgy (Cocaine, Lube) to extreme (Diamond, Plasma, Lightning)"
+    - "Image generation: On-demand combo images cached globally, deterministic combo_hash for cache hits, R2 storage at items-crafted/{item_type_slug}/{combo_hash}.png"
 
 seed_data_example: |
   Full seed data available in: docs/seed-data-materials.json

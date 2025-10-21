@@ -259,6 +259,84 @@
       },
       "description": "Mechanical companion computing optimal strategies",
       "rarity": "uncommon"
+    },
+    {
+      "id": "pizza_box",
+      "name": "Pizza Box",
+      "slot": "shield",
+      "base_stats": {
+        "atkPower": 0.1,
+        "atkAccuracy": 0.2,
+        "defPower": 0.45,
+        "defAccuracy": 0.25
+      },
+      "description": "Greasy cardboard shield with lingering cheese aroma",
+      "rarity": "common"
+    },
+    {
+      "id": "traffic_cone",
+      "name": "Traffic Cone",
+      "slot": "head",
+      "base_stats": {
+        "atkPower": 0.15,
+        "atkAccuracy": 0.25,
+        "defPower": 0.4,
+        "defAccuracy": 0.2
+      },
+      "description": "Bright orange construction gear commanding road respect",
+      "rarity": "uncommon"
+    },
+    {
+      "id": "bathrobe",
+      "name": "Bathrobe",
+      "slot": "armor",
+      "base_stats": {
+        "atkPower": 0.1,
+        "atkAccuracy": 0.15,
+        "defPower": 0.5,
+        "defAccuracy": 0.25
+      },
+      "description": "Plush comfort wear for maximum relaxation defense",
+      "rarity": "rare"
+    },
+    {
+      "id": "rubber_duck",
+      "name": "Rubber Duck",
+      "slot": "accessory",
+      "base_stats": {
+        "atkPower": 0.15,
+        "atkAccuracy": 0.35,
+        "defPower": 0.25,
+        "defAccuracy": 0.25
+      },
+      "description": "Squeaky yellow companion that debugs your problems",
+      "rarity": "uncommon"
+    },
+    {
+      "id": "lucky_penny",
+      "name": "Lucky Penny",
+      "slot": "accessory",
+      "base_stats": {
+        "atkPower": 0.2,
+        "atkAccuracy": 0.4,
+        "defPower": 0.2,
+        "defAccuracy": 0.2
+      },
+      "description": "Heads up coin bringing fortune to every encounter",
+      "rarity": "epic"
+    },
+    {
+      "id": "googly_eyes",
+      "name": "Googly Eyes",
+      "slot": "accessory",
+      "base_stats": {
+        "atkPower": 0.25,
+        "atkAccuracy": 0.15,
+        "defPower": 0.15,
+        "defAccuracy": 0.45
+      },
+      "description": "Adhesive eyes making everything hilariously intimidating",
+      "rarity": "common"
     }
   ]
 }

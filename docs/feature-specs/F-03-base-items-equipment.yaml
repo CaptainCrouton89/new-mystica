@@ -2,13 +2,13 @@ title: Technical Specification - Base Items & Equipment System
 template: ~/.claude/file-templates/init-project/feature-spec/feature-title.yaml
 feature_id: F-03
 status: planned
-last_updated: 2025-10-19
+last_updated: 2025-01-09
 
-summary: "8 equipment slots (weapon, shield, head, armor, feet, accessory_1, accessory_2, pet) with normalized stat blocks. Base items have stats that sum to 1.0, modified by materials and scaled by level. Players start with 8 level-1 base items (one per slot)."
+summary: "8 equipment slots (weapon, shield, head, armor, feet, accessory_1, accessory_2, pet) with normalized stat blocks. Base items have stats that sum to 1.0, modified by materials and scaled by level. Equipment state tracked in normalized UserEquipment table. Players start with 8 level-1 base items (one per slot)."
 
 functional_overview:
   core_logic: "Each player has 8 equipment slots. Base items have normalized stats {atkPower, atkAccuracy, defPower, defAccuracy} summing to 1.0. Materials modify these stats (±0.05-0.30). Item level multiplies base stats. Total player stats = sum of all 8 equipped items."
-  data_schema: "player_items table with base_type, level, applied_materials[], is_equipped, equipped_slot"
+  data_schema: "Items table with item_type_id, level. Equipment state in UserEquipment table, materials in ItemMaterials table"
   api_endpoints:
     - "GET /inventory"
     - "GET /equipment"
@@ -21,25 +21,31 @@ functional_overview:
 
 detailed_design:
   data_structures:
-    - name: "base_items (seed data, ~26 items across 8 slots)"
-      columns:
-        - "id: VARCHAR (PK, e.g., 'gatling_gun', 'umbrella', 'halo')"
-        - "name: VARCHAR ('Gatling Gun', 'Umbrella', 'Halo')"
-        - "slot: VARCHAR (weapon, shield, head, armor, feet, accessory, pet)"
-        - "base_stats: JSON {atkPower: 0.5, atkAccuracy: 0.15, defPower: 0.2, defAccuracy: 0.15} (sums to 1.0)"
-        - "description: TEXT"
-        - "rarity: VARCHAR (common, uncommon, rare, epic)"
-
-    - name: "player_items"
+    - name: "item_types (seed data, ~20 items across 8 slots)"
       columns:
         - "id: UUID (PK)"
-        - "owner_id: UUID (FK to users)"
-        - "base_type: VARCHAR (FK to base_items.type)"
+        - "name: VARCHAR ('Enormous Key', 'Umbrella', 'Halo')"
+        - "category: VARCHAR (weapon, shield, head, armor, feet, accessory, pet)"
+        - "base_stats_normalized: JSON {atkPower: 0.4, atkAccuracy: 0.2, defPower: 0.3, defAccuracy: 0.1} (sums to 1.0)"
+        - "description: TEXT"
+        - "rarity: VARCHAR (common, uncommon, rare, epic, legendary)"
+
+    - name: "items"
+      columns:
+        - "id: UUID (PK)"
+        - "user_id: UUID (FK to users)"
+        - "item_type_id: UUID (FK to item_types)"
         - "level: INT (default 1, scales stats)"
-        - "applied_materials: JSON ARRAY [material_id1, material_id2, material_id3] (max 3)"
-        - "is_equipped: BOOLEAN"
-        - "equipped_slot: VARCHAR (weapon, head, body, amulet, ring, pet)"
+        - "current_stats: JSON (optional cache: base_stats * level + material modifiers)"
         - "created_at: TIMESTAMP"
+        - "Note: Equipment state in UserEquipment table, materials in ItemMaterials table"
+
+    - name: "user_equipment"
+      columns:
+        - "user_id: UUID (PK, FK to users)"
+        - "slot_name: VARCHAR (PK: weapon, shield, head, armor, feet, accessory_1, accessory_2, pet)"
+        - "item_id: UUID (nullable, FK to items)"
+        - "equipped_at: TIMESTAMP"
 
   apis:
     - method: "GET"
@@ -53,6 +59,7 @@ detailed_design:
       endpoint: "/equipment"
       request: "Header: Authorization Bearer token"
       response: "{slots: {weapon: item_obj, shield: item_obj, head: item_obj, armor: item_obj, feet: item_obj, accessory_1: item_obj, accessory_2: item_obj, pet: item_obj}, total_stats: {atkPower, atkAccuracy, defPower, defAccuracy}}"
+      note: "Queries UserEquipment table joined with Items"
       errors:
         - "401: Unauthorized"
 
@@ -60,9 +67,9 @@ detailed_design:
       endpoint: "/equipment/equip"
       request: "{item_id: UUID}"
       response: "{success: true, slot: 'weapon', total_stats: {atkPower, atkAccuracy, defPower, defAccuracy}}"
+      note: "Replaces existing item in slot (if any). Writes to UserEquipment table"
       errors:
-        - "400: Item already equipped"
-        - "400: Slot occupied (unequip first or auto-swap)"
+        - "400: Item already equipped in another slot"
         - "404: Item not found"
 
     - method: "POST"
@@ -93,11 +100,12 @@ detailed_design:
 
     Equipment Slot Distribution:
     - Weapon (3 types): Offensive focus (high atkPower, atkAccuracy)
-    - Shield (3 types): Defensive focus (high defPower, defAccuracy)
-    - Head (3 types): Balanced awareness
-    - Armor (3 types): Defensive focus (covers body/chest/legs)
+    - Shield (2 types): Defensive focus (high defPower, defAccuracy)
+    - Head (2 types): Balanced awareness
+    - Armor (2 types): Defensive focus (covers body/chest/legs)
     - Feet (3 types): Mobility/balanced
-    - Accessory (6 types): Utility/mixed stats
+    - Accessory_1 (3 types): Utility/mixed stats
+    - Accessory_2 (3 types): Utility/mixed stats
     - Pet (5 types): Support with personality system (F-11)
 
 dependencies:
@@ -110,7 +118,7 @@ implementation_status:
     - "Light MVP: Hardcode 8 base items (one per slot), local stat calculation, simple equip/unequip"
     - "Full MVP: Backend API with 26 base items, database persistence, material integration, stat formulas"
     - "Finished: Multiple base types per slot, visual customization, item tooltips, compare items UI"
-    - "Seed data includes: 3 weapons, 3 shields, 3 head items, 3 armor pieces, 3 footwear, 6 accessories, 5 pets"
+    - "Seed data includes: 3 weapons, 2 shields, 2 head items, 2 armor pieces, 3 footwear, 3 accessories (split across 2 slots), 5 pets = 20 total items"
 
 user_stories:
   - US-301

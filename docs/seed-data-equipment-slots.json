@@ -1,0 +1,52 @@
+{
+  "slots": [
+    {
+      "slot_name": "weapon",
+      "display_name": "Weapon",
+      "sort_order": 1,
+      "description": "Primary offensive equipment - swords, guns, keys, umbrellas, and other items used for attack."
+    },
+    {
+      "slot_name": "shield",
+      "display_name": "Shield",
+      "sort_order": 2,
+      "description": "Defensive equipment for blocking attacks and providing protection."
+    },
+    {
+      "slot_name": "head",
+      "display_name": "Head",
+      "sort_order": 3,
+      "description": "Headgear for awareness and protection - hats, helmets, and other head-worn items."
+    },
+    {
+      "slot_name": "armor",
+      "display_name": "Armor",
+      "sort_order": 4,
+      "description": "Body protection covering the chest and torso area."
+    },
+    {
+      "slot_name": "feet",
+      "display_name": "Feet",
+      "sort_order": 5,
+      "description": "Footwear for mobility and protection - boots, shoes, and other foot equipment."
+    },
+    {
+      "slot_name": "accessory_1",
+      "display_name": "Accessory 1",
+      "sort_order": 6,
+      "description": "First accessory slot for utility items like rings, amulets, and special tools."
+    },
+    {
+      "slot_name": "accessory_2",
+      "display_name": "Accessory 2",
+      "sort_order": 7,
+      "description": "Second accessory slot for additional utility items and magical accessories."
+    },
+    {
+      "slot_name": "pet",
+      "display_name": "Pet",
+      "sort_order": 8,
+      "description": "Companion creature with personality that provides assistance and companionship."
+    }
+  ]
+}

@@ -99,18 +99,18 @@
   }
   ```
 
-#### Crafting Rules
-- **Item Fusion**
-  - Burn 2 items to generate a child item (saved in DB)
-  - Only combine items in the same generation
-  - Only combine items of the same type
-  - Maximum: 3rd generation items/pets (no further generations)
-- **Crafting Mechanics**
-  - Crafting time increases with each generation
-  - Can craft iteratively until no items remain
+#### Materials System
+- **Material Application**
+  - Apply up to 3 materials to any item to enhance stats
+  - Materials are consumed on application
+  - No generation limits or item fusion
+- **Enhancement Mechanics**
+  - Materials provide stat bonuses based on their properties
+  - Gold-based leveling system (F-06) for item upgrades
+  - Instant application, no crafting timers
   - Valid combinations:
-    - Materials + Items ✓
-    - Items + Items ✓
+    - Materials + Items ✓ (up to 3 materials per item)
+    - Items + Items ✗ (no item fusion)
     - Materials + Materials ✗
 
 ---

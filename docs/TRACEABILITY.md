@@ -35,7 +35,8 @@
 - ✅ F-01: Geolocation & Map System
 - ✅ F-02: Combat System
 - ✅ F-03: Items System
-- ✅ F-06: Crafting System
+- ✅ F-04: Materials System
+- ✅ F-06: Gold-Based Leveling
 - ✅ F-07: Authentication
 
 ---
@@ -108,14 +109,25 @@
 
 ---
 
-### F-06: Crafting System
+### F-04: Materials System
 **User Stories:**
-- US-401 (Craft Items)
+- US-401 (Apply Materials to Items)
 
 **API Endpoints:**
-- `POST /crafting/start`
-- `GET /crafting/status/:session_id`
-- `POST /crafting/complete`
+- `POST /materials/apply`
+- `GET /materials/available`
+
+**Status:** ✅ Fully traced
+
+---
+
+### F-06: Gold-Based Leveling
+**User Stories:**
+- US-601 (Level Up Items with Gold)
+
+**API Endpoints:**
+- `POST /items/level-up`
+- `GET /items/:id/upgrade-cost`
 
 **Status:** ✅ Fully traced
 
@@ -256,13 +268,15 @@ Architecture components align with feature implementations:
 - F-03: Items + equipping - CRITICAL
 - F-04: Pets system - HIGH
 - F-05: AI item generation - HIGH
-- F-06: Basic crafting (Gen1→2) - HIGH
+- F-04: Materials application - HIGH
+- F-06: Gold-based leveling - HIGH
 - F-07: Authentication - CRITICAL
 
 **Status:** ✅ Aligned with high-priority features
 
 **Finished Product (2 months, target: 2026-01-05)**
-- F-06: Full crafting (Gen3) - HIGH
+- F-04: Advanced material combinations - HIGH
+- F-06: High-level item upgrades - HIGH
 - F-03: Shiny variants - HIGH
 - F-10: Premium items - MEDIUM
 - F-08: Polished UI - HIGH

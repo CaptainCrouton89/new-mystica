@@ -1,29 +1,29 @@
-title: Craft Higher Generation Items
+title: Apply Materials to Items
 story_id: US-401
 feature_id: F-06
 template: ~/.claude/file-templates/init-project/user-stories/story-title.yaml
 status: planned
-last_updated: 2025-10-19
+last_updated: 2025-01-17
 
 user_story:
   as_a: "Mobile RPG Player"
-  i_want: "to fuse two items to create a stronger child item"
-  so_that: "I can progress to higher generations and increase my power"
+  i_want: "to apply materials to my items to create enhanced variants"
+  so_that: "I can customize my equipment and improve my stats"
 
 acceptance_criteria:
-  - "[ ] Given inventory, when player enters crafting mode, then show all craftable items"
-  - "[ ] Given crafting mode, when player selects first item, then filter available items (same type, same generation)"
-  - "[ ] Given valid second item selected, when both chosen, then show preview: parent stats, child generation, crafting time"
-  - "[ ] Given preview shown, when player confirms craft, then consume both parent items from inventory"
-  - "[ ] Given craft confirmed, when timer starts, then display countdown based on generation (Gen1→Gen2: 1hr, Gen2→Gen3: 4hr)"
-  - "[ ] Given timer running, when complete, then generate child item with combined stats and add to inventory"
-  - "[ ] Given attempting to craft Gen3+, when selected, then block action and show 'Max generation reached' message"
+  - "[ ] Given inventory, when player enters crafting mode, then show all items available for material application"
+  - "[ ] Given crafting mode, when player selects an item, then show available materials (up to 3 per item)"
+  - "[ ] Given materials selected, when player previews, then show item stats changes and new appearance preview"
+  - "[ ] Given preview shown, when player confirms craft, then consume selected materials from inventory"
+  - "[ ] Given craft confirmed, when processing, then generate new item image synchronously (~20 seconds)"
+  - "[ ] Given image generated, when complete, then add enhanced item to inventory and remove base item"
+  - "[ ] Given materials already applied, when viewing item, then show applied materials and allow further customization"
 
 context:
-  why: "Crafting is the primary progression system. Must enforce generation limits and same-type/same-gen rules clearly."
-  related: "Links to US-301 (Inventory), F-05 (AI Generation), F-03 (Items)"
+  why: "Material application is the primary item customization system. Players enhance items by applying 1-3 materials to change appearance and stats."
+  related: "Links to US-301 (Inventory), F-05 (AI Generation), F-04 (Materials), F-03 (Items)"
 
 technical_notes:
-  apis: "POST /crafting/start with parent_item_ids, returns craft_session_id and timer. POST /crafting/complete when timer done"
-  data: "Crafting rules: same type, same generation, max Gen3. Timer: Gen1→2 (1hr), Gen2→3 (4hr). Stats inherit from parents."
-  dependencies: "Background timer, push notification when crafting completes, AI generation for child stats"
+  apis: "POST /crafting/apply-materials with item_id and material_ids. Returns enhanced item with new image URL."
+  data: "Materials are stackable. Items can have 0-3 materials applied. Each combination generates unique image/stats."
+  dependencies: "AI image generation for material combinations, material stat bonuses, inventory management"

@@ -68,7 +68,7 @@ typography:
     family: "SF Mono"
     weight: "Medium"
     sizes: "13pt"
-    usage: "Numeric stats, timers, generation indicators"
+    usage: "Numeric stats, generation indicators"
 
 layouts_components:
   - screen: "Launch / Login Screen"
@@ -123,12 +123,12 @@ layouts_components:
     components:
       - "Item image (large, centered)"
       - "Item name and type"
-      - "Generation indicator (Gen 1/2/3)"
+      - "Material slots indicator (0-3 applied)"
       - "Shiny badge (if applicable)"
       - "Stats breakdown: ATK / DEF / HP (color-coded)"
       - "Description text (AI-generated)"
       - "Equip button (or Unequip if equipped)"
-      - "Craft button (if 2+ same type/gen available)"
+      - "Apply Materials button (if materials available)"
       - "Close button (X, top-right)"
     notes: "Modal presentation with blur background. Stats displayed as horizontal bars with numeric labels. Equip button disabled if slot occupied (show 'Unequip first' message)."
 
@@ -142,17 +142,17 @@ layouts_components:
       - "Tap slot → Open item selector"
     notes: "Visual representation of equipped items on character model. Empty slots show placeholder icon. Stats update in real-time when changing equipment."
 
-  - screen: "Crafting Screen"
-    description: "Item fusion interface with parent selection and timer"
+  - screen: "Materials Application Screen"
+    description: "Apply materials to items interface with material selection"
     components:
-      - "Parent item 1 selector (left)"
-      - "Parent item 2 selector (right)"
-      - "Fusion arrow/icon (center, animated)"
-      - "Preview card (bottom): child generation, estimated stats"
-      - "Crafting time indicator (1hr or 4hr)"
-      - "Confirm Craft button (primary CTA)"
-      - "Active crafts list (tab, shows in-progress timers)"
-    notes: "Parent selectors filter to same type/generation. Preview shows '???' for exact stats (revealed on completion). Timer shown as countdown (HH:MM:SS). Push notification on completion."
+      - "Base item selector (center)"
+      - "Material slots (1-3, drag and drop)"
+      - "Available materials list (bottom)"
+      - "Preview card: enhanced stats, craft count indicator"
+      - "Gold cost display (F-06 leveling system)"
+      - "Apply Materials button (primary CTA)"
+      - "Reset materials button (secondary)"
+    notes: "Up to 3 materials can be applied to any item. Preview shows stat bonuses from materials. Gold cost increases with item level (F-06). Instant application, no timers."
 
   - screen: "Victory Screen"
     description: "Combat completion with reward display"
@@ -243,13 +243,6 @@ interaction_specs:
     animation: "glow pulse 1.5s infinite, scale transition 200ms"
     notes: "Marker colors: red (weapon), blue (armor), green (pet), purple (premium). Active markers have white glow ring."
 
-  - component: "Crafting Timer"
-    states:
-      - "in_progress: countdown HH:MM:SS, updating every second"
-      - "ready: green pulse animation, 'Ready!' text"
-      - "claimed: grayed out, 'Completed' text"
-    animation: "text update instant, pulse animation 800ms infinite"
-    notes: "Show progress bar below timer (fills left to right). Push notification when timer completes."
 
 animations_timing:
   - name: "Screen Transitions"
