@@ -16,6 +16,7 @@ export interface UserProfile {
   id: string;
   user_id: string;
   username: string;
+  email: string;
   gold: number;
   vanity_level: number;
   avg_item_level: number;

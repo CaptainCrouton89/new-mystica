@@ -1,4 +1,9 @@
+import { config } from 'dotenv';
 import { z } from 'zod';
+
+// Load .env.local first, then .env
+config({ path: '.env.local' });
+config({ path: '.env' });
 
 /**
  * Environment variable schema with validation

@@ -57,7 +57,18 @@ export const PetIdParamsSchema = z.object({
   pet_id: UUIDSchema
 });
 
-// Location endpoints (for future combat system)
+// Location endpoints
+export const NearbyLocationsQuerySchema = z.object({
+  lat: z.coerce.number().min(-90).max(90, 'Latitude must be between -90 and 90'),
+  lng: z.coerce.number().min(-180).max(180, 'Longitude must be between -180 and 180'),
+  radius: z.coerce.number().int().min(1).max(50000).default(5000)
+});
+
+export const LocationParamsSchema = z.object({
+  id: z.string().uuid('Invalid location ID format')
+});
+
+// Legacy schema for combat system
 export const LocationQuerySchema = z.object({
   lat: z.coerce.number().min(-90).max(90, 'Latitude must be between -90 and 90'),
   lng: z.coerce.number().min(-180).max(180, 'Longitude must be between -180 and 180'),
@@ -160,3 +171,5 @@ export type UpdateLoadoutSlotsRequest = z.infer<typeof UpdateLoadoutSlotsSchema>
 export type AssignPetPersonalityRequest = z.infer<typeof AssignPetPersonalitySchema>;
 export type PetChatterRequest = z.infer<typeof PetChatterSchema>;
 export type EnemyChatterRequest = z.infer<typeof EnemyChatterSchema>;
+export type NearbyLocationsQuery = z.infer<typeof NearbyLocationsQuerySchema>;
+export type LocationParams = z.infer<typeof LocationParamsSchema>;
