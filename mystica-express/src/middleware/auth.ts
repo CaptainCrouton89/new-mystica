@@ -163,6 +163,41 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
 };
 
 /**
+ * Internal Service Authentication Middleware
+ *
+ * Validates internal service requests using X-Internal-Service header.
+ * Used for service-to-service communication endpoints.
+ */
+export const authenticateInternal = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const serviceHeader = req.headers['x-internal-service'] as string;
+
+    if (!serviceHeader) {
+      res.status(401).json({
+        error: {
+          code: 'UNAUTHORIZED',
+          message: 'Missing X-Internal-Service header for internal endpoint'
+        }
+      });
+      return;
+    }
+
+    // For now, accept any internal service header
+    // TODO: Implement proper internal service authentication if needed
+    console.log('🔧 [AUTH] Internal service request from:', serviceHeader);
+
+    next();
+  } catch (error) {
+    res.status(401).json({
+      error: {
+        code: 'INTERNAL_AUTH_ERROR',
+        message: 'Failed to authenticate internal service request'
+      }
+    });
+  }
+};
+
+/**
  * Optional Authentication Middleware
  *
  * Similar to authenticate() but allows requests without tokens to proceed.

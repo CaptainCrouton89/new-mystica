@@ -12,7 +12,7 @@ import { createHash } from 'crypto';
  */
 export interface MaterialCombo {
   materialId: string;
-  isShiny: boolean;
+  styleId: string;
 }
 
 /**
@@ -20,33 +20,33 @@ export interface MaterialCombo {
  *
  * Features:
  * - Order-insensitive (same materials = same hash regardless of order)
- * - Includes shiny flags in hash computation
+ * - Includes style IDs in hash computation
  * - Uses SHA-256 for collision resistance
  * - Handles empty material arrays
  *
  * @param materialIds - Array of material UUIDs
- * @param shinyFlags - Array of shiny flags (must match length of materialIds)
+ * @param styleIds - Array of style UUIDs (must match length of materialIds)
  * @returns SHA-256 hash string (64 characters)
  *
  * @example
  * ```typescript
  * // These produce the same hash:
- * computeComboHash(['wood-uuid', 'crystal-uuid'], [false, true]);
- * computeComboHash(['crystal-uuid', 'wood-uuid'], [true, false]);
+ * computeComboHash(['wood-uuid', 'crystal-uuid'], ['normal-uuid', 'shiny-uuid']);
+ * computeComboHash(['crystal-uuid', 'wood-uuid'], ['shiny-uuid', 'normal-uuid']);
  *
  * // Result: "a1b2c3d4e5f6..."
  * ```
  *
- * @throws {Error} If materialIds and shinyFlags arrays have different lengths
+ * @throws {Error} If materialIds and styleIds arrays have different lengths
  */
 export function computeComboHash(
   materialIds: string[],
-  shinyFlags: boolean[]
+  styleIds: string[]
 ): string {
   // Validate input arrays
-  if (materialIds.length !== shinyFlags.length) {
+  if (materialIds.length !== styleIds.length) {
     throw new Error(
-      `Material IDs and shiny flags arrays must have same length: ${materialIds.length} vs ${shinyFlags.length}`
+      `Material IDs and style IDs arrays must have same length: ${materialIds.length} vs ${styleIds.length}`
     );
   }
 
@@ -58,7 +58,7 @@ export function computeComboHash(
   // Create material combo objects and sort for order-insensitive hashing
   const combos: MaterialCombo[] = materialIds.map((id, index) => ({
     materialId: id,
-    isShiny: shinyFlags[index],
+    styleId: styleIds[index],
   }));
 
   // Sort by material ID to ensure consistent ordering
@@ -66,7 +66,7 @@ export function computeComboHash(
 
   // Create hash input string
   const hashInput = combos
-    .map(combo => `${combo.materialId}:${combo.isShiny ? 'shiny' : 'normal'}`)
+    .map(combo => `${combo.materialId}:${combo.styleId}`)
     .join('|');
 
   // Compute SHA-256 hash
@@ -82,9 +82,9 @@ export function computeComboHash(
  */
 export function computeComboHashFromObjects(combos: MaterialCombo[]): string {
   const materialIds = combos.map(c => c.materialId);
-  const shinyFlags = combos.map(c => c.isShiny);
+  const styleIds = combos.map(c => c.styleId);
 
-  return computeComboHash(materialIds, shinyFlags);
+  return computeComboHash(materialIds, styleIds);
 }
 
 /**
@@ -112,7 +112,7 @@ export function isValidComboHash(hash: string): boolean {
  *   .select(`
  *     material_instance:material_instances(
  *       material_id,
- *       is_shiny
+ *       style_id
  *     )
  *   `)
  *   .eq('item_id', itemId);
@@ -124,7 +124,7 @@ export function computeHashFromItemMaterials(
   itemMaterials: Array<{
     material_instance: {
       material_id: string;
-      is_shiny: boolean;
+      style_id: string;
     } | null;
   }>
 ): string {
@@ -134,9 +134,9 @@ export function computeHashFromItemMaterials(
     .filter((mi): mi is NonNullable<typeof mi> => mi !== null);
 
   const materialIds = validMaterials.map(mi => mi.material_id);
-  const shinyFlags = validMaterials.map(mi => mi.is_shiny);
+  const styleIds = validMaterials.map(mi => mi.style_id);
 
-  return computeComboHash(materialIds, shinyFlags);
+  return computeComboHash(materialIds, styleIds);
 }
 
 /**
@@ -155,26 +155,34 @@ export function getShortHash(fullHash: string): string {
 }
 
 /**
+ * Alias for computeComboHash to match service specification naming
+ * @param materialIds - Array of material UUIDs
+ * @param styleIds - Array of style UUIDs
+ * @returns SHA-256 hash string
+ */
+export const computeComboHashWithStyles = computeComboHash;
+
+/**
  * Debug utility to explain hash composition
  * Useful for development and debugging hash mismatches
  *
  * @param materialIds - Material IDs used in hash
- * @param shinyFlags - Shiny flags used in hash
+ * @param styleIds - Style IDs used in hash
  * @returns Object with hash details for debugging
  */
-export function debugComboHash(materialIds: string[], shinyFlags: boolean[]) {
+export function debugComboHash(materialIds: string[], styleIds: string[]) {
   const combos: MaterialCombo[] = materialIds.map((id, index) => ({
     materialId: id,
-    isShiny: shinyFlags[index],
+    styleId: styleIds[index],
   }));
 
   const sortedCombos = [...combos].sort((a, b) => a.materialId.localeCompare(b.materialId));
 
   const hashInput = sortedCombos
-    .map(combo => `${combo.materialId}:${combo.isShiny ? 'shiny' : 'normal'}`)
+    .map(combo => `${combo.materialId}:${combo.styleId}`)
     .join('|');
 
-  const hash = computeComboHash(materialIds, shinyFlags);
+  const hash = computeComboHash(materialIds, styleIds);
 
   return {
     originalOrder: combos,

@@ -13,15 +13,24 @@
  * User profile information
  */
 export interface UserProfile {
-  id: string;
-  user_id: string;
-  username: string;
-  email: string;
-  gold: number;
-  vanity_level: number;
-  avg_item_level: number;
+  id: string;           // UUID
+  email: string | null; // null for anonymous accounts
+  device_id: string | null;
+  account_type: 'anonymous' | 'email';
+  username: string | null;
+  vanity_level: number; // Sum of equipped item levels
+  gold: number;         // From UserCurrencyBalances
+  gems: number;         // From UserCurrencyBalances
+  total_stats: {
+    atkPower: number;
+    atkAccuracy: number;
+    defPower: number;
+    defAccuracy: number;
+  };
+  level: number;        // From PlayerProgression
+  xp: number;          // From PlayerProgression
   created_at: string;
-  updated_at: string;
+  last_login: string;
 }
 
 /**
@@ -36,10 +45,26 @@ export interface Item {
   current_stats: Stats;
   material_combo_hash?: string;
   image_url?: string;
+  is_styled?: boolean;
   materials?: AppliedMaterial[];
   item_type?: ItemType;
   created_at: string;
   updated_at: string;
+}
+
+/**
+ * Player item with equipment-specific fields for API responses
+ */
+export interface PlayerItem {
+  id: string;
+  item_type: ItemType;
+  level: number;
+  rarity: string;
+  applied_materials: AppliedMaterial[];
+  is_styled: boolean;
+  computed_stats: Stats;
+  is_equipped: boolean;
+  generated_image_url?: string;
 }
 
 /**
@@ -75,7 +100,7 @@ export interface Material {
 export interface AppliedMaterial {
   id: string;
   material_id: string;
-  is_shiny: boolean;
+  style_id: string;
   slot_index: number;
   material: Material;
 }
@@ -87,7 +112,7 @@ export interface MaterialStack {
   id: string;
   user_id: string;
   material_id: string;
-  is_shiny: boolean;
+  style_id: string;
   quantity: number;
   material: Material;
 }
@@ -132,14 +157,14 @@ export type EquipmentSlot =
  * Complete equipment loadout (8 slots)
  */
 export interface EquipmentSlots {
-  weapon?: Item;
-  offhand?: Item;
-  head?: Item;
-  armor?: Item;
-  feet?: Item;
-  accessory_1?: Item;
-  accessory_2?: Item;
-  pet?: Item;
+  weapon?: PlayerItem;
+  offhand?: PlayerItem;
+  head?: PlayerItem;
+  armor?: PlayerItem;
+  feet?: PlayerItem;
+  accessory_1?: PlayerItem;
+  accessory_2?: PlayerItem;
+  pet?: PlayerItem;
 }
 
 /**
@@ -162,6 +187,26 @@ export interface PlayerStats {
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
 
 /**
+ * Rarity definition from database
+ */
+export interface RarityDefinition {
+  rarity: 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
+  stat_multiplier: number;
+  base_drop_rate: number;
+  display_name: string;
+  color_hex: string | null;
+  created_at: string;
+}
+
+/**
+ * API response for GET /rarities
+ */
+export interface GetRaritiesResponse {
+  success: true;
+  rarities: RarityDefinition[];
+}
+
+/**
  * Combat session status
  */
 export type CombatStatus = 'active' | 'victory' | 'defeat' | 'abandoned';
@@ -180,8 +225,8 @@ export type LocationType = 'forest' | 'cave' | 'ruins' | 'tower' | 'dungeon';
  */
 export interface EquipResult {
   success: boolean;
-  unequipped_item?: Item;
-  equipped_item: Item;
+  unequipped_item?: PlayerItem;
+  equipped_item: PlayerItem;
   updated_player_stats: PlayerStats;
   message?: string;
 }
@@ -296,7 +341,7 @@ export interface EquipmentRequest {
  */
 export interface ApplyMaterialRequest {
   material_id: string;
-  is_shiny: boolean;
+  style_id: string;
   slot_index: number; // 0-2 for material slots
 }
 
@@ -306,7 +351,7 @@ export interface ApplyMaterialRequest {
 export interface ReplaceMaterialRequest {
   slot_index: number;
   new_material_id: string;
-  is_shiny: boolean;
+  new_style_id: string;
 }
 
 /**
@@ -346,7 +391,7 @@ export interface ImageGenerationRequest {
   item_type_id: string;
   materials: Array<{
     material_id: string;
-    is_shiny: boolean;
+    style_id: string;
   }>;
   style_references?: string[];
 }
@@ -434,4 +479,278 @@ export interface BatchResult<T> {
   total_processed: number;
   success_count: number;
   failure_count: number;
+}
+
+// ============================================================================
+// Chatter Types (F-11, F-12)
+// ============================================================================
+
+/**
+ * Pet chatter event types (F-11)
+ */
+export type PetChatterEventType =
+  | 'player_attack'
+  | 'player_defense'
+  | 'enemy_attack'
+  | 'enemy_defense'
+  | 'critical_hit'
+  | 'miss'
+  | 'victory'
+  | 'defeat';
+
+/**
+ * Enemy chatter event types (F-12)
+ */
+export type EnemyChatterEventType =
+  | 'combat_start'
+  | 'player_hit'
+  | 'player_miss'
+  | 'enemy_hit'
+  | 'low_player_hp'
+  | 'near_victory'
+  | 'defeat'
+  | 'victory';
+
+/**
+ * Combat event details for chatter generation
+ */
+export interface CombatEventDetails {
+  damage?: number;
+  accuracy?: number;
+  is_critical?: boolean;
+  turn_number: number;
+  player_hp_pct: number;
+  enemy_hp_pct: number;
+}
+
+/**
+ * Pet personality template
+ */
+export interface PetPersonality {
+  personality_type: string;
+  display_name: string;
+  description: string;
+  traits: string[];
+  example_phrases: string[];
+  verbosity: 'terse' | 'moderate' | 'verbose';
+}
+
+/**
+ * Enemy type with personality traits
+ */
+export interface EnemyType {
+  type: string;
+  display_name: string;
+  personality_traits: string[];
+  dialogue_tone: 'aggressive' | 'sarcastic' | 'condescending' | 'chaotic' | 'political';
+  example_taunts: string[];
+  verbosity: 'terse' | 'moderate' | 'verbose';
+  tier_id: number;
+  style_id: string;
+}
+
+/**
+ * Player combat history for context
+ */
+export interface PlayerCombatHistory {
+  attempts: number;
+  victories: number;
+  defeats: number;
+  current_streak: number;
+}
+
+/**
+ * Pet chatter response (F-11)
+ */
+export interface ChatterResponse {
+  dialogue: string;
+  personality_type: string;
+  generation_time_ms: number;
+  was_ai_generated: boolean;
+}
+
+/**
+ * Enemy chatter response (F-12)
+ */
+export interface EnemyChatterResponse extends ChatterResponse {
+  enemy_type: string;
+  dialogue_tone: string;
+  player_context_used: PlayerCombatHistory;
+}
+
+/**
+ * Personality assignment result
+ */
+export interface PersonalityAssignmentResult {
+  success: boolean;
+  pet_id: string;
+  personality_type: string;
+  custom_name?: string;
+}
+
+/**
+ * Chatter metadata for analytics
+ */
+export interface ChatterMetadata {
+  eventType: string;
+  personalityType?: string;
+  enemyType?: string;
+  dialogueTone?: string;
+  wasAIGenerated: boolean;
+  generationTime: number;
+  playerContextUsed?: PlayerCombatHistory;
+  fallbackReason?: string;
+}
+
+// ============================================================================
+// Economy Types
+// ============================================================================
+
+/**
+ * Currency operation result
+ */
+export interface CurrencyOperationResult {
+  success: boolean;
+  previousBalance: number;
+  newBalance: number;
+  transactionId: string;
+  currency: 'GOLD' | 'GEMS';
+  amount: number;
+}
+
+/**
+ * All currency balances for a user
+ */
+export interface CurrencyBalances {
+  GOLD: number;
+  GEMS: number;
+}
+
+/**
+ * Affordability check result
+ */
+export interface AffordabilityResult {
+  canAfford: boolean;
+  currentBalance: number;
+  requiredAmount: number;
+  shortfall: number; // 0 if can afford
+}
+
+/**
+ * Transaction source types (currency addition)
+ */
+export type TransactionSourceType =
+  | 'combat_victory'
+  | 'daily_quest'
+  | 'achievement'
+  | 'iap'
+  | 'admin'
+  | 'profile_init'
+  | 'level_reward';
+
+/**
+ * Transaction sink types (currency deduction)
+ */
+export type TransactionSinkType =
+  | 'item_upgrade'
+  | 'material_replacement'
+  | 'shop_purchase'
+  | 'loadout_slot_unlock';
+
+// ============================================================================
+// Style Types (F-04, F-05)
+// ============================================================================
+
+/**
+ * Style definition from StyleDefinitions table
+ */
+export interface StyleDefinition {
+  id: string;
+  style_name: string;
+  display_name: string;
+  spawn_rate: number;
+  description: string | null;
+  visual_modifier: string | null;
+  created_at: string;
+}
+
+/**
+ * Style response for GET /styles endpoint
+ */
+export interface StyleResponse {
+  styles: StyleDefinition[];
+  total_count: number;
+}
+
+// ============================================================================
+// Progression Types (F-08)
+// ============================================================================
+
+/**
+ * Player progression status with calculated values
+ */
+export interface ProgressionStatus {
+  user_id: string;
+  level: number;
+  xp: number;
+  xp_to_next_level: number;
+  xp_progress_percentage: number;
+  level_rewards_available: LevelReward[];
+}
+
+/**
+ * Result of XP award operation
+ */
+export interface ExperienceAwardResult {
+  success: boolean;
+  xp_awarded: number;
+  old_level: number;
+  new_level: number;
+  leveled_up: boolean;
+  progression: ProgressionStatus;
+  analytics_events: AnalyticsEvent[];
+}
+
+/**
+ * Level reward definition from LevelRewards table
+ */
+export interface LevelReward {
+  level: number;
+  reward_type: 'gold' | 'feature_unlock' | 'cosmetic';
+  reward_description: string;
+  reward_value: number;
+  is_claimable: boolean;
+}
+
+/**
+ * Reward claim result
+ */
+export interface RewardClaimResult {
+  level: number;
+  reward_type: 'gold' | 'feature_unlock' | 'cosmetic';
+  reward_amount: number;
+  reward_description: string;
+  new_gold_balance?: number;
+  claimed_at: string;
+  analytics_event?: AnalyticsEvent;
+}
+
+/**
+ * Valid XP source types
+ */
+export type XPSourceType =
+  | 'combat'
+  | 'quest'
+  | 'achievement'
+  | 'daily_bonus'
+  | 'admin';
+
+/**
+ * Analytics event for progression tracking
+ */
+export interface AnalyticsEvent {
+  event_type: string;
+  user_id: string;
+  metadata: Record<string, any>;
+  timestamp: string;
 }

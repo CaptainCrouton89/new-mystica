@@ -49,7 +49,8 @@ app.get('/', (req, res) => {
       items: '/api/v1/items',
       locations: '/api/v1/locations',
       combat: '/api/v1/combat',
-      enemies: '/api/v1/enemies'
+      enemies: '/api/v1/enemies',
+      loadouts: '/api/v1/loadouts'
     }
   });
 });

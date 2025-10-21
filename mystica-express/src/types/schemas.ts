@@ -12,6 +12,11 @@ export const EquipmentSlotSchema = z.enum([
   'weapon', 'offhand', 'head', 'armor', 'feet', 'accessory_1', 'accessory_2', 'pet'
 ]);
 
+// Rarity enum schema
+export const RaritySchema = z.enum([
+  'common', 'uncommon', 'rare', 'epic', 'legendary'
+]);
+
 // Equipment endpoints
 export const EquipItemSchema = z.object({
   item_id: UUIDSchema
@@ -24,14 +29,14 @@ export const UnequipItemSchema = z.object({
 // Material endpoints
 export const ApplyMaterialSchema = z.object({
   material_id: z.string().min(1, 'Material ID is required'),
-  is_shiny: z.boolean().default(false),
+  style_id: z.string().uuid('Style ID must be a valid UUID').default('00000000-0000-0000-0000-000000000000'), // 'normal' style UUID
   slot_index: z.number().int().min(0).max(2, 'Slot index must be between 0 and 2')
 });
 
 export const ReplaceMaterialSchema = z.object({
   slot_index: z.number().int().min(0).max(2, 'Slot index must be between 0 and 2'),
   new_material_id: z.string().min(1, 'New material ID is required'),
-  new_is_shiny: z.boolean().default(false),
+  new_style_id: z.string().uuid('Style ID must be a valid UUID').default('00000000-0000-0000-0000-000000000000'), // 'normal' style UUID
   gold_cost: z.number().int().min(0, 'Gold cost must be non-negative')
 });
 
@@ -82,7 +87,7 @@ export const StartCombatSchema = z.object({
 
 export const AttackSchema = z.object({
   session_id: UUIDSchema,
-  tap_position: z.number().min(0).max(1, 'Tap position must be between 0.0 and 1.0 (0 to 360 degrees)')
+  tap_position_degrees: z.number().min(0).max(360, 'Tap position must be between 0 and 360 degrees')
 });
 
 export const DefenseSchema = z.object({
@@ -93,6 +98,29 @@ export const DefenseSchema = z.object({
 export const CompleteCombatSchema = z.object({
   session_id: UUIDSchema,
   result: z.enum(['victory', 'defeat'])
+});
+
+// Combat result and zone schemas
+export const HitZoneSchema = z.enum(['injure', 'miss', 'graze', 'normal', 'crit']);
+export const CombatStatusSchema = z.enum(['ongoing', 'victory', 'defeat']);
+
+export const EnemyChatterSchema = z.object({
+  session_id: UUIDSchema,
+  event_type: z.enum(['combat_start', 'player_hit', 'player_miss', 'enemy_hit', 'low_player_hp', 'near_victory', 'defeat', 'victory']),
+  event_details: z.object({
+    damage: z.number().optional(),
+    accuracy: z.number().min(0).max(1).optional(),
+    is_critical: z.boolean().optional(),
+    turn_number: z.number().int().min(1),
+    player_hp_pct: z.number().min(0).max(1),
+    enemy_hp_pct: z.number().min(0).max(1),
+  }),
+});
+
+// Pet personality schemas
+export const AssignPersonalitySchema = z.object({
+  personality_type: z.enum(['sassy', 'encouraging', 'analytical', 'chaotic', 'stoic', 'trash_talker']),
+  custom_name: z.string().max(50).optional(),
 });
 
 // Loadout endpoints (F-09)
@@ -117,11 +145,7 @@ export const UpdateLoadoutSlotsSchema = z.object({
   })
 });
 
-// Pet personality endpoints (F-11)
-export const AssignPetPersonalitySchema = z.object({
-  personality_type: z.enum(['sassy', 'encouraging', 'analytical', 'chaotic', 'stoic', 'trash_talker']),
-  custom_name: z.string().optional()
-});
+// Pet personality endpoints (F-11) - using AssignPersonalitySchema defined above
 
 export const PetChatterSchema = z.object({
   session_id: UUIDSchema,
@@ -168,7 +192,7 @@ export type CompleteCombatRequest = z.infer<typeof CompleteCombatSchema>;
 export type CreateLoadoutRequest = z.infer<typeof CreateLoadoutSchema>;
 export type UpdateLoadoutRequest = z.infer<typeof UpdateLoadoutSchema>;
 export type UpdateLoadoutSlotsRequest = z.infer<typeof UpdateLoadoutSlotsSchema>;
-export type AssignPetPersonalityRequest = z.infer<typeof AssignPetPersonalitySchema>;
+export type AssignPetPersonalityRequest = z.infer<typeof AssignPersonalitySchema>;
 export type PetChatterRequest = z.infer<typeof PetChatterSchema>;
 export type EnemyChatterRequest = z.infer<typeof EnemyChatterRequestSchema>;
 export type NearbyLocationsQuery = z.infer<typeof NearbyLocationsQuerySchema>;
@@ -182,3 +206,62 @@ export const RegisterDeviceBodySchema = z.object({
 
 // Type exports for auth
 export type RegisterDeviceRequest = z.infer<typeof RegisterDeviceBodySchema>;
+
+// Economy endpoints
+export const AffordabilityCheckSchema = z.object({
+  currency: z.enum(['GOLD', 'GEMS']),
+  amount: z.number().int().positive('Amount must be a positive integer')
+});
+
+export const AddCurrencySchema = z.object({
+  currency: z.enum(['GOLD', 'GEMS']),
+  amount: z.number().int().positive('Amount must be a positive integer'),
+  sourceType: z.string().min(1, 'Source type is required'),
+  sourceId: z.string().optional(),
+  metadata: z.record(z.string(), z.unknown()).optional()
+});
+
+export const DeductCurrencySchema = z.object({
+  currency: z.enum(['GOLD', 'GEMS']),
+  amount: z.number().int().positive('Amount must be a positive integer'),
+  sourceType: z.string().min(1, 'Source type is required'),
+  sourceId: z.string().optional(),
+  metadata: z.record(z.string(), z.unknown()).optional()
+});
+
+// Type exports for economy
+export type AffordabilityCheckRequest = z.infer<typeof AffordabilityCheckSchema>;
+export type AddCurrencyRequest = z.infer<typeof AddCurrencySchema>;
+export type DeductCurrencyRequest = z.infer<typeof DeductCurrencySchema>;
+
+// Item pet endpoints
+export const AssignPetPersonalityBodySchema = z.object({
+  personality_id: z.string().min(1, 'Personality ID is required'),
+  custom_name: z.string().max(50).optional()
+});
+
+export const AddPetChatterSchema = z.object({
+  text: z.string().min(1, 'Chatter text is required').max(500, 'Chatter text must be under 500 characters'),
+  type: z.enum(['user', 'ai', 'system']).optional()
+});
+
+// Type exports for item pet endpoints
+export type AssignPetPersonalityBody = z.infer<typeof AssignPetPersonalityBodySchema>;
+export type AddPetChatterRequest = z.infer<typeof AddPetChatterSchema>;
+
+// Progression endpoints (F-08)
+export const ClaimLevelRewardSchema = z.object({
+  level: z.number().int().min(1, 'Level must be at least 1')
+});
+
+export const AwardExperienceSchema = z.object({
+  user_id: UUIDSchema,
+  xp_amount: z.number().int().positive('XP amount must be positive'),
+  source: z.enum(['combat', 'quest', 'achievement', 'daily_bonus']),
+  source_id: UUIDSchema.optional(),
+  metadata: z.record(z.string(), z.unknown()).optional()
+});
+
+// Type exports for progression
+export type ClaimLevelRewardRequest = z.infer<typeof ClaimLevelRewardSchema>;
+export type AwardExperienceRequest = z.infer<typeof AwardExperienceSchema>;

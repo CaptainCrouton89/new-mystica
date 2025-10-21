@@ -913,6 +913,33 @@ export type Database = {
           },
         ]
       }
+      levelrewards: {
+        Row: {
+          created_at: string
+          is_claimable: boolean
+          level: number
+          reward_description: string
+          reward_type: Database["public"]["Enums"]["reward_type"]
+          reward_value: number
+        }
+        Insert: {
+          created_at?: string
+          is_claimable?: boolean
+          level: number
+          reward_description: string
+          reward_type: Database["public"]["Enums"]["reward_type"]
+          reward_value: number
+        }
+        Update: {
+          created_at?: string
+          is_claimable?: boolean
+          level?: number
+          reward_description?: string
+          reward_type?: Database["public"]["Enums"]["reward_type"]
+          reward_value?: number
+        }
+        Relationships: []
+      }
       loadouts: {
         Row: {
           created_at: string
@@ -1775,31 +1802,87 @@ export type Database = {
           },
         ]
       }
+      userlevelrewards: {
+        Row: {
+          claimed_at: string
+          level: number
+          reward_amount: number
+          user_id: string
+        }
+        Insert: {
+          claimed_at?: string
+          level: number
+          reward_amount: number
+          user_id: string
+        }
+        Update: {
+          claimed_at?: string
+          level?: number
+          reward_amount?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "userlevelrewards_level_fkey"
+            columns: ["level"]
+            isOneToOne: false
+            referencedRelation: "levelrewards"
+            referencedColumns: ["level"]
+          },
+          {
+            foreignKeyName: "userlevelrewards_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "userlevelrewards_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "v_player_equipped_stats"
+            referencedColumns: ["player_id"]
+          },
+          {
+            foreignKeyName: "userlevelrewards_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "v_player_powerlevel"
+            referencedColumns: ["player_id"]
+          },
+        ]
+      }
       users: {
         Row: {
+          account_type: Database["public"]["Enums"]["account_type"] | null
           avg_item_level: number | null
           created_at: string
-          email: string
-          gold_balance: number
+          device_id: string | null
+          email: string | null
           id: string
+          is_anonymous: boolean | null
           last_login: string | null
           vanity_level: number
         }
         Insert: {
+          account_type?: Database["public"]["Enums"]["account_type"] | null
           avg_item_level?: number | null
           created_at?: string
-          email: string
-          gold_balance?: number
+          device_id?: string | null
+          email?: string | null
           id: string
+          is_anonymous?: boolean | null
           last_login?: string | null
           vanity_level?: number
         }
         Update: {
+          account_type?: Database["public"]["Enums"]["account_type"] | null
           avg_item_level?: number | null
           created_at?: string
-          email?: string
-          gold_balance?: number
+          device_id?: string | null
+          email?: string | null
           id?: string
+          is_anonymous?: boolean | null
           last_login?: string | null
           vanity_level?: number
         }
@@ -2154,6 +2237,25 @@ export type Database = {
         Args: { geom1: unknown; geom2: unknown }
         Returns: boolean
       }
+      activate_loadout: {
+        Args: { p_loadout_id: string; p_user_id: string }
+        Returns: Json
+      }
+      add_currency_with_logging: {
+        Args: {
+          p_amount: number
+          p_currency_code: string
+          p_metadata?: Json
+          p_source_id: string
+          p_source_type: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
+      add_xp_and_level_up: {
+        Args: { p_user_id: string; p_xp_amount: number }
+        Returns: Json
+      }
       addauth: {
         Args: { "": string }
         Returns: boolean
@@ -2188,6 +2290,16 @@ export type Database = {
               use_typmod?: boolean
             }
         Returns: string
+      }
+      apply_material_to_item: {
+        Args: {
+          p_item_id: string
+          p_material_id: string
+          p_slot_index: number
+          p_style_id: string
+          p_user_id: string
+        }
+        Returns: Json
       }
       box: {
         Args: { "": unknown } | { "": unknown }
@@ -2243,6 +2355,17 @@ export type Database = {
         }
         Returns: number
       }
+      deduct_currency_with_logging: {
+        Args: {
+          p_amount: number
+          p_currency_code: string
+          p_metadata?: Json
+          p_source_id: string
+          p_source_type: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
       disablelongtransactions: {
         Args: Record<PropertyKey, never>
         Returns: string
@@ -2278,9 +2401,22 @@ export type Database = {
         Args: { geom1: unknown; geom2: unknown }
         Returns: boolean
       }
+      equip_item: {
+        Args: { p_item_id: string; p_slot_name: string; p_user_id: string }
+        Returns: Json
+      }
       fn_acc_scale: {
         Args: { acc: number; k_acc?: number; s_max?: number }
         Returns: number
+      }
+      fn_add_pet_chatter_message: {
+        Args: {
+          p_item_id: string
+          p_max_messages?: number
+          p_message_text: string
+          p_message_type?: string
+        }
+        Returns: Json
       }
       fn_expected_mul_quick: {
         Args: {
@@ -2528,6 +2664,19 @@ export type Database = {
         Args: { "": string }
         Returns: unknown
       }
+      get_nearby_locations: {
+        Args: { search_radius: number; user_lat: number; user_lng: number }
+        Returns: {
+          country_code: string
+          distance_meters: number
+          id: string
+          lat: number
+          lng: number
+          location_type: string
+          name: string
+          state_code: string
+        }[]
+      }
       get_proj4_from_srid: {
         Args: { "": number }
         Returns: string
@@ -2543,6 +2692,16 @@ export type Database = {
       gidx_out: {
         Args: { "": unknown }
         Returns: unknown
+      }
+      init_profile: {
+        Args: { p_email: string; p_user_id: string }
+        Returns: {
+          avg_item_level: number
+          created_at: string
+          email: string
+          id: string
+          vanity_level: number
+        }[]
       }
       json: {
         Args: { "": unknown }
@@ -2745,6 +2904,30 @@ export type Database = {
       postgis_wagyu_version: {
         Args: Record<PropertyKey, never>
         Returns: string
+      }
+      process_item_upgrade: {
+        Args: {
+          p_gold_cost: number
+          p_item_id: string
+          p_new_level: number
+          p_new_stats: Json
+          p_user_id: string
+        }
+        Returns: Json
+      }
+      remove_material_from_item: {
+        Args: { p_item_id: string; p_slot_index: number }
+        Returns: Json
+      }
+      replace_material_on_item: {
+        Args: {
+          p_item_id: string
+          p_new_material_id: string
+          p_new_style_id: string
+          p_slot_index: number
+          p_user_id: string
+        }
+        Returns: Json
       }
       spheroid_in: {
         Args: { "": unknown }
@@ -3819,9 +4002,17 @@ export type Database = {
         Args: { "": unknown }
         Returns: string
       }
+      unequip_item: {
+        Args: { p_slot_name: string; p_user_id: string }
+        Returns: Json
+      }
       unlockrows: {
         Args: { "": string }
         Returns: number
+      }
+      update_combat_history: {
+        Args: { p_location_id: string; p_result: string; p_user_id: string }
+        Returns: Json
       }
       updategeometrysrid: {
         Args: {
@@ -3835,6 +4026,7 @@ export type Database = {
       }
     }
     Enums: {
+      account_type: "anonymous" | "email"
       actor: "player" | "enemy" | "system"
       combat_result: "victory" | "defeat" | "escape" | "abandoned"
       equip_slot:
@@ -3849,6 +4041,7 @@ export type Database = {
         | "amulet"
       hit_band: "injure" | "miss" | "graze" | "normal" | "crit"
       rarity: "common" | "uncommon" | "rare" | "epic" | "legendary"
+      reward_type: "gold" | "feature_unlock" | "cosmetic"
       weapon_pattern:
         | "single_arc"
         | "dual_arcs"
@@ -3993,6 +4186,7 @@ export const Constants = {
   },
   public: {
     Enums: {
+      account_type: ["anonymous", "email"],
       actor: ["player", "enemy", "system"],
       combat_result: ["victory", "defeat", "escape", "abandoned"],
       equip_slot: [
@@ -4008,6 +4202,7 @@ export const Constants = {
       ],
       hit_band: ["injure", "miss", "graze", "normal", "crit"],
       rarity: ["common", "uncommon", "rare", "epic", "legendary"],
+      reward_type: ["gold", "feature_unlock", "cosmetic"],
       weapon_pattern: [
         "single_arc",
         "dual_arcs",

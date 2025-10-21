@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { env } from './env.js';
+import { Database } from '../types/database.types.js';
 
 /**
  * Supabase client configuration for New Mystica backend
@@ -10,9 +11,6 @@ const supabaseOptions = {
     autoRefreshToken: false,
     persistSession: false,
     detectSessionInUrl: false,
-  },
-  db: {
-    schema: 'public',
   },
   global: {
     headers: {
@@ -39,10 +37,10 @@ const supabaseOptions = {
  *   .eq('user_id', userId);
  * ```
  */
-export const supabase = createClient(
+export const supabase = createClient<Database>(
   env.SUPABASE_URL,
   env.SUPABASE_SERVICE_ROLE_KEY,
-  supabaseOptions
+  supabaseOptions as any
 );
 
 /**
