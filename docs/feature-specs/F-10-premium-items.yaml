@@ -1,7 +1,7 @@
 title: Technical Specification - Premium Items & Monetization
 template: ~/.claude/file-templates/init-project/feature-spec/feature-title.yaml
 feature_id: F-10
-status: incomplete
+status: planned
 
 summary: "Premium currency (Gems) and special single-location items available through premium purchases. Gems currency exists alongside Gold. Premium items flagged as premium_only require Gems to purchase/obtain. Users acquire Gems through real-money purchases (future). Premium items may be exclusive to specific locations or purchasable from premium store. STATUS: PLACEHOLDER SPEC - IAP implementation not yet designed."
 
@@ -82,9 +82,16 @@ dependencies:
   data_sources: "IAP platform APIs, payment processor APIs, fraud detection services"
 
 implementation_status:
+  progress: 0  # No implementation started
+  completed_components: []
+  in_progress_components: []
+  blocked_items:
+    - item: "IAP platform integration (Apple StoreKit / Google Play Billing)"
+      reason: "Monetization strategy and pricing model not finalized"
+    - item: "Premium item catalog design"
+      reason: "Unclear if premium items should provide stat advantages or be cosmetic only"
   notes:
-    - "Current State: Storage expansion IAP defined, ready for implementation"
-    - "First IAP: Inventory expansion ($0.99 for 100→1000 slots)"
-    - "Currencies table exists with GOLD (active) and GEMS (reserved), UserCurrencyBalances tracks both but GEMS always 0, No way to acquire GEMS yet, No premium items in seed data yet"
-    - "Open Questions: What gem bundle tiers should we offer? Should premium items be exclusive single-location spawns or purchasable anywhere? What IAP platform integration? Should gems be earnable through gameplay or purchase-only? Premium items: cosmetic only or stat advantages allowed? Should storage expansion have multiple tiers (100→500→1000→unlimited) or single upgrade?"
-    - "Technical Debt: Users.gold_balance field deprecated but not removed (migration needed), No actual IAP implementation (placeholder spec only), No premium item seed data (ItemTypes.premium_only field needed), No store UI/UX (placeholder endpoints only)"
+    - "Current State: Storage expansion IAP defined ($0.99 for 100→1000 slots), ready for implementation"
+    - "Database ready: Currencies table exists with GOLD (active) and GEMS (reserved), UserCurrencyBalances tracks both but GEMS always 0"
+    - "Open Questions: Gem bundle tiers? Premium item spawn rules? IAP platform? Gameplay-earnable gems? Cosmetic vs stat advantages? Storage expansion tiers?"
+    - "Technical Debt: Users.gold_balance field deprecated but not removed (migration needed), No actual IAP implementation (placeholder spec only), No premium item seed data, No store UI/UX"

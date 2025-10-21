@@ -231,14 +231,18 @@ dependencies:
   data_sources: "PostgreSQL UserEquipment table (equipment state), Items table (item instances), Loadouts/LoadoutSlots tables (saved configurations), ItemHistory table (audit trail)"
 
 implementation_status:
+  progress: 0  # No implementation started
+  completed_components: []
+  in_progress_components: []
+  blocked_items: []
   notes:
-    - "Light MVP: 100 item cap with purchase prompt when full"
-    - "MVP Phase 1: Basic inventory viewing with GET /inventory (filtering, sorting, pagination)"
-    - "MVP Phase 2: Equipment management with GET /equipment, PUT /equipment/{slot}, DELETE /equipment/{slot}"
-    - "MVP Phase 3: Equipment UI with 8-slot visualization, drag-and-drop or tap-to-equip"
-    - "Post-MVP Phase 1: Loadouts backend with Loadouts/LoadoutSlots tables and APIs"
-    - "Post-MVP Phase 2: Loadouts UI with save/load/rename/delete functionality"
-    - "Database triggers implemented for real-time stat calculation on equipment changes"
+    - "Light MVP planned: 100 item cap with purchase prompt when full"
+    - "MVP Phase 1 planned: Basic inventory viewing with GET /inventory (filtering, sorting, pagination)"
+    - "MVP Phase 2 planned: Equipment management with GET /equipment, PUT /equipment/{slot}, DELETE /equipment/{slot}"
+    - "MVP Phase 3 planned: Equipment UI with 8-slot visualization, drag-and-drop or tap-to-equip"
+    - "Post-MVP Phase 1 planned: Loadouts backend with Loadouts/LoadoutSlots tables and APIs"
+    - "Post-MVP Phase 2 planned: Loadouts UI with save/load/rename/delete functionality"
+    - "Future: Database triggers for real-time stat calculation on equipment changes"
 
 user_stories:
   - US-302

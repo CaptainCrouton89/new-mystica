@@ -1,10 +1,10 @@
 title: Technical Specification - Base Items & Equipment System
 template: ~/.claude/file-templates/init-project/feature-spec/feature-title.yaml
 feature_id: F-03
-status: planned
-last_updated: 2025-01-21
+status: in-progress
+last_updated: 2025-10-21
 
-summary: "8 equipment slots (weapon, offhand, head, armor, feet, accessory_1, accessory_2, pet) with normalized stat blocks. Base items have stats that sum to 1.0, modified by materials and scaled by level. Equipment state tracked in normalized UserEquipment table. Players start with 8 level-1 base items (one per slot)."
+summary: "8 equipment slots (weapon, offhand, head, armor, feet, accessory_1, accessory_2, pet) with normalized stat blocks. Base items have stats that sum to 1.0, modified by materials and scaled by level. Equipment state tracked in normalized UserEquipment table. Players start with 1 random common rarity item (no materials applied) and 0 gold."
 
 functional_overview:
   core_logic: "Each player has 8 equipment slots. Base items have normalized stats {atkPower, atkAccuracy, defPower, defAccuracy} summing to 1.0. Materials modify these stats (±0.05-0.30). Item rarity provides stat multipliers (1.00-2.00). Item level multiplies base stats. Total player stats = sum of all 8 equipped items."
@@ -129,12 +129,38 @@ dependencies:
   data_sources: "PostgreSQL items table, item_types seed data, materials table (F-04), StyleDefinitions table"
 
 implementation_status:
+  progress: 30  # Database schema complete, service layer stubbed, needs implementation
+  completed_components:
+    - "Database schema (Items table with level, is_styled, material_combo_hash, generated_image_url, image_generation_status)"
+    - "UserEquipment table with composite PK (user_id, slot_name) and FK to EquipmentSlots"
+    - "27 ItemTypes seeded in database with normalized base stats"
+    - "8 EquipmentSlots defined (weapon, offhand, head, armor, feet, accessory_1, accessory_2, pet)"
+    - "InventoryController skeleton with getInventory endpoint"
+    - "EquipmentController skeleton with getEquipment, equipItem, unequipItem endpoints"
+    - "InventoryService skeleton with getPlayerInventory method"
+    - "EquipmentService skeleton with getEquippedItems, equipItem, unequipItem methods"
+    - "Zod validation schemas for equipment operations"
+    - "API routes registered for /api/v1/inventory and /api/v1/equipment"
+  in_progress_components: []
+  blocked_items:
+    - item: "InventoryService.getPlayerInventory implementation"
+      reason: "Service method throws NotImplementedError - needs 6-step workflow implementation"
+    - item: "EquipmentService.getEquippedItems implementation"
+      reason: "Service method throws NotImplementedError - needs UserEquipment query with stat calculation"
+    - item: "EquipmentService.equipItem implementation"
+      reason: "Service method throws NotImplementedError - needs 7-step workflow with slot conflict handling"
+    - item: "EquipmentService.unequipItem implementation"
+      reason: "Service method throws NotImplementedError - needs slot validation and stat recalculation"
   notes:
-    - "Light MVP: Hardcode 8 base items (one per slot), local stat calculation, simple equip/unequip"
-    - "Full MVP: Backend API with 26 base items, database persistence, material integration, stat formulas"
-    - "Finished: Multiple base types per slot, visual customization, item tooltips, compare items UI"
-    - "Seed data includes: 3 weapons, 3 offhands, 3 head items, 3 armor pieces, 3 footwear, 6 accessories (split across 2 slots), 5 pets = 26 total items"
-    - "Note: Current seed data has generic 'accessory' slot - needs split into accessory_1/accessory_2 for equipment screen"
+    - "Database layer: 100% complete with Items, UserEquipment, ItemTypes, EquipmentSlots tables"
+    - "27 ItemTypes seeded vs. 26 documented (1 extra type in seed data)"
+    - "UserEquipment uses composite PK (user_id, slot_name) for normalized equipment state"
+    - "Items table includes material integration columns (material_combo_hash, is_styled, generated_image_url)"
+    - "Service layer: All methods documented with TODO workflows but not implemented"
+    - "Controllers: Endpoint handlers exist but delegate to NotImplementedError services"
+    - "Frontend: No SwiftUI implementation for inventory or equipment screens"
+    - "Future planned: Multiple base types per slot, visual customization, item tooltips, compare items UI"
+    - "Note: Accessory slot already split into accessory_1/accessory_2 in EquipmentSlots table"
 
 user_stories:
   - US-301

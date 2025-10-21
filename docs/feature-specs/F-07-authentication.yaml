@@ -1,8 +1,8 @@
 title: Technical Specification - User Authentication
 template: ~/.claude/file-templates/init-project/feature-spec/feature-title.yaml
 feature_id: F-07
-status: planned
-last_updated: 2025-10-19
+status: in-progress
+last_updated: 2025-10-21
 
 summary: "Secure user registration, login, and session management via Supabase Auth. Supports email/password authentication with email verification, password reset, and persistent sessions."
 
@@ -93,10 +93,39 @@ dependencies:
   data_sources: "Supabase auth.users (managed), custom users table"
 
 implementation_status:
+  progress: 60  # Backend complete, frontend integration pending
+  completed_components:
+    - "POST /api/v1/auth/register endpoint (AuthController.register)"
+    - "POST /api/v1/auth/login endpoint (AuthController.login)"
+    - "POST /api/v1/auth/logout endpoint (AuthController.logout)"
+    - "POST /api/v1/auth/refresh endpoint (AuthController.refresh)"
+    - "POST /api/v1/auth/reset-password endpoint (AuthController.resetPassword)"
+    - "POST /api/v1/auth/resend-verification endpoint (AuthController.resendVerification)"
+    - "GET /api/v1/auth/me endpoint (AuthController.getCurrentUser)"
+    - "JWT authentication middleware (middleware/auth.ts)"
+    - "Supabase Auth integration with anon key and service role clients"
+    - "User profile creation on registration (users table insert)"
+    - "Email verification flow via Supabase"
+    - "Password reset flow via Supabase"
+    - "8 comprehensive integration test suites (tests/integration/auth.test.ts)"
+    - "Token expiration handling and validation"
+    - "Security: Email enumeration prevention in reset/verification endpoints"
+    - "Password strength validation (min 8 characters)"
+    - "Last login timestamp tracking"
+  in_progress_components: []
+  blocked_items:
+    - item: "SwiftUI authentication views and Keychain integration"
+      reason: "Frontend implementation pending - needs login/register views and secure token storage"
+    - item: "Session persistence and auto-login on app launch"
+      reason: "Requires SwiftUI implementation of session management"
   notes:
-    - "Light MVP: Skip auth (local-only, hardcoded user)"
-    - "Full MVP: Supabase Auth integration, registration, login, session management"
-    - "Finished: Email verification enforcement, password reset, OAuth providers (Google/Apple), account deletion"
+    - "Backend: Fully implemented with AuthController (432 lines), all 7 auth endpoints working"
+    - "Testing: 8 test suites covering registration, login, logout, refresh, reset, verification, me, and edge cases"
+    - "Security: Uses Supabase Auth best practices - anon key for auth operations, service role for admin"
+    - "Database: users table tracks id, email, created_at, last_login, vanity_level, avg_item_level"
+    - "MVP0 status: Backend ready for frontend integration, all API contracts implemented"
+    - "Frontend blocked: Needs Supabase Swift SDK integration, Keychain storage, login/register views"
+    - "Future planned: OAuth providers (Google/Apple), account deletion, enhanced security features"
 
 user_stories:
   - US-601

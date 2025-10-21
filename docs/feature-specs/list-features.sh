@@ -89,14 +89,15 @@ parse_nested_yaml() {
     local file="$1"
     local parent="$2"
     local child="$3"
-    
+
     awk -v parent="$parent" -v child="$child" '
         BEGIN { in_parent = 0 }
         /^[a-z_]+:/ && $1 == parent":" { in_parent = 1; next }
         in_parent && /^[a-z_]+:/ && !/^  / { exit }
-        in_parent && /^  [a-z_]+:/ && $1 == "  "child":" {
-            gsub(/^  [a-z_]+: /, "")
+        in_parent && $0 ~ "^  "child":" {
+            sub("^  "child": ", "")
             gsub(/^"/, ""); gsub(/"$/, "")
+            gsub(/^[ \t]+/, ""); gsub(/[ \t]+$/, "")
             print
             exit
         }
@@ -108,14 +109,15 @@ count_yaml_array_items() {
     local file="$1"
     local parent="$2"
     local child="$3"
-    
+
     awk -v parent="$parent" -v child="$child" '
         BEGIN { in_parent = 0; in_child = 0; count = 0 }
-        /^[a-z_]+:/ && $1 == parent":" { in_parent = 1; next }
+        $0 ~ "^"parent":" { in_parent = 1; next }
         in_parent && /^[a-z_]+:/ && !/^  / { exit }
-        in_parent && /^  [a-z_]+:/ && $1 == "  "child":" { in_child = 1; next }
-        in_child && /^  [a-z_]+:/ { exit }
-        in_child && /^    - / && !/^      / { count++ }
+        in_parent && $0 ~ "^  "child":" { in_child = 1; next }
+        in_child && /^  [a-z_]+:/ && !/^    / { exit }
+        in_child && /^    - name:/ { count++ }
+        in_child && /^    - method:/ { count++ }
         END { print count }
     ' "$file"
 }
@@ -132,15 +134,51 @@ count_apis() {
     count_yaml_array_items "$file" "detailed_design" "apis"
 }
 
+# Get implementation progress percentage
+get_impl_progress() {
+    local file="$1"
+    parse_nested_yaml "$file" "implementation_status" "progress"
+}
+
+# Count implementation array items
+count_impl_array() {
+    local file="$1"
+    local array_name="$2"
+
+    awk -v array="$array_name" '
+        BEGIN { in_impl = 0; in_array = 0; count = 0 }
+        /^implementation_status:/ { in_impl = 1; next }
+        in_impl && /^[a-z_]+:/ && !/^  / { exit }
+        in_impl && $0 ~ "^  " array ":" { in_array = 1; next }
+        in_array && /^  [a-z_]+:/ { exit }
+        in_array && /^    - / { count++ }
+        END { print count }
+    ' "$file"
+}
+
 # Count implementation notes
 count_impl_notes() {
     local file="$1"
-    awk '
-        BEGIN { in_impl = 0; count = 0 }
+    count_impl_array "$file" "notes"
+}
+
+# Get implementation component lists
+get_impl_components() {
+    local file="$1"
+    local component_type="$2"  # completed_components, in_progress_components, or blocked_items
+
+    awk -v comp="$component_type" '
+        BEGIN { in_impl = 0; in_comp = 0 }
         /^implementation_status:/ { in_impl = 1; next }
         in_impl && /^[a-z_]+:/ && !/^  / { exit }
-        in_impl && /^  notes:/ { getline; while (/^    - /) { count++; getline } }
-        END { print count }
+        in_impl && $0 ~ "^  " comp ":" { in_comp = 1; next }
+        in_comp && /^  [a-z_]+:/ { exit }
+        in_comp && /^    - / {
+            line = $0
+            gsub(/^    - /, "", line)
+            gsub(/^"/, "", line); gsub(/"$/, "", line)
+            if (length(line) > 0) print line
+        }
     ' "$file"
 }
 
@@ -212,8 +250,13 @@ format_feature() {
         json)
             local data_count=$(count_data_structures "$file")
             local api_count=$(count_apis "$file")
+            local progress=$(get_impl_progress "$file")
+            [[ -z "$progress" ]] && progress="0"
+            local completed=$(count_impl_array "$file" "completed_components")
+            local in_progress=$(count_impl_array "$file" "in_progress_components")
+            local blocked=$(count_impl_array "$file" "blocked_items")
             cat << JSON
-{"feature_id":"$feature_id","title":"$title","status":"$status","data_structures":$data_count,"apis":$api_count,"summary":"$summary","file":"$file"}
+{"feature_id":"$feature_id","title":"$title","status":"$status","progress":$progress,"data_structures":$data_count,"apis":$api_count,"completed_components":$completed,"in_progress_components":$in_progress,"blocked_items":$blocked,"summary":"$summary","file":"$file"}
 JSON
             ;;
         tree)
@@ -223,9 +266,12 @@ JSON
                 in-progress) status_icon="${YELLOW}●${NC}" ;;
                 *) status_icon="${RED}○${NC}" ;;
             esac
-            
-            echo -e "${BLUE}$feature_id${NC} $status_icon $title"
-            
+
+            local progress=$(get_impl_progress "$file")
+            [[ -z "$progress" ]] && progress="0"
+
+            echo -e "${BLUE}$feature_id${NC} $status_icon $title ${CYAN}(${progress}%)${NC}"
+
             # Show summary if present
             if [[ -n "$summary" && "$summary" != '""' ]]; then
                 echo -e "${CYAN}├─ Summary:${NC} $summary"
@@ -261,12 +307,28 @@ JSON
             # Show dependencies
             local libs=$(get_dependencies "$file" "libraries")
             local services=$(get_dependencies "$file" "services")
+            local has_deps=false
             if [[ -n "$libs" || -n "$services" ]]; then
-                echo -e "${CYAN}└─ Dependencies:${NC}"
-                [[ -n "$libs" ]] && echo -e "   ${CYAN}├─ Libraries:${NC} $libs"
-                [[ -n "$services" ]] && echo -e "   ${CYAN}└─ Services:${NC} $services"
+                has_deps=true
+                echo -e "${CYAN}├─ Dependencies:${NC}"
+                [[ -n "$libs" ]] && echo -e "${CYAN}│  ├─ Libraries:${NC} $libs"
+                [[ -n "$services" ]] && echo -e "${CYAN}│  └─ Services:${NC} $services"
             fi
-            
+
+            # Show implementation progress details
+            local completed_count=$(count_impl_array "$file" "completed_components")
+            local in_progress_count=$(count_impl_array "$file" "in_progress_components")
+            local blocked_count=$(count_impl_array "$file" "blocked_items")
+
+            if [[ $completed_count -gt 0 || $in_progress_count -gt 0 || $blocked_count -gt 0 ]]; then
+                echo -e "${CYAN}└─ Implementation:${NC}"
+                [[ $completed_count -gt 0 ]] && echo -e "   ${GREEN}✓ Completed: $completed_count${NC}"
+                [[ $in_progress_count -gt 0 ]] && echo -e "   ${YELLOW}● In Progress: $in_progress_count${NC}"
+                [[ $blocked_count -gt 0 ]] && echo -e "   ${RED}⊗ Blocked: $blocked_count${NC}"
+            elif [[ "$has_deps" == false ]]; then
+                echo -e "${CYAN}└─ Implementation: ${progress}%${NC}"
+            fi
+
             echo ""
             ;;
         detailed)
@@ -330,12 +392,48 @@ JSON
             [[ -n "$services" ]] && echo -e "  ${CYAN}Services:${NC} $services"
             [[ -n "$data_sources" ]] && echo -e "  ${CYAN}Data Sources:${NC} $data_sources"
             
-            # Implementation notes
+            # Implementation status
+            echo -e "\n${YELLOW}Implementation Status:${NC}"
+            local progress=$(get_impl_progress "$file")
+            [[ -z "$progress" ]] && progress="0"
+            echo -e "  ${CYAN}Progress:${NC} ${progress}%"
+
+            local completed_count=$(count_impl_array "$file" "completed_components")
+            local in_progress_count=$(count_impl_array "$file" "in_progress_components")
+            local blocked_count=$(count_impl_array "$file" "blocked_items")
             local notes_count=$(count_impl_notes "$file")
-            if [[ $notes_count -gt 0 ]]; then
-                echo -e "\n${YELLOW}Implementation Notes:${NC} $notes_count"
+
+            if [[ $completed_count -gt 0 ]]; then
+                echo -e "  ${GREEN}✓ Completed:${NC} $completed_count components"
+                local completed=$(get_impl_components "$file" "completed_components")
+                while IFS= read -r comp; do
+                    [[ -z "$comp" ]] && continue
+                    echo -e "    ${GREEN}•${NC} $comp"
+                done <<< "$completed"
             fi
-            
+
+            if [[ $in_progress_count -gt 0 ]]; then
+                echo -e "  ${YELLOW}● In Progress:${NC} $in_progress_count components"
+                local in_progress=$(get_impl_components "$file" "in_progress_components")
+                while IFS= read -r comp; do
+                    [[ -z "$comp" ]] && continue
+                    echo -e "    ${YELLOW}•${NC} $comp"
+                done <<< "$in_progress"
+            fi
+
+            if [[ $blocked_count -gt 0 ]]; then
+                echo -e "  ${RED}⊗ Blocked:${NC} $blocked_count items"
+                local blocked=$(get_impl_components "$file" "blocked_items")
+                while IFS= read -r item; do
+                    [[ -z "$item" ]] && continue
+                    echo -e "    ${RED}•${NC} $item"
+                done <<< "$blocked"
+            fi
+
+            if [[ $notes_count -gt 0 ]]; then
+                echo -e "  ${CYAN}Notes:${NC} $notes_count"
+            fi
+
             echo ""
             ;;
         summary|*)
@@ -345,16 +443,19 @@ JSON
                 in-progress) status_icon="${YELLOW}●${NC}" ;;
                 *) status_icon="${RED}○${NC}" ;;
             esac
-            
+
             local data_count=$(count_data_structures "$file")
             local api_count=$(count_apis "$file")
-            
-            printf "%s %-8s %-45s %2dD %2dA %-15s\n" \
+            local progress=$(get_impl_progress "$file")
+            [[ -z "$progress" ]] && progress="0"
+
+            printf "%s %-8s %-40s %2dD %2dA %3s%% %-12s\n" \
                 "$status_icon" \
                 "$feature_id" \
-                "${title:0:45}" \
+                "${title:0:40}" \
                 "$data_count" \
                 "$api_count" \
+                "$progress" \
                 "($status)"
             ;;
     esac
@@ -495,7 +596,7 @@ fi
 if [[ "$FORMAT" == "summary" ]]; then
     echo -e "${BLUE}Feature Specifications in $FEATURES_DIR${NC}"
     echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    printf "%-2s %-8s %-45s %s %s %-15s\n" "" "ID" "Title" "D" "A" "Status"
+    printf "%-2s %-8s %-40s %s %s %5s %-12s\n" "" "ID" "Title" "D" "A" "Prog%" "Status"
     echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 fi
 
@@ -544,7 +645,7 @@ fi
 # Print footer
 if [[ "$FORMAT" == "summary" ]]; then
     echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "Found ${GREEN}$count${NC} matching features (D=Data Structures, A=APIs)"
+    echo -e "Found ${GREEN}$count${NC} matching features (D=Data Structures, A=APIs, Prog%=Progress)"
 elif [[ "$FORMAT" == "detailed" || "$FORMAT" == "tree" ]]; then
     echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo -e "Found ${GREEN}$count${NC} matching features"

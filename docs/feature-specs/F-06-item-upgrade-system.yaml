@@ -134,10 +134,14 @@ dependencies:
   data_sources: "player_items table, users.gold, users.vanity_level"
 
 implementation_status:
+  progress: 0  # No implementation started
+  completed_components: []
+  in_progress_components: []
+  blocked_items: []
   notes:
-    - "Light MVP: Hardcoded upgrade cost = 100 gold flat, simple level increment, no vanity level"
-    - "Full MVP: Dynamic cost formula (level^1.5), vanity level calculation, gold validation"
-    - "Finished: Upgrade animations, bulk upgrade (level up multiple times at once), upgrade preview, auto-upgrade suggestions"
+    - "Light MVP planned: Hardcoded upgrade cost = 100 gold flat, simple level increment, no vanity level"
+    - "Full MVP planned: Dynamic cost formula (level^1.5), vanity level calculation, gold validation"
+    - "Future planned: Upgrade animations, bulk upgrade (level up multiple times at once), upgrade preview, auto-upgrade suggestions"
 
 balancing_parameters:
   base_upgrade_cost: "100 gold (configurable)"

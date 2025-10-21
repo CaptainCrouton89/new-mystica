@@ -152,11 +152,15 @@ dependencies:
   data_sources: "Player equipment from F-03 via v_player_equipped_stats, Weapons table for dial patterns, EnemyTypes with tier scaling, Tiers table (1-20+ tiers)"
 
 implementation_status:
+  progress: 0  # No implementation started
+  completed_components: []
+  in_progress_components: []
+  blocked_items: []
   notes:
-    - "Light MVP: single_arc pattern only, constant dial speed, difficulty via enemy stats"
+    - "Light MVP planned: single_arc pattern only, constant dial speed, difficulty via enemy stats"
     - "MVP0 constraints: No dial speed scaling for difficulty, level 1 enemies stay weak permanently, player should crush low-level enemies"
-    - "Full MVP: All 5 weapon patterns implemented, fn_weapon_bands_adjusted() for accuracy scaling, backend combat sessions (in-memory cache), tier-scaled enemies (1-10 tiers), zone-based hit detection, RNG crit bonuses"
-    - "Post-MVP: Dial speed variations for variety (not difficulty), polished animations for all patterns, weapon-specific haptics, balanced zone sizing, 20+ enemy tiers"
+    - "Full MVP planned: All 5 weapon patterns implemented, fn_weapon_bands_adjusted() for accuracy scaling, backend combat sessions (in-memory cache), tier-scaled enemies (1-10 tiers), zone-based hit detection, RNG crit bonuses"
+    - "Post-MVP planned: Dial speed variations for variety (not difficulty), polished animations for all patterns, weapon-specific haptics, balanced zone sizing, 20+ enemy tiers"
     - "Critical: Difficulty scaling purely through enemy stats. Weapon patterns reserved for post-MVP variety, not difficulty compensation."
 
 user_stories:

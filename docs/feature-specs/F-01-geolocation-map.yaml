@@ -1,7 +1,7 @@
 title: Technical Specification - Geolocation & Map System
 template: ~/.claude/file-templates/init-project/feature-spec/feature-title.yaml
 feature_id: F-01
-status: planned
+status: in-progress
 last_updated: 2025-01-27
 
 summary: "Integrate Google Maps to display player location and nearby enemy spawn points. Enable location-based discovery by tracking GPS position and calculating proximity to spawn locations."
@@ -85,11 +85,28 @@ dependencies:
   data_sources: "PostgreSQL locations table, real-time GPS from device"
 
 implementation_status:
+  progress: 50  # Backend complete, frontend pending
+  completed_components:
+    - "GET /api/v1/locations/nearby API endpoint"
+    - "GET /api/v1/locations/:id API endpoint"
+    - "LocationService with PostGIS integration"
+    - "17 integration tests (tests/integration/locations.test.ts)"
+    - "30 SF locations seeded via migrations/seed_sf_locations.sql"
+    - "PostGIS RPC function (migrations/create_nearby_locations_function.sql)"
+    - "JWT authentication middleware for location endpoints"
+    - "Zod validation schemas for location requests"
+  in_progress_components: []
+  blocked_items:
+    - item: "SwiftUI MapView integration"
+      reason: "Google Maps SDK setup required, CoreLocation permissions handling needed"
+    - item: "Frontend location display and interaction"
+      reason: "Waiting for MapView infrastructure"
   notes:
+    - "Backend: Using PostGIS 3.3.7 for accurate geospatial calculations with ST_Distance geography type for meter-accurate distances"
     - "MVP0: 30 hardcoded SF locations stored in database, no cooldowns, instant location generation API, GPS permission non-blocking"
-    - "MVP1: Add cooldown system, expand to more cities, make GPS permission blocking"
-    - "Full MVP: Dynamic location generation, real-time spawn updates, advanced pool strategies"
-    - "Finished: Optimize marker rendering for 100+ locations, add location clustering, offline caching"
+    - "MVP1 planned: Add cooldown system, expand to more cities, make GPS permission blocking"
+    - "Full MVP planned: Dynamic location generation, real-time spawn updates, advanced pool strategies"
+    - "Future: Optimize marker rendering for 100+ locations, add location clustering, offline caching"
 
 user_stories:
   - US-101

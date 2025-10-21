@@ -169,11 +169,37 @@ dependencies:
   data_sources: "Materials seed data (JSON file), MaterialStacks table, MaterialInstances table, ItemMaterials table, ItemImageCache table"
 
 implementation_status:
+  progress: 40  # Database schema complete, controllers/services stubbed, needs service implementation
+  completed_components:
+    - "Database schema (Materials, MaterialStacks, MaterialInstances, ItemMaterials, ItemImageCache, StyleDefinitions)"
+    - "15 seed materials loaded with zero-sum stat modifiers"
+    - "5 style definitions (normal, pixel_art, watercolor, neon, holographic) with spawn rates"
+    - "MaterialController skeleton with 3 endpoints (getInventory, applyMaterial, replaceMaterial)"
+    - "MaterialService skeleton with documented workflow TODOs"
+    - "Zod validation schemas (ApplyMaterialSchema, ReplaceMaterialSchema)"
+    - "Items table columns: material_combo_hash, generated_image_url, is_styled, image_generation_status"
+  in_progress_components: []
+  blocked_items:
+    - code: "SCHEMA_MISMATCH"
+      description: "Code uses is_shiny (boolean) but DB uses style_id (UUID). Need to update schemas.ts and MaterialController to use style_id."
+      impact: "Blocks material application - API contract and implementation diverged"
+    - code: "MISSING_MATERIAL_LIBRARY_ENDPOINT"
+      description: "GET /materials endpoint defined in API contract but no controller/route implementation"
+      impact: "Clients cannot fetch available materials library"
+    - code: "IMAGE_GENERATION_NOT_INTEGRATED"
+      description: "ImageGenerationService exists but not integrated with material combo workflow. Needs R2 upload to items-crafted/{item_type}/{combo_hash}.png and ItemImageCache management"
+      impact: "Material application will fail on image generation step (20s sync generation required)"
+    - code: "MATERIAL_ROUTES_NOT_REGISTERED"
+      description: "Material endpoints not wired in routes/index.ts or app.ts"
+      impact: "API endpoints not accessible"
   notes:
-    - "Light MVP: Sync 20s image generation (blocks UI), material count from seed data"
-    - "Later MVP: Async image generation with crafting times, push notifications"
-    - "Full MVP: Backend API, MaterialStacks ↔ MaterialInstances flow, material removal (100 × item level gold cost), styled materials (visual variants with normal stat effectiveness), ItemImageCache with combo_hash, craft_count tracking"
-    - "Finished: Visual effects for styled materials, material preview before apply, undo last material (grace period), material trading/gifting, 'X players crafted this combo' notifications, is_first_craft celebrations"
+    - "Database layer: 100% complete with constraints enforced (slot_index 0-2, quantity >= 0, stat_modifiers sum to 0)"
+    - "Service layer: Needs implementation of 3 core methods (getMaterialInventory, applyMaterial, replaceMaterial)"
+    - "applyMaterial workflow: 11 steps documented in MaterialService TODOs"
+    - "replaceMaterial workflow: 12 steps documented in MaterialService TODOs"
+    - "Light MVP planned: Sync 20s image generation (blocks UI), material count from seed data"
+    - "Later MVP planned: Async image generation with crafting times, push notifications"
+    - "Future planned: Visual effects for styled materials, material preview before apply, undo last material (grace period), material trading/gifting, 'X players crafted this combo' notifications, is_first_craft celebrations"
     - "Note: Material removal + apply = replacement flow. Two separate operations for clarity."
     - "Materials range from tame (Coffee, Gum, Paper) to extreme (Diamond, Plasma, Lightning), age-appropriate subset for early app store versions"
     - "Image generation: On-demand combo images cached globally, deterministic combo_hash for cache hits, R2 storage at items-crafted/{item_type_slug}/{combo_hash}.png"

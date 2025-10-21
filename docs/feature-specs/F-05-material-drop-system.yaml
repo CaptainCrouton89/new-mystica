@@ -162,13 +162,17 @@ dependencies:
   data_sources: "enemies table, player_materials table, player gold balance"
 
 implementation_status:
+  progress: 0  # No implementation started
+  completed_components: []
+  in_progress_components: []
+  blocked_items: []
   notes:
-    - "Light MVP: 100% drop rate, 1 material + 1 item + fixed gold per combat, no RNG"
-    - "Full MVP: 60% material drop chance, tier-based weighting via LootPoolTierWeights"
+    - "Light MVP planned: 100% drop rate, 1 material + 1 item + fixed gold per combat, no RNG"
+    - "Full MVP planned: 60% material drop chance, tier-based weighting via LootPoolTierWeights"
     - "Material Tier System: Common [0.00,0.12), Uncommon [0.12,0.20), Rare [0.20,0.28), Epic [0.28,1.00) thresholds"
     - "Drop Weight Examples: Level 1-8 pools exclude uncommon+ materials (weight=0), Level 9+ pools use default tier multipliers (common=1.0, uncommon=0.7, rare=0.35, epic=0.15)"
     - "Auto-Integration: New materials instantly classified into tiers, appear in all pools with default multipliers, can be level-gated via LootPoolEntries overrides"
-    - "Finished: Location-specific drop pools, rare material drops, daily bonus drops, streak bonuses"
+    - "Future planned: Location-specific drop pools, rare material drops, daily bonus drops, streak bonuses"
     - "Item Dismantling: Flat-rate gold return (5-10g) when burning unwanted items via POST /items/{id}/dismantle"
 
 balancing_parameters:

@@ -214,10 +214,14 @@ dependencies:
   data_sources: "pet_personalities seed data (6 base personalities), player_pet_personalities table, combat_sessions (Redis)"
 
 implementation_status:
+  progress: 0  # No implementation started
+  completed_components: []
+  in_progress_components: []
+  blocked_items: []
   notes:
-    - "Light MVP: Hardcode 2-3 personalities with canned phrases only (no AI), triggered on specific combat events"
-    - "Full MVP: AI integration with OpenAI/Anthropic, 6 personality types, player can assign personality to pet, dialogue logs for analytics"
-    - "Finished: Custom pet names, personality unlock system (rare personalities from special pets), A/B test dialogue frequency, multilingual support"
+    - "Light MVP planned: Hardcode 2-3 personalities with canned phrases only (no AI), triggered on specific combat events"
+    - "Full MVP planned: AI integration with OpenAI/Anthropic, 6 personality types, player can assign personality to pet, dialogue logs for analytics"
+    - "Future planned: Custom pet names, personality unlock system (rare personalities from special pets), A/B test dialogue frequency, multilingual support"
     - "AI Model: GPT-4.1-nano for cost efficiency (~$0.0001/message)"
     - "Randomness: Inject random literary passages to prevent repetition"
     - "Throttling: 1 message/turn max, special events only"
