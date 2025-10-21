@@ -23,7 +23,9 @@ export class UserFactory {
     const baseUser: User = {
       id: generateUuid(),
       email: `device_${deviceId}@mystica.local`,
-      gold_balance: 100,
+      device_id: deviceId,
+      account_type: 'anonymous',
+      is_anonymous: true,
       vanity_level: 1,
       avg_item_level: null,
       created_at: new Date().toISOString(),
@@ -44,7 +46,9 @@ export class UserFactory {
     const baseUser: User = {
       id: generateUuid(),
       email: userEmail,
-      gold_balance: 150,
+      device_id: null,
+      account_type: 'email',
+      is_anonymous: false,
       vanity_level: 1,
       avg_item_level: 5.0,
       created_at: new Date().toISOString(),
@@ -61,7 +65,6 @@ export class UserFactory {
   static withVanityLevel(level: number, overrides?: Partial<User>): User {
     return this.createEmail(undefined, {
       vanity_level: level,
-      gold_balance: level * 100, // Scale gold with vanity level
       avg_item_level: Math.min(level * 2, 20), // Cap at level 20
       ...overrides
     });
@@ -75,7 +78,6 @@ export class UserFactory {
     return {
       id: user.id,
       email: user.email,
-      gold_balance: user.gold_balance,
       vanity_level: user.vanity_level,
       avg_item_level: user.avg_item_level,
       ...overrides

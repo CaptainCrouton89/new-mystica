@@ -268,7 +268,7 @@ describe('LocationService', () => {
 
       await expect(
         locationService.getById(validId)
-      ).rejects.toThrow('Location not found');
+      ).rejects.toThrow(`Location with identifier '${validId}' not found`);
     });
 
     it('should throw DatabaseError on Supabase error', async () => {

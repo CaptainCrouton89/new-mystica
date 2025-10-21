@@ -173,7 +173,9 @@ describe('Auth Middleware', () => {
 
       expect((mockRequest as any).user).toEqual({
         id: 'user-123',
-        email: 'test@example.com'
+        email: 'test@example.com',
+        device_id: null,
+        account_type: 'email'
       });
       expect(nextFunction).toHaveBeenCalled();
       expect(mockResponse.status).not.toHaveBeenCalled();
@@ -273,7 +275,9 @@ describe('Auth Middleware', () => {
 
       expect((mockRequest as any).user).toEqual({
         id: 'user-123',
-        email: 'test@example.com'
+        email: 'test@example.com',
+        device_id: null,
+        account_type: 'email'
       });
       expect(nextFunction).toHaveBeenCalled();
       expect(mockResponse.status).not.toHaveBeenCalled();

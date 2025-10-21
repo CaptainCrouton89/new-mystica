@@ -18,7 +18,12 @@ export * from './item.factory.js';
 export * from './location.factory.js';
 export * from './combat.factory.js';
 export * from './material.factory.js';
+export * from './currency.factory.js';
+export * from './equipment.factory.js';
+export * from './loadout.factory.js';
+export * from './chatter.factory.js';
 
 // Re-export commonly used types from factories
 export type { PlayerItem } from './item.factory.js';
 export type { Enemy } from './combat.factory.js';
+export type { EquipmentSlot } from './equipment.factory.js';
