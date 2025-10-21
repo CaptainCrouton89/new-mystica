@@ -81,6 +81,7 @@ struct BaseView<Content: View>: View {
             
             Spacer()
         }
+        .padding(.bottom, 16)
     }
 }
 
