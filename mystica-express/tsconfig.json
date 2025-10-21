@@ -12,7 +12,7 @@
     "resolveJsonModule": true,
     "moduleResolution": "node",
     "allowSyntheticDefaultImports": true,
-    "declaration": true,
+    "declaration": false,
     "typeRoots": ["./node_modules/@types"]
   },
   "include": ["src/**/*"],
