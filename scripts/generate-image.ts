@@ -3,6 +3,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import Replicate from 'replicate';
 import { generateItemDescription } from './generate-item-description.js';
+import { generateRawImage } from './generate-raw-image.js';
+import { checkR2AssetExists, getR2AssetUrl, uploadToR2, getMultipleAssetUrls } from './r2-service.js';
 
 // Load environment variables from .env.local
 dotenv.config({ path: '.env.local', override: true });
@@ -232,6 +234,89 @@ async function generateImage(options: GenerateImageOptions): Promise<void> {
   console.log('Description:', itemDescription);
   console.log('Aspect Ratio:', options.aspectRatio || '1:1');
 
+  // Check R2 for item and materials, generate if missing
+  let referenceImages: string[] = [];
+
+  if (options.itemType && options.materials) {
+    console.log('\n🔍 Checking R2 for existing assets...');
+
+    // Check if item type exists in R2
+    const itemExists = await checkR2AssetExists(options.itemType, 'item');
+    console.log(`  Item "${options.itemType}": ${itemExists ? '✓ exists' : '✗ missing'}`);
+
+    // Check which materials exist in R2
+    const materialUrls = await getMultipleAssetUrls(options.materials, 'material');
+    const missingMaterials = options.materials.filter(m => !materialUrls.has(m));
+
+    options.materials.forEach(material => {
+      console.log(`  Material "${material}": ${materialUrls.has(material) ? '✓ exists' : '✗ missing'}`);
+    });
+
+    // Generate missing assets in parallel
+    const generationTasks: Promise<{ name: string; type: 'item' | 'material'; path: string; url: string }>[] = [];
+
+    if (!itemExists) {
+      console.log(`\n🎨 Generating missing item: ${options.itemType}`);
+      generationTasks.push(
+        generateRawImage({
+          name: options.itemType,
+          type: 'item',
+          outputFormat: 'png'
+        }).then(async (path) => {
+          const url = await uploadToR2(path, options.itemType!, 'item');
+          return { name: options.itemType!, type: 'item' as const, path, url };
+        })
+      );
+    }
+
+    if (missingMaterials.length > 0) {
+      console.log(`\n🎨 Generating ${missingMaterials.length} missing material(s) in parallel...`);
+      for (const material of missingMaterials) {
+        generationTasks.push(
+          generateRawImage({
+            name: material,
+            type: 'material',
+            outputFormat: 'png'
+          }).then(async (path) => {
+            const url = await uploadToR2(path, material, 'material');
+            return { name: material, type: 'material' as const, path, url };
+          })
+        );
+      }
+    }
+
+    if (generationTasks.length > 0) {
+      console.log(`\n⏳ Running ${generationTasks.length} generation task(s) in parallel...\n`);
+      const results = await Promise.all(generationTasks);
+
+      console.log('\n✅ All missing assets generated and uploaded to R2:');
+      results.forEach(result => {
+        console.log(`   • ${result.type}: ${result.name} → ${result.url}`);
+      });
+    }
+
+    // Collect all reference image URLs from R2
+    console.log('\n📸 Collecting reference images from R2...');
+
+    // Get item URL
+    const itemUrl = await getR2AssetUrl(options.itemType, 'item');
+    referenceImages.push(itemUrl);
+    console.log(`   • Item: ${itemUrl}`);
+
+    // Get all material URLs (refresh in case we just uploaded)
+    const allMaterialUrls = await getMultipleAssetUrls(options.materials, 'material');
+    for (const [material, url] of allMaterialUrls.entries()) {
+      referenceImages.push(url);
+      console.log(`   • Material (${material}): ${url}`);
+    }
+
+    console.log(`\n✅ Using ${referenceImages.length} reference images from R2`);
+  } else if (options.referenceImages && options.referenceImages.length > 0) {
+    // Use manually provided reference images
+    referenceImages = options.referenceImages;
+    console.log(`Reference images: ${options.referenceImages.length}`);
+  }
+
   // Determine which providers to use
   const providers: Provider[] = options.providers
     ? options.providers
@@ -241,23 +326,18 @@ async function generateImage(options: GenerateImageOptions): Promise<void> {
 
   console.log(`Providers: ${providers.join(', ')}`);
 
-  // Validate reference images
-  if (options.referenceImages && options.referenceImages.length > 0) {
-    console.log(`Reference images: ${options.referenceImages.length}`);
-  }
-
   const timestamp = Date.now();
 
   try {
     if (providers.length === 1) {
       // Single provider - sequential
-      await generateImageSingle(providers[0], { ...options, itemName, itemDescription }, timestamp);
+      await generateImageSingle(providers[0], { ...options, itemName, itemDescription, referenceImages }, timestamp);
     } else {
       // Multiple providers - parallel generation
       console.log(`\n🚀 Starting parallel generation with ${providers.length} providers...\n`);
 
       const results = await Promise.allSettled(
-        providers.map(provider => generateImageSingle(provider, { ...options, itemName, itemDescription }, timestamp))
+        providers.map(provider => generateImageSingle(provider, { ...options, itemName, itemDescription, referenceImages }, timestamp))
       );
 
       // Summary
