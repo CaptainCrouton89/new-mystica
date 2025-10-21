@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# Analyze images using Gemini 2.5 Flash vision model
+#
+# Usage:
+#   bin/analyze-image "Your question" image1.jpg [image2.jpg ...]
+#
+# Examples:
+#   bin/analyze-image "What objects do you see?" photo.jpg
+#   bin/analyze-image "Compare these images" img1.jpg img2.jpg img3.jpg
+#   bin/analyze-image "Describe the style" output/gemini-*.png
+#
+# Requirements:
+#   - GOOGLE_AI_API_KEY in .env.local
+#   - Node.js with tsx installed (via pnpm install)
+
+set -e
+
+# Get the directory where this script lives
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+PROJECT_ROOT="$( cd "$SCRIPT_DIR/.." && pwd )"
+
+# Change to project root
+cd "$PROJECT_ROOT"
+
+# Execute the TypeScript script via tsx
+exec npx tsx scripts/analyze-image.ts "$@"
