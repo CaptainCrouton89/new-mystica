@@ -1,6 +1,18 @@
 {
   "materials": [
     {
+      "id": "matcha_powder",
+      "name": "Matcha Powder",
+      "description": "Concentrated tea energy sharpening focus dramatically",
+      "stat_modifiers": {
+        "atkPower": -0.05,
+        "atkAccuracy": 0.15,
+        "defPower": -0.1,
+        "defAccuracy": 0
+      },
+      "rarity": "uncommon"
+    },
+    {
       "id": "coffee",
       "name": "Coffee",
       "description": "Jittery energy redistributes power from defense to attack",
@@ -37,220 +49,16 @@
       "rarity": "common"
     },
     {
-      "id": "button",
-      "name": "Button",
-      "description": "Small but sturdy, shifts to defensive awareness",
+      "id": "rainbow",
+      "name": "Rainbow",
+      "description": "Prismatic energy creating chaotic stat shifts",
       "stat_modifiers": {
-        "atkPower": -0.03,
-        "atkAccuracy": -0.05,
-        "defPower": 0.08,
-        "defAccuracy": 0
-      },
-      "rarity": "common"
-    },
-    {
-      "id": "candle",
-      "name": "Candle",
-      "description": "Flickering flame trades defense for offense",
-      "stat_modifiers": {
-        "atkPower": 0.08,
-        "atkAccuracy": 0.02,
-        "defPower": -0.08,
-        "defAccuracy": -0.02
-      },
-      "rarity": "common"
-    },
-    {
-      "id": "pizza",
-      "name": "Pizza",
-      "description": "Greasy comfort food sacrificing precision for power",
-      "stat_modifiers": {
-        "atkPower": 0.1,
-        "atkAccuracy": -0.08,
-        "defPower": -0.02,
-        "defAccuracy": 0
-      },
-      "rarity": "common"
-    },
-    {
-      "id": "mushroom",
-      "name": "Mushroom",
-      "description": "Earthy fungus redistributing stats evenly",
-      "stat_modifiers": {
-        "atkPower": 0.05,
-        "atkAccuracy": 0.03,
-        "defPower": -0.05,
-        "defAccuracy": -0.03
-      },
-      "rarity": "common"
-    },
-    {
-      "id": "cactus",
-      "name": "Cactus",
-      "description": "Spiky material balancing offense and defense poorly",
-      "stat_modifiers": {
-        "atkPower": 0.06,
-        "atkAccuracy": 0,
-        "defPower": 0.06,
-        "defAccuracy": -0.12
-      },
-      "rarity": "common"
-    },
-    {
-      "id": "sea_shell",
-      "name": "Sea Shell",
-      "description": "Hardened shell trading offense for defense",
-      "stat_modifiers": {
-        "atkPower": -0.08,
-        "atkAccuracy": 0,
-        "defPower": 0.1,
-        "defAccuracy": -0.02
-      },
-      "rarity": "common"
-    },
-    {
-      "id": "coral",
-      "name": "Coral",
-      "description": "Ocean mineral weakening evasion for power",
-      "stat_modifiers": {
-        "atkPower": 0.05,
-        "atkAccuracy": 0,
-        "defPower": 0.05,
+        "atkPower": 0.15,
+        "atkAccuracy": 0.1,
+        "defPower": -0.15,
         "defAccuracy": -0.1
       },
-      "rarity": "common"
-    },
-    {
-      "id": "wood",
-      "name": "Wood",
-      "description": "Natural material with neutral redistribution",
-      "stat_modifiers": {
-        "atkPower": 0.05,
-        "atkAccuracy": 0.03,
-        "defPower": -0.05,
-        "defAccuracy": -0.03
-      },
-      "rarity": "common"
-    },
-    {
-      "id": "paper",
-      "name": "Paper",
-      "description": "Flimsy material improving precision over power",
-      "stat_modifiers": {
-        "atkPower": -0.05,
-        "atkAccuracy": 0.1,
-        "defPower": -0.05,
-        "defAccuracy": 0
-      },
-      "rarity": "common"
-    },
-    {
-      "id": "fabric",
-      "name": "Fabric",
-      "description": "Soft cloth trading offense for defense",
-      "stat_modifiers": {
-        "atkPower": -0.05,
-        "atkAccuracy": 0,
-        "defPower": 0.08,
-        "defAccuracy": -0.03
-      },
-      "rarity": "common"
-    },
-    {
-      "id": "rubber",
-      "name": "Rubber",
-      "description": "Bouncy material redistributing to evasion",
-      "stat_modifiers": {
-        "atkPower": -0.06,
-        "atkAccuracy": 0,
-        "defPower": 0.03,
-        "defAccuracy": 0.03
-      },
-      "rarity": "common"
-    },
-    {
-      "id": "plastic",
-      "name": "Plastic",
-      "description": "Cheap synthetic with minimal redistribution",
-      "stat_modifiers": {
-        "atkPower": 0.05,
-        "atkAccuracy": 0,
-        "defPower": 0,
-        "defAccuracy": -0.05
-      },
-      "rarity": "common"
-    },
-    {
-      "id": "glass",
-      "name": "Glass",
-      "description": "Fragile but sharp, trading defense for offense",
-      "stat_modifiers": {
-        "atkPower": 0.1,
-        "atkAccuracy": 0.05,
-        "defPower": -0.15,
-        "defAccuracy": 0
-      },
-      "rarity": "common"
-    },
-    {
-      "id": "sand",
-      "name": "Sand",
-      "description": "Gritty particles obscuring precision",
-      "stat_modifiers": {
-        "atkPower": 0.05,
-        "atkAccuracy": -0.08,
-        "defPower": 0.03,
-        "defAccuracy": 0
-      },
-      "rarity": "common"
-    },
-    {
-      "id": "foam",
-      "name": "Foam",
-      "description": "Cushioning material trading offense for defense",
-      "stat_modifiers": {
-        "atkPower": -0.08,
-        "atkAccuracy": 0,
-        "defPower": 0.1,
-        "defAccuracy": -0.02
-      },
-      "rarity": "common"
-    },
-    {
-      "id": "cotton",
-      "name": "Cotton",
-      "description": "Soft fibers improving defense over offense",
-      "stat_modifiers": {
-        "atkPower": -0.05,
-        "atkAccuracy": 0,
-        "defPower": 0.08,
-        "defAccuracy": -0.03
-      },
-      "rarity": "common"
-    },
-    {
-      "id": "dirt",
-      "name": "Dirt",
-      "description": "Earth matter grounding offense to defense",
-      "stat_modifiers": {
-        "atkPower": -0.03,
-        "atkAccuracy": -0.05,
-        "defPower": 0.08,
-        "defAccuracy": 0
-      },
-      "rarity": "common"
-    },
-    {
-      "id": "matcha_powder",
-      "name": "Matcha Powder",
-      "description": "Concentrated tea energy sharpening focus dramatically",
-      "stat_modifiers": {
-        "atkPower": -0.05,
-        "atkAccuracy": 0.15,
-        "defPower": -0.1,
-        "defAccuracy": 0
-      },
-      "rarity": "uncommon"
+      "rarity": "rare"
     },
     {
       "id": "bubble",
@@ -277,40 +85,16 @@
       "rarity": "uncommon"
     },
     {
-      "id": "propeller",
-      "name": "Propeller",
-      "description": "Spinning blades balancing offense and mobility",
+      "id": "diamond",
+      "name": "Diamond",
+      "description": "Hardest material providing ultimate defense at severe offensive cost",
       "stat_modifiers": {
-        "atkPower": 0.1,
-        "atkAccuracy": 0.05,
-        "defPower": -0.1,
-        "defAccuracy": -0.05
+        "atkPower": -0.25,
+        "atkAccuracy": -0.05,
+        "defPower": 0.25,
+        "defAccuracy": 0.05
       },
-      "rarity": "uncommon"
-    },
-    {
-      "id": "magnet",
-      "name": "Magnet",
-      "description": "Attractive force pulling attacks and defenses together",
-      "stat_modifiers": {
-        "atkPower": 0.08,
-        "atkAccuracy": 0,
-        "defPower": 0.08,
-        "defAccuracy": -0.16
-      },
-      "rarity": "uncommon"
-    },
-    {
-      "id": "colorful_ribbon",
-      "name": "Colorful Ribbon",
-      "description": "Decorative fabric improving morale and precision",
-      "stat_modifiers": {
-        "atkPower": 0,
-        "atkAccuracy": 0.12,
-        "defPower": -0.08,
-        "defAccuracy": -0.03999999999999999
-      },
-      "rarity": "uncommon"
+      "rarity": "epic"
     },
     {
       "id": "sparkles",
@@ -321,90 +105,6 @@
         "atkAccuracy": 0.1,
         "defPower": -0.1,
         "defAccuracy": -0.05
-      },
-      "rarity": "uncommon"
-    },
-    {
-      "id": "comet",
-      "name": "Comet",
-      "description": "Celestial object with momentum-based power",
-      "stat_modifiers": {
-        "atkPower": 0.15,
-        "atkAccuracy": 0,
-        "defPower": -0.12,
-        "defAccuracy": -0.03
-      },
-      "rarity": "uncommon"
-    },
-    {
-      "id": "star",
-      "name": "Star",
-      "description": "Radiant energy balancing power and accuracy",
-      "stat_modifiers": {
-        "atkPower": 0.1,
-        "atkAccuracy": 0.08,
-        "defPower": -0.12,
-        "defAccuracy": -0.06
-      },
-      "rarity": "uncommon"
-    },
-    {
-      "id": "flame",
-      "name": "Flame",
-      "description": "Burning essence maximizing attack at cost of defense",
-      "stat_modifiers": {
-        "atkPower": 0.2,
-        "atkAccuracy": 0,
-        "defPower": -0.2,
-        "defAccuracy": 0
-      },
-      "rarity": "uncommon"
-    },
-    {
-      "id": "denim",
-      "name": "Denim",
-      "description": "Tough fabric offering reliable protection",
-      "stat_modifiers": {
-        "atkPower": -0.08,
-        "atkAccuracy": 0,
-        "defPower": 0.12,
-        "defAccuracy": -0.04
-      },
-      "rarity": "uncommon"
-    },
-    {
-      "id": "chrome",
-      "name": "Chrome",
-      "description": "Shiny metal reflecting attacks with precision",
-      "stat_modifiers": {
-        "atkPower": 0,
-        "atkAccuracy": 0.1,
-        "defPower": 0.05,
-        "defAccuracy": -0.15
-      },
-      "rarity": "uncommon"
-    },
-    {
-      "id": "latex",
-      "name": "Latex",
-      "description": "Stretchy material absorbing damage flexibly",
-      "stat_modifiers": {
-        "atkPower": -0.05,
-        "atkAccuracy": 0,
-        "defPower": 0.12,
-        "defAccuracy": -0.07
-      },
-      "rarity": "uncommon"
-    },
-    {
-      "id": "ice",
-      "name": "Ice",
-      "description": "Frozen element sharpening offensive capabilities",
-      "stat_modifiers": {
-        "atkPower": 0.12,
-        "atkAccuracy": 0.05,
-        "defPower": -0.15,
-        "defAccuracy": -0.02
       },
       "rarity": "uncommon"
     },
@@ -421,28 +121,40 @@
       "rarity": "uncommon"
     },
     {
-      "id": "rainbow",
-      "name": "Rainbow",
-      "description": "Prismatic energy creating chaotic stat shifts",
+      "id": "neon",
+      "name": "Neon Sign",
+      "description": "Electric light bending reality offensively",
       "stat_modifiers": {
-        "atkPower": 0.15,
-        "atkAccuracy": 0.1,
-        "defPower": -0.15,
+        "atkPower": 0.18,
+        "atkAccuracy": 0.12,
+        "defPower": -0.2,
         "defAccuracy": -0.1
       },
       "rarity": "rare"
     },
     {
-      "id": "lava",
-      "name": "Lava",
-      "description": "Molten rock maximizing offense with severe defense penalty",
+      "id": "cactus",
+      "name": "Cactus",
+      "description": "Spiky material balancing offense and defense poorly",
       "stat_modifiers": {
-        "atkPower": 0.25,
-        "atkAccuracy": -0.05,
+        "atkPower": 0.06,
+        "atkAccuracy": 0,
+        "defPower": 0.06,
+        "defAccuracy": -0.12
+      },
+      "rarity": "common"
+    },
+    {
+      "id": "flame",
+      "name": "Flame",
+      "description": "Burning essence maximizing attack at cost of defense",
+      "stat_modifiers": {
+        "atkPower": 0.2,
+        "atkAccuracy": 0,
         "defPower": -0.2,
         "defAccuracy": 0
       },
-      "rarity": "rare"
+      "rarity": "uncommon"
     },
     {
       "id": "ghost",
@@ -457,102 +169,6 @@
       "rarity": "rare"
     },
     {
-      "id": "shadow",
-      "name": "Shadow",
-      "description": "Dark energy trading defense for precision",
-      "stat_modifiers": {
-        "atkPower": 0.05,
-        "atkAccuracy": 0.18,
-        "defPower": -0.12,
-        "defAccuracy": -0.11
-      },
-      "rarity": "rare"
-    },
-    {
-      "id": "goo",
-      "name": "Goo",
-      "description": "Mysterious ooze providing substantial protection",
-      "stat_modifiers": {
-        "atkPower": -0.15,
-        "atkAccuracy": -0.05,
-        "defPower": 0.2,
-        "defAccuracy": 0
-      },
-      "rarity": "rare"
-    },
-    {
-      "id": "cocaine",
-      "name": "Cocaine",
-      "description": "Illegal stimulant massively boosting power and accuracy at severe defensive cost",
-      "stat_modifiers": {
-        "atkPower": 0.2,
-        "atkAccuracy": 0.15,
-        "defPower": -0.25,
-        "defAccuracy": -0.1
-      },
-      "rarity": "rare"
-    },
-    {
-      "id": "lube",
-      "name": "Lube",
-      "description": "Slippery substance maximizing evasion while sacrificing power",
-      "stat_modifiers": {
-        "atkPower": -0.2,
-        "atkAccuracy": 0.05,
-        "defPower": -0.05,
-        "defAccuracy": 0.2
-      },
-      "rarity": "rare"
-    },
-    {
-      "id": "void",
-      "name": "Void",
-      "description": "Empty nothingness redistributing stats extremely",
-      "stat_modifiers": {
-        "atkPower": 0,
-        "atkAccuracy": -0.2,
-        "defPower": 0.25,
-        "defAccuracy": -0.05
-      },
-      "rarity": "rare"
-    },
-    {
-      "id": "glitter",
-      "name": "Glitter",
-      "description": "Blinding sparkles creating precision chaos",
-      "stat_modifiers": {
-        "atkPower": -0.1,
-        "atkAccuracy": 0.2,
-        "defPower": 0,
-        "defAccuracy": -0.1
-      },
-      "rarity": "rare"
-    },
-    {
-      "id": "neon",
-      "name": "Neon Sign",
-      "description": "Electric light bending reality offensively",
-      "stat_modifiers": {
-        "atkPower": 0.18,
-        "atkAccuracy": 0.12,
-        "defPower": -0.2,
-        "defAccuracy": -0.1
-      },
-      "rarity": "rare"
-    },
-    {
-      "id": "diamond",
-      "name": "Diamond",
-      "description": "Hardest material providing ultimate defense at severe offensive cost",
-      "stat_modifiers": {
-        "atkPower": -0.25,
-        "atkAccuracy": -0.05,
-        "defPower": 0.25,
-        "defAccuracy": 0.05
-      },
-      "rarity": "epic"
-    },
-    {
       "id": "lightning",
       "name": "Lightning",
       "description": "Electric energy maximizing offense with precision",
@@ -561,42 +177,6 @@
         "atkAccuracy": 0.15,
         "defPower": -0.27,
         "defAccuracy": -0.1
-      },
-      "rarity": "epic"
-    },
-    {
-      "id": "laser_beam",
-      "name": "Laser Beam",
-      "description": "Focused light providing extreme precision offense",
-      "stat_modifiers": {
-        "atkPower": 0.18,
-        "atkAccuracy": 0.2,
-        "defPower": -0.28,
-        "defAccuracy": -0.1
-      },
-      "rarity": "epic"
-    },
-    {
-      "id": "stardust",
-      "name": "Stardust",
-      "description": "Cosmic particles offering extreme defensive balance",
-      "stat_modifiers": {
-        "atkPower": -0.15,
-        "atkAccuracy": 0.08,
-        "defPower": 0.22,
-        "defAccuracy": -0.15
-      },
-      "rarity": "epic"
-    },
-    {
-      "id": "plasma",
-      "name": "Plasma",
-      "description": "Ionized matter pushing offense to maximum",
-      "stat_modifiers": {
-        "atkPower": 0.28,
-        "atkAccuracy": 0.15,
-        "defPower": -0.3,
-        "defAccuracy": -0.13
       },
       "rarity": "epic"
     }
