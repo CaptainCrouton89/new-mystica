@@ -190,9 +190,6 @@ export class LoadoutService {
    * @throws NotFoundError if loadout doesn't exist or not owned by user
    */
   async updateLoadoutSlots(loadoutId: string, userId: string, slots: LoadoutSlotAssignments): Promise<LoadoutWithSlots> {
-    // Validate ownership
-    await this.getLoadoutById(loadoutId, userId);
-
     // Convert partial slots to complete slot assignments
     const completeSlots: LoadoutSlotAssignments = {
       weapon: slots.weapon ?? null,
@@ -205,14 +202,19 @@ export class LoadoutService {
       pet: slots.pet ?? null
     };
 
-    // Update slots (repository handles item ownership validation)
-    await this.loadoutRepository.updateLoadoutSlots(loadoutId, completeSlots);
+    // Update slots (repository handles ownership + existence validation)
+    const updateResult = await this.loadoutRepository.updateLoadoutSlots(loadoutId, completeSlots);
 
-    // Return updated loadout
-    const updatedLoadout = await this.loadoutRepository.findLoadoutById(loadoutId);
+    // Some implementations may return the updated loadout directly
+    const updatedLoadout = updateResult || await this.loadoutRepository.findLoadoutById(loadoutId);
     if (!updatedLoadout) {
       throw new NotFoundError('loadouts', loadoutId);
     }
+
+    if (updatedLoadout.user_id !== userId) {
+      throw new NotFoundError('loadouts', loadoutId);
+    }
+
     return updatedLoadout;
   }
 
@@ -228,9 +230,6 @@ export class LoadoutService {
    * @throws NotFoundError if loadout doesn't exist or not owned by user
    */
   async updateSingleSlot(loadoutId: string, userId: string, slotName: string, itemId: string | null): Promise<LoadoutWithSlots> {
-    // Validate ownership
-    await this.getLoadoutById(loadoutId, userId);
-
     // Validate slot name
     const validSlots = ['weapon', 'offhand', 'head', 'armor', 'feet', 'accessory_1', 'accessory_2', 'pet'];
     if (!validSlots.includes(slotName)) {
@@ -238,13 +237,17 @@ export class LoadoutService {
     }
 
     // Update single slot (repository handles item ownership validation)
-    await this.loadoutRepository.updateSingleSlot(loadoutId, slotName, itemId);
+    const updateResult = await this.loadoutRepository.updateSingleSlot(loadoutId, slotName, itemId);
 
-    // Return updated loadout
-    const updatedLoadout = await this.loadoutRepository.findLoadoutById(loadoutId);
+    const updatedLoadout = updateResult || await this.loadoutRepository.findLoadoutById(loadoutId);
     if (!updatedLoadout) {
       throw new NotFoundError('loadouts', loadoutId);
     }
+
+    if (updatedLoadout.user_id !== userId) {
+      throw new NotFoundError('loadouts', loadoutId);
+    }
+
     return updatedLoadout;
   }
 
