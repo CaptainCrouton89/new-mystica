@@ -8,6 +8,7 @@ function generateUuid(): string {
 }
 import type { Database } from '../../src/types/database.types.js';
 import type { CombatSession } from '../../src/types/combat.types.js';
+import type { CombatSessionData } from '../../src/repositories/CombatRepository.js';
 
 type EnemyType = Database['public']['Tables']['enemytypes']['Row'];
 type EnemyTypeInsert = Database['public']['Tables']['enemytypes']['Insert'];
@@ -35,24 +36,20 @@ export class CombatFactory {
     userId: string,
     locationId: string,
     enemyLevel: number,
-    overrides?: Partial<CombatSession>
-  ): CombatSession {
+    overrides?: Partial<CombatSessionData>
+  ): CombatSessionData {
     const enemy = this.createEnemy('goblin', enemyLevel);
     const maxPlayerHp = 100 + (enemyLevel * 10); // Scale player HP with enemy level
     const maxEnemyHp = enemy.computed_hp;
 
-    const baseCombatSession: CombatSession = {
-      session_id: generateUuid(),
-      enemy_type_id: enemy.id,
-      player_id: userId,
-      location_id: locationId,
-      turn_number: 1,
-      player_hp: maxPlayerHp,
-      enemy_hp: maxEnemyHp,
-      max_player_hp: maxPlayerHp,
-      max_enemy_hp: maxEnemyHp,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+    const baseCombatSession: CombatSessionData = {
+      id: generateUuid(),
+      userId: userId,
+      locationId: locationId,
+      combatLevel: enemyLevel,
+      enemyTypeId: enemy.id,
+      createdAt: new Date(),
+      updatedAt: new Date(),
       ...overrides
     };
 
@@ -107,49 +104,39 @@ export class CombatFactory {
   /**
    * Create combat session in victory state
    */
-  static createVictorySession(userId: string, locationId: string): CombatSession {
+  static createVictorySession(userId: string, locationId: string): CombatSessionData {
     const session = this.createSession(userId, locationId, 3);
 
-    // Set enemy to very low HP (victory imminent)
+    // Set enemy to very low HP (victory imminent) - CombatSessionData doesn't track HP
     return {
       ...session,
-      enemy_hp: 5,
-      turn_number: 8,
-      updated_at: new Date().toISOString()
+      updatedAt: new Date()
     };
   }
 
   /**
    * Create combat session in defeat state
    */
-  static createDefeatSession(userId: string, locationId: string): CombatSession {
+  static createDefeatSession(userId: string, locationId: string): CombatSessionData {
     const session = this.createSession(userId, locationId, 5);
 
-    // Set player to very low HP (defeat imminent)
+    // Set session for defeat scenario - CombatSessionData doesn't track HP
     return {
       ...session,
-      player_hp: 10,
-      turn_number: 12,
-      updated_at: new Date().toISOString()
+      updatedAt: new Date()
     };
   }
 
   /**
    * Create combat session mid-fight
    */
-  static createMidFightSession(userId: string, locationId: string, turnNumber: number = 5): CombatSession {
+  static createMidFightSession(userId: string, locationId: string, turnNumber: number = 5): CombatSessionData {
     const session = this.createSession(userId, locationId, 4);
 
-    // Simulate mid-fight damage
-    const playerDamage = Math.floor(session.max_player_hp * 0.3);
-    const enemyDamage = Math.floor(session.max_enemy_hp * 0.4);
-
+    // Simulate mid-fight - CombatSessionData doesn't track HP
     return {
       ...session,
-      player_hp: session.max_player_hp - playerDamage,
-      enemy_hp: session.max_enemy_hp - enemyDamage,
-      turn_number: turnNumber,
-      updated_at: new Date().toISOString()
+      updatedAt: new Date()
     };
   }
 
@@ -186,8 +173,8 @@ export class CombatFactory {
     count: number,
     userId: string,
     locationId: string,
-    factory: () => CombatSession = () => this.createSession(userId, locationId, 1)
-  ): CombatSession[] {
+    factory: () => CombatSessionData = () => this.createSession(userId, locationId, 1)
+  ): CombatSessionData[] {
     return Array.from({ length: count }, () => factory());
   }
 

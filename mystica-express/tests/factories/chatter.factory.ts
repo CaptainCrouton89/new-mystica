@@ -26,6 +26,7 @@ export interface PetPersonality {
 export interface EnemyType {
   id: string;
   type: string;
+  name: string;
   display_name: string;
   personality_traits: string[];
   dialogue_tone: 'aggressive' | 'sarcastic' | 'condescending' | 'chaotic' | 'political';
@@ -289,6 +290,7 @@ export class ChatterFactory {
     return {
       id: generateUuid(),
       type,
+      name: type, // Add name field that service expects
       ...baseEnemyType,
       ...overrides
     };
