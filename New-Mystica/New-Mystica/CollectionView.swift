@@ -44,11 +44,7 @@ struct CollectionView: View, NavigableView {
                                     selectedItem = item
                                     showItemPopup = true
                                 }
-                                .modifier(
-                                    index < 9 ? 
-                                    AnyViewModifier(BatchAnimationModifier(batchIndex: index / 3)) :
-                                    AnyViewModifier(InstantBatchAnimationModifier())
-                                )
+                                .batchIn(batchIndex: index / 3) // 3 columns = 1 row per batch
                         }
                 }
                 .padding(.horizontal, 16)
