@@ -37,7 +37,10 @@ export class AuthController {
 
       const result = await authService.register({ email, password });
 
-      res.status(201).json(result);
+      res.status(201).json({
+        ...result,
+        message: 'User registered successfully. Verification email sent.'
+      });
     } catch (error) {
       if (error instanceof ValidationError) {
         if (error.message.includes('8 characters')) {
@@ -294,7 +297,7 @@ export class AuthController {
 
       const result = await authService.registerDevice({ device_id });
 
-      const statusCode = result.message.includes('registered') ? 201 : 200;
+      const statusCode = result.message.includes('registered') ? 201 : 409;
       res.status(statusCode).json(result);
     } catch (error) {
       if (error instanceof ValidationError) {
@@ -360,7 +363,19 @@ export class AuthController {
 
       const result = await authService.getCurrentUser(user.id);
 
-      res.status(200).json(result);
+      // Filter user object to match API contract
+      const filteredUser = {
+        id: result.user.id,
+        device_id: result.user.device_id,
+        account_type: result.user.account_type,
+        email: result.user.email,
+        created_at: result.user.created_at,
+        last_login: result.user.last_login,
+        vanity_level: result.user.vanity_level,
+        avg_item_level: result.user.avg_item_level
+      };
+
+      res.status(200).json({ user: filteredUser });
     } catch (error) {
       if (error instanceof NotFoundError) {
         res.status(404).json({

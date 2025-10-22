@@ -82,9 +82,8 @@ export class EquipmentController {
 
       res.status(200).json({
         success: result.success,
-        equipped_item: result.equipped_item,
-        unequipped_item: result.unequipped_item || null,
-        updated_player_stats: result.updated_player_stats.total_stats
+        slot: result.slot,
+        total_stats: result.updated_player_stats.total_stats
       });
     } catch (error) {
       console.log('❌ [EQUIPMENT] Failed to equip item:', {
@@ -164,9 +163,7 @@ export class EquipmentController {
       });
 
       res.status(200).json({
-        success,
-        slot,
-        message
+        success
       });
     } catch (error) {
       console.log('❌ [EQUIPMENT] Failed to unequip item:', {

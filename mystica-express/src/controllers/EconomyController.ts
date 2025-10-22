@@ -12,6 +12,55 @@ const combatRepository = new CombatRepository();
  */
 export class EconomyController {
   /**
+   * GET /currencies
+   * Get available currencies metadata (no auth required)
+   */
+  getCurrencies = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const currencies = [
+        {
+          code: 'GOLD' as const,
+          display_name: 'Gold',
+          is_premium: false,
+          icon_url: null
+        },
+        {
+          code: 'GEMS' as const,
+          display_name: 'Gems',
+          is_premium: true,
+          icon_url: null
+        }
+      ];
+
+      res.json({
+        success: true,
+        currencies
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * GET /currencies/balance
+   * Get all currency balances for authenticated user (renamed from getAllBalances)
+   */
+  getCurrencyBalances = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const userId = req.user!.id;
+
+      const balances = await economyService.getAllBalances(userId);
+
+      res.json({
+        success: true,
+        balances
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
    * GET /economy/balances
    * Get all currency balances for authenticated user
    */
@@ -22,7 +71,6 @@ export class EconomyController {
       const balances = await economyService.getAllBalances(userId);
 
       res.json({
-        success: true,
         balances
       });
     } catch (error) {

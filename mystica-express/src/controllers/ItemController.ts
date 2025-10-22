@@ -62,9 +62,8 @@ export class ItemController {
         success: result.success,
         item: result.updated_item,
         gold_spent: result.gold_spent,
-        new_level: result.new_level,
-        stat_increase: result.stat_increase,
-        message: `Item upgraded to level ${result.new_level}!`
+        new_gold_balance: result.new_gold_balance,
+        new_vanity_level: result.new_vanity_level
       });
     } catch (error) {
       next(error);
@@ -242,6 +241,64 @@ export class ItemController {
           material_id: result.refunded_material.material_id,
           style_id: result.refunded_material.style_id
         } : undefined
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * DELETE /items/:item_id/materials/:slot_index
+   * Remove material from item slot
+   */
+  removeMaterial = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const userId = req.user!.id;
+      const { item_id, slot_index } = req.params;
+
+      // Parse slot_index to number and validate
+      const slotIndex = parseInt(slot_index, 10);
+      if (isNaN(slotIndex) || slotIndex < 0 || slotIndex > 2) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid slot_index. Must be between 0 and 2'
+        });
+        return;
+      }
+
+      const result = await itemService.removeMaterial(item_id, slotIndex, userId);
+
+      res.json({
+        success: result.success,
+        item: result.item,
+        stats: result.stats,
+        image_url: result.image_url,
+        gold_spent: result.gold_spent,
+        returned_material: result.returned_material,
+        new_gold_balance: result.new_gold_balance
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * DELETE /items/:item_id
+   * Discard/sell item for gold compensation
+   */
+  discardItem = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const userId = req.user!.id;
+      const { item_id } = req.params;
+
+      const result = await itemService.discardItem(item_id, userId);
+
+      res.json({
+        success: result.success,
+        gold_earned: result.gold_earned,
+        new_gold_balance: result.new_gold_balance,
+        item_name: result.item_name,
+        message: `Discarded ${result.item_name} for ${result.gold_earned} gold`
       });
     } catch (error) {
       next(error);

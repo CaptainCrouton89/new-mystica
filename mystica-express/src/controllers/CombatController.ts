@@ -17,10 +17,15 @@ export class CombatController {
    */
   startCombat = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const { location_id } = req.body as StartCombatRequest;
+      const { location_id, selected_level } = req.body as StartCombatRequest;
       const userId = req.user!.id; // Auth middleware ensures user exists
 
-      const combatSession = await combatService.startCombat(userId, location_id);
+      // Validate selected_level parameter
+      if (selected_level < 1 || selected_level > 20) {
+        throw new ValidationError('Selected level must be between 1 and 20');
+      }
+
+      const combatSession = await combatService.startCombat(userId, location_id, selected_level);
 
       res.status(201).json(combatSession);
 
@@ -35,9 +40,9 @@ export class CombatController {
    */
   attack = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const { session_id, tap_position_degrees } = req.body as AttackRequest;
+      const { session_id, attack_accuracy } = req.body as AttackRequest;
 
-      const attackResult = await combatService.executeAttack(session_id, tap_position_degrees);
+      const attackResult = await combatService.executeAttack(session_id, attack_accuracy);
 
       res.json(attackResult);
 
@@ -201,6 +206,24 @@ export class CombatController {
         dialogue_response: dialogueResponse,
         cached: false, // Combat dialogue is always fresh for now
       });
+
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * GET /combat/session/{session_id}
+   * Get active combat session state for recovery
+   */
+  getCombatSession = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { session_id } = req.params;
+      const userId = req.user!.id; // Auth middleware ensures user exists
+
+      const sessionData = await combatService.getCombatSessionForRecovery(session_id, userId);
+
+      res.json(sessionData);
 
     } catch (error) {
       next(error);

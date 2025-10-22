@@ -33,10 +33,7 @@ export class ProgressionController {
 
       const progression = await progressionService.getPlayerProgression(userId);
 
-      res.json({
-        success: true,
-        progression
-      });
+      res.json(progression);
     } catch (error) {
       if (error instanceof NotFoundError) {
         res.status(404).json({
@@ -82,14 +79,9 @@ export class ProgressionController {
 
       res.json({
         success: true,
-        reward: {
-          level: result.level,
-          reward_type: result.reward_type,
-          reward_amount: result.reward_amount,
-          reward_description: result.reward_description,
-          new_gold_balance: result.new_gold_balance,
-          claimed_at: result.claimed_at
-        }
+        level: result.level,
+        reward_gold: result.reward_amount,
+        new_gold_balance: result.new_gold_balance
       });
     } catch (error) {
       if (error instanceof ValidationError) {

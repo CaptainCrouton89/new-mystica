@@ -16,8 +16,7 @@ export class MaterialController {
       const materials = await materialService.getAllMaterials();
 
       res.json({
-        materials,
-        total_count: materials.length
+        materials
       });
     } catch (error) {
       next(error);
@@ -35,9 +34,7 @@ export class MaterialController {
       const materials = await materialService.getMaterialInventory(userId);
 
       res.json({
-        materials,
-        total_stacks: materials.length,
-        total_quantity: materials.reduce((sum, stack) => sum + stack.quantity, 0)
+        materials
       });
     } catch (error) {
       next(error);

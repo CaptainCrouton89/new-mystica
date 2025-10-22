@@ -9,6 +9,8 @@ const router = Router();
 /**
  * Economy Routes
  *
+ * GET  /currencies                - Get available currencies metadata (no auth)
+ * GET  /currencies/balance        - Get all currency balances for user
  * GET  /economy/balances           - Get all currency balances for user
  * GET  /economy/balance/:currency  - Get specific currency balance
  * POST /economy/affordability      - Check if user can afford a purchase
@@ -16,6 +18,12 @@ const router = Router();
  * POST /economy/deduct            - Deduct currency from user balance
  * GET  /players/combat-history/:location_id - Get player's combat history at location (F-12)
  */
+
+// Get available currencies metadata (no auth required)
+router.get('/currencies', economyController.getCurrencies);
+
+// Get all currency balances for authenticated user
+router.get('/currencies/balance', authenticate, economyController.getCurrencyBalances);
 
 // Get all currency balances
 router.get('/balances', authenticate, economyController.getAllBalances);

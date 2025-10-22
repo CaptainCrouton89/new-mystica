@@ -16,10 +16,7 @@ export class ProfileController {
 
       const profile = await profileService.initializeProfile(userId);
 
-      res.status(201).json({
-        success: true,
-        profile
-      });
+      res.status(201).json(profile);
     } catch (error) {
       next(error);
     }
@@ -35,9 +32,7 @@ export class ProfileController {
 
       const profile = await profileService.getProfile(userId);
 
-      res.json({
-        profile
-      });
+      res.json(profile);
     } catch (error) {
       next(error);
     }

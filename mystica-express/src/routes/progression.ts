@@ -10,7 +10,7 @@ const router = Router();
  * Progression Routes
  *
  * GET  /progression           - Get player progression status
- * POST /progression/level-up  - Claim level milestone reward
+ * POST /progression/rewards/claim  - Claim level milestone reward
  * POST /progression/award-xp  - Award XP (internal API)
  */
 
@@ -18,7 +18,7 @@ const router = Router();
 router.get('/', authenticate, progressionController.getPlayerProgression);
 
 // Claim level milestone reward
-router.post('/level-up',
+router.post('/rewards/claim',
   authenticate,
   validate({ body: ClaimLevelRewardSchema }),
   progressionController.claimLevelReward

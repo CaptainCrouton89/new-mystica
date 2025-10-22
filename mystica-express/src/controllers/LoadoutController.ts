@@ -95,9 +95,7 @@ export class LoadoutController {
 
       await loadoutService.deleteLoadout(loadout_id, userId);
 
-      res.json({
-        success: true
-      });
+      res.status(204).send();
     } catch (error) {
       next(error);
     }
