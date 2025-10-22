@@ -16,6 +16,7 @@ functional_overview:
     - "Base items (F-03) receive level multiplier"
     - "Styled materials (F-04) are visual variants with normal stat effectiveness"
     - "Combat drops (F-05) provide gold for upgrades"
+    - "F-09 Inventory Management (upgrade action accessible from four-action item menu)"
 
 detailed_design:
   data_structures:
@@ -60,19 +61,24 @@ detailed_design:
         - "404: Item not found or not owned"
 
   diagrams: |
-    Upgrade Flow:
-    1. Player views item detail screen
-    2. Client requests GET /items/:id/upgrade-cost
-    3. Server calculates cost: base_cost × level_multiplier^(level-1)
-    4. Server checks player.gold >= cost
-    5. Client displays "Upgrade to Level X" button with cost
-    6. Player taps upgrade button
-    7. Client sends POST /items/:id/upgrade
-    8. Server validates gold, decrements gold, increments item.level
-    9. Server recalculates item stats: base_stats × rarity_multiplier × new_level × base_value + material_mods
-    10. Server recalculates vanity_level: sum(all_item_levels) / 6 (or custom formula)
-    11. Server returns updated item, gold, vanity_level
-    12. Client displays success animation and updated stats
+    Upgrade Flow (via Inventory Four-Action Menu):
+    1. Player opens inventory and browses items
+    2. Player taps item card → four-action menu appears: 'Equip', 'Craft', 'Upgrade', 'Sell'
+    3. Player taps 'Upgrade' option → navigates to upgrade screen
+    4. Upgrade screen displays: item image with rarity border, current level, current stats, equipped badge (if applicable)
+    5. Client requests GET /items/:id/upgrade-cost
+    6. Server calculates cost: base_cost × level_multiplier^(level-1)
+    7. Server checks player.gold >= cost
+    8. Client displays upgrade preview: next level stats, gold cost, player's current gold
+    9. Stat preview shows increases in green with arrows (ATK: 25 → 30 ↑)
+    10. Player taps 'Upgrade' button (disabled if insufficient gold)
+    11. Client sends POST /items/:id/upgrade
+    12. Server validates gold, decrements gold, increments item.level
+    13. Server recalculates item stats: base_stats × rarity_multiplier × new_level × base_value + material_mods
+    14. Server recalculates vanity_level: sum(all_item_levels) / 6 if item is equipped
+    15. Server returns updated item, gold, vanity_level
+    16. Client displays success animation and updated stats
+    17. Options: 'Upgrade Again' or 'Return to Inventory'
 
     Gold Cost Formula:
     Formula: cost = base_cost × level_multiplier^(target_level - 1)

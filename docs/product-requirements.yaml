@@ -53,7 +53,7 @@ features:
     status: "planned"
 
   - id: "F-04"
-    description: "Materials System - Collectible materials that modify item stats (max 3 per item, hard limit), with normal and styled variants, removable for gold (100 × item level). Global image cache with craft count tracking."
+    description: "Materials System - Collectible materials that modify item stats (max 3 per item, hard limit), with normal and styled variants displayed with style-based border colors. Applied via dedicated Crafting Screen (main menu + inventory 'Craft' action). Materials removable for gold (100 × item level). Global image cache with craft count tracking."
     priority: "critical"
     status: "planned"
 
@@ -78,7 +78,7 @@ features:
     status: "planned"
 
   - id: "F-09"
-    description: "Inventory Management - View, filter, and sort all owned items; equip/unequip items to 8 equipment slots; save up to 5 loadout configurations for quick switching (post-MVP)"
+    description: "Inventory Management - View, filter, and sort all owned items (rarity borders) and materials (style borders) in two-section layout; four-action item menu (Equip, Craft, Upgrade, Sell) and one-action material menu (Craft); equip/unequip items to 8 equipment slots; save up to 5 loadout configurations for quick switching (post-MVP)"
     priority: "high"
     status: "planned"
 

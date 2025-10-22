@@ -69,34 +69,44 @@ primary_flows:
       - "Player selects sort option: Level (High-Low), Rarity (Legendary-Common), Newest, Name A-Z"
       - "Items re-order according to sort criteria"
       - "Player scrolls through paginated results (50 items per page)"
-      - "Each item shows: icon, name, level, rarity, equipped status, applied materials indicator"
-      - "Equipped items display slot indicator and visual badge"
-      - "Player taps item → three options appear: 'View Stats', 'Equip', 'Enhance'"
+      - "Each item shows: icon with rarity-based border color, name, level, rarity, equipped status badge, applied materials indicator"
+      - "Each material shows: icon with style-based border color (normal/pixel_art/watercolor/neon/holographic), name, quantity"
+      - "Equipped items display slot indicator and visual badge on item card"
+      - "Player taps item → four options appear: 'Equip', 'Craft', 'Upgrade', 'Sell'"
+      - "Player taps material → one option appears: 'Craft'"
+      - "'Equip' opens bottom drawer selection and modal confirmation flow"
+      - "'Craft' opens crafting screen with selected item/material pre-filled"
+      - "'Upgrade' navigates to upgrade flow for that specific item"
+      - "'Sell' opens sell confirmation dialog with gold compensation amount"
       - "For accessories: first empty slot (accessory_1 or accessory_2) auto-selected when equipping"
-    outcome: "Player efficiently manages items and materials with organized two-section layout and three-action menu"
+    outcome: "Player efficiently manages items and materials with organized two-section layout and four-action item menu"
     edge_cases: |
       - Empty filter results: "No weapons found" message with suggestion to collect more
       - Image generation pending: placeholder icon shown until AI generation completes
       - Thousands of items (post-MVP): pagination prevents performance issues
       - Search by name (future): text input filters item names in real-time
+      - Tapping equipped item: all four options still available (can sell/upgrade equipped items)
 
-  - name: "Discard/Sell Items Flow"
+  - name: "Sell Items Flow"
     trigger: "Player wants to free inventory space or get gold compensation for unwanted items"
     steps:
-      - "Player opens inventory and identifies items to remove"
-      - "Player taps item and selects 'Discard' or uses multi-select mode"
-      - "System shows gold compensation: 'Discard for X gold?' based on item level/rarity"
-      - "Player confirms discard action"
+      - "Player opens inventory and identifies items to sell"
+      - "Player taps item and selects 'Sell' from four-action menu"
+      - "System shows gold compensation modal: 'Sell for X gold?' based on item level/rarity/materials"
+      - "Modal displays item details: level, rarity, applied materials, total stat contribution"
+      - "Player confirms sell action"
       - "Item removed from inventory and all equipped slots (if equipped)"
       - "Gold added to player currency balance"
       - "Economy transaction logged for audit trail"
       - "Inventory space freed for new items"
-    outcome: "Player gains inventory space and gold compensation for unwanted items"
+      - "Success notification: '+X gold' with animation"
+    outcome: "Player gains gold compensation for unwanted items and frees inventory space"
     edge_cases: |
-      - Discarding equipped item: auto-unequip and remove from slots
-      - Items with rare materials applied: higher gold compensation warned in confirmation
-      - Mass discard: bulk selection with total gold preview
-      - Cannot discard certain items: tutorial or quest items protected
+      - Selling equipped item: auto-unequip and remove from slots with warning
+      - Items with rare materials applied: higher gold compensation displayed in confirmation
+      - Items with styled materials: bonus gold for style rarity shown separately
+      - Cannot sell certain items: tutorial or quest items have 'Sell' option disabled
+      - Multi-select mode (future): bulk selection with total gold preview
 
 secondary_flows:
   - name: "Loadout Switching Flow (Post-MVP)"

@@ -4,10 +4,10 @@ feature_id: F-09
 status: planned
 last_updated: 2025-01-27
 
-summary: "Comprehensive inventory management system with two-page structure: Equipment page (8 slots with bottom drawer selection) and Inventory page (All Items + All Materials sections). Players can view items/materials, use three-action menu (View Stats, Equip, Enhance), and manage equipment through modal confirmations. Post-MVP adds saved loadouts for quick switching."
+summary: "Comprehensive inventory management system with two-page structure: Equipment page (8 slots with bottom drawer selection) and Inventory page (All Items + All Materials sections). Players can view items/materials with rarity/style-based borders, use four-action item menu (Equip, Craft, Upgrade, Sell) and one-action material menu (Craft), and manage equipment through modal confirmations. Post-MVP adds saved loadouts for quick switching."
 
 functional_overview:
-  core_logic: "Two-page system: Equipment page manages 8 slots via bottom drawer + modal selection, Inventory page shows All Items (top) + All Materials (bottom) with three-action tap menu. Items filtered by slot type, sorted by level/rarity/date. Equipment selection uses bottom drawer → modal → confirmation flow. Storage expansion via $0.99 IAP (100→1000 slots). Both pages allow overlapping actions (equip from inventory, view stats from equipment). UserEquipment table is single source of truth for equipped state."
+  core_logic: "Two-page system: Equipment page manages 8 slots via bottom drawer + modal selection, Inventory page shows All Items (top) + All Materials (bottom) with four-action item menu (Equip, Craft, Upgrade, Sell) and one-action material menu (Craft). Items display rarity-based borders and equipped badges; materials display style-based borders. Items filtered by slot type, sorted by level/rarity/date. Equipment selection uses bottom drawer → modal → confirmation flow. Storage expansion via $0.99 IAP (100→1000 slots). Both pages allow overlapping actions (equip from inventory, craft from inventory, upgrade from inventory, sell from inventory). UserEquipment table is single source of truth for equipped state."
   data_schema: "Items table with user ownership, UserEquipment table for current equipment state (8 slots), Loadouts/LoadoutSlots tables for saved configurations, ItemHistory for audit trail"
   api_endpoints:
     - "GET /inventory?filter_slot=weapon&sort_by=level&sort_order=desc"
@@ -17,9 +17,10 @@ functional_overview:
     - "GET /loadouts, POST /loadouts, PUT /loadouts/{id}/activate (post-MVP)"
   integration_points:
     - "F-03 Base Items & Equipment (defines 8 equipment slots and item categories)"
-    - "F-04 Materials System (items show applied materials in inventory)"
-    - "F-06 Item Upgrade System (upgrade actions accessible from inventory)"
+    - "F-04 Materials System (items show applied materials in inventory, craft action opens crafting screen)"
+    - "F-06 Item Upgrade System (upgrade action accessible from four-action item menu)"
     - "F-02 Combat System (equipped items determine player combat stats)"
+    - "Crafting Screen (new main menu destination, accessible via 'Craft' action on items/materials)"
 
 detailed_design:
   data_structures:
@@ -193,19 +194,28 @@ detailed_design:
     Inventory Page:
     1. Player opens inventory → GET /inventory
     2. Two main sections displayed:
-       - All Items section (top): filtered/sorted item list
-       - All Materials section (bottom): MaterialStacks by type
-    3. Player taps item → three options appear: 'View Stats', 'Equip', 'Enhance'
-    4. View Stats: detailed item view with materials and stats
+       - All Items section (top): filtered/sorted item list with rarity borders and equipped badges
+       - All Materials section (bottom): MaterialStacks by type with style borders
+    3. Player taps item → four options appear: 'Equip', 'Craft', 'Upgrade', 'Sell'
+    4. Player taps material → one option appears: 'Craft'
     5. Equip: same bottom drawer → modal → confirmation flow as Equipment page
-    6. Enhance: opens material application screen
+    6. Craft: navigates to crafting screen with item/material pre-filled
+    7. Upgrade: navigates to upgrade screen for selected item
+    8. Sell: opens sell confirmation modal with gold compensation
 
     Item Display (Both Pages):
     - Icon (from ItemTypes.appearance_data or Items.generated_image_url)
+    - Rarity-based border color (common/uncommon/rare/epic/legendary)
     - Name, level, rarity indicator
-    - Equipped status and slot
+    - Equipped status badge with slot name
     - Applied materials (visual indicators)
-    - Three-action menu on tap (Inventory page only)
+    - Four-action menu on tap (Inventory page): Equip, Craft, Upgrade, Sell
+
+    Material Display (Inventory Page):
+    - Icon (material image)
+    - Style-based border color (normal/pixel_art/watercolor/neon/holographic)
+    - Name, quantity
+    - One-action menu on tap: Craft
     4. Equipment API validates item category matches slot type
     5. Database updates UserEquipment table
     6. Triggers recalculate vanity_level and avg_item_level
@@ -288,11 +298,14 @@ acceptance_criteria:
 
 ui_ux_requirements:
   inventory_screen:
-    layout: "Grid or list view of item cards with icons, names, level badges, rarity borders"
+    layout: "Two-section layout: All Items (top) + All Materials (bottom). Grid or list view of cards with icons, names, level badges, rarity/style-based borders"
+    item_cards: "Display rarity-based border colors (common=gray, uncommon=green, rare=blue, epic=purple, legendary=orange), equipped badge with slot name, level, applied materials count"
+    material_cards: "Display style-based border colors (normal=white, pixel_art=pink, watercolor=cyan, neon=magenta, holographic=rainbow), quantity badge"
     filters: "Top bar with slot filter buttons (All, Weapons, Armor, Accessories, Pets)"
     sorting: "Sort dropdown with options: Level (High-Low), Rarity (Legendary-Common), Newest, Name A-Z"
     pagination: "Load more button or infinite scroll for large inventories"
     search: "Text search by item name (future enhancement)"
+    actions: "Item tap → four options (Equip, Craft, Upgrade, Sell). Material tap → one option (Craft)"
 
   equipment_screen:
     layout: "Visual representation of 8 equipment slots arranged around character silhouette or in organized grid"

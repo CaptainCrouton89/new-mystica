@@ -9,19 +9,26 @@ key_personas:
   - "Casual Crafter - Applies materials for visual customization"
 
 primary_flows:
-  - name: "Apply Materials to Item Flow"
-    trigger: "Player has collected materials and wants to enhance an item"
+  - name: "Craft Material onto Item Flow (via Crafting Screen)"
+    trigger: "Player wants to apply a material to an item to enhance stats and appearance"
     steps:
-      - "Player opens inventory screen"
-      - "Player selects item to enhance from equipment or item list"
-      - "Player taps 'Apply Materials' button on item detail screen"
-      - "System displays material selection screen showing available MaterialStacks"
-      - "System filters out materials already applied to this item (no duplicates)"
-      - "Player selects material from stack (shows quantity available)"
-      - "System displays stat preview: current stats vs. enhanced stats"
-      - "Left: Original item image, Middle: Material icon with '=' sign, Right: Question mark (no preview image)"
-      - "Below: New stats comparison with stats that increase in larger font/green color, stats that decrease in smaller font/red color"
-      - "Player confirms material application"
+      - "Player opens crafting screen from main menu OR taps 'Craft' on item/material in inventory"
+      - "If accessed from item: item pre-filled in left slot, material slot empty"
+      - "If accessed from material: material pre-filled in right slot, item slot empty"
+      - "If accessed from main menu: both slots empty"
+      - "Player taps empty item slot (left side) → drawer opens showing ALL items"
+      - "Item drawer displays items with rarity-based border colors and equipped status badge"
+      - "Player selects item from drawer → item fills left slot"
+      - "Player taps empty material slot (right side) → drawer opens showing ALL materials"
+      - "Material drawer displays MaterialStacks with style-based border colors and quantity"
+      - "System filters out materials already applied to selected item (no duplicates, max 3)"
+      - "Player selects material from drawer → material fills right slot"
+      - "System displays stat preview between slots:"
+      - "  - Left: Original item image with current stats"
+      - "  - Middle: '+' symbol and material icon"
+      - "  - Right: Question mark (no preview image) with projected stats"
+      - "  - Stats that increase shown in green/larger font, decreases in red/smaller font"
+      - "Player taps 'Craft' button to confirm"
       - "System decrements MaterialStack quantity by 1"
       - "System creates MaterialInstance and links via ItemMaterials table"
       - "System checks ItemImageCache for existing combo image (combo_hash lookup)"
@@ -31,14 +38,16 @@ primary_flows:
       - "Item stats recalculated with new material modifiers"
       - "Updated item displayed with new image, stats, and applied materials list"
       - "System shows craft count: 'X players have crafted this combo' if > 1"
-    outcome: "Player successfully applies material to item, creating enhanced version with new stats and appearance"
+      - "Success screen with 'View Item' or 'Return to Crafting' options"
+    outcome: "Player successfully crafts material onto item via dedicated crafting screen"
     edge_cases: |
-      - Item already has 3 materials: error message "Maximum 3 materials per item"
-      - Material quantity = 0: material greyed out, not selectable
-      - Same material already applied: filtered from selection list
+      - Item already has 3 materials: material selection drawer shows warning, materials greyed out
+      - Material quantity = 0: material greyed out in drawer, not selectable
+      - Same material already applied to item: filtered from material drawer
       - Image generation fails: retry option or fallback to base appearance
       - Player exits during 20s generation: process continues, item updated on return
       - Network error during generation: local retry with exponential backoff
+      - Equipped item selected: badge shown, crafting still allowed (stats update immediately)
 
   - name: "Remove Materials Flow"
     trigger: "Player wants to remove material from enhanced item"
@@ -111,6 +120,28 @@ primary_flows:
       - No visual spoilers: question mark maintains surprise element
 
 secondary_flows:
+  - name: "Quick Craft from Inventory Flow"
+    trigger: "Player browsing inventory wants to craft material onto specific item"
+    steps:
+      - "Player opens inventory and browses All Items or All Materials section"
+      - "Player taps item card → four-action menu appears: 'Equip', 'Craft', 'Upgrade', 'Sell'"
+      - "Player taps 'Craft' option → navigates to crafting screen"
+      - "Crafting screen opens with selected item pre-filled in left slot"
+      - "Material slot (right) is empty and ready for player selection"
+      - "Player taps material slot → drawer opens with filtered materials (excluding duplicates)"
+      - "Player selects material → stat preview displays → confirms craft"
+      - "OR: Player taps material card → 'Craft' option appears"
+      - "Player taps 'Craft' → navigates to crafting screen"
+      - "Crafting screen opens with selected material pre-filled in right slot"
+      - "Item slot (left) is empty and ready for player selection"
+      - "Player taps item slot → drawer opens with all items → selects item"
+      - "Stat preview displays → player confirms craft"
+    outcome: "Player quickly initiates crafting from inventory context with item/material pre-selected"
+    edge_cases: |
+      - Item already has 3 materials: 'Craft' button disabled with tooltip "Maximum materials applied"
+      - Material quantity = 0: 'Craft' button disabled with tooltip "No materials available"
+      - Player changes mind: can tap item/material slot again to select different one
+
   - name: "Replace Materials Flow"
     trigger: "Player wants to replace existing material with different one"
     steps:

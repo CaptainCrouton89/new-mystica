@@ -1,29 +1,33 @@
-title: Apply Materials to Items
+title: Craft Materials onto Items
 story_id: US-401
-feature_id: F-06
+feature_id: F-04
 template: ~/.claude/file-templates/init-project/user-stories/story-title.yaml
 status: planned
-last_updated: 2025-01-17
+last_updated: 2025-10-22
 
 user_story:
   as_a: "Mobile RPG Player"
-  i_want: "to apply materials to my items to create enhanced variants"
-  so_that: "I can customize my equipment and improve my stats"
+  i_want: "to craft materials onto my items via a dedicated crafting screen"
+  so_that: "I can customize my equipment stats and appearance"
 
 acceptance_criteria:
-  - "[ ] Given inventory, when player enters crafting mode, then show all items available for material application"
-  - "[ ] Given crafting mode, when player selects an item, then show available materials (up to 3 per item)"
-  - "[ ] Given materials selected, when player previews, then show item stats changes and new appearance preview"
-  - "[ ] Given preview shown, when player confirms craft, then consume selected materials from inventory"
-  - "[ ] Given craft confirmed, when processing, then generate new item image synchronously (~20 seconds)"
-  - "[ ] Given image generated, when complete, then add enhanced item to inventory and remove base item"
-  - "[ ] Given materials already applied, when viewing item, then show applied materials and allow further customization"
+  - "[ ] Given main menu, when player taps 'Crafting', then open crafting screen with empty item and material slots"
+  - "[ ] Given inventory, when player taps 'Craft' on item, then open crafting screen with item pre-filled in left slot"
+  - "[ ] Given inventory, when player taps 'Craft' on material, then open crafting screen with material pre-filled in right slot"
+  - "[ ] Given crafting screen, when player taps item slot, then show drawer with ALL items (rarity borders, equipped badges)"
+  - "[ ] Given crafting screen, when player taps material slot, then show drawer with materials (style borders, quantities)"
+  - "[ ] Given both slots filled, when displayed, then show stat preview (green=increase, red=decrease) with '?' for final image"
+  - "[ ] Given stat preview, when player taps 'Craft', then consume material (quantity -1), apply to item, generate image (~20s)"
+  - "[ ] Given craft complete, when showing results, then display craft count 'X players have crafted this combo'"
+  - "[ ] Given item has 3 materials, when viewing material drawer, then grey out all materials with warning message"
+  - "[ ] Given craft success, when complete, then show options: 'View Item', 'Return to Crafting', 'Return to Inventory'"
 
 context:
-  why: "Material application is the primary item customization system. Players enhance items by applying 1-3 materials to change appearance and stats."
-  related: "Links to US-301 (Inventory), F-05 (AI Generation), F-04 (Materials), F-03 (Items)"
+  why: "Material crafting is the primary item customization system. Dedicated crafting screen provides focused UX for item + material combinations."
+  related: "Links to F-09 (Inventory), F-04 (Materials), F-03 (Items), MainMenuView (Crafting button)"
 
 technical_notes:
-  apis: "POST /crafting/apply-materials with item_id and material_ids. Returns enhanced item with new image URL."
-  data: "Materials are stackable. Items can have 0-3 materials applied. Each combination generates unique image/stats."
-  dependencies: "AI image generation for material combinations, material stat bonuses, inventory management"
+  apis: "POST /items/{item_id}/materials/apply with material_id and style_id. Returns enhanced item with new image URL and craft_count."
+  data: "Materials are stackable (MaterialStacks). Items can have 0-3 materials applied (hard limit). Each combination generates unique image cached globally (ItemImageCache)."
+  dependencies: "AI image generation (10-15s sync MVP0), material stat modifiers, crafting screen navigation, rarity/style border colors"
+  ui: "Crafting screen: Left slot (items), Right slot (materials), stat preview between, 'Craft' confirmation button"

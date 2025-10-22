@@ -40,26 +40,33 @@ primary_flows:
       - Distance check: proximity required before 'Start' button becomes active
       - Styled enemies: 100% chance to drop styled materials (not 5%)
 
-  - name: "Material Application Flow"
-    trigger: "Player has items and materials to apply"
+  - name: "Material Crafting Flow"
+    trigger: "Player has items and materials to craft together"
     steps:
-      - "Player opens inventory screen"
-      - "Player navigates to crafting section"
-      - "Player selects item to enhance"
-      - "System shows available materials (stackable in inventory)"
-      - "Player selects 1-3 materials to apply"
-      - "System displays preview: enhanced stats, appearance changes"
-      - "Player confirms material application"
-      - "Selected materials consumed (removed from inventory)"
-      - "AI image generation starts (~20 seconds synchronous)"
-      - "Item is updated in-place with new materials"
-      - "Player can equip or apply more materials"
-    outcome: "Player creates customized item with material-based enhancements"
+      - "Player opens crafting screen from main menu OR taps 'Craft' on item/material in inventory"
+      - "If from inventory: selected item/material pre-filled in appropriate slot"
+      - "If from main menu: both slots empty"
+      - "Player taps item slot (left) → drawer opens showing all items with rarity borders and equipped badges"
+      - "Player selects item → item fills left slot"
+      - "Player taps material slot (right) → drawer opens showing materials with style borders and quantities"
+      - "System filters out materials already applied to selected item (max 3, no duplicates)"
+      - "Player selects material → material fills right slot"
+      - "System displays stat preview: original stats vs. enhanced stats (green=increase, red=decrease)"
+      - "Preview shows: item image + material icon + '?' (no spoiler), projected stats below"
+      - "Player taps 'Craft' to confirm"
+      - "Selected material consumed (quantity -1 from MaterialStack)"
+      - "AI image generation starts (~20 seconds synchronous for MVP0)"
+      - "System displays progress: 'Crafting your item... 15s remaining'"
+      - "Item updated with new material, stats recalculated, new image cached"
+      - "Success screen with craft count: 'X players have crafted this combo'"
+      - "Options: 'View Item', 'Return to Crafting', 'Return to Inventory'"
+    outcome: "Player creates customized item with material-based enhancements via dedicated crafting screen"
     edge_cases: |
-      - No materials available: crafting section shows "collect materials" message
-      - Applying to already-enhanced item: shows current materials, allows additional
+      - No materials available: material slot shows "Collect materials from combat"
+      - Item already has 3 materials: material drawer shows warning, materials greyed out
       - Image generation fails: retry option or fallback to base item appearance
-      - Insufficient materials: selection disabled until requirements met
+      - Material quantity = 0: material greyed out in drawer
+      - Equipped item crafted: stats update immediately, total combat stats refresh
 
   - name: "Equipment Management Flow"
     trigger: "Player wants to optimize stats before combat"

@@ -11,23 +11,28 @@ key_personas:
   - "Economy Manager - Balances gold spending across features"
 
 primary_flows:
-  - name: "Upgrade Item with Gold Flow"
+  - name: "Upgrade Item with Gold Flow (via Inventory)"
     trigger: "Player wants to improve a specific item's power level"
     steps:
-      - "Player navigates to inventory and selects an item"
-      - "Player views item details showing current level and stats"
-      - "Player taps 'Upgrade' button to see upgrade preview"
-      - "System displays: next level stats, gold cost (100 × 1.5^level), player's current gold"
+      - "Player navigates to inventory and browses items"
+      - "Player taps item card → four-action menu appears: 'Equip', 'Craft', 'Upgrade', 'Sell'"
+      - "Player taps 'Upgrade' option → navigates to item upgrade screen"
+      - "Upgrade screen displays: item image, current level, current stats, rarity border"
+      - "Equipped status badge shown if item is currently equipped"
+      - "System displays upgrade preview: next level stats, gold cost (100 × 1.5^level), player's current gold"
+      - "Stat preview shows increases in green with arrows (ATK: 25 → 30 ↑)"
       - "Player confirms upgrade if they have sufficient gold"
       - "System deducts gold, increments item level, recalculates all stats proportionally"
-      - "System updates vanity level (sum of all equipped item levels / 6)"
+      - "System updates vanity level (sum of all equipped item levels / 6) if item is equipped"
       - "Player sees upgrade success animation and improved stats"
+      - "Options: 'Upgrade Again' or 'Return to Inventory'"
     outcome: "Item level increased by 1, stats scaled proportionally, gold spent, vanity level updated"
     edge_cases:
-      - "Insufficient gold: Show cost vs available gold, suggest gold earning methods"
+      - "Insufficient gold: 'Upgrade' button disabled, shows cost vs available gold with suggestion to earn more"
       - "No maximum level: upgrades continue indefinitely with exponentially increasing costs"
       - "Network failure during upgrade: Retry mechanism with idempotent transaction"
       - "Item unequipped during upgrade: Still upgrades, vanity level recalculated correctly"
+      - "Equipped item upgrade: Stats update in real-time, total combat stats refresh immediately"
 
 
   - name: "Compare Upgrade Cost vs Benefit Flow"
