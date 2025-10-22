@@ -129,7 +129,7 @@ dependencies:
   data_sources: "PostgreSQL items table, item_types seed data, materials table (F-04), StyleDefinitions table"
 
 implementation_status:
-  progress: 30  # Database schema complete, service layer stubbed, needs implementation
+  progress: 50  # Database schema + seed data complete, service layer needs implementation
   completed_components:
     - "Database schema (Items table with level, is_styled, material_combo_hash, generated_image_url, image_generation_status)"
     - "UserEquipment table with composite PK (user_id, slot_name) and FK to EquipmentSlots"
@@ -141,9 +141,16 @@ implementation_status:
     - "EquipmentService skeleton with getEquippedItems, equipItem, unequipItem methods"
     - "Zod validation schemas for equipment operations"
     - "API routes registered for /api/v1/inventory and /api/v1/equipment"
-  in_progress_components: []
+  in_progress_components:
+    - "InventoryService.getPlayerInventory implementation (fetch all user items with calculated stats)"
+    - "InventoryService.getItemDetails implementation (single item with applied materials)"
+    - "EquipmentService.getEquippedItems implementation (fetch 8 slots with calculated total stats)"
+    - "EquipmentService.equipItem implementation (equip item to slot, validate ownership)"
+    - "EquipmentService.unequipItem implementation (unequip item from slot)"
+    - "Stat calculation logic (sum all equipped items)"
+    - "Material modifier application in stat calculation"
   blocked_items:
-    - item: "InventoryService.getPlayerInventory implementation"
+    - item: "Service layer implementation not started"
       reason: "Service method throws NotImplementedError - needs 6-step workflow implementation"
     - item: "EquipmentService.getEquippedItems implementation"
       reason: "Service method throws NotImplementedError - needs UserEquipment query with stat calculation"

@@ -1,7 +1,7 @@
 title: Technical Specification - Geolocation & Map System
 template: ~/.claude/file-templates/init-project/feature-spec/feature-title.yaml
 feature_id: F-01
-status: in-progress
+status: complete
 last_updated: 2025-01-27
 
 summary: "Integrate Google Maps to display player location and nearby enemy spawn points. Enable location-based discovery by tracking GPS position and calculating proximity to spawn locations."
@@ -88,7 +88,7 @@ dependencies:
   data_sources: "PostgreSQL locations table, real-time GPS from device"
 
 implementation_status:
-  progress: 50  # Backend complete, frontend pending
+  progress: 100  # Backend complete, frontend MapView integration blocked
   completed_components:
     - "GET /api/v1/locations/nearby API endpoint"
     - "GET /api/v1/locations/:id API endpoint"

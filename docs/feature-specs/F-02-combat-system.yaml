@@ -157,7 +157,7 @@ dependencies:
   data_sources: "Player equipment from F-03 via v_player_equipped_stats, Weapons table for dial patterns, EnemyTypes with tier scaling, Tiers table (1-20+ tiers)"
 
 implementation_status:
-  progress: 40  # Database functions and pool system implemented
+  progress: 60  # Database complete, CombatService needs API endpoints and session handling
   completed_components:
     - "PostgreSQL combat functions: fn_weapon_bands_adjusted(), fn_expected_mul_quick(), fn_acc_scale(), combat_rating(), effective_hp()"
     - "Database tables: CombatSessions, EnemyPools, EnemyPoolMembers, LootPools, LootPoolEntries, Weapons"
@@ -166,9 +166,12 @@ implementation_status:
     - "Loot pools: 3 universal pools (levels 1, 5, 10) with 123 weighted loot entries (materials + item types)"
     - "Material seed data: 15 materials (Cactus, Coffee, Feather, Gum, Flame, Sparkles, etc.)"
   in_progress_components:
-    - "Backend CombatService implementation (stub exists in mystica-express/src/services/CombatStubService.ts)"
-    - "Redis session management integration"
-    - "Weighted random pool selection logic"
+    - "CombatService: /combat/start POST endpoint (enemy selection and session initialization)"
+    - "CombatService: /combat/attack POST endpoint (turn-based hit calculation and enemy counterattack)"
+    - "CombatService: /combat/complete POST endpoint (victory/defeat resolution and reward calculation)"
+    - "Redis or in-memory session management for combat state persistence"
+    - "Weighted random pool selection implementation for enemy/loot drops"
+    - "Universal weapon dial configuration (all weapons same pattern MVP0)"
   blocked_items:
     - "Weapons table empty - need single universal weapon dial config (all weapons use same pattern for MVP0)"
     - "Frontend SwiftUI combat UI not started"

@@ -83,16 +83,20 @@ dependencies:
   data_sources: "Custom users table with device_id field, no Supabase auth.users"
 
 implementation_status:
-  progress: 10  # Device auth being implemented by backend-developer agent
+  progress: 35  # Auth middleware complete, device registration endpoint needs implementation
   completed_components:
     - "JWT authentication middleware (middleware/auth.ts) - reusable for device auth"
     - "User profile infrastructure (users table, profile endpoints)"
     - "Token validation and expiration handling"
     - "Frontend requirements analysis and strategy pivot documentation"
   in_progress_components:
-    - "Device registration endpoint (POST /auth/register-device) - backend-developer agent_621481"
-    - "Device UUID validation and anonymous user creation"
-    - "30-day JWT token generation without refresh requirement"
+    - "AuthController.registerDevice implementation (POST /auth/register-device)"
+    - "Device UUID validation and duplicate detection"
+    - "Anonymous user account creation or retrieval"
+    - "30-day JWT token generation (no refresh token)"
+    - "AuthController.getMe implementation (GET /auth/me)"
+    - "AuthController.logout implementation (POST /auth/logout)"
+    - "Device ID field added to users table and indexed"
   blocked_items:
     - "Frontend implementation - waiting for backend device auth completion"
   notes:
