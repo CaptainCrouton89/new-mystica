@@ -2,195 +2,400 @@
 //  BattleView.swift
 //  New-Mystica
 //
-//  Created by AI Assistant on 10/19/25.
+//  Refactored to integrate with CombatViewModel for turn-based combat
 //
 
 import SwiftUI
 
-struct BattleView: View, NavigableView {
+struct BattleView: View {
     @EnvironmentObject private var navigationManager: NavigationManager
     @EnvironmentObject private var audioManager: AudioManager
-    @State private var playerHealth: Double = 25.0
-    @State private var enemyHealth: Double = 25.0
-    @State private var playerMaxHealth: Double = 25.0
-    @State private var enemyMaxHealth: Double = 25.0
-    @State private var enemyName: String = "Shadow Wolf"
-    @State private var enemyIcon: String = "pawprint.fill"
-    
+    @Environment(AppState.self) private var appState
+    @State private var viewModel = CombatViewModel()
+
+    // UI State
+    @State private var isDialSpinning: Bool = false
+    @State private var dialRotation: Double = 0.0
+    @State private var currentTimingScore: Double = 0.0
+    @State private var animationTimer: Timer?
+
     // Animation states
     @State private var playerScale: CGFloat = 1.0
     @State private var enemyScale: CGFloat = 1.0
-    
-    // Combat state
-    @State private var isPlayerTurn: Bool = true
-    @State private var isDialSpinning: Bool = true
-    @State private var dialRotation: Double = 0.0
-    @State private var currentMultiplier: Double = 1.0
-    @State private var animationTimer: Timer?
-    
-    // Victory/Defeat navigation states
-    @State private var navigateToVictory: Bool = false
-    @State private var navigateToDefeat: Bool = false
-    
-    // Floating text manager
-    @StateObject private var floatingTextView = FloatingTextView()
-    
-    var navigationTitle: String { "Battle" }
+
+    // Location ID passed from map
+    let locationId: String
+
+    init(locationId: String) {
+        self.locationId = locationId
+    }
     
     var body: some View {
-        BaseView(title: navigationTitle) {
+        BaseView(title: "Battle") {
             ZStack {
-                // Background
-                Color.backgroundPrimary
-                    .ignoresSafeArea()
-                
-                VStack(spacing: 0) {
-                    // Top section - Enemy
-                    enemySection
-                        .frame(maxHeight: .infinity)
-                    
-                    Spacer(minLength: 20)
-                    
-                    // VS Indicator
-                    vsIndicator
-                    
-                    Spacer(minLength: 20)
-                    
-                    // Bottom section - Player
-                    playerSection
-                        .frame(maxHeight: .infinity)
-                    
-                    Spacer(minLength: 20)
-                    
-                    // Combat Dial
-                    combatDialSection
-                        .frame(height: 120)
+                // Main combat content
+                LoadableView(viewModel.combatState) { session in
+                    combatContentView(session: session)
+                } retry: {
+                    Task {
+                        await viewModel.startCombat(locationId: locationId)
+                    }
                 }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 20)
-                
-                // Floating Text Overlay
-                FloatingTextOverlay(floatingTexts: $floatingTextView.floatingTexts)
-                    .allowsHitTesting(false)
+
+                // Rewards overlay
+                if let rewards = viewModel.rewards {
+                    rewardsOverlay(rewards: rewards)
+                }
             }
         }
-        .onAppear {
-            configureWithEnemy(navigationManager.currentBattleEnemy)
-            startIdleAnimations()
-            startDialSpinning()
+        .task {
+            // Start combat when view appears
+            await viewModel.startCombat(locationId: locationId)
         }
         .onDisappear {
             // Clean up timer when view disappears
             animationTimer?.invalidate()
             animationTimer = nil
         }
-        .onChange(of: navigateToVictory) { _, newValue in
-            if newValue {
-                navigateToVictoryView()
-            }
+    }
+
+    // MARK: - Combat Content View
+    private func combatContentView(session: CombatSession) -> some View {
+        VStack(spacing: 0) {
+            // Enemy Section
+            enemySection(enemy: session.enemy, hp: Double(viewModel.enemyHP))
+                .frame(maxHeight: .infinity)
+
+            Spacer(minLength: 20)
+
+            // Combat Info Center
+            combatInfoSection(session: session)
+
+            Spacer(minLength: 20)
+
+            // Player Section
+            playerSection(session: session)
+                .frame(maxHeight: .infinity)
+
+            Spacer(minLength: 20)
+
+            // Combat Controls
+            combatControlsSection(session: session)
+                .frame(height: 160)
         }
-        .onChange(of: navigateToDefeat) { _, newValue in
-            if newValue {
-                navigateToDefeatView()
-            }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 20)
+        .onAppear {
+            startIdleAnimations()
         }
     }
     
-    // MARK: - Configuration Methods
-    
-    func configureWithEnemy(_ enemyType: String) {
-        switch enemyType.lowercased() {
-        case let type where type.contains("wolf"):
-            enemyName = "Shadow Wolf"
-            enemyIcon = "pawprint.fill"
-            enemyMaxHealth = 25.0
-            enemyHealth = 25.0
-        case let type where type.contains("golem"):
-            enemyName = "Ice Golem"
-            enemyIcon = "cube.fill"
-            enemyMaxHealth = 25.0
-            enemyHealth = 25.0
-        case let type where type.contains("dragon"):
-            enemyName = "Fire Dragon"
-            enemyIcon = "flame.fill"
-            enemyMaxHealth = 25.0
-            enemyHealth = 25.0
-        case let type where type.contains("warrior"):
-            enemyName = "Undead Warrior"
-            enemyIcon = "figure.warfare"
-            enemyMaxHealth = 25.0
-            enemyHealth = 25.0
-        case let type where type.contains("spirit"):
-            enemyName = "Forest Spirit"
-            enemyIcon = "leaf.fill"
-            enemyMaxHealth = 25.0
-            enemyHealth = 25.0
-        default:
-            enemyName = enemyType
-            enemyIcon = "exclamationmark.triangle.fill"
-            enemyMaxHealth = 25.0
-            enemyHealth = 25.0
+    // MARK: - Rewards Overlay
+    private func rewardsOverlay(rewards: Loadable<CombatRewards>) -> some View {
+        ZStack {
+            Color.black.opacity(0.8)
+                .edgesIgnoringSafeArea(.all)
+
+            LoadableView(rewards) { rewardData in
+                VStack(spacing: 20) {
+                    TitleText(viewModel.playerWon ? "Victory!" : "Defeat", size: 28)
+                        .foregroundColor(viewModel.playerWon ? Color.accent : Color.red)
+
+                    if viewModel.playerWon {
+                        victoryRewardsView(rewardData)
+                    } else {
+                        defeatMessageView()
+                    }
+
+                    TextButton("Continue") {
+                        Task {
+                            await viewModel.claimRewards()
+                            navigationManager.navigateBack()
+                        }
+                    }
+                    .frame(maxWidth: 200)
+                }
+                .padding(32)
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color.backgroundCard)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16)
+                                .stroke(Color.borderSubtle, lineWidth: 1)
+                        )
+                )
+                .shadow(color: Color.black.opacity(0.3), radius: 20, x: 0, y: 10)
+            } retry: {
+                // Rewards should not need retry, but provide for consistency
+            }
+        }
+    }
+
+    private func victoryRewardsView(_ rewards: CombatRewards) -> some View {
+        VStack(spacing: 16) {
+            NormalText("Rewards Earned:", size: 18)
+                .foregroundColor(Color.textPrimary)
+
+            VStack(spacing: 8) {
+                HStack {
+                    Image(systemName: "dollarsign.circle.fill")
+                        .foregroundColor(Color.accent)
+                    NormalText("Gold: \(rewards.goldEarned)")
+                        .foregroundColor(Color.textSecondary)
+                    Spacer()
+                }
+
+                HStack {
+                    Image(systemName: "star.fill")
+                        .foregroundColor(Color.accentSecondary)
+                    NormalText("Experience: \(rewards.experienceEarned)")
+                        .foregroundColor(Color.textSecondary)
+                    Spacer()
+                }
+
+                if !rewards.itemsDropped.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Image(systemName: "gift.fill")
+                                .foregroundColor(Color.accent)
+                            NormalText("Items:")
+                                .foregroundColor(Color.textSecondary)
+                            Spacer()
+                        }
+
+                        ForEach(rewards.itemsDropped, id: \.id) { item in
+                            HStack {
+                                SmallText("• \(item.itemType?.name ?? "Unknown Item")")
+                                    .foregroundColor(Color.textSecondary)
+                                Spacer()
+                            }
+                            .padding(.leading, 24)
+                        }
+                    }
+                }
+
+                if !rewards.materialsDropped.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Image(systemName: "cube.fill")
+                                .foregroundColor(Color.accentSecondary)
+                            NormalText("Materials:")
+                                .foregroundColor(Color.textSecondary)
+                            Spacer()
+                        }
+
+                        ForEach(rewards.materialsDropped, id: \.materialId) { material in
+                            HStack {
+                                SmallText("• \(material.name) x\(material.quantity ?? 1)")
+                                    .foregroundColor(Color.textSecondary)
+                                Spacer()
+                            }
+                            .padding(.leading, 24)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private func defeatMessageView() -> some View {
+        VStack(spacing: 12) {
+            NormalText("Better luck next time!", size: 18)
+                .foregroundColor(Color.textSecondary)
+                .multilineTextAlignment(.center)
+
+            SmallText("Train harder and come back stronger.")
+                .foregroundColor(Color.textSecondary)
+                .multilineTextAlignment(.center)
         }
     }
     
     // MARK: - Enemy Section
-    @ViewBuilder
-    private var enemySection: some View {
+    private func enemySection(enemy: Enemy, hp: Double) -> some View {
         VStack(spacing: 16) {
             // Enemy Health Bar
             healthBarView(
-                currentHealth: enemyHealth,
-                maxHealth: enemyMaxHealth,
-                label: enemyName,
+                currentHealth: hp,
+                maxHealth: Double(enemy.stats.defPower * 10), // Max HP calculation
+                label: enemy.name ?? "Unknown Enemy",
                 isPlayer: false
             )
-            
+
             // Enemy Avatar
-            avatarView(
-                iconName: enemyIcon,
-                scale: enemyScale,
-                isPlayer: false
+            enemyAvatarView(
+                enemy: enemy,
+                scale: enemyScale
             )
+
+            // Enemy Level
+            SmallText("Level \(enemy.level)")
+                .foregroundColor(Color.textSecondary)
+        }
+    }
+
+    private func enemyAvatarView(enemy: Enemy, scale: CGFloat) -> some View {
+        ZStack {
+            // Avatar Background
+            Circle()
+                .fill(Color.backgroundCard)
+                .frame(width: 120, height: 120)
+                .overlay(
+                    Circle()
+                        .stroke(Color.accent, lineWidth: 3)
+                )
+                .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 4)
+
+            // Enemy Icon (based on name or type)
+            Image(systemName: getEnemyIcon(enemy))
+                .font(.system(size: 48, weight: .medium))
+                .foregroundColor(Color.accent)
+        }
+        .scaleEffect(scale)
+    }
+
+    private func getEnemyIcon(_ enemy: Enemy) -> String {
+        guard let name = enemy.name?.lowercased() else { return "exclamationmark.triangle.fill" }
+
+        switch name {
+        case let n where n.contains("wolf"):
+            return "pawprint.fill"
+        case let n where n.contains("golem"):
+            return "cube.fill"
+        case let n where n.contains("dragon"):
+            return "flame.fill"
+        case let n where n.contains("warrior"):
+            return "figure.warfare"
+        case let n where n.contains("spirit"):
+            return "leaf.fill"
+        default:
+            return "exclamationmark.triangle.fill"
         }
     }
     
-    // MARK: - VS Indicator
-    @ViewBuilder
-    private var vsIndicator: some View {
-        ZStack {
-            Circle()
-                .fill(Color.backgroundCard)
-                .frame(width: 60, height: 60)
-                .overlay(
-                    Circle()
-                        .stroke(Color.accentSecondary, lineWidth: 2)
+    // MARK: - Combat Info Section
+    private func combatInfoSection(session: CombatSession) -> some View {
+        VStack(spacing: 12) {
+            // Turn Counter
+            ZStack {
+                Circle()
+                    .fill(Color.backgroundCard)
+                    .frame(width: 60, height: 60)
+                    .overlay(
+                        Circle()
+                            .stroke(Color.accentSecondary, lineWidth: 2)
+                    )
+                    .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
+
+                VStack(spacing: 2) {
+                    SmallText("Turn", size: 10)
+                        .foregroundColor(Color.textSecondary)
+                    NormalText("\(viewModel.turnNumber)", size: 16)
+                        .foregroundColor(Color.accentSecondary)
+                        .bold()
+                }
+            }
+
+            // Recent Combat Log (last 3 actions)
+            if !viewModel.recentActions.isEmpty {
+                VStack(spacing: 4) {
+                    SmallText("Recent Actions:", size: 12)
+                        .foregroundColor(Color.textSecondary)
+
+                    ForEach(Array(viewModel.recentActions.suffix(3).enumerated()), id: \.offset) { _, action in
+                        HStack {
+                            SmallText(actionDescription(action), size: 11)
+                                .foregroundColor(Color.textSecondary)
+                                .lineLimit(1)
+                            Spacer()
+                        }
+                    }
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.backgroundSecondary)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color.borderSubtle, lineWidth: 1)
+                        )
                 )
-                .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
-            
-            TitleText("VS", size: 18)
-                .foregroundColor(Color.accentSecondary)
+            }
+        }
+    }
+
+    private func actionDescription(_ action: CombatAction) -> String {
+        let actor = action.performerId == "player" ? "You" : "Enemy"
+        let actionType = action.type.rawValue.capitalized
+
+        if let damage = action.damageDealt, damage > 0 {
+            return "\(actor) \(actionType) for \(Int(damage)) damage"
+        } else {
+            return "\(actor) used \(actionType)"
         }
     }
     
     // MARK: - Player Section
-    @ViewBuilder
-    private var playerSection: some View {
+    private func playerSection(session: CombatSession) -> some View {
         VStack(spacing: 16) {
             // Player Avatar
-            avatarView(
-                iconName: "person.fill",
-                scale: playerScale,
-                isPlayer: true
-            )
-            
+            playerAvatarView(scale: playerScale)
+
             // Player Health Bar
             healthBarView(
-                currentHealth: playerHealth,
-                maxHealth: playerMaxHealth,
+                currentHealth: Double(viewModel.currentHP),
+                maxHealth: session.playerHp ?? Double(session.playerStats.defPower * 10),
                 label: "You",
                 isPlayer: true
             )
+
+            // Player Stats Summary
+            HStack(spacing: 20) {
+                VStack(spacing: 2) {
+                    SmallText("ATK", size: 10)
+                        .foregroundColor(Color.textSecondary)
+                    NormalText("\(Int(session.playerStats.atkPower))", size: 14)
+                        .foregroundColor(Color.accent)
+                        .bold()
+                }
+
+                VStack(spacing: 2) {
+                    SmallText("DEF", size: 10)
+                        .foregroundColor(Color.textSecondary)
+                    NormalText("\(Int(session.playerStats.defPower))", size: 14)
+                        .foregroundColor(Color.accentSecondary)
+                        .bold()
+                }
+
+                VStack(spacing: 2) {
+                    SmallText("ACC", size: 10)
+                        .foregroundColor(Color.textSecondary)
+                    NormalText("\(Int(session.playerStats.atkAccuracy))", size: 14)
+                        .foregroundColor(Color.textPrimary)
+                        .bold()
+                }
+            }
         }
+    }
+
+    private func playerAvatarView(scale: CGFloat) -> some View {
+        ZStack {
+            // Avatar Background
+            Circle()
+                .fill(Color.backgroundCard)
+                .frame(width: 120, height: 120)
+                .overlay(
+                    Circle()
+                        .stroke(Color.accentSecondary, lineWidth: 3)
+                )
+                .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 4)
+
+            // Player Icon
+            Image(systemName: "person.fill")
+                .font(.system(size: 48, weight: .medium))
+                .foregroundColor(Color.accentSecondary)
+        }
+        .scaleEffect(scale)
     }
     
     // MARK: - Health Bar Component
@@ -228,73 +433,140 @@ struct BattleView: View, NavigableView {
         }
     }
     
-    // MARK: - Avatar Component
-    @ViewBuilder
-    private func avatarView(
-        iconName: String,
-        scale: CGFloat,
-        isPlayer: Bool
-    ) -> some View {
-        ZStack {
-            // Avatar Background
-            Circle()
-                .fill(Color.backgroundCard)
-                .frame(width: 120, height: 120)
-                .overlay(
-                    Circle()
-                        .stroke(isPlayer ? Color.accentSecondary : Color.accent, lineWidth: 3)
-                )
-                .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 4)
-            
-            // Avatar Icon
-            Image(systemName: iconName)
-                .font(.system(size: 48, weight: .medium))
-                .foregroundColor(isPlayer ? Color.accentSecondary : Color.accent)
+    // MARK: - Combat Controls Section
+    private func combatControlsSection(session: CombatSession) -> some View {
+        VStack(spacing: 16) {
+            // Action status
+            if viewModel.actionInProgress {
+                NormalText("Processing action...", size: 14)
+                    .foregroundColor(Color.textSecondary)
+            } else if viewModel.combatEnded {
+                NormalText(viewModel.playerWon ? "Victory!" : "Defeat!", size: 16)
+                    .foregroundColor(viewModel.playerWon ? Color.accent : Color.red)
+                    .bold()
+            } else {
+                NormalText("Choose your action!", size: 14)
+                    .foregroundColor(Color.accentSecondary)
+            }
+
+            if !viewModel.combatEnded {
+                // Combat actions
+                HStack(spacing: 20) {
+                    // Attack Button
+                    combatActionButton(
+                        title: "Attack",
+                        icon: "sword.fill",
+                        color: Color.accent,
+                        isDisabled: !viewModel.canAct
+                    ) {
+                        Task {
+                            // Calculate timing score based on current dial position or random for now
+                            let timingScore = isDialSpinning ? calculateTimingScore() : Double.random(in: 0.5...1.0)
+                            stopDial()
+                            await viewModel.attack(timingScore: timingScore)
+                        }
+                    }
+
+                    // Defend Button
+                    combatActionButton(
+                        title: "Defend",
+                        icon: "shield.fill",
+                        color: Color.accentSecondary,
+                        isDisabled: !viewModel.canAct
+                    ) {
+                        Task {
+                            let timingScore = isDialSpinning ? calculateTimingScore() : Double.random(in: 0.5...1.0)
+                            stopDial()
+                            await viewModel.defend(timingScore: timingScore)
+                        }
+                    }
+                }
+            } else {
+                // Combat ended - show retreat option or wait for rewards
+                if viewModel.rewards == nil {
+                    TextButton("End Combat") {
+                        Task {
+                            await viewModel.endCombat(won: viewModel.playerWon)
+                        }
+                    }
+                    .frame(maxWidth: 200)
+                }
+            }
+
+            // Timing dial (only show during active combat)
+            if viewModel.isInCombat && !viewModel.combatEnded {
+                timingDialView
+            }
         }
-        .scaleEffect(scale)
     }
-    
-    // MARK: - Combat Dial Section
-    @ViewBuilder
-    private var combatDialSection: some View {
-        VStack(spacing: 12) {
-            // Turn indicator
-            NormalText(isPlayerTurn ? "Your Turn - Click to Attack!" : "Enemy Turn - Click to Defend!", size: 14)
-                .foregroundColor(Color.accentSecondary)
-                .multilineTextAlignment(.center)
-            
-            // Dial
+
+    private func combatActionButton(
+        title: String,
+        icon: String,
+        color: Color,
+        isDisabled: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            VStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.system(size: 24, weight: .medium))
+                    .foregroundColor(isDisabled ? Color.textSecondary : color)
+
+                NormalText(title, size: 14)
+                    .foregroundColor(isDisabled ? Color.textSecondary : Color.textPrimary)
+            }
+            .frame(width: 80, height: 80)
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(isDisabled ? Color.backgroundSecondary : Color.backgroundCard)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(isDisabled ? Color.borderSubtle : color, lineWidth: 2)
+                    )
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
+        .disabled(isDisabled)
+        .scaleEffect(isDisabled ? 0.9 : 1.0)
+    }
+
+    private var timingDialView: some View {
+        VStack(spacing: 8) {
+            SmallText("Click for timing bonus!", size: 12)
+                .foregroundColor(Color.textSecondary)
+
             ZStack {
                 // Dial background circle
                 Circle()
                     .fill(Color.backgroundCard)
-                    .frame(width: 80, height: 80)
+                    .frame(width: 60, height: 60)
                     .overlay(
                         Circle()
-                            .stroke(Color.accentSecondary, lineWidth: 3)
+                            .stroke(Color.accentSecondary, lineWidth: 2)
                     )
                     .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
-                
+
                 // Dial pointer
                 Rectangle()
                     .fill(Color.accentSecondary)
-                    .frame(width: 3, height: 30)
-                    .offset(y: -15)
+                    .frame(width: 2, height: 20)
+                    .offset(y: -10)
                     .rotationEffect(.degrees(dialRotation))
-                
+
                 // Center dot
                 Circle()
                     .fill(Color.accentSecondary)
-                    .frame(width: 8, height: 8)
+                    .frame(width: 6, height: 6)
             }
             .onTapGesture {
-                stopDialAndExecuteAction()
+                stopDial()
             }
-            
+            .onAppear {
+                startDialSpinning()
+            }
         }
     }
-    
-    
     
     
     // MARK: - Helper Functions
@@ -342,133 +614,43 @@ struct BattleView: View, NavigableView {
         // Stop any existing timer
         animationTimer?.invalidate()
         animationTimer = nil
-        
+
         isDialSpinning = true
-        
+
         // Start timer-based animation for smooth continuous rotation
         animationTimer = Timer.scheduledTimer(withTimeInterval: 0.016, repeats: true) { _ in
             if self.isDialSpinning {
                 withAnimation(.linear(duration: 0.016)) {
-                    self.dialRotation += 5.76 // 360 degrees per second (360/60fps)
+                    self.dialRotation += 4.32 // 270 degrees per second (slower than before)
                 }
             }
         }
     }
-    
-    private func stopDialAndExecuteAction() {
-        guard isDialSpinning else { return }
-        
-        // Stop the dial animation immediately
+
+    private func stopDial() {
         isDialSpinning = false
-        
-        // Stop the timer
         animationTimer?.invalidate()
         animationTimer = nil
-        
-        // Calculate multiplier based on current dial position
+    }
+
+    private func calculateTimingScore() -> Double {
+        // Calculate timing score based on dial position
+        // Perfect timing at top (0 degrees) = 1.0
+        // Worst timing at bottom (180 degrees) = 0.5
         let normalizedRotation = dialRotation.truncatingRemainder(dividingBy: 360)
         let adjustedRotation = normalizedRotation < 0 ? normalizedRotation + 360 : normalizedRotation
-        currentMultiplier = calculateMultiplier(from: adjustedRotation)
-        
-        // Show floating text for the multiplier at the dial position
-        // Dial is positioned at the bottom center of the screen
-        let dialPosition = CGPoint(x: 0, y: 200) // Offset from center to dial location
-        floatingTextView.showMultiplier(currentMultiplier, at: dialPosition)
-        
-        // Execute action based on turn
-        if isPlayerTurn {
-            executePlayerAttack()
-        } else {
-            executeEnemyAttack()
-        }
-    }
-    
-    private func calculateMultiplier(from rotation: Double) -> Double {
-        // Map rotation to multiplier (0.5x to 2.0x)
-        // Top of circle (0 degrees) = 2.0x multiplier
-        // Bottom of circle (180 degrees) = 0.5x multiplier
-        let normalizedAngle = rotation / 360.0
-        let multiplier = 2.0 - (normalizedAngle * 1.5) // Range: 2.0 to 0.5
-        return max(0.5, min(2.0, multiplier))
-    }
-    
-    private func executePlayerAttack() {
-        let baseDamage = Double.random(in: 1...10)
-        let totalDamage = baseDamage * currentMultiplier
-        
-        enemyHealth = max(0, enemyHealth - totalDamage)
-        
-        // Check if enemy is defeated
-        if enemyHealth <= 0 {
-            audioManager.playVictory()
-            navigateToVictory = true
-            return
-        }
-        
-        // Play damage dealing audio
-        audioManager.playDealDamage()
-        
-        // Show floating damage text from enemy position
-        let enemyPosition = CGPoint(x: 0, y: -200) // Offset towards top of screen
-        floatingTextView.showDamage(totalDamage, isCritical: currentMultiplier > 1.5, at: enemyPosition)
-        
-        // Switch to enemy turn immediately
-        switchToEnemyTurn()
-    }
-    
-    private func executeEnemyAttack() {
-        let baseDamage = Double.random(in: 1...10)
-        let defendedDamage = (baseDamage * currentMultiplier) / 2.0 // Defense reduces damage
-        
-        playerHealth = max(0, playerHealth - defendedDamage)
-        
-        // Check if player is defeated
-        if playerHealth <= 0 {
-            audioManager.playDefeat()
-            navigateToDefeat = true
-            return
-        }
-        
-        // Play damage receiving audio
-        audioManager.playTakeDamage()
-        
-        // Show floating damage text from player position
-        let playerPosition = CGPoint(x: 0, y: 50) // Offset from center towards player avatar
-        floatingTextView.showDamage(defendedDamage, isCritical: false, at: playerPosition)
-        
-        // Switch to player turn immediately
-        switchToPlayerTurn()
-    }
-    
-    private func switchToEnemyTurn() {
-        isPlayerTurn = false
-        startDialSpinning()
-    }
-    
-    private func switchToPlayerTurn() {
-        isPlayerTurn = true
-        startDialSpinning()
-    }
-    
-    // MARK: - Navigation Logic
-    
-    private func navigateToVictoryView() {
-        navigationManager.navigateTo(.victory)
-    }
-    
-    private func navigateToDefeatView() {
-        navigationManager.navigateTo(.defeat)
-    }
-}
 
-// MARK: - Battle Location Data Extension
-extension BattleLocation {
-    func toBattleView() -> BattleView {
-        return BattleView()
+        // Convert to 0-1 range where 0 degrees = 1.0, 180 degrees = 0.5
+        let radians = adjustedRotation * .pi / 180
+        let score = 0.75 + 0.25 * cos(radians) // Range from 0.5 to 1.0
+        return max(0.5, min(1.0, score))
     }
+    
 }
 
 #Preview {
-    BattleView()
+    BattleView(locationId: "test-location-id")
         .environmentObject(NavigationManager())
+        .environmentObject(AudioManager.shared)
+        .environment(AppState())
 }

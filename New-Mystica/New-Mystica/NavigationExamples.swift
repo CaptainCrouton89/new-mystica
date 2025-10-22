@@ -58,17 +58,17 @@ struct ProfileView: View {
 }
 
 // Method 3: Using the withNavigation modifier (Quick and easy)
-struct InventoryView: View {
+struct ExampleInventoryView: View {
     @EnvironmentObject private var navigationManager: NavigationManager
-    
+
     var body: some View {
         VStack(spacing: 20) {
             Spacer()
-            
+
             TitleText("Inventory")
-            
+
             NormalText("Manage your items")
-            
+
             Spacer()
         }
         .withNavigation(title: "Inventory")

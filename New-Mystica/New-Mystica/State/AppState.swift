@@ -13,50 +13,125 @@ import Observation
 final class AppState {
     static let shared = AppState()
 
-    // MARK: - Session State
-    var isAuthenticated: Bool = false
-    var currentUser: User? = nil
-    var accessToken: String? = nil
+    // MARK: - Auth Session State
+    var authSession: Loadable<(user: User, token: String)> = .idle
 
-    // MARK: - Profile State
-    var profile: UserProfile? = nil
+    // MARK: - Profile State (loaded separately from auth)
+    var userProfile: Loadable<EnhancedUserProfile> = .idle
 
-    // MARK: - Currency State
-    var currencyBalance: Int = 0
-
-    // MARK: - Loading States
-    var isAuthenticating: Bool = false
-    var authError: AppError? = nil
+    // MARK: - Currency Balances
+    var currencies: Loadable<[CurrencyBalance]> = .idle
 
     private init() {}
 
-    // MARK: - Public Methods
+    // MARK: - Computed Properties
 
-    func setAuthenticated(_ user: User, token: String) {
-        self.currentUser = user
-        self.accessToken = token
-        self.isAuthenticated = true
-        self.authError = nil
+    var isAuthenticated: Bool {
+        if case .loaded = authSession {
+            return true
+        }
+        return false
     }
 
-    func logout() {
-        self.currentUser = nil
-        self.accessToken = nil
-        self.isAuthenticated = false
-        self.profile = nil
+    var currentUser: User? {
+        if case .loaded(let session) = authSession {
+            return session.user
+        }
+        return nil
+    }
+
+    var accessToken: String? {
+        if case .loaded(let session) = authSession {
+            return session.token
+        }
+        return nil
+    }
+
+    // MARK: - Auth Methods
+
+    func setAuthenticated(_ user: User, token: String) {
+        self.authSession = .loaded((user: user, token: token))
     }
 
     func setAuthError(_ error: AppError) {
-        self.authError = error
-        self.isAuthenticating = false
+        self.authSession = .error(error)
     }
 
-    func setProfile(_ profile: UserProfile) {
-        self.profile = profile
-        self.currencyBalance = profile.currencyBalance
+    func setAuthenticating() {
+        self.authSession = .loading
     }
 
-    func updateCurrency(_ amount: Int) {
-        self.currencyBalance = amount
+    func logout() {
+        self.authSession = .idle
+        self.userProfile = .idle
+        self.currencies = .idle
+    }
+
+    // MARK: - Profile Methods
+
+    func setProfile(_ profile: EnhancedUserProfile) {
+        self.userProfile = .loaded(profile)
+    }
+
+    func setProfileError(_ error: AppError) {
+        self.userProfile = .error(error)
+    }
+
+    func setProfileLoading() {
+        self.userProfile = .loading
+    }
+
+    // MARK: - Currency Methods
+
+    func setCurrencies(_ balances: [CurrencyBalance]) {
+        self.currencies = .loaded(balances)
+    }
+
+    func setCurrencyError(_ error: AppError) {
+        self.currencies = .error(error)
+    }
+
+    func setCurrencyLoading() {
+        self.currencies = .loading
+    }
+
+    // Convenience method for getting specific currency balance
+    func getCurrencyBalance(for code: CurrencyCode) -> Int {
+        if case .loaded(let balances) = currencies {
+            return balances.first { $0.currencyCode == code }?.balance ?? 0
+        }
+        return 0
+    }
+
+    // MARK: - Session Restoration
+
+    /// Restore authentication session from stored token on app launch
+    func restoreAuthSession() async {
+        guard let token = KeychainService.getAccessToken() else {
+            self.authSession = .idle
+            return
+        }
+
+        self.authSession = .loading
+
+        // For MVP0: Trust token existence = authenticated
+        // Create a stub user since we only have token in keychain
+        // Note: In production, we'd validate the token with the server
+        let stubData = """
+        {
+            "id": "00000000-0000-0000-0000-000000000000",
+            "account_type": "anonymous",
+            "created_at": "\(ISO8601DateFormatter().string(from: Date()))"
+        }
+        """.data(using: .utf8)!
+
+        do {
+            let stubUser = try JSONDecoder().decode(User.self, from: stubData)
+            self.authSession = .loaded((user: stubUser, token: token))
+        } catch {
+            // If decoding fails, clear the stored token and start fresh
+            try? KeychainService.deleteAccessToken()
+            self.authSession = .idle
+        }
     }
 }

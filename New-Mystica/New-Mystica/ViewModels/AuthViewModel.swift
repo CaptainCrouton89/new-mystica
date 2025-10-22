@@ -20,8 +20,7 @@ final class AuthViewModel {
     }
 
     func registerDevice() async {
-        appState.isAuthenticating = true
-        appState.authError = nil
+        appState.setAuthenticating()
 
         guard let deviceId = UIDevice.current.identifierForVendor?.uuidString else {
             appState.setAuthError(.noDeviceId)
@@ -51,8 +50,18 @@ final class AuthViewModel {
         }
 
         // For MVP0: Trust token existence = authenticated
-        appState.accessToken = token
-        appState.isAuthenticated = true
+        // Create a stub user since we only have token in keychain
+        // Note: In production, we'd fetch the user profile with the token
+        let stubData = """
+        {
+            "id": "00000000-0000-0000-0000-000000000000",
+            "account_type": "anonymous",
+            "created_at": "\(ISO8601DateFormatter().string(from: Date()))"
+        }
+        """.data(using: .utf8)!
+
+        let stubUser = try! JSONDecoder().decode(User.self, from: stubData)
+        appState.setAuthenticated(stubUser, token: token)
     }
 
     func logout() async {

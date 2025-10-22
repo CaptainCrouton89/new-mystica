@@ -39,7 +39,7 @@ struct CollectionView: View, NavigableView {
                 // Gold Balance Header
                 HStack {
                     Spacer()
-                    GoldBalanceView(amount: appState.currencyBalance)
+                    GoldBalanceView(amount: appState.getCurrencyBalance(for: .gold))
                         .padding(.trailing, 16)
                         .padding(.top, 8)
                 }
@@ -138,7 +138,7 @@ struct CollectionItemView: View {
 
 #Preview {
     let appState = AppState.shared
-    appState.currencyBalance = 1234
+    appState.setCurrencies([CurrencyBalance(currencyCode: .gold, balance: 1234, updatedAt: "")])
 
     return CollectionView()
         .environmentObject(NavigationManager())

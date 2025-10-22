@@ -7,7 +7,7 @@
 
 import Foundation
 
-enum AppError: LocalizedError {
+enum AppError: LocalizedError, Equatable, Sendable {
     case networkError(Error)
     case serverError(Int, String?)
     case invalidResponse
@@ -16,6 +16,7 @@ enum AppError: LocalizedError {
     case noAuthToken
     case unauthorized
     case notFound
+    case invalidData(String)
     case unknown(Error)
 
     var errorDescription: String? {
@@ -39,6 +40,8 @@ enum AppError: LocalizedError {
             return "Unauthorized access"
         case .notFound:
             return "Resource not found"
+        case .invalidData(let message):
+            return "Invalid data: \(message)"
         case .unknown(let error):
             return "Unknown error: \(error.localizedDescription)"
         }
@@ -56,6 +59,47 @@ enum AppError: LocalizedError {
             return "The requested resource could not be found"
         default:
             return nil
+        }
+    }
+
+    static func from(_ error: Error) -> AppError {
+        if let urlError = error as? URLError {
+            return .networkError(urlError)
+        }
+
+        if error is DecodingError {
+            return .decodingError(error.localizedDescription)
+        }
+
+        return .unknown(error)
+    }
+}
+
+extension AppError {
+    static func == (lhs: AppError, rhs: AppError) -> Bool {
+        switch (lhs, rhs) {
+        case (.networkError(let lhsError), .networkError(let rhsError)):
+            return lhsError.localizedDescription == rhsError.localizedDescription
+        case (.serverError(let lhsCode, let lhsMessage), .serverError(let rhsCode, let rhsMessage)):
+            return lhsCode == rhsCode && lhsMessage == rhsMessage
+        case (.invalidResponse, .invalidResponse):
+            return true
+        case (.decodingError(let lhsMessage), .decodingError(let rhsMessage)):
+            return lhsMessage == rhsMessage
+        case (.noDeviceId, .noDeviceId):
+            return true
+        case (.noAuthToken, .noAuthToken):
+            return true
+        case (.unauthorized, .unauthorized):
+            return true
+        case (.notFound, .notFound):
+            return true
+        case (.invalidData(let lhsMessage), .invalidData(let rhsMessage)):
+            return lhsMessage == rhsMessage
+        case (.unknown(let lhsError), .unknown(let rhsError)):
+            return lhsError.localizedDescription == rhsError.localizedDescription
+        default:
+            return false
         }
     }
 }

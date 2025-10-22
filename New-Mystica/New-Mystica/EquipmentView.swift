@@ -218,28 +218,26 @@ struct StatItemView: View {
 struct EquipmentView: View {
     @EnvironmentObject private var navigationManager: NavigationManager
     @EnvironmentObject private var audioManager: AudioManager
-    @StateObject private var equipmentService = EquipmentService.shared
+    @Environment(AppState.self) private var appState
+    @State private var viewModel = EquipmentViewModel()
     @State private var selectedItem: PlayerItem?
 
     var body: some View {
         BaseView(title: "Equipment") {
             ZStack {
                 // Main content
-                ScrollView {
-                    VStack(spacing: 24) {
-                        if equipmentService.isLoading {
-                            // Loading State
-                            loadingView
-                        } else if let errorMessage = equipmentService.errorMessage {
-                            // Error State
-                            errorView(errorMessage)
-                        } else {
-                            // Content State
-                            equipmentContentView
+                LoadableView(viewModel.equipment) { equipment in
+                    ScrollView {
+                        VStack(spacing: 24) {
+                            equipmentContentView(equipment: equipment)
                         }
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 16)
                     }
-                    .padding(.horizontal, 20)
-                    .padding(.vertical, 16)
+                } retry: {
+                    Task {
+                        await viewModel.fetchEquipment()
+                    }
                 }
 
                 // Item Detail Popup Overlay
@@ -250,70 +248,29 @@ struct EquipmentView: View {
         }
         .task {
             // Load equipment data when view appears
-            try? await equipmentService.loadEquipment()
+            await viewModel.fetchEquipment()
         }
-    }
-
-    // MARK: - Loading View
-    private var loadingView: some View {
-        VStack(spacing: 16) {
-            ProgressView()
-                .scaleEffect(1.5)
-                .progressViewStyle(CircularProgressViewStyle(tint: Color.accent))
-
-            NormalText("Loading Equipment...")
-                .foregroundColor(Color.textSecondary)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(.top, 100)
-    }
-
-    // MARK: - Error View
-    private func errorView(_ message: String) -> some View {
-        VStack(spacing: 16) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 48))
-                .foregroundColor(Color.accentInteractive)
-
-            TitleText("Error Loading Equipment")
-
-            NormalText(message)
-                .foregroundColor(Color.textSecondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 20)
-
-            TextButton("Retry") {
-                audioManager.playMenuButtonClick()
-                Task {
-                    try? await equipmentService.loadEquipment()
-                }
-            }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(.top, 60)
     }
 
     // MARK: - Equipment Content View
-    private var equipmentContentView: some View {
+    private func equipmentContentView(equipment: [Equipment]) -> some View {
         VStack(spacing: 24) {
             // Character-Centered Equipment Layout
-            equipmentSlotsLayout
+            equipmentSlotsLayout(equipment: equipment.first)
 
             // Stats Panel
-            if let equipment = equipmentService.equipment {
+            if let equipmentData = equipment.first {
                 StatsDisplayView(
-                    totalStats: equipment.totalStats,
-                    equipmentCount: equipment.equipmentCount
+                    totalStats: equipmentData.totalStats,
+                    equipmentCount: equipmentData.equipmentCount
                 )
             }
         }
     }
 
     // MARK: - Equipment Slots Layout
-    private var equipmentSlotsLayout: some View {
-        let equipment = equipmentService.equipment
-
-        return VStack(spacing: 20) {
+    private func equipmentSlotsLayout(equipment: Equipment?) -> some View {
+        VStack(spacing: 20) {
             // Head slot (top)
             EquipmentSlotView(slot: "head", item: equipment?.slots.head) {
                 audioManager.playMenuButtonClick()

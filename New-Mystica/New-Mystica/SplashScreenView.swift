@@ -71,7 +71,11 @@ struct SplashScreenView: View {
 
                                         // Check if auth succeeded
                                         guard appState.isAuthenticated else {
-                                            errorMessage = appState.authError?.localizedDescription ?? "Authentication failed"
+                                            if case .error(let error) = appState.authSession {
+                                                errorMessage = error.localizedDescription
+                                            } else {
+                                                errorMessage = "Authentication failed"
+                                            }
                                             return
                                         }
 
@@ -131,7 +135,11 @@ struct SplashScreenView: View {
 
                     // Check if auth succeeded
                     guard appState.isAuthenticated else {
-                        errorMessage = appState.authError?.localizedDescription ?? "Authentication failed"
+                        if case .error(let error) = appState.authSession {
+                            errorMessage = error.localizedDescription
+                        } else {
+                            errorMessage = "Authentication failed"
+                        }
                         return
                     }
 

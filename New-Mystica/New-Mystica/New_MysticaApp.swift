@@ -14,10 +14,8 @@ struct New_MysticaApp: App {
     @StateObject private var audioManager = AudioManager.shared
     @StateObject private var backgroundImageManager = BackgroundImageManager()
 
-    // New architecture
-    private let appState = AppState.shared
-    private let authViewModel: AuthViewModel
-    private let equipmentViewModel: EquipmentViewModel
+    // New architecture - centralized state management
+    @State private var appState = AppState.shared
 
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
@@ -32,11 +30,6 @@ struct New_MysticaApp: App {
         }
     }()
 
-    init() {
-        self.authViewModel = AuthViewModel(appState: AppState.shared)
-        self.equipmentViewModel = EquipmentViewModel()
-    }
-
     var body: some Scene {
         WindowGroup {
             SplashScreenView()
@@ -44,6 +37,12 @@ struct New_MysticaApp: App {
                 .environmentObject(audioManager)
                 .environmentObject(backgroundImageManager)
                 .environment(appState)
+                .onAppear {
+                    // Restore auth session on app launch
+                    Task {
+                        await appState.restoreAuthSession()
+                    }
+                }
         }
         .modelContainer(sharedModelContainer)
     }

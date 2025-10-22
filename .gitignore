@@ -42,3 +42,5 @@ logs/
 # Supabase
 .supabase/
 supabase/
+
+New-Mystica/build/
