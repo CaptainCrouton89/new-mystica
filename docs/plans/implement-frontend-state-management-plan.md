@@ -71,56 +71,74 @@ This is a foundational refactor affecting every screen. Must be implemented meth
 
 ### Batch 1: Core Infrastructure (Foundation Layer)
 
+📋 **Investigation:** [`docs/investigations/phase-1-infrastructure-investigation.md`](../../investigations/phase-1-infrastructure-investigation.md)
+
+**Current State:** ✅ Loadable<T> complete | ✅ AppError complete | ❌ **APIClient missing** (HTTP logic duplicated in 3 files) | ⚠️ Model protocols implicit
+
 | ID | Task | Component | Dependencies | Files | Exit Criteria |
 |----|------|-----------|--------------|-------|---------------|
-| T1 | Create/verify Loadable<T> enum | Core | — | `Models/Loadable.swift` | Enum compiles, all 4 cases defined with value/isLoading helpers |
-| T2 | Create/refine AppError typed enum | Core | — | `Models/AppError.swift` | All error cases defined, .from() static factory works, LocalizedError conformance |
-| T3 | Create APIClient singleton | Network | T1, T2 | `Networking/APIClient.swift` | GET/POST/PUT/DELETE methods, auth token injection, error handling |
-| T4 | Define core data model protocols | Models | T2 | `Models/Protocols/APIModel.swift` | Codable, Identifiable protocols defined for consistency |
+| T1 | Enhance Loadable<T> enum | Core | — | `Models/Loadable.swift` | Add Equatable + Sendable conformances |
+| T2 | Enhance AppError enum | Core | — | `Models/AppError.swift` | Add `.from()` static factory method for smart error mapping |
+| T3 | **Create unified APIClient** | Network | T1, T2 | `Networking/APIClient.swift` | **CRITICAL:** Consolidate duplicated HTTP logic from AuthRepository (72-116) & EquipmentRepository (56-101) |
+| T4 | Define APIModel protocol | Models | T2 | `Models/Protocols/APIModel.swift` | Formalize implicit Codable patterns into single protocol |
 
 **Notes:**
-- T1, T2, T3 can run in parallel (no dependencies)
-- T4 depends on T2 for error handling
+- T1, T2, T4 can run in parallel; T3 depends on T1, T2
+- **T3 is HIGH PRIORITY** - eliminates HTTP duplication blocking other repos
 - These establish the foundation for all subsequent layers
 
 ---
 
 ### Batch 2: Data Models with API Mapping
 
+📋 **Investigation:** [`docs/investigations/phase-2-data-models-investigation.md`](../../investigations/phase-2-data-models-investigation.md)
+
+**Current State:** 🟡 **60-70% coverage** | ✅ CodingKeys pattern consistent | ❌ Missing Combat (0%) | ❌ Missing Loadout (0%) | ❌ Missing Progression (0%)
+
 | ID | Task | Component | Dependencies | Files | Exit Criteria |
 |----|------|-----------|--------------|-------|---------------|
-| T5 | Core stat structs (PlayerStats, Enemy, etc.) | Models | T1 | `Models/Stats.swift` | All stat structs with CodingKeys for snake_case |
-| T6 | Inventory models (PlayerItem, ItemStack, Material, MaterialStack) | Models | T5 | `Models/Inventory.swift` | Full Codable support, CodingKeys for all snake_case fields |
-| T7 | Equipment models (EquipmentState, Loadout, SlotName enum) | Models | T5 | `Models/Equipment.swift` | 8 slot enum values, EquipmentState struct, Loadout with CodingKeys |
-| T8 | Combat models (CombatSession, Enemy, CombatRewards, CombatStatus) | Models | T5 | `Models/Combat.swift` | All combat structs, status enums, CodingKeys for API response |
-| T9 | Location & world models (Location, nearby response) | Models | T5 | `Models/Location.swift` | CLLocationCoordinate2D conversion, proper coding keys |
-| T10 | Profile & progression models (UserProfile, PlayerProgression) | Models | T5 | `Models/Profile.swift` | Profile struct, progression tracking, balance structs |
+| T5 | Core stat structs (PlayerStats, Enemy, etc.) | Models | T1 | `Models/Stats.swift` | **PRIORITY:** Add Enemy stats model for combat system |
+| T6 | Inventory models (PlayerItem, ItemStack, Material) | Models | T5 | `Models/Inventory.swift` | **Add missing:** applied_materials array, image_generation_status field |
+| T7 | Equipment models (EquipmentState, Loadout, SlotName) | Models | T5 | `Models/Equipment.swift` | **Add missing:** generated_image_url, complete Loadout model |
+| T8 | **Combat models (CRITICAL GAP)** | Models | T5 | `Models/Combat.swift` | **CREATE:** CombatSession, Enemy, CombatRewards, CombatStatus enums |
+| T9 | Location & world models | Models | T5 | `Models/Location.swift` | **Add missing:** enemy_level, distance_meters, material_drop_pool |
+| T10 | **Profile & progression models (CRITICAL GAP)** | Models | T5 | `Models/Profile.swift` | **CREATE:** PlayerProgression, update UserProfile with total_stats |
 
 **Notes:**
-- Tasks T5-T10 can run in parallel (all depend only on T5)
-- Critical: Every model needs CodingKeys for snake_case → camelCase mapping
+- Tasks T5-T10 can run in parallel (all depend only on Batch 1)
+- **T8 (Combat) is HIGHEST PRIORITY** - Active BattleView needs these models
+- **T10 (Progression) is next priority** - Required for F-08 feature completion
+- Every model requires CodingKeys for snake_case → camelCase mapping
 - Reference `api-contracts.yaml` line-by-line for field mappings
-- All models must be Codable + Identifiable (where appropriate)
 
 ---
 
 ### Batch 3: Repository Layer (Protocols & Interfaces)
 
+📋 **Investigation:** [`docs/investigations/phase-3-repository-layer-investigation.md`](../../investigations/phase-3-repository-layer-investigation.md)
+
+**Current State:** 🟡 **30% complete** | ✅ AuthRepository + EquipmentRepository exist | ✅ Async/throws pattern established | ❌ Services vs Repository conflict (dual patterns) | ❌ 5 missing repositories
+
 | ID | Task | Component | Dependencies | Files | Exit Criteria |
 |----|------|-----------|--------------|-------|---------------|
-| T11 | InventoryRepository protocol & DTO | Repositories | T6 | `Repositories/Protocols/InventoryRepository.swift` | fetchInventory(), applyMaterial(), removeMaterial(), replaceMaterial() with proper return types |
-| T12 | EquipmentRepository protocol & DTO | Repositories | T7 | `Repositories/Protocols/EquipmentRepository.swift` | fetchEquipment(), equipItem(), unequipSlot() methods |
-| T13 | CombatRepository protocol | Repositories | T8 | `Repositories/Protocols/CombatRepository.swift` | startCombat(), attack(), defend(), completeCombat() |
-| T14 | LocationRepository protocol | Repositories | T9 | `Repositories/Protocols/LocationRepository.swift` | fetchNearby(), fetchLocation() |
+| T11 | InventoryRepository protocol (PRIORITY) | Repositories | T6 | `Repositories/Protocols/InventoryRepository.swift` | fetchInventory(), applyMaterial(), removeMaterial(), replaceMaterial() |
+| T12 | ✅ EquipmentRepository protocol | Repositories | T7 | `Repositories/EquipmentRepository.swift` | **Already exists** - keep as reference implementation |
+| T13 | CombatRepository protocol (HIGH) | Repositories | T8 | `Repositories/Protocols/CombatRepository.swift` | initiateCombat(), performAttack(), endCombat() |
+| T14 | LocationRepository protocol | Repositories | T9 | `Repositories/Protocols/LocationRepository.swift` | fetchNearby(), getLocationDetails() |
 | T15 | ProfileRepository protocol | Repositories | T10 | `Repositories/Protocols/ProfileRepository.swift` | fetchProfile(), fetchProgression(), claimReward() |
-| T16 | AuthRepository protocol | Repositories | T2 | `Repositories/Protocols/AuthRepository.swift` | registerDevice(), logout(), refresh token methods |
-| T17 | MaterialsRepository protocol | Repositories | T6 | `Repositories/Protocols/MaterialsRepository.swift` | fetchMaterials(), fetchMaterialInventory() |
+| T16 | ✅ AuthRepository protocol | Repositories | T2 | `Repositories/AuthRepository.swift` | **Already exists** - keep as reference |
+| T17 | MaterialsRepository protocol (PRIORITY) | Repositories | T6 | `Repositories/Protocols/MaterialsRepository.swift` | fetchMaterials(), fetchMaterialInventory() |
+
+**Critical Architectural Decision Needed:**
+- 🔴 **Services layer conflict:** AuthService, EquipmentService coexist with Repository pattern
+- **Recommendation:** Deprecate Services layer, consolidate on Repository + ViewModel + Loadable pattern
+- **Impact:** Views must migrate from @StateObject services to @State ViewModels
 
 **Notes:**
-- T11-T17 can run in parallel (all depend on batch 2 models)
-- Each protocol defines the contract, no implementation
-- Return types should use `async throws` pattern
-- Include DTO response types inline (e.g., InventoryResponse with pagination)
+- T11-T17 can run in parallel (all depend on Batch 2 models)
+- ✅ Reuse AuthRepository & EquipmentRepository as reference implementations
+- Each protocol uses `async throws` pattern (fully adopted)
+- Include DTO response types already defined in APIResponses.swift
 
 ---
 
@@ -146,44 +164,68 @@ This is a foundational refactor affecting every screen. Must be implemented meth
 
 ### Batch 5: ViewModel Layer
 
+📋 **Investigation:** [`docs/investigations/phase-5-viewmodel-investigation.md`](../../investigations/phase-5-viewmodel-investigation.md)
+
+**Current State:** 🟡 **Mid-transition** | ✅ EquipmentViewModel (gold standard) | ✅ AuthViewModel (modern pattern) | ⚠️ AppState uses manual loading flags | ❌ 6 missing ViewModels | 🔴 Legacy @Published services still active
+
 | ID | Task | Component | Dependencies | Files | Exit Criteria |
 |----|------|-----------|--------------|-------|---------------|
-| T25 | AppState (global @Observable) | ViewModels | T6, T7 | `ViewModels/AppState.swift` | session, profile, currencyBalances as Loadable<T>, isAuthenticated computed |
-| T26 | InventoryViewModel | ViewModels | T18, T1 | `ViewModels/InventoryViewModel.swift` | items/stacks as Loadable<T>, filters, pagination, loadInventory() |
-| T27 | EquipmentViewModel | ViewModels | T19, T1 | `ViewModels/EquipmentViewModel.swift` | equipment/loadouts as Loadable<T>, equipItem(), unequipSlot() |
-| T28 | MaterialsViewModel | ViewModels | T24, T1 | `ViewModels/MaterialsViewModel.swift` | materialStacks, allMaterials as Loadable<T>, lazy catalog load |
-| T29 | CraftingViewModel | ViewModels | T18, T1 | `ViewModels/CraftingViewModel.swift` | item, appliedMaterials, previewStats, CraftingState enum |
-| T30 | CombatViewModel | ViewModels | T20, T1 | `ViewModels/CombatViewModel.swift` | combatState, dialRotation, petDialogue, enemyDialogue, rewards |
-| T31 | MapViewModel (location tracking) | ViewModels | T21, T1 | `ViewModels/MapViewModel.swift` | NSObject, CLLocationManagerDelegate, userLocation, nearbyLocations |
-| T32 | ProfileViewModel | ViewModels | T22, T1 | `ViewModels/ProfileViewModel.swift` | profile, progression as Loadable<T>, loadProfile(), loadProgression() |
+| T25 | **Enhance AppState** | ViewModels | T6, T7 | `State/AppState.swift` | **Convert to:** profile/currency as Loadable<T> instead of manual flags |
+| T26 | InventoryViewModel | ViewModels | T18, T1 | `ViewModels/InventoryViewModel.swift` | **Follow EquipmentViewModel pattern:** items as Loadable<T>, pagination, async methods |
+| T27 | ✅ EquipmentViewModel | ViewModels | T19, T1 | `ViewModels/EquipmentViewModel.swift` | **Already exists** - GOLD STANDARD reference for new ViewModels |
+| T28 | MaterialsViewModel | ViewModels | T24, T1 | `ViewModels/MaterialsViewModel.swift` | materialStacks, allMaterials as Loadable<T>, async/await pattern |
+| T29 | CraftingViewModel | ViewModels | T18, T1 | `ViewModels/CraftingViewModel.swift` | item, appliedMaterials, previewStats, CraftingState enum, progress tracking |
+| T30 | CombatViewModel (HIGH) | ViewModels | T20, T1 | `ViewModels/CombatViewModel.swift` | combatState, turn management, rewards as Loadable<T> |
+| T31 | MapViewModel (SPECIAL) | ViewModels | T21, T1 | `ViewModels/MapViewModel.swift` | NSObject, CLLocationManagerDelegate, userLocation, >100m debounce |
+| T32 | ProfileViewModel | ViewModels | T22, T1 | `ViewModels/ProfileViewModel.swift` | profile, progression as Loadable<T>, async load methods |
+
+**Critical Migration Notes:**
+- 🟡 AppState exists but uses manual `isAuthenticating`/`authError` instead of Loadable<T>
+- ✅ Use EquipmentViewModel as reference for all new ViewModels
+- 🔴 **Migration Needed:** EquipmentView still uses @StateObject EquipmentService (legacy), should use ViewModel
+- 🔴 **Migration Needed:** SettingsView still uses @EnvironmentObject AuthService (legacy)
 
 **Notes:**
-- T25 first (AppState is a dependency for views)
-- T26-T32 can run in parallel
-- All use @Observable, Loadable<T> for network state
-- All use async/await for network calls
-- T31 (MapViewModel) is special – NSObject subclass, implements CLLocationManagerDelegate
+- T25 must be done first (AppState enhancement blocks modernization)
+- T26-T32 can run in parallel after T25
+- All follow @Observable + Loadable<T> + Repository DI pattern
+- All use async/await (no completion closures)
+- T31 is special - NSObject subclass for CoreLocation integration
 
 ---
 
 ### Batch 6: View Integration & Refactoring
 
+📋 **Investigation:** [`docs/investigations/phase-6-view-integration-investigation.md`](../../investigations/phase-6-view-integration-investigation.md)
+
+**Current State:** 🟡 **Mixed patterns** | ✅ SplashScreenView (gold standard) | ❌ EquipmentView still uses @StateObject service | ❌ CollectionView uses dummy data | ⚠️ Silent error handling in SettingsView
+
 | ID | Task | Component | Dependencies | Files | Exit Criteria |
 |----|------|-----------|--------------|-------|---------------|
-| T33 | Create LoadableView helper component | Utilities | T1 | `Utilities/Helpers/LoadableView.swift` | Generic switch over .idle/.loading/.loaded/.error cases |
-| T34 | Update MysticaApp entry point (DI setup) | App | T25, T3 | `New_MysticaApp.swift` | APIClient token restoration, AppState injection, environment setup |
-| T35 | Refactor InventoryView to use InventoryViewModel | Views | T26, T33 | `Views/Inventory/InventoryView.swift` | Remove direct API calls, use LoadableView helper |
-| T36 | Refactor EquipmentView to use EquipmentViewModel | Views | T27, T33 | `Views/Equipment/EquipmentView.swift` | 8-slot grid, loadout management |
-| T37 | Refactor CraftingSheet to use CraftingViewModel | Views | T29, T33 | `Views/Crafting/CraftingSheet.swift` | 20s blocking call progress, image preview |
-| T38 | Refactor CombatView to use CombatViewModel | Views | T30, T33 | `Views/Combat/CombatView.swift` | Dial mechanics, attack/defend buttons, result screen |
-| T39 | Refactor MapView to use MapViewModel | Views | T31, T33 | `Views/Map/MapView.swift` | Location permissions, marker rendering, >100m debounce |
-| T40 | Refactor ProfileView to use ProfileViewModel | Views | T32, T33 | `Views/Profile/ProfileView.swift` | Profile display, progression tracking, rewards |
+| T33 | Create LoadableView helper | Utilities | T1 | `Utilities/Helpers/LoadableView.swift` | Generic component for switch over .idle/.loading/.loaded/.error cases |
+| T34 | Enhance MysticaApp entry point | App | T25, T3 | `New_MysticaApp.swift` | APIClient token restoration, AppState injection, environment setup |
+| T35 | **Refactor EquipmentView (PRIORITY)** | Views | T27, T33 | `EquipmentView.swift` | **Migrate:** @StateObject EquipmentService → @State EquipmentViewModel |
+| T36 | Create InventoryView | Views | T26, T33 | `Views/Inventory/InventoryView.swift` | Replace dummy CollectionView, use LoadableView, pagination |
+| T37 | Refactor CraftingSheet | Views | T29, T33 | `Views/Crafting/CraftingSheet.swift` | 20s blocking progress, image preview, use ViewModel |
+| T38 | Refactor BattleView | Views | T30, T33 | `Views/Battle/BattleView.swift` | Combat ViewModel integration, dial mechanics, results |
+| T39 | Refactor MapView | Views | T31, T33 | `Views/Map/MapView.swift` | MapViewModel with location services, >100m debounce |
+| T40 | Refactor ProfileView | Views | T32, T33 | `Views/Profile/ProfileView.swift` | Profile/progression display, use LoadableView |
+
+**Gold Standard Examples:**
+- ✅ **SplashScreenView** - Reference for proper async + LoadableView pattern
+- ✅ **EquipmentView error UI** - Reference for comprehensive error handling (before migration to ViewModel)
+
+**Critical View Migrations:**
+- 🔴 **EquipmentView** - Currently uses @StateObject EquipmentService (legacy), must switch to EquipmentViewModel
+- 🔴 **SettingsView** - Uses @EnvironmentObject AuthService with silent error handling
+- 🟡 **CollectionView** - Uses dummy data, needs InventoryViewModel integration
 
 **Notes:**
-- T33 (LoadableView utility) is dependency for all view refactors
-- T34 (App entry point) integrates all layers – do after core is ready
+- T33 (LoadableView) is prerequisite for all view refactors
+- T34 (App entry point) must be done early
 - T35-T40 can run in parallel after T33, T34
-- All views switch from @State direct API to @State ViewModel + dependency injection
+- Use SplashScreenView as pattern reference
+- Replace all @StateObject service usage with @State ViewModel + @Environment AppState
 
 ---
 
@@ -317,7 +359,7 @@ Show generated image + stats preview
 
 **R1: Breaking Existing Code**
 - **Risk:** Refactoring existing views/ViewModels breaks running features
-- **Mitigation:** Do views last (Batch 6), test each refactor in isolation
+- **Mitigation:** Do views last (Batch 6), test each refactor in isolation with ./build.sh. For broken code, use a subagent to diagnose and fix.
 - **Contingency:** Keep old code alongside new code briefly for A/B testing
 
 **R2: CodingKeys Mapping Errors**
@@ -427,29 +469,9 @@ var body: some View {
 
 ---
 
-## Timeline Estimate
-
-| Phase | Duration | Batches | Focus |
-|-------|----------|---------|-------|
-| **Phase 1: Infrastructure** | 2-3 days | 1-3 | Core types, models, protocols |
-| **Phase 2: Implementation** | 3-4 days | 4-5 | Repositories, ViewModels (8 tasks parallel) |
-| **Phase 3: Integration** | 2-3 days | 6-7 | View refactoring, tests, validation |
-| **Total** | **7-10 days** | — | Can be parallelized to 4-5 days with parallel agents |
-
-**Parallelization Potential:**
-- 3 independent Batches 2 tasks can run in parallel (~8 tasks/batch)
-- With 4 agents working simultaneously: **4-5 days total**
-
----
-
 ## Next Steps
 
 1. **User review & approval** – Confirm task breakdown, parallelization strategy, risk assessment
 2. **Execution phase** – Run `/manage-project/implement/execute` to spawn agent batches
-3. **Progress tracking** – Monitor agent-responses/, validate against exit criteria
+3. **Progress tracking** – Monitor agent-responses/, validate against exit criteria with validation agents
 4. **Integration testing** – Verify end-to-end flows once all batches complete
-5. **Documentation** – Update CLAUDE.md with new file structure, patterns for future features
-
----
-
-**Ready to proceed with execution?**
