@@ -86,6 +86,13 @@ export class ItemFactory {
       modifiedStats.defPower += modifier;
     });
 
+    // Normalize stats to sum to 1.0
+    const sum = modifiedStats.atkPower + modifiedStats.atkAccuracy + modifiedStats.defPower + modifiedStats.defAccuracy;
+    modifiedStats.atkPower /= sum;
+    modifiedStats.atkAccuracy /= sum;
+    modifiedStats.defPower /= sum;
+    modifiedStats.defAccuracy /= sum;
+
     // Determine if styled (any non-normal style)
     const isStyled = styleIds.some(styleId => styleId !== 'normal');
 
