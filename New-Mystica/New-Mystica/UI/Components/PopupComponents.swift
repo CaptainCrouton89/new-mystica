@@ -6,7 +6,7 @@ struct ItemDetailPopup: View {
     let isPresented: Binding<Bool>
     
     @State private var isAnimating = false
-    @EnvironmentObject private var audioManager: AudioManager
+    @Environment(\.audioManager) private var audioManager
     
     var body: some View {
         ZStack {
@@ -142,7 +142,7 @@ struct GenericPopup: View {
     let isPresented: Binding<Bool>
     
     @State private var isAnimating = false
-    @EnvironmentObject private var audioManager: AudioManager
+    @Environment(\.audioManager) private var audioManager
     
     var body: some View {
         ZStack {
@@ -250,7 +250,7 @@ struct ActionPopup: View {
     let onAction: () -> Void
     
     @State private var isAnimating = false
-    @EnvironmentObject private var audioManager: AudioManager
+    @Environment(\.audioManager) private var audioManager
     
     var body: some View {
         ZStack {

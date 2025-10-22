@@ -8,8 +8,8 @@
 import SwiftUI
 
 struct CollectionView: View, NavigableView {
-    @EnvironmentObject private var navigationManager: NavigationManager
-    @EnvironmentObject private var audioManager: AudioManager
+    @Environment(\.navigationManager) private var navigationManager
+    @Environment(\.audioManager) private var audioManager
     @Environment(AppState.self) private var appState
     @State private var selectedItem: CollectionItem? = nil
     @State private var showItemPopup = false

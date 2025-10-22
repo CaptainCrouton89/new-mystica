@@ -8,8 +8,8 @@
 import SwiftUI
 
 struct VictoryView: View, NavigableView {
-    @EnvironmentObject private var navigationManager: NavigationManager
-    @EnvironmentObject private var audioManager: AudioManager
+    @Environment(\.navigationManager) private var navigationManager
+    @Environment(\.audioManager) private var audioManager
     @State private var selectedReward: BattleReward? = nil
     @State private var showRewardPopup = false
     
@@ -260,7 +260,7 @@ struct RewardDetailPopup: View {
     let isPresented: Binding<Bool>
     
     @State private var isAnimating = false
-    @EnvironmentObject private var audioManager: AudioManager
+    @Environment(\.audioManager) private var audioManager
     
     var body: some View {
         ZStack {

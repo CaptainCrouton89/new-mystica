@@ -11,12 +11,17 @@ import Foundation
 class APIClient {
     static let shared = APIClient()
 
-    private let baseURL = "https://api.mystica.world"
+    // Use configurable base URL (supports environment variable override)
+    private let baseURL = APIConfig.baseURL
     private var authToken: String?
 
     private init() {
         // Load auth token from keychain on initialization
         self.authToken = KeychainService.get(key: "mystica_access_token")
+
+        if APIConfig.enableNetworkLogging {
+            print("🌐 APIClient initialized with baseURL: \(baseURL)")
+        }
     }
 
     // MARK: - Public Interface
@@ -89,14 +94,25 @@ class APIClient {
 
     private func executeRequest<T: Decodable>(_ request: URLRequest) async throws -> T {
         do {
+            if APIConfig.enableNetworkLogging {
+                print("📤 [\(request.httpMethod ?? "GET")] \(request.url?.absoluteString ?? "unknown")")
+            }
+
             let (data, response) = try await URLSession.shared.data(for: request)
 
             guard let httpResponse = response as? HTTPURLResponse else {
                 throw AppError.invalidResponse
             }
 
+            if APIConfig.enableNetworkLogging {
+                print("📥 Response: \(httpResponse.statusCode)")
+            }
+
             guard (200...299).contains(httpResponse.statusCode) else {
                 let message = String(data: data, encoding: .utf8)
+                if APIConfig.enableNetworkLogging {
+                    print("❌ Server error: \(httpResponse.statusCode) - \(message ?? "no message")")
+                }
                 throw AppError.serverError(httpResponse.statusCode, message)
             }
 
@@ -106,10 +122,20 @@ class APIClient {
             do {
                 return try decoder.decode(T.self, from: data)
             } catch {
+                if APIConfig.enableNetworkLogging {
+                    print("❌ Decoding error: \(error.localizedDescription)")
+                }
                 throw AppError.decodingError(error.localizedDescription)
             }
         } catch {
+            if APIConfig.enableNetworkLogging && !isAppError(error) {
+                print("❌ Request error: \(error.localizedDescription)")
+            }
             throw AppError.from(error)
         }
+    }
+
+    private func isAppError(_ error: Error) -> Bool {
+        return error is AppError
     }
 }

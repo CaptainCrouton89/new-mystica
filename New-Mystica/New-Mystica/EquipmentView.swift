@@ -216,8 +216,8 @@ struct StatItemView: View {
 
 // MARK: - Main Equipment View
 struct EquipmentView: View {
-    @EnvironmentObject private var navigationManager: NavigationManager
-    @EnvironmentObject private var audioManager: AudioManager
+    @Environment(\.navigationManager) private var navigationManager
+    @Environment(\.audioManager) private var audioManager
     @Environment(AppState.self) private var appState
     @State private var viewModel = EquipmentViewModel()
     @State private var selectedItem: PlayerItem?

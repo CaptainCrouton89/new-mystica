@@ -14,7 +14,7 @@ final class AuthViewModel {
     let appState: AppState
     let repository: AuthRepository
 
-    init(appState: AppState, repository: AuthRepository = AuthRepositoryImpl()) {
+    init(appState: AppState, repository: AuthRepository = DefaultAuthRepository()) {
         self.appState = appState
         self.repository = repository
     }

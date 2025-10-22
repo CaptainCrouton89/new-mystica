@@ -8,8 +8,8 @@
 import SwiftUI
 
 struct BattleView: View {
-    @EnvironmentObject private var navigationManager: NavigationManager
-    @EnvironmentObject private var audioManager: AudioManager
+    @Environment(\.navigationManager) private var navigationManager
+    @Environment(\.audioManager) private var audioManager
     @Environment(AppState.self) private var appState
     @State private var viewModel = CombatViewModel()
 
@@ -43,8 +43,8 @@ struct BattleView: View {
                 }
 
                 // Rewards overlay
-                if let rewards = viewModel.rewards {
-                    rewardsOverlay(rewards: rewards)
+                if case .loaded = viewModel.rewards {
+                    rewardsOverlay(rewards: viewModel.rewards)
                 }
             }
         }
@@ -437,7 +437,7 @@ struct BattleView: View {
     private func combatControlsSection(session: CombatSession) -> some View {
         VStack(spacing: 16) {
             // Action status
-            if viewModel.actionInProgress {
+            if viewModel.isLoading {
                 NormalText("Processing action...", size: 14)
                     .foregroundColor(Color.textSecondary)
             } else if viewModel.combatEnded {
@@ -483,7 +483,7 @@ struct BattleView: View {
                 }
             } else {
                 // Combat ended - show retreat option or wait for rewards
-                if viewModel.rewards == nil {
+                if case .idle = viewModel.rewards {
                     TextButton("End Combat") {
                         Task {
                             await viewModel.endCombat(won: viewModel.playerWon)

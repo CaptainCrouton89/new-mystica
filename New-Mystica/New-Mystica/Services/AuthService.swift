@@ -34,7 +34,7 @@ enum AuthError: LocalizedError {
 class AuthService: ObservableObject {
     static let shared = AuthService()
 
-    private let baseURL = "http://localhost:3000/api/v1"
+    private let baseURL = APIConfig.baseURL
 
     @Published var isAuthenticated: Bool = false
     @Published var currentUser: User? = nil

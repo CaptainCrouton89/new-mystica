@@ -122,7 +122,7 @@ struct MaterialSelectionModal: View {
     let onSelect: (MaterialTemplate) -> Void
     let onDismiss: () -> Void
 
-    @EnvironmentObject private var audioManager: AudioManager
+    @Environment(\.audioManager) private var audioManager
 
     var body: some View {
         ZStack {
@@ -240,7 +240,7 @@ struct CraftingSuccessView: View {
     let item: EnhancedPlayerItem
     let onDismiss: () -> Void
 
-    @EnvironmentObject private var audioManager: AudioManager
+    @Environment(\.audioManager) private var audioManager
 
     var body: some View {
         VStack(spacing: 20) {
@@ -363,8 +363,8 @@ struct CraftingSheet: View {
     let item: EnhancedPlayerItem
     let onDismiss: () -> Void
 
-    @EnvironmentObject private var navigationManager: NavigationManager
-    @EnvironmentObject private var audioManager: AudioManager
+    @Environment(\.navigationManager) private var navigationManager
+    @Environment(\.audioManager) private var audioManager
     @State private var showMaterialSelection = false
     @State private var showSuccessResult = false
 
@@ -408,7 +408,7 @@ struct CraftingSheet: View {
                         showMaterialSelection = false
                         Task {
                             await viewModel.applyMaterial(materialId: material.id, styleId: material.styleId)
-                            if case .success(let updatedItem) = viewModel.craftingState {
+                            if case .loaded(let updatedItem) = viewModel.craftingProgress {
                                 showSuccessResult = true
                             }
                         }
@@ -420,7 +420,7 @@ struct CraftingSheet: View {
             }
 
             // Success result overlay
-            if showSuccessResult, case .success(let updatedItem) = viewModel.craftingState {
+            if showSuccessResult, case .loaded(let updatedItem) = viewModel.craftingProgress {
                 CraftingSuccessView(
                     item: updatedItem,
                     onDismiss: {
@@ -431,7 +431,7 @@ struct CraftingSheet: View {
             }
 
             // Error overlay
-            if case .error(let error) = viewModel.craftingState {
+            if case .error(let error) = viewModel.craftingProgress {
                 craftingErrorView(error: error)
             }
         }
@@ -661,7 +661,7 @@ struct CraftingSheet: View {
 
                     TextButton("Retry", height: 44) {
                         audioManager.playMenuButtonClick()
-                        viewModel.craftingState = .idle
+                        viewModel.craftingProgress = .idle
                         showMaterialSelection = true
                     }
                     .frame(maxWidth: .infinity)

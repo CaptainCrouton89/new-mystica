@@ -7,7 +7,7 @@ struct AnimatedPopup<Content: View>: View {
     let content: () -> Content
     
     @State private var isAnimating = false
-    @EnvironmentObject private var audioManager: AudioManager
+    @Environment(\.audioManager) private var audioManager
     
     init(isPresented: Binding<Bool>, @ViewBuilder content: @escaping () -> Content) {
         self.isPresented = isPresented

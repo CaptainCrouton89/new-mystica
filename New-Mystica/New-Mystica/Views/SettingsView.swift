@@ -5,13 +5,21 @@
 //  Settings page with logout functionality
 //  Uses SimpleNavigableView pattern with confirmation alert
 //
+//  DESIGN DECISION: No ViewModel Pattern
+//  Rationale:
+//  - Simple UI with only logout functionality and minimal state
+//  - No complex business logic or data transformation required
+//  - Direct service injection is appropriate for this straightforward use case
+//  - MVVM pattern would add unnecessary complexity without benefits
+//
 
 import SwiftUI
 import SwiftData
 
 struct SettingsView: View {
-    @EnvironmentObject var authService: AuthService
-    @EnvironmentObject var navigationManager: NavigationManager
+    @Environment(AppState.self) private var appState
+    @State private var authViewModel = AuthViewModel(appState: AppState.shared)
+    @Environment(\.navigationManager) private var navigationManager
 
     @State private var showingLogoutAlert = false
 
@@ -55,14 +63,8 @@ struct SettingsView: View {
             }
             Button("Logout", role: .destructive) {
                 Task {
-                    do {
-                        try await authService.logout()
-                        navigationManager.navigateTo(.map)
-                    } catch {
-                        // Handle errors silently for MVP0
-                        // Still navigate to map even if logout fails
-                        navigationManager.navigateTo(.map)
-                    }
+                    await authViewModel.logout()
+                    navigationManager.navigateTo(.map)
                 }
             }
         } message: {

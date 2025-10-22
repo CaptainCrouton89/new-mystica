@@ -327,61 +327,30 @@ struct PlayerInfoHeaderView: View {
 // MARK: - Main Profile View
 struct ProfileView: View {
     @Environment(AppState.self) private var appState
-    @EnvironmentObject private var audioManager: AudioManager
-    @State private var viewModel = ProfileViewModel()
+    @Environment(\.audioManager) private var audioManager
+    @State private var viewModel: ProfileViewModel
+
+    init() {
+        // Initialize ViewModel with AppState dependency
+        self.viewModel = ProfileViewModel(appState: AppState.shared)
+    }
 
     var body: some View {
         BaseView(title: "Profile") {
-            ZStack {
-                if viewModel.isLoading && !viewModel.isFullyLoaded {
-                    // Initial loading state
-                    VStack(spacing: 16) {
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: Color.accent))
-                            .scaleEffect(1.2)
-
-                        NormalText("Loading profile...")
-                            .foregroundColor(Color.textSecondary)
+            LoadableView(appState.userProfile) { profile in
+                ScrollView {
+                    LazyVStack(spacing: 20) {
+                        profileContent
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else if viewModel.hasError && !viewModel.isFullyLoaded {
-                    // Error state when no data is loaded
-                    VStack(spacing: 20) {
-                        Image(systemName: "exclamationmark.triangle")
-                            .font(.system(size: 48, weight: .medium))
-                            .foregroundColor(Color.accent)
-
-                        VStack(spacing: 8) {
-                            TitleText("Unable to load profile", size: 24)
-                                .foregroundColor(Color.textPrimary)
-
-                            NormalText("Please check your connection and try again")
-                                .foregroundColor(Color.textSecondary)
-                                .multilineTextAlignment(.center)
-                        }
-
-                        TextButton("Retry") {
-                            audioManager.playMenuButtonClick()
-                            Task {
-                                await viewModel.refreshProfile()
-                            }
-                        }
-                        .frame(maxWidth: 200)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    .padding(.horizontal, 32)
-                } else {
-                    // Main content
-                    ScrollView {
-                        LazyVStack(spacing: 20) {
-                            profileContent
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 16)
-                    }
-                    .refreshable {
-                        await viewModel.refreshProfile()
-                    }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 16)
+                }
+                .refreshable {
+                    await viewModel.refreshProfile()
+                }
+            } retry: {
+                Task {
+                    await viewModel.refreshProfile()
                 }
             }
         }
@@ -395,7 +364,7 @@ struct ProfileView: View {
     @ViewBuilder
     private var profileContent: some View {
         // Player Info Header
-        LoadableView(viewModel.profile) { profile in
+        LoadableView(appState.userProfile) { profile in
             PlayerInfoHeaderView(profile: profile)
         }
 
@@ -405,7 +374,7 @@ struct ProfileView: View {
         }
 
         // Profile Stats
-        LoadableView(viewModel.profile) { profile in
+        LoadableView(appState.userProfile) { profile in
             ProfileStatsView(
                 profile: profile,
                 progression: viewModel.progression.value

@@ -8,7 +8,7 @@ struct IconButton: View {
     let isDisabled: Bool
     
     @State private var isPressed = false
-    @EnvironmentObject private var audioManager: AudioManager
+    @Environment(\.audioManager) private var audioManager
     
     init(icon: String, size: CGFloat = 44, isDisabled: Bool = false, action: @escaping () -> Void) {
         self.icon = icon
@@ -56,7 +56,7 @@ struct TextButton: View {
     let isDisabled: Bool
     
     @State private var isPressed = false
-    @EnvironmentObject private var audioManager: AudioManager
+    @Environment(\.audioManager) private var audioManager
     
     init(_ title: String, height: CGFloat = 48, isDisabled: Bool = false, action: @escaping () -> Void) {
         self.title = title
@@ -100,7 +100,7 @@ struct BackButton: View {
     let isDisabled: Bool
     
     @State private var isPressed = false
-    @EnvironmentObject private var audioManager: AudioManager
+    @Environment(\.audioManager) private var audioManager
     
     init(size: CGFloat = 40, isDisabled: Bool = false, action: @escaping () -> Void) {
         self.size = size

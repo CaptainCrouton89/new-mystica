@@ -22,7 +22,7 @@ extension NavigableView {
 
 // MARK: - BaseView Wrapper
 struct BaseView<Content: View>: View {
-    @EnvironmentObject private var navigationManager: NavigationManager
+    @Environment(\.navigationManager) private var navigationManager
     let content: Content
     let navigationTitle: String
     let showBackButton: Bool
@@ -87,7 +87,7 @@ struct BaseView<Content: View>: View {
 
 // MARK: - Simple Navigable View
 struct SimpleNavigableView<Content: View>: View, NavigableView {
-    @EnvironmentObject private var navigationManager: NavigationManager
+    @Environment(\.navigationManager) private var navigationManager
     
     let navigationTitle: String
     let showBackButton: Bool
@@ -138,7 +138,7 @@ extension View {
 
 // MARK: - Back Button Modifier
 struct BackButtonModifier: ViewModifier {
-    @EnvironmentObject private var navigationManager: NavigationManager
+    @Environment(\.navigationManager) private var navigationManager
     let customAction: (() -> Void)?
     
     func body(content: Content) -> some View {

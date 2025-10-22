@@ -15,14 +15,13 @@ struct SplashScreenView: View {
     @State private var errorMessage: String?
     @State private var authViewModel = AuthViewModel(appState: AppState.shared)
     @State private var equipmentViewModel = EquipmentViewModel()
-    @EnvironmentObject private var navigationManager: NavigationManager
-    @EnvironmentObject private var audioManager: AudioManager
+    @Environment(\.navigationManager) private var navigationManager
+    @Environment(\.audioManager) private var audioManager
     @Environment(AppState.self) private var appState
     
     var body: some View {
         if isActive {
             ContentView()
-                .environmentObject(navigationManager)
                 .environmentObject(audioManager)
         } else {
             ZStack {

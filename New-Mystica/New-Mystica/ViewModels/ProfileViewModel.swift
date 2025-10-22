@@ -14,7 +14,6 @@ final class ProfileViewModel {
     let appState: AppState
 
     // MARK: - State
-    var profile: Loadable<EnhancedUserProfile> = .idle
     var progression: Loadable<PlayerProgression> = .idle
     var careerStats: PlayerCareerStats?
 
@@ -31,21 +30,16 @@ final class ProfileViewModel {
     // MARK: - Public Methods
 
     func loadProfile() async {
-        profile = .loading
+        appState.setProfileLoading()
 
         do {
             let userProfile = try await repository.fetchProfile()
-            profile = .loaded(userProfile)
-
-            // Update AppState with profile
             appState.setProfile(userProfile)
 
         } catch let error as AppError {
-            profile = .error(error)
             appState.setProfileError(error)
         } catch {
             let appError = AppError.unknown(error)
-            profile = .error(appError)
             appState.setProfileError(appError)
         }
     }
@@ -161,36 +155,42 @@ final class ProfileViewModel {
         return !unclaimedRewards.isEmpty
     }
 
-    var totalGoldBalance: Int {
-        if case .loaded(let userProfile) = profile {
-            return userProfile.gold
-        }
-        return appState.getCurrencyBalance(for: .gold)
-    }
+    // MARK: - Currency Access
+    //
+    // DECISION: AppState.currencies is the single source of truth for currency balances
+    //
+    // Rationale:
+    // - Backend treats profile.gold and currencies/balance as the same data (ProfileService.fetchProfile()
+    //   sets profile.gold from the currencies system)
+    // - All other views (InventoryView, CollectionView) consistently use appState.getCurrencyBalance()
+    // - ProfileView now uses appState.currencies directly via CurrencyBalanceView component
+    // - This eliminates dual-source confusion and ensures UI consistency across the app
+    //
+    // Note: Profile.gold field exists for API completeness but is not the authoritative source
 
     var vanityLevel: Int {
-        if case .loaded(let userProfile) = profile {
+        if case .loaded(let userProfile) = appState.userProfile {
             return userProfile.vanityLevel
         }
         return 1
     }
 
     var accountType: AccountType {
-        if case .loaded(let userProfile) = profile {
+        if case .loaded(let userProfile) = appState.userProfile {
             return userProfile.accountType
         }
         return .anonymous
     }
 
     var username: String? {
-        if case .loaded(let userProfile) = profile {
+        if case .loaded(let userProfile) = appState.userProfile {
             return userProfile.username
         }
         return nil
     }
 
     var totalStats: ItemStats? {
-        if case .loaded(let userProfile) = profile {
+        if case .loaded(let userProfile) = appState.userProfile {
             return userProfile.totalStats
         }
         return nil
@@ -229,7 +229,7 @@ final class ProfileViewModel {
 
     // Profile status checks
     var isProfileLoaded: Bool {
-        if case .loaded = profile { return true }
+        if case .loaded = appState.userProfile { return true }
         return false
     }
 
@@ -243,13 +243,13 @@ final class ProfileViewModel {
     }
 
     var isLoading: Bool {
-        if case .loading = profile { return true }
+        if case .loading = appState.userProfile { return true }
         if case .loading = progression { return true }
         return false
     }
 
     var hasError: Bool {
-        if case .error = profile { return true }
+        if case .error = appState.userProfile { return true }
         if case .error = progression { return true }
         return false
     }

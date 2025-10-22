@@ -13,7 +13,7 @@ final class EquipmentViewModel {
     let repository: EquipmentRepository
     var equipment: Loadable<[Equipment]> = .idle
 
-    init(repository: EquipmentRepository = EquipmentRepositoryImpl()) {
+    init(repository: EquipmentRepository = DefaultEquipmentRepository()) {
         self.repository = repository
     }
 

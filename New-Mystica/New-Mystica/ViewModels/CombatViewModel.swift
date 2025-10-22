@@ -14,18 +14,12 @@ final class CombatViewModel {
 
     // MARK: - State
     var combatState: Loadable<CombatSession> = .idle
-    var rewards: Loadable<CombatRewards>?
-    var turnResult: AttackResult?
+    var rewards: Loadable<CombatRewards> = .idle
 
-    // MARK: - Combat Tracking
-    var currentHP: Int = 0
-    var enemyHP: Int = 0
-    var turnHistory: [CombatAction] = []
-
-    // MARK: - UI State
+    // MARK: - UI-Only State (not from server)
+    var turnHistory: [CombatAction] = [] // Local UI history for display
     var selectedAction: CombatActionType?
     var timingScore: Double = 0.0
-    var actionInProgress: Bool = false
 
     init(repository: CombatRepository = DefaultCombatRepository()) {
         self.repository = repository
@@ -35,18 +29,12 @@ final class CombatViewModel {
 
     func startCombat(locationId: String) async {
         combatState = .loading
-        rewards = nil
+        rewards = .idle
         turnHistory = []
-        turnResult = nil
 
         do {
             let session = try await repository.initiateCombat(locationId: locationId, selectedLevel: 1)
             combatState = .loaded(session)
-
-            // Initialize HP values
-            currentHP = Int(session.playerHp ?? Double(session.playerStats.defPower * 10))
-            enemyHP = Int(session.enemyHp ?? Double(session.enemy.stats.defPower * 10))
-
         } catch let error as AppError {
             combatState = .error(error)
         } catch {
@@ -56,11 +44,9 @@ final class CombatViewModel {
 
     func attack(timingScore: Double) async {
         guard case .loaded(let session) = combatState else { return }
-        guard !actionInProgress else { return }
+        guard !isLoading else { return }
 
-        actionInProgress = true
-        defer { actionInProgress = false }
-
+        combatState = .loading
         self.timingScore = timingScore
 
         do {
@@ -69,11 +55,17 @@ final class CombatViewModel {
                 timingScore: timingScore
             )
 
-            // Add to turn history
+            // Add to turn history for UI display
             turnHistory.append(action)
 
-            // In MVP0, we'd need to manually check HP and determine combat end
-            // For now, assuming combat continues until manual end
+            // Refetch combat state to get updated HP values
+            let updatedSession = try await repository.fetchCombatSession(sessionId: session.sessionId)
+            combatState = .loaded(updatedSession)
+
+            // Check if combat ended and trigger rewards
+            if updatedSession.status != .active && updatedSession.status != .ongoing {
+                await fetchRewards(sessionId: session.sessionId, won: playerWon)
+            }
 
         } catch let error as AppError {
             combatState = .error(error)
@@ -84,11 +76,9 @@ final class CombatViewModel {
 
     func defend(timingScore: Double) async {
         guard case .loaded(let session) = combatState else { return }
-        guard !actionInProgress else { return }
+        guard !isLoading else { return }
 
-        actionInProgress = true
-        defer { actionInProgress = false }
-
+        combatState = .loading
         self.timingScore = timingScore
 
         do {
@@ -97,11 +87,17 @@ final class CombatViewModel {
                 timingScore: timingScore
             )
 
-            // Add to turn history
+            // Add to turn history for UI display
             turnHistory.append(action)
 
-            // In MVP0, we'd need to manually check HP and determine combat end
-            // For now, assuming combat continues until manual end
+            // Refetch combat state to get updated HP values
+            let updatedSession = try await repository.fetchCombatSession(sessionId: session.sessionId)
+            combatState = .loaded(updatedSession)
+
+            // Check if combat ended and trigger rewards
+            if updatedSession.status != .active && updatedSession.status != .ongoing {
+                await fetchRewards(sessionId: session.sessionId, won: playerWon)
+            }
 
         } catch let error as AppError {
             combatState = .error(error)
@@ -112,15 +108,18 @@ final class CombatViewModel {
 
     func endCombat(won: Bool) async {
         guard case .loaded(let session) = combatState else { return }
+        await fetchRewards(sessionId: session.sessionId, won: won)
+    }
+
+    private func fetchRewards(sessionId: String, won: Bool) async {
+        rewards = .loading
 
         do {
             let combatRewards = try await repository.completeCombat(
-                sessionId: session.sessionId,
+                sessionId: sessionId,
                 won: won
             )
-
             rewards = .loaded(combatRewards)
-
         } catch let error as AppError {
             rewards = .error(error)
         } catch {
@@ -135,27 +134,23 @@ final class CombatViewModel {
 
     func claimRewards() async {
         // Mark rewards as claimed and reset combat state
-        rewards = nil
+        rewards = .idle
         combatState = .idle
         resetCombatState()
     }
 
     func resetCombat() {
         combatState = .idle
-        rewards = nil
+        rewards = .idle
         resetCombatState()
     }
 
     // MARK: - Private Methods
 
     private func resetCombatState() {
-        turnResult = nil
-        currentHP = 0
-        enemyHP = 0
         turnHistory = []
         selectedAction = nil
         timingScore = 0.0
-        actionInProgress = false
     }
 
     private func handleCombatEnd(status: CombatStatus, sessionId: String) async {
@@ -173,7 +168,7 @@ final class CombatViewModel {
     }
 
     var canAct: Bool {
-        return isInCombat && !actionInProgress
+        return isInCombat && !isLoading
     }
 
     var combatEnded: Bool {
@@ -203,14 +198,16 @@ final class CombatViewModel {
 
     var playerHPPercentage: Double {
         guard let session = getCurrentSession(),
-              let maxHP = session.playerHp else { return 0.0 }
-        return Double(currentHP) / maxHP
+              let currentHP = session.playerHp,
+              let maxHP = getPlayerMaxHP(session: session) else { return 0.0 }
+        return currentHP / maxHP
     }
 
     var enemyHPPercentage: Double {
         guard let session = getCurrentSession(),
-              let maxHP = session.enemyHp else { return 0.0 }
-        return Double(enemyHP) / maxHP
+              let currentHP = session.enemyHp,
+              let maxHP = getEnemyMaxHP(session: session) else { return 0.0 }
+        return currentHP / maxHP
     }
 
     private func getCurrentSession() -> CombatSession? {
@@ -226,5 +223,39 @@ final class CombatViewModel {
 
     var recentActions: [CombatAction] {
         return Array(turnHistory.suffix(5)) // Show last 5 actions
+    }
+
+    // MARK: - Computed Properties for HP
+
+    var currentHP: Int {
+        guard let session = getCurrentSession(),
+              let hp = session.playerHp else {
+            return 0
+        }
+        return Int(hp)
+    }
+
+    var enemyHP: Int {
+        guard let session = getCurrentSession(),
+              let hp = session.enemyHp else {
+            return 0
+        }
+        return Int(hp)
+    }
+
+    var isLoading: Bool {
+        return combatState.isLoading || rewards.isLoading
+    }
+
+    // MARK: - Helper Methods
+
+    private func getPlayerMaxHP(session: CombatSession) -> Double? {
+        // Use initial HP calculation as max HP (this could be stored in session later)
+        return Double(session.playerStats.defPower * 10)
+    }
+
+    private func getEnemyMaxHP(session: CombatSession) -> Double? {
+        // Use initial HP calculation as max HP (this could be stored in session later)
+        return Double(session.enemy.stats.defPower * 10)
     }
 }

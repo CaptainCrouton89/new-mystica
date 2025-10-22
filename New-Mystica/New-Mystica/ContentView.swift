@@ -10,11 +10,12 @@ import SwiftData
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
-    @EnvironmentObject private var navigationManager: NavigationManager
+    @Environment(\.navigationManager) private var navigationManager
     @Query private var items: [Item]
+    @State private var navigationPath = NavigationPath()
 
     var body: some View {
-        NavigationStack(path: $navigationManager.navigationPath) {
+        NavigationStack(path: $navigationPath) {
             MainMenuView()
                 .navigationDestination(for: NavigationDestination.self) { destination in
                     destinationView(for: destination)

@@ -34,7 +34,7 @@ enum EquipmentError: LocalizedError {
 class EquipmentService: ObservableObject {
     static let shared = EquipmentService()
 
-    private let baseURL = "http://localhost:3000/api/v1"
+    private let baseURL = APIConfig.baseURL
 
     @Published var equipment: Equipment?
     @Published var isLoading: Bool = false

@@ -233,14 +233,3 @@ class AudioManager: ObservableObject {
     }
 }
 
-// MARK: - Audio Manager Environment Key
-struct AudioManagerKey: EnvironmentKey {
-    static let defaultValue = AudioManager.shared
-}
-
-extension EnvironmentValues {
-    var audioManager: AudioManager {
-        get { self[AudioManagerKey.self] }
-        set { self[AudioManagerKey.self] = newValue }
-    }
-}

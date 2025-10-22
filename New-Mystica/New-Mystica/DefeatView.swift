@@ -8,8 +8,8 @@
 import SwiftUI
 
 struct DefeatView: View, NavigableView {
-    @EnvironmentObject private var navigationManager: NavigationManager
-    @EnvironmentObject private var audioManager: AudioManager
+    @Environment(\.navigationManager) private var navigationManager
+    @Environment(\.audioManager) private var audioManager
     
     var navigationTitle: String { "Defeat" }
     var showBackButton: Bool { false } // Cannot go back to battle

@@ -11,7 +11,7 @@ import SwiftUI
 
 // Method 1: Using NavigableView Protocol (Recommended for complex views)
 struct ExampleSettingsView: View, NavigableView {
-    @EnvironmentObject private var navigationManager: NavigationManager
+    @Environment(\.navigationManager) private var navigationManager
 
     var navigationTitle: String { "Settings" }
 
@@ -40,7 +40,7 @@ struct ExampleSettingsView: View, NavigableView {
 
 // Method 2: Using the withNavigation modifier (Quick and easy)
 struct ExampleInventoryView: View {
-    @EnvironmentObject private var navigationManager: NavigationManager
+    @Environment(\.navigationManager) private var navigationManager
 
     var body: some View {
         VStack(spacing: 20) {
@@ -58,7 +58,7 @@ struct ExampleInventoryView: View {
 
 // Method 4: Custom back action (for special navigation needs)
 struct GameView: View, NavigableView {
-    @EnvironmentObject private var navigationManager: NavigationManager
+    @Environment(\.navigationManager) private var navigationManager
     
     var navigationTitle: String { "Game" }
     var customBackAction: (() -> Void)? {
@@ -86,7 +86,7 @@ struct GameView: View, NavigableView {
 
 // Method 5: No back button (for views that shouldn't have one)
 struct SplashView: View, NavigableView {
-    @EnvironmentObject private var navigationManager: NavigationManager
+    @Environment(\.navigationManager) private var navigationManager
     
     var navigationTitle: String { "Loading" }
     var showBackButton: Bool { false }

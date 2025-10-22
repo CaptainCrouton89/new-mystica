@@ -16,19 +16,13 @@ final class CraftingViewModel {
     var item: EnhancedPlayerItem?
     var appliedMaterials: [ItemMaterialApplication] = []
     var previewStats: ItemStats?
-    var craftingState: CraftingState = .idle
+    var craftingProgress: Loadable<EnhancedPlayerItem> = .idle
     var progress: Double = 0.0
 
     // MARK: - UI State
     var selectedMaterialSlot: Int = 0
     var availableMaterials: [MaterialTemplate] = []
 
-    enum CraftingState {
-        case idle
-        case applying
-        case success(EnhancedPlayerItem)
-        case error(AppError)
-    }
 
     init(repository: InventoryRepository = DefaultInventoryRepository()) {
         self.repository = repository
@@ -40,14 +34,14 @@ final class CraftingViewModel {
         self.item = selectedItem
         self.appliedMaterials = selectedItem.appliedMaterials
         self.previewStats = selectedItem.computedStats
-        self.craftingState = .idle
+        self.craftingProgress = .idle
         self.progress = 0.0
     }
 
     func applyMaterial(materialId: String, styleId: String) async {
         guard let currentItem = item else { return }
 
-        craftingState = .applying
+        craftingProgress = .loading
         progress = 0.0
 
         // Simulate 20-second blocking progress
@@ -64,19 +58,19 @@ final class CraftingViewModel {
             self.item = updatedItem
             self.appliedMaterials = updatedItem.appliedMaterials
             self.previewStats = updatedItem.computedStats
-            self.craftingState = .success(updatedItem)
+            self.craftingProgress = .loaded(updatedItem)
 
         } catch let error as AppError {
-            craftingState = .error(error)
+            craftingProgress = .error(error)
         } catch {
-            craftingState = .error(.unknown(error))
+            craftingProgress = .error(.unknown(error))
         }
     }
 
     func removeMaterial(at slotIndex: Int) async {
         guard let currentItem = item else { return }
 
-        craftingState = .applying
+        craftingProgress = .loading
         progress = 0.0
 
         do {
@@ -88,19 +82,19 @@ final class CraftingViewModel {
             self.item = updatedItem
             self.appliedMaterials = updatedItem.appliedMaterials
             self.previewStats = updatedItem.computedStats
-            self.craftingState = .success(updatedItem)
+            self.craftingProgress = .loaded(updatedItem)
 
         } catch let error as AppError {
-            craftingState = .error(error)
+            craftingProgress = .error(error)
         } catch {
-            craftingState = .error(.unknown(error))
+            craftingProgress = .error(.unknown(error))
         }
     }
 
     func replaceMaterial(at slotIndex: Int, with newMaterialId: String) async {
         guard let currentItem = item else { return }
 
-        craftingState = .applying
+        craftingProgress = .loading
         progress = 0.0
 
         // Simulate 20-second blocking progress
@@ -116,12 +110,12 @@ final class CraftingViewModel {
             self.item = updatedItem
             self.appliedMaterials = updatedItem.appliedMaterials
             self.previewStats = updatedItem.computedStats
-            self.craftingState = .success(updatedItem)
+            self.craftingProgress = .loaded(updatedItem)
 
         } catch let error as AppError {
-            craftingState = .error(error)
+            craftingProgress = .error(error)
         } catch {
-            craftingState = .error(.unknown(error))
+            craftingProgress = .error(.unknown(error))
         }
     }
 
@@ -141,7 +135,7 @@ final class CraftingViewModel {
         item = nil
         appliedMaterials = []
         previewStats = nil
-        craftingState = .idle
+        craftingProgress = .idle
         progress = 0.0
         selectedMaterialSlot = 0
     }
@@ -164,12 +158,7 @@ final class CraftingViewModel {
 
     var canApplyMaterial: Bool {
         guard item != nil else { return false }
-        switch craftingState {
-        case .applying:
-            return false
-        default:
-            return true
-        }
+        return !craftingProgress.isLoading
     }
 
     var hasAppliedMaterials: Bool {
@@ -184,12 +173,7 @@ final class CraftingViewModel {
     }
 
     var isProcessing: Bool {
-        switch craftingState {
-        case .applying:
-            return true
-        default:
-            return false
-        }
+        return craftingProgress.isLoading
     }
 
     var progressPercentage: Int {

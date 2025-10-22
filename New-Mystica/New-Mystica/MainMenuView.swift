@@ -8,9 +8,9 @@
 import SwiftUI
 
 struct MainMenuView: View {
-    @EnvironmentObject private var navigationManager: NavigationManager
-    @EnvironmentObject private var audioManager: AudioManager
-    @EnvironmentObject private var backgroundImageManager: BackgroundImageManager
+    @Environment(\.navigationManager) private var navigationManager
+    @Environment(\.audioManager) private var audioManager
+    @Environment(\.backgroundImageManager) private var backgroundImageManager
 
     var body: some View {
         // Change background style: .aurora, .floatingOrbs, .starfield, or .image(backgroundImageManager)

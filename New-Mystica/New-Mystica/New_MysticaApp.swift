@@ -10,11 +10,10 @@ import SwiftData
 
 @main
 struct New_MysticaApp: App {
-    @StateObject private var navigationManager = NavigationManager()
-    @StateObject private var audioManager = AudioManager.shared
-    @StateObject private var backgroundImageManager = BackgroundImageManager()
-
-    // New architecture - centralized state management
+    // Modern dependency injection - all services managed as Environment values
+    @State private var navigationManager = NavigationManager()
+    @State private var audioManager = AudioManager.shared
+    @State private var backgroundImageManager = BackgroundImageManager()
     @State private var appState = AppState.shared
 
     var sharedModelContainer: ModelContainer = {
@@ -33,9 +32,9 @@ struct New_MysticaApp: App {
     var body: some Scene {
         WindowGroup {
             SplashScreenView()
-                .environmentObject(navigationManager)
-                .environmentObject(audioManager)
-                .environmentObject(backgroundImageManager)
+                .environment(\.navigationManager, navigationManager)
+                .environment(\.audioManager, audioManager)
+                .environment(\.backgroundImageManager, backgroundImageManager)
                 .environment(appState)
                 .onAppear {
                     // Restore auth session on app launch

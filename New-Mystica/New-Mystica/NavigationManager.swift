@@ -171,14 +171,3 @@ class NavigationManager: ObservableObject {
     }
 }
 
-// MARK: - Navigation Manager Environment Key
-struct NavigationManagerKey: EnvironmentKey {
-    static let defaultValue = NavigationManager()
-}
-
-extension EnvironmentValues {
-    var navigationManager: NavigationManager {
-        get { self[NavigationManagerKey.self] }
-        set { self[NavigationManagerKey.self] = newValue }
-    }
-}

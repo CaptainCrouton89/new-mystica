@@ -167,8 +167,8 @@ struct StatValueView: View {
 
 // MARK: - Main Inventory View
 struct InventoryView: View {
-    @EnvironmentObject private var navigationManager: NavigationManager
-    @EnvironmentObject private var audioManager: AudioManager
+    @Environment(\.navigationManager) private var navigationManager
+    @Environment(\.audioManager) private var audioManager
     @Environment(AppState.self) private var appState
     @State private var viewModel = InventoryViewModel()
     @State private var selectedSegment = 0 // 0 = All, 1 = Styled, 2 = Unstyled
