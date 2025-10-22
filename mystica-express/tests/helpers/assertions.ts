@@ -5,7 +5,7 @@
  * Provides reusable assertion functions for testing game logic consistency.
  */
 
-import type { Stats, Item, Material, ItemType } from '../../src/types/api.types.js';
+import type { Stats, Item, Material, ItemType, PlayerItem } from '../../src/types/api.types.js';
 
 // ============================================================================
 // Stats Validation
@@ -104,6 +104,50 @@ export function expectValidItem(item: Item): void {
 }
 
 /**
+ * Assert valid PlayerItem structure (API response format)
+ */
+export function expectValidPlayerItem(playerItem: PlayerItem): void {
+  // Valid UUID format
+  expectValidUUID(playerItem.id);
+
+  // Valid level (minimum 1)
+  expect(playerItem.level).toBeGreaterThanOrEqual(1);
+  expect(playerItem.level).toBeLessThanOrEqual(100);
+
+  // Stats validation
+  expectValidComputedStats(playerItem.computed_stats);
+
+  // ItemType validation
+  expectValidItemType(playerItem.item_type);
+
+  // Valid rarity
+  expectValidRarity(playerItem.rarity);
+
+  // Materials constraint: 0-3 max
+  if (playerItem.applied_materials) {
+    expect(playerItem.applied_materials.length).toBeLessThanOrEqual(3);
+
+    // Each material should have valid slot index
+    for (const material of playerItem.applied_materials) {
+      expect(material.slot_index).toBeGreaterThanOrEqual(0);
+      expect(material.slot_index).toBeLessThanOrEqual(2);
+      expectValidUUID(material.id);
+    }
+
+    // No duplicate slot indices
+    const slotIndices = playerItem.applied_materials.map(m => m.slot_index);
+    const uniqueSlots = new Set(slotIndices);
+    expect(uniqueSlots.size).toBe(slotIndices.length);
+  }
+
+  // is_equipped should be boolean
+  expect(typeof playerItem.is_equipped).toBe('boolean');
+
+  // is_styled should be boolean
+  expect(typeof playerItem.is_styled).toBe('boolean');
+}
+
+/**
  * Assert valid ItemType structure from seed data
  */
 export function expectValidItemType(itemType: ItemType): void {
@@ -141,11 +185,7 @@ export function expectValidMaterial(material: Material): void {
   // Required fields
   expect(material.id).toBeTruthy();
   expect(material.name).toBeTruthy();
-  expect(material.rarity).toBeTruthy();
-
-  // Valid rarity
-  const validRarities = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
-  expect(validRarities).toContain(material.rarity);
+  expect(material.base_drop_weight).toBeGreaterThanOrEqual(0);
 
   // Modifier validation
   expectValidMaterialModifiers(material.stat_modifiers);

@@ -127,9 +127,8 @@ function transformSeedMaterial(seed: SeedMaterial): Material {
   return {
     id: seed.id,
     name: seed.name,
-    rarity: seed.rarity,
     stat_modifiers: seed.stat_modifiers,
-    theme: 'balanced', // Default theme for seed materials
+    base_drop_weight: 1, // Default weight for seed materials
     description: seed.description
   };
 }
@@ -220,10 +219,11 @@ export async function getMaterialById(id: string): Promise<Material | null> {
 
 /**
  * Get materials by rarity level
+ * Note: Materials don't have rarity in the database schema, returning empty array
  */
 export async function getMaterialsByRarity(rarity: Rarity): Promise<Material[]> {
-  const materials = await loadSeededMaterials();
-  return materials.filter(m => m.rarity === rarity);
+  // Materials don't have rarity property in the actual database schema
+  return [];
 }
 
 /**

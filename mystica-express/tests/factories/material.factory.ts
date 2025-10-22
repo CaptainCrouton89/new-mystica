@@ -107,16 +107,16 @@ export class MaterialFactory {
    */
   static createCommonMaterials(): Material[] {
     const commonMaterials = [
-      { id: 'iron', theme: 'metal', description: 'Strong and durable iron ore' },
-      { id: 'wood', theme: 'organic', description: 'Sturdy oak wood' },
-      { id: 'leather', theme: 'organic', description: 'Flexible leather hide' },
-      { id: 'crystal', theme: 'crystal', description: 'Clear quartz crystal' },
-      { id: 'bone', theme: 'organic', description: 'Dense creature bone' },
-      { id: 'steel', theme: 'metal', description: 'Refined steel alloy' }
+      { id: 'iron', themeType: 'metal', description: 'Strong and durable iron ore' },
+      { id: 'wood', themeType: 'organic', description: 'Sturdy oak wood' },
+      { id: 'leather', themeType: 'organic', description: 'Flexible leather hide' },
+      { id: 'crystal', themeType: 'crystal', description: 'Clear quartz crystal' },
+      { id: 'bone', themeType: 'organic', description: 'Dense creature bone' },
+      { id: 'steel', themeType: 'metal', description: 'Refined steel alloy' }
     ];
 
-    return commonMaterials.map(({ id, theme, description }) =>
-      this.create(id, theme, 'normal', { description })
+    return commonMaterials.map(({ id, themeType, description }) =>
+      this.create(id, themeType, 'normal', { description })
     );
   }
 

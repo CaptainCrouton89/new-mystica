@@ -18,7 +18,6 @@ export interface Material {
   description: string;
   stat_modifiers: StatModifiers;
   style_id: string;
-  theme: 'defensive' | 'offensive' | 'balanced' | 'exotic';
 }
 
 export interface MaterialStack {
@@ -28,7 +27,6 @@ export interface MaterialStack {
   quantity: number;
   description: string;
   stat_modifiers: StatModifiers;
-  theme: 'defensive' | 'offensive' | 'balanced' | 'exotic';
 }
 
 /**
@@ -45,7 +43,6 @@ export const IRON_MATERIAL: Material = {
     defAccuracy: -0.25
   },
   style_id: 'normal',
-  theme: 'defensive'
 };
 
 /**
@@ -62,7 +59,6 @@ export const CRYSTAL_MATERIAL: Material = {
     defAccuracy: -0.2
   },
   style_id: 'normal',
-  theme: 'offensive'
 };
 
 /**
@@ -79,7 +75,6 @@ export const PIXEL_ART_MATERIAL: Material = {
     defAccuracy: -0.15
   },
   style_id: 'pixel_art',
-  theme: 'exotic'
 };
 
 /**
@@ -97,7 +92,6 @@ export const MATERIAL_STACK_IRON: MaterialStack = {
     defPower: 0.15,
     defAccuracy: -0.25
   },
-  theme: 'defensive'
 };
 
 /**
