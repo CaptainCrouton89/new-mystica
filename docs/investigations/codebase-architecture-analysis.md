@@ -424,9 +424,7 @@ functional_overview:
 
 implementation_status:
   progress: 40  # Database complete, services stubbed
-  blocked_items:
-    - code: "SCHEMA_MISMATCH"
-      description: "Code uses is_shiny (boolean) but DB uses style_id (UUID)"
+  blocked_items: []
 ```
 
 **Validation System**:
@@ -688,8 +686,6 @@ cd scripts && pnpm generate-image --type "Magic Wand" --materials "wood,crystal"
 **Blocked Items** (from F-04 spec):
 ```yaml
 blocked_items:
-  - code: "SCHEMA_MISMATCH"
-    description: "Code uses is_shiny (boolean) but DB uses style_id (UUID)"
   - code: "MISSING_MATERIAL_LIBRARY_ENDPOINT"
     description: "GET /materials endpoint defined but no implementation"
   - code: "IMAGE_GENERATION_NOT_INTEGRATED"
@@ -776,9 +772,8 @@ blocked_items:
 ### Immediate Priorities
 
 1. **Complete Service Implementation**: Replace `NotImplementedError` with actual business logic
-2. **Fix Schema Mismatches**: Align code with database (`is_shiny` → `style_id`)
-3. **Connect Service Layer**: Wire services to controllers and routes
-4. **Fix Navigation Bug**: Move history addition AFTER navigation
+2. **Connect Service Layer**: Wire services to controllers and routes
+3. **Fix Navigation Bug**: Move history addition AFTER navigation
 
 ### Architecture Improvements
 

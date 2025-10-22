@@ -369,8 +369,9 @@ Composition & Background
       input = {
         prompt: options.prompt,
         aspect_ratio: options.aspectRatio,
-        output_format: options.outputFormat,
-        image_input: options.referenceImages
+        output_format: options.outputFormat
+        // TODO: Add image_input when R2 reference images are uploaded
+        // image_input: options.referenceImages
       };
     } else {
       modelName = 'bytedance/seedream-4';

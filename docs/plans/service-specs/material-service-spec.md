@@ -9,15 +9,6 @@
 
 This specification defines the complete MaterialService and MaterialController implementation for the New Mystica materials system. The service handles material inventory management, application to items, replacement workflows, and integration with the global image generation cache.
 
-### Critical Schema Alignment Issue
-
-**⚠️ SCHEMA MISMATCH IDENTIFIED**: The current codebase has a divergence between the database schema and TypeScript types:
-
-- **Database Schema**: Uses `style_id: UUID` referencing `StyleDefinitions` table
-- **TypeScript Code**: Uses `is_shiny: boolean` in schemas and types
-- **API Contract**: Uses `style_id` correctly
-
-**Resolution Required**: Update all TypeScript code to use `style_id` consistently with the database schema.
 
 ## Service Layer Architecture
 
@@ -335,7 +326,6 @@ private async computeComboHash(itemId: string): Promise<string> {
 }
 ```
 
-**Note**: This requires updating the hash utility to work with `style_id` instead of `is_shiny`.
 
 ### updateItemImageAndStats(itemId: string, comboHash: string, imageUrl?: string)
 
@@ -556,10 +546,8 @@ throw new ExternalServiceError('Image generation failed', originalError);
 ## Implementation Priority
 
 ### Phase 1: Core Service Methods
-1. Fix schema mismatch (is_shiny → style_id) ⚠️ **CRITICAL**
-2. Implement MaterialService.getAllMaterials()
-3. Implement MaterialService.getMaterialInventory()
-4. Update hash utilities for style_id support
+1. Implement MaterialService.getAllMaterials()
+2. Implement MaterialService.getMaterialInventory()
 
 ### Phase 2: Material Application
 1. Implement MaterialService.applyMaterial()

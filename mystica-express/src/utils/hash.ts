@@ -31,8 +31,8 @@ export interface MaterialCombo {
  * @example
  * ```typescript
  * // These produce the same hash:
- * computeComboHash(['wood-uuid', 'crystal-uuid'], ['normal-uuid', 'shiny-uuid']);
- * computeComboHash(['crystal-uuid', 'wood-uuid'], ['shiny-uuid', 'normal-uuid']);
+ * computeComboHash(['wood-uuid', 'crystal-uuid'], ['normal-uuid', 'pixel_art-uuid']);
+ * computeComboHash(['crystal-uuid', 'wood-uuid'], ['pixel_art-uuid', 'normal-uuid']);
  *
  * // Result: "a1b2c3d4e5f6..."
  * ```

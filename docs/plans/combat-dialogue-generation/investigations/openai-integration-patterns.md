@@ -213,7 +213,7 @@ const rawDescriptionSchema = z.object({
 ```typescript
 export interface ImageGenerationRequest {
   item_type_id: string;
-  materials: Array<{ material_id: string; is_shiny: boolean; }>;
+  materials: Array<{ material_id: string; style_id: string; }>;
   style_references?: string[];
 }
 

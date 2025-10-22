@@ -14,7 +14,7 @@ export class InventoryController {
   getInventory = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const userId = req.user!.id;
-      const queryParams = req.validated?.query as InventoryQuery;
+      const queryParams = (req.validated?.query as InventoryQuery) || {};
 
       const result = await inventoryService.getPlayerInventory(userId, {
         slotType: queryParams.slot_type,

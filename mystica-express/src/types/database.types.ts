@@ -2693,6 +2693,10 @@ export type Database = {
         Args: { "": unknown }
         Returns: unknown
       }
+      increment_craft_count: {
+        Args: { cache_id: string }
+        Returns: number
+      }
       init_profile: {
         Args: { p_email: string; p_user_id: string }
         Returns: {

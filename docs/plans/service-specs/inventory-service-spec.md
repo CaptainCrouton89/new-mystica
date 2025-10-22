@@ -141,7 +141,7 @@ Users → UserEquipment → Items (equipped items)
        const baseStats = item.item_type.base_stats_normalized;
        const appliedMaterials = item.materials?.map(m => ({
          material_id: m.material.id,
-         is_shiny: m.material.style_id !== 'normal',
+         style_id: m.material.style_id,
          stat_modifiers: m.material.stat_modifiers
        })) || [];
 
