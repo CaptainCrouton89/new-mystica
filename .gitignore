@@ -32,6 +32,9 @@ dist/
 # Test files
 **/temp-*.js
 **/temp-*.test.js
+test-*.js
+test-*.sh
+*_Report.md
 
 # Additional Environment
 logs/
