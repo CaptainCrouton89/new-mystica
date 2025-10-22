@@ -83,26 +83,25 @@ dependencies:
   data_sources: "Custom users table with device_id field, no Supabase auth.users"
 
 implementation_status:
-  progress: 35  # Auth middleware complete, device registration endpoint needs implementation
+  progress: 90  # Backend substantially complete, frontend Keychain integration only
   completed_components:
     - "JWT authentication middleware (middleware/auth.ts) - reusable for device auth"
     - "User profile infrastructure (users table, profile endpoints)"
     - "Token validation and expiration handling"
     - "Frontend requirements analysis and strategy pivot documentation"
-  in_progress_components:
-    - "AuthController.registerDevice implementation (POST /auth/register-device)"
-    - "Device UUID validation and duplicate detection"
-    - "Anonymous user account creation or retrieval"
-    - "30-day JWT token generation (no refresh token)"
-    - "AuthController.getMe implementation (GET /auth/me)"
-    - "AuthController.logout implementation (POST /auth/logout)"
-    - "Device ID field added to users table and indexed"
+    - "AuthService with device registration and email auth"
+    - "Device UUID validation and race condition handling"
+    - "30-day JWT token generation with no refresh requirement"
+    - "GET /auth/me profile endpoint with currency balances"
+    - "POST /auth/register, POST /auth/login, POST /auth/logout (email auth)"
+  in_progress_components: []
   blocked_items:
-    - "Frontend implementation - waiting for backend device auth completion"
+    - "SwiftUI Keychain integration for token storage (client-only)"
   notes:
+    - "Backend 90% complete. Device registration, email auth, and JWT token generation all working. Client-side Keychain storage is sole remaining work."
     - "MVP0 strategy change: Zero-friction device-based authentication instead of email/password"
     - "Device auth rationale: Instant play without registration barriers, critical for MVP0 user acquisition"
-    - "Backend: Email auth endpoints exist but unused for MVP0 (keep for future email linking)"
+    - "Backend: Email auth endpoints exist and fully implemented (register, login, logout, refresh, reset, resend verification)"
     - "Device limitations: Lose device = lose progress, acceptable tradeoff for MVP0 simplicity"
     - "Security: Device UUID stored securely, 30-day JWT tokens reduce refresh complexity"
     - "Database: users table extended with device_id and account_type fields"

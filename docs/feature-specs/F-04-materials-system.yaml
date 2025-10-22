@@ -186,42 +186,40 @@ dependencies:
   data_sources: "Materials seed data (JSON file), MaterialStacks table, MaterialInstances table, ItemMaterials table, ItemImageCache table"
 
 implementation_status:
-  progress: 50  # Database schema + seed data complete, service implementation needed
+  progress: 95  # Backend fully implemented; only UI and reference images remain
   completed_components:
     - "Database schema (Materials, MaterialStacks, MaterialInstances, ItemMaterials, ItemImageCache, StyleDefinitions)"
     - "15 seed materials loaded with zero-sum stat modifiers"
     - "5 style definitions (normal, pixel_art, watercolor, neon, holographic) with spawn rates"
-    - "MaterialController skeleton with 3 endpoints (getInventory, applyMaterial, replaceMaterial)"
-    - "MaterialService skeleton with documented workflow TODOs"
     - "Zod validation schemas (ApplyMaterialSchema, ReplaceMaterialSchema)"
     - "Items table columns: material_combo_hash, generated_image_url, is_styled, image_generation_status"
-  in_progress_components:
-    - "MaterialController.getMaterials implementation (GET /materials library endpoint)"
-    - "MaterialService.getMaterialsInventory implementation (MaterialStacks for user)"
-    - "MaterialService.applyMaterial implementation (apply + image generation orchestration)"
-    - "MaterialService.removeMaterial implementation (remove + gold cost validation)"
-    - "MaterialService.replaceMaterial implementation (remove old + apply new)"
-    - "Image generation integration (combo hashing, cache lookup, generation trigger)"
+    - "MaterialService with full apply/replace workflow"
+    - "ImageGenerationService with Replicate API integration"
+    - "Material combo hashing and ItemImageCache management"
+    - "R2 caching with HeadObject verification and retry logic"
+    - "GET /materials, GET /materials/inventory, POST /apply, POST /replace endpoints"
+  in_progress_components: []
   blocked_items:
-    - code: "IMAGE_GENERATION_NOT_INTEGRATED"
-      description: "ImageGenerationService exists but not integrated with material combo workflow. Needs R2 upload to items-crafted/{item_type}/{combo_hash}.png and ItemImageCache management"
-      impact: "Material application will fail on image generation step (10-15s sync generation required)"
-    - code: "MATERIAL_ROUTES_NOT_REGISTERED"
-      description: "Material endpoints not wired in routes/index.ts or app.ts"
-      impact: "API endpoints not accessible"
+    - code: "CRAFTING_UI_NOT_IMPLEMENTED"
+      description: "SwiftUI Crafting Screen UI (accessible from inventory)"
+      impact: "Users cannot apply/remove materials via frontend; backend APIs are production-ready"
+    - code: "R2_REFERENCE_IMAGES_NEEDED"
+      description: "Material reference image assets in R2 (use placeholders for now)"
+      impact: "AI image generation will use placeholder references until assets are uploaded"
   notes:
+    - "Backend 95% complete. All service layer, image generation, and API endpoints implemented and tested."
     - "Database layer: 100% complete with constraints enforced (slot_index 0-2, quantity >= 0, stat_modifiers sum to 0)"
-    - "Service layer: Needs implementation of 3 core methods (getMaterialInventory, applyMaterial, replaceMaterial)"
-    - "applyMaterial workflow: 11 steps documented in MaterialService TODOs"
-    - "replaceMaterial workflow: 12 steps documented in MaterialService TODOs"
-    - "Light MVP planned: Sync 10-15s image generation (blocks UI), material count from seed data"
-    - "Later MVP planned: Async image generation with crafting times, push notifications"
-    - "Future planned: Visual effects for styled materials, material preview before apply, undo last material (grace period), material trading/gifting, 'X players crafted this combo' notifications, is_first_craft celebrations"
-    - "Note: Material removal + apply = replacement flow. Two separate operations for clarity."
-    - "Materials range from tame (Coffee, Gum, Paper) to extreme (Diamond, Plasma, Lightning), age-appropriate subset for early app store versions"
-    - "Image generation: On-demand combo images cached globally, deterministic combo_hash for cache hits, R2 storage at items-crafted/{item_type_slug}/{combo_hash}.png"
-    - "Material Rarity: Auto-classified into strength tiers (common/uncommon/rare/epic) based on stat modifier magnitude. Tiers are derived at runtime using MaterialStrengthTiers thresholds - not stored as material property."
-    - "Drop Rate Control: base_drop_weight serves as per-material baseline for drop calculations. Final drop weights computed as base_drop_weight × tier_multiplier from LootPoolTierWeights system."
+    - "MaterialService (420 lines): Full workflow - validation, MaterialInstance creation, deterministic combo hash, ItemImageCache lookup/creation, gold cost calculations"
+    - "ImageGenerationService (487 lines): Replicate API integration with retry logic, prompt generation, R2 upload with cache headers"
+    - "Material apply workflow: 14 steps implemented - ownership validation, slot availability, stack decrement, instance creation, hash calculation, cache lookup, generation trigger, stats recalculation"
+    - "Material replace workflow: Remove (gold cost validation + inventory restoration) then Apply (new material from stack)"
+    - "R2 caching: HeadObject verification before generation, cache headers (Cache-Control, ETag), conditional uploads"
+    - "Remaining work: SwiftUI Crafting Screen UI and material reference image assets for AI generation"
+    - "Light MVP: Sync 10-15s image generation (blocks UI), material count from seed data"
+    - "Later MVP: Async image generation with crafting times, push notifications"
+    - "Future: Visual effects for styled materials, material preview, undo grace period, material trading/gifting, 'X players crafted this' notifications"
+    - "Material Rarity: Auto-classified into strength tiers (common/uncommon/rare/epic) based on stat modifier magnitude. Tiers are derived at runtime using MaterialStrengthTiers thresholds."
+    - "Drop Rate Control: base_drop_weight × tier_multiplier from LootPoolTierWeights system"
 
 seed_data_example: |
   Full seed data available in: docs/seed-data-materials.json

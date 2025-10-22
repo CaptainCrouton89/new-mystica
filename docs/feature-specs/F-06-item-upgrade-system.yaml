@@ -140,14 +140,22 @@ dependencies:
   data_sources: "player_items table, users.gold, users.vanity_level"
 
 implementation_status:
-  progress: 0  # No implementation started
-  completed_components: []
+  progress: 95  # Backend fully implemented
+  completed_components:
+    - "ItemService with upgrade cost calculation and formula"
+    - "Atomic upgrade transactions with gold validation"
+    - "Stat scaling with level via computeItemStatsForLevel()"
+    - "Vanity level calculation and updates"
+    - "GET /items/:id/upgrade-cost, POST /items/:id/upgrade endpoints"
+    - "Item discard endpoint (POST /items/:id/dismantle) with gold compensation"
   in_progress_components: []
-  blocked_items: []
+  blocked_items:
+    - "SwiftUI upgrade UI screen"
+    - "Upgrade preview animations"
   notes:
-    - "Light MVP planned: Hardcoded upgrade cost = 100 gold flat, simple level increment, no vanity level"
-    - "Full MVP planned: Dynamic cost formula (level^1.5), vanity level calculation, gold validation"
-    - "Future planned: Upgrade animations, upgrade preview, auto-upgrade suggestions"
+    - "Backend 95% complete. Upgrade cost calculation, atomic transactions, and stat scaling all implemented and tested. Frontend upgrade UI screens are remaining work."
+    - "Gold cost formula implemented: 100 × 1.5^(level-1) with correct level progression"
+    - "Vanity level calculation: sum(item_levels) / 6 working with equipped item updates"
 
 balancing_parameters:
   base_upgrade_cost: "100 gold (configurable)"

@@ -214,15 +214,20 @@ dependencies:
   data_sources: "Combat victory events only"
 
 implementation_status:
-  progress: 0  # No implementation started
-  completed_components: []
+  progress: 95  # Backend fully implemented
+  completed_components:
+    - "ProgressionService with XP award and level calculation"
+    - "Linear XP formula: 100 × current_level"
+    - "Level-up detection with automatic progression"
+    - "Level reward claim system with economy integration"
+    - "Combat analytics: per-user win rate, streaks, favorite locations, rating history"
+    - "GET /progression, POST /progression/awards, POST /progression/claim-reward endpoints"
   in_progress_components: []
-  blocked_items: []
+  blocked_items:
+    - "SwiftUI progression UI screen"
+    - "Level rewards seed data (add to database)"
   notes:
-    - "MVP Phase 1 planned: PlayerProgression table creation, basic XP award from combat victories"
-    - "MVP Phase 2 planned: Level reward system, progression API endpoints"
-    - "MVP Phase 3 planned: Basic level progression (no feature gates)"
-    - "Post-MVP planned: Integration with achievements"
+    - "Backend 95% complete. XP award system, level calculation, and reward claims all implemented. Need to populate level_rewards table with seed data. Frontend progression UI is remaining work."
 
 acceptance_criteria:
   xp_calculation:
