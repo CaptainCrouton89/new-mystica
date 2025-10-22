@@ -57,6 +57,12 @@ jest.mock('../../../src/services/AnalyticsService.js', () => ({
   }
 }));
 
+jest.mock('../../../src/repositories/EquipmentRepository.js', () => ({
+  EquipmentRepository: jest.fn().mockImplementation(() => ({
+    getPlayerEquippedStats: jest.fn()
+  }))
+}));
+
 // Import the mocked service
 import { analyticsService } from '../../../src/services/AnalyticsService.js';
 const mockAnalyticsServiceInstance = analyticsService as jest.Mocked<typeof analyticsService>;
@@ -65,16 +71,19 @@ describe('ProfileService', () => {
   let profileService: ProfileService;
   let mockProfileRepository: any;
   let mockItemRepository: any;
+  let mockEquipmentRepository: any;
   const testUser = EMAIL_USER;
   const userId = testUser.id;
 
   beforeEach(() => {
     profileService = new ProfileService();
     jest.clearAllMocks();
+    jest.restoreAllMocks(); // Clean up any spies on service methods
 
     // Get repository mocks
     mockProfileRepository = (profileService as any).profileRepository;
     mockItemRepository = (profileService as any).itemRepository;
+    mockEquipmentRepository = (profileService as any).equipmentRepository;
 
     // Mock analytics service
     mockAnalyticsServiceInstance.trackEvent.mockResolvedValue(undefined);
@@ -109,8 +118,8 @@ describe('ProfileService', () => {
 
       mockProfileRepository.findUserById.mockResolvedValue(mockUser);
       mockProfileRepository.getAllCurrencyBalances.mockResolvedValue(mockBalances);
-      (profileService as any).getProgression = jest.fn().mockResolvedValue(mockProgression);
-      (profileService as any).calculateTotalStats = jest.fn().mockResolvedValue(mockTotalStats);
+      mockProfileRepository.getProgression.mockResolvedValue(mockProgression);
+      mockEquipmentRepository.getPlayerEquippedStats.mockResolvedValue(mockTotalStats);
 
       // Act: Get profile
       const result = await profileService.getProfile(userId);
@@ -145,8 +154,8 @@ describe('ProfileService', () => {
 
       mockProfileRepository.findUserById.mockResolvedValue(mockUser);
       mockProfileRepository.getAllCurrencyBalances.mockResolvedValue(mockBalances);
-      (profileService as any).getProgression = jest.fn().mockResolvedValue(null);
-      (profileService as any).calculateTotalStats = jest.fn().mockResolvedValue(zeroStats);
+      mockProfileRepository.getProgression.mockResolvedValue(null);
+      mockEquipmentRepository.getPlayerEquippedStats.mockResolvedValue(zeroStats);
 
       // Act: Get profile
       const result = await profileService.getProfile(userId);
@@ -179,11 +188,29 @@ describe('ProfileService', () => {
 
       mockProfileRepository.findUserById.mockResolvedValue(anonymousUser);
       mockProfileRepository.getAllCurrencyBalances.mockResolvedValue({ GOLD: 0, GEMS: 0 });
-      (profileService as any).getProgression = jest.fn().mockResolvedValue(null);
-      (profileService as any).calculateTotalStats = jest.fn().mockResolvedValue(zeroStats);
+      mockProfileRepository.getProgression.mockResolvedValue(null);
+      mockEquipmentRepository.getPlayerEquippedStats.mockResolvedValue(zeroStats);
 
       const result = await profileService.getProfile(anonymousUser.id);
       expect(result.account_type).toBe('anonymous');
+    });
+
+    it('should use database account_type when available instead of email derivation', async () => {
+      // Test user with explicit account_type in database
+      const userWithAccountType = {
+        ...EMAIL_USER,
+        account_type: 'premium', // Database has explicit account type
+        vanity_level: 10
+      };
+      const zeroStats = { atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0 };
+
+      mockProfileRepository.findUserById.mockResolvedValue(userWithAccountType);
+      mockProfileRepository.getAllCurrencyBalances.mockResolvedValue({ GOLD: 100, GEMS: 50 });
+      mockProfileRepository.getProgression.mockResolvedValue(null);
+      mockEquipmentRepository.getPlayerEquippedStats.mockResolvedValue(zeroStats);
+
+      const result = await profileService.getProfile(userWithAccountType.id);
+      expect(result.account_type).toBe('premium'); // Should use database value, not derive from email
     });
   });
 
@@ -645,18 +672,17 @@ describe('ProfileService', () => {
     });
 
     describe('calculateTotalStats()', () => {
-      it('should aggregate stats from equipped items and materials', async () => {
+      it('should aggregate stats from equipped items via EquipmentRepository', async () => {
         // Arrange: Mock total stats calculation using fixture
         const fixtureStats = CRAFTED_SWORD.computed_stats;
-
-        // Mock the method using fixture stats
-        (profileService as any).calculateTotalStats = jest.fn().mockResolvedValue(fixtureStats);
+        mockEquipmentRepository.getPlayerEquippedStats.mockResolvedValue(fixtureStats);
 
         // Act: Calculate total stats
-        const result = await (profileService as any).calculateTotalStats(userId);
+        const result = await profileService.calculateTotalStats(userId);
 
-        // Assert: Valid combat stats
+        // Assert: Valid combat stats and repository call
         expect(result).toEqual(fixtureStats);
+        expect(mockEquipmentRepository.getPlayerEquippedStats).toHaveBeenCalledWith(userId);
         expectValidComputedStats(result);
       });
 
@@ -668,14 +694,14 @@ describe('ProfileService', () => {
           defPower: 0,
           defAccuracy: 0
         };
-
-        (profileService as any).calculateTotalStats = jest.fn().mockResolvedValue(zeroStats);
+        mockEquipmentRepository.getPlayerEquippedStats.mockResolvedValue(zeroStats);
 
         // Act: Calculate total stats
-        const result = await (profileService as any).calculateTotalStats(userId);
+        const result = await profileService.calculateTotalStats(userId);
 
-        // Assert: Zero stats
+        // Assert: Zero stats and repository call
         expect(result).toEqual(zeroStats);
+        expect(mockEquipmentRepository.getPlayerEquippedStats).toHaveBeenCalledWith(userId);
       });
     });
   });
@@ -771,6 +797,17 @@ describe('ProfileService', () => {
 
         // Assert: Empty array
         expect(result).toEqual([]);
+      });
+      it('should handle EquipmentRepository errors in calculateTotalStats', async () => {
+        // Arrange: Mock equipment repository error
+        mockEquipmentRepository.getPlayerEquippedStats.mockRejectedValue(
+          new Error('Equipment query failed')
+        );
+
+        // Act & Assert: Should propagate error with mapping
+        await expect(
+          profileService.calculateTotalStats(userId)
+        ).rejects.toThrow('Equipment query failed');
       });
     });
   });
@@ -891,11 +928,11 @@ describe('ProfileService', () => {
 
       mockProfileRepository.findUserById.mockResolvedValue(equippedUser);
       mockProfileRepository.getAllCurrencyBalances.mockResolvedValue({ GOLD: 2000, GEMS: 150 });
-      (profileService as any).getProgression = jest.fn().mockResolvedValue({
+      mockProfileRepository.getProgression.mockResolvedValue({
         level: 15,
         xp: 12000
       });
-      (profileService as any).calculateTotalStats = jest.fn().mockResolvedValue(totalStats);
+      mockEquipmentRepository.getPlayerEquippedStats.mockResolvedValue(totalStats);
 
       const profile = await profileService.getProfile(userId);
 

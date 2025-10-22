@@ -26,13 +26,20 @@ import {
   expectValidComputedStats
 } from '../../helpers/assertions.js';
 
-// Helper function for validating PlayerStats (accepts the actual return type)
-function expectValidPlayerStats(playerStats: any): void {
-  // The service returns Stats, not PlayerStats, so validate what we actually get
-  if (playerStats && typeof playerStats === 'object') {
-    expectValidComputedStats(playerStats);
-  } else {
-    expect(playerStats).toBeDefined();
+// Helper function for validating PlayerStats structure
+function expectValidPlayerStats(playerStats: PlayerStats): void {
+  expect(playerStats).toBeDefined();
+  expect(playerStats.total_stats).toBeDefined();
+  expectValidComputedStats(playerStats.total_stats);
+  expect(typeof playerStats.equipped_items_count).toBe('number');
+  expect(typeof playerStats.total_item_level).toBe('number');
+  expect(playerStats.item_contributions).toBeDefined();
+
+  // Validate each slot has Stats object
+  const slots = ['weapon', 'offhand', 'head', 'armor', 'feet', 'accessory_1', 'accessory_2', 'pet'];
+  for (const slot of slots) {
+    expect(playerStats.item_contributions[slot as keyof typeof playerStats.item_contributions]).toBeDefined();
+    expectValidComputedStats(playerStats.item_contributions[slot as keyof typeof playerStats.item_contributions]);
   }
 }
 
@@ -267,9 +274,15 @@ describe('EquipmentService', () => {
       expectValidPlayerItem(result.slots.weapon!);
       expectValidPlayerItem(result.slots.offhand!);
 
-      // Total stats should be aggregated
+      // Total stats should be aggregated and reasonable
       expect(result.total_stats.atkPower).toBeGreaterThan(0);
       expect(result.total_stats.defPower).toBeGreaterThan(0);
+      expect(result.total_stats.atkAccuracy).toBeGreaterThan(0);
+      expect(result.total_stats.defAccuracy).toBeGreaterThan(0);
+
+      // With 8 items equipped, stats should be substantial
+      expect(result.total_stats.atkPower).toBeGreaterThan(1.0);
+      expect(result.total_stats.defPower).toBeGreaterThan(1.0);
     });
 
     it('should handle partial equipment loadout correctly', async () => {
@@ -349,6 +362,18 @@ describe('EquipmentService', () => {
         defAccuracy: 0.1
       });
 
+      // Mock getEquippedItems to return one item equipped (the weapon)
+      mockEquipmentRepository.findEquippedByUser.mockResolvedValue({
+        weapon: toRepositoryFormat(weapon),
+        offhand: undefined,
+        head: undefined,
+        armor: undefined,
+        feet: undefined,
+        accessory_1: undefined,
+        accessory_2: undefined,
+        pet: undefined
+      });
+
       // Act: Equip weapon
       const result = await equipmentService.equipItem(userId, weapon.id);
 
@@ -357,9 +382,12 @@ describe('EquipmentService', () => {
 
       expect(result.success).toBe(true);
       expect(result.equipped_item).toBeDefined();
+      expect(result.equipped_item.id).toBe(weapon.id);
+      expect(result.equipped_item.is_equipped).toBe(true);
       expect(result.unequipped_item).toBeUndefined(); // No previous item
-      // Note: Service has type mismatch - returns Stats but interface expects PlayerStats
-      expect(result.updated_player_stats).toBeDefined();
+      expectValidPlayerStats(result.updated_player_stats);
+      expect(result.updated_player_stats.equipped_items_count).toBe(1);
+      expect(result.updated_player_stats.total_item_level).toBe(weapon.level);
     });
 
     it('should equip armor and unequip previous item in same slot', async () => {
@@ -399,10 +427,13 @@ describe('EquipmentService', () => {
       // Act: Equip new armor
       const result = await equipmentService.equipItem(userId, newArmor.id);
 
-      // Assert: Both items should be returned
+      // Assert: Both items should be returned with correct equipment status
       expect(result.success).toBe(true);
       expect(result.equipped_item.id).toBe(newArmor.id);
+      expect(result.equipped_item.is_equipped).toBe(true);
       expect(result.unequipped_item?.id).toBe(oldArmor.id);
+      expect(result.unequipped_item?.is_equipped).toBe(false);
+      expectValidPlayerStats(result.updated_player_stats);
     });
 
     it('should handle accessory equipping to accessory_1 slot by default', async () => {
@@ -431,6 +462,9 @@ describe('EquipmentService', () => {
       expect(mockEquipmentRepository.equipItemAtomic).toHaveBeenCalledWith(userId, accessory.id, 'accessory_1');
 
       expect(result.success).toBe(true);
+      expect(result.equipped_item.id).toBe(accessory.id);
+      expect(result.equipped_item.is_equipped).toBe(true);
+      expectValidPlayerStats(result.updated_player_stats);
     });
   });
 
@@ -443,10 +477,13 @@ describe('EquipmentService', () => {
       // Arrange: Mock item not found
       mockItemRepository.findWithItemType.mockResolvedValue(null);
 
-      // Act & Assert: Should throw error
+      // Act & Assert: Should throw error with specific message
       await expect(
         equipmentService.equipItem(userId, 'fake-item-id')
       ).rejects.toThrow('Item not found');
+
+      // Verify repository was called with correct parameters
+      expect(mockItemRepository.findWithItemType).toHaveBeenCalledWith('fake-item-id', userId);
     });
 
     it('should throw error when item has no item_type', async () => {

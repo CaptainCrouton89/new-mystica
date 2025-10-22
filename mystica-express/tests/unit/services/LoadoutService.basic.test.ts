@@ -191,8 +191,12 @@ describe('LoadoutService', () => {
       mockLoadoutRepository.canDeleteLoadout.mockResolvedValue(true);
       mockLoadoutRepository.deleteLoadout.mockResolvedValue(true);
 
-      // Act & Assert
-      await expect(loadoutService.deleteLoadout(loadoutId, userId)).resolves.not.toThrow();
+      // Act
+      await loadoutService.deleteLoadout(loadoutId, userId);
+
+      // Assert
+      expect(mockLoadoutRepository.canDeleteLoadout).toHaveBeenCalledWith(loadoutId);
+      expect(mockLoadoutRepository.deleteLoadout).toHaveBeenCalledWith(loadoutId);
     });
 
     it('should throw ValidationError for active loadout', async () => {
@@ -458,6 +462,120 @@ describe('LoadoutService', () => {
 
   describe('updateSingleSlot()', () => {
     it('should validate slot names', async () => {
+      // Should throw for invalid slot name
+      await expect(
+        loadoutService.updateSingleSlot('loadout-123', userId, 'invalid_slot', 'item-1')
+      ).rejects.toThrow(ValidationError);
+
+      await expect(
+        loadoutService.updateSingleSlot('loadout-123', userId, 'invalid_slot', 'item-1')
+      ).rejects.toThrow('Invalid slot name: invalid_slot');
+    });
+
+    it('should accept all valid slot names', async () => {
+      const loadoutId = 'loadout-123';
+      const mockLoadout: LoadoutWithSlots = {
+        id: loadoutId,
+        user_id: userId,
+        name: 'Test',
+        is_active: false,
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-01T00:00:00Z',
+        slots: { weapon: null, offhand: null, head: null, armor: null, feet: null, accessory_1: null, accessory_2: null, pet: null }
+      };
+
+      mockLoadoutRepository.updateSingleSlot.mockResolvedValue(undefined);
+      mockLoadoutRepository.findLoadoutById.mockResolvedValue(mockLoadout);
+
+      const validSlots = ['weapon', 'offhand', 'head', 'armor', 'feet', 'accessory_1', 'accessory_2', 'pet'];
+      for (const slot of validSlots) {
+        const result = await loadoutService.updateSingleSlot(loadoutId, userId, slot, null);
+        expect(result).toEqual(mockLoadout);
+        expect(mockLoadoutRepository.updateSingleSlot).toHaveBeenCalledWith(loadoutId, slot, null);
+      }
+    });
+
+    it('should handle successful slot update with item assignment', async () => {
+      const loadoutId = 'loadout-123';
+      const itemId = 'item-456';
+      const mockLoadout: LoadoutWithSlots = {
+        id: loadoutId,
+        user_id: userId,
+        name: 'Test',
+        is_active: false,
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-01T00:00:00Z',
+        slots: { weapon: null, offhand: null, head: null, armor: null, feet: null, accessory_1: null, accessory_2: null, pet: null }
+      };
+
+      const mockUpdatedLoadout: LoadoutWithSlots = {
+        ...mockLoadout,
+        slots: { ...mockLoadout.slots, weapon: itemId }
+      };
+
+      mockLoadoutRepository.updateSingleSlot.mockResolvedValue(undefined);
+      mockLoadoutRepository.findLoadoutById.mockResolvedValue(mockUpdatedLoadout);
+
+      const result = await loadoutService.updateSingleSlot(loadoutId, userId, 'weapon', itemId);
+
+      expect(result).toEqual(mockUpdatedLoadout);
+      expect(mockLoadoutRepository.updateSingleSlot).toHaveBeenCalledWith(loadoutId, 'weapon', itemId);
+    });
+
+    it('should throw NotFoundError when loadout not found after update', async () => {
+      const loadoutId = 'loadout-123';
+      mockLoadoutRepository.updateSingleSlot.mockResolvedValue(undefined);
+      mockLoadoutRepository.findLoadoutById.mockResolvedValue(null);
+
+      await expect(
+        loadoutService.updateSingleSlot(loadoutId, userId, 'weapon', null)
+      ).rejects.toThrow(NotFoundError);
+    });
+
+    it('should throw NotFoundError when user does not own loadout after update', async () => {
+      const loadoutId = 'loadout-123';
+      const mockLoadout: LoadoutWithSlots = {
+        id: loadoutId,
+        user_id: 'different-user',
+        name: 'Test',
+        is_active: false,
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-01T00:00:00Z',
+        slots: { weapon: null, offhand: null, head: null, armor: null, feet: null, accessory_1: null, accessory_2: null, pet: null }
+      };
+
+      mockLoadoutRepository.updateSingleSlot.mockResolvedValue(undefined);
+      mockLoadoutRepository.findLoadoutById.mockResolvedValue(mockLoadout);
+
+      await expect(
+        loadoutService.updateSingleSlot(loadoutId, userId, 'weapon', null)
+      ).rejects.toThrow(NotFoundError);
+    });
+
+    it('should throw ValidationError when item assignment fails', async () => {
+      const loadoutId = 'loadout-123';
+      const itemId = 'item-456';
+      const mockLoadout: LoadoutWithSlots = {
+        id: loadoutId,
+        user_id: userId,
+        name: 'Test',
+        is_active: false,
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-01T00:00:00Z',
+        slots: { weapon: null, offhand: null, head: null, armor: null, feet: null, accessory_1: null, accessory_2: null, pet: null }
+      };
+
+      mockLoadoutRepository.updateSingleSlot.mockResolvedValue(undefined);
+      mockLoadoutRepository.findLoadoutById.mockResolvedValue(mockLoadout);
+
+      await expect(
+        loadoutService.updateSingleSlot(loadoutId, userId, 'weapon', itemId)
+      ).rejects.toThrow(ValidationError);
+    });
+  });
+
+  describe('Edge cases and error scenarios', () => {
+    it('should handle updateLoadoutName with name too long', async () => {
       const loadoutId = 'loadout-123';
       const mockLoadout: LoadoutWithSlots = {
         id: loadoutId,
@@ -471,20 +589,174 @@ describe('LoadoutService', () => {
 
       mockLoadoutRepository.findLoadoutById.mockResolvedValue(mockLoadout);
 
-      // Should throw for invalid slot name
+      const longName = 'a'.repeat(51);
       await expect(
-        loadoutService.updateSingleSlot(loadoutId, userId, 'invalid_slot', 'item-1')
+        loadoutService.updateLoadoutName(loadoutId, userId, longName)
       ).rejects.toThrow(ValidationError);
+    });
 
-      // Should work for valid slot names
-      mockLoadoutRepository.updateSingleSlot.mockResolvedValue(undefined);
+    it('should handle updateLoadoutName when loadout not found after update', async () => {
+      const loadoutId = 'loadout-123';
+      const newName = 'Updated Name';
+      const mockLoadout: LoadoutWithSlots = {
+        id: loadoutId,
+        user_id: userId,
+        name: 'Test',
+        is_active: false,
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-01T00:00:00Z',
+        slots: { weapon: null, offhand: null, head: null, armor: null, feet: null, accessory_1: null, accessory_2: null, pet: null }
+      };
 
-      const validSlots = ['weapon', 'offhand', 'head', 'armor', 'feet', 'accessory_1', 'accessory_2', 'pet'];
-      for (const slot of validSlots) {
-        await expect(
-          loadoutService.updateSingleSlot(loadoutId, userId, slot, null)
-        ).resolves.not.toThrow();
-      }
+      mockLoadoutRepository.findLoadoutById
+        .mockResolvedValueOnce(mockLoadout) // For ownership check
+        .mockResolvedValueOnce(null); // After update
+      mockLoadoutRepository.isLoadoutNameUnique.mockResolvedValue(true);
+      mockLoadoutRepository.updateLoadoutName.mockResolvedValue(undefined);
+
+      await expect(
+        loadoutService.updateLoadoutName(loadoutId, userId, newName)
+      ).rejects.toThrow(NotFoundError);
+    });
+
+    it('should throw NotFoundError when repository delete fails', async () => {
+      const loadoutId = 'loadout-123';
+      const mockLoadout: LoadoutWithSlots = {
+        id: loadoutId,
+        user_id: userId,
+        name: 'Test',
+        is_active: false,
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-01T00:00:00Z',
+        slots: { weapon: null, offhand: null, head: null, armor: null, feet: null, accessory_1: null, accessory_2: null, pet: null }
+      };
+
+      mockLoadoutRepository.findLoadoutById.mockResolvedValue(mockLoadout);
+      mockLoadoutRepository.canDeleteLoadout.mockResolvedValue(true);
+      mockLoadoutRepository.deleteLoadout.mockResolvedValue(false);
+
+      await expect(
+        loadoutService.deleteLoadout(loadoutId, userId)
+      ).rejects.toThrow(NotFoundError);
+    });
+
+    it('should throw ValidationError for invalid user input', async () => {
+      const loadoutId = 'loadout-123';
+      const mockLoadout: LoadoutWithSlots = {
+        id: loadoutId,
+        user_id: userId,
+        name: 'Test',
+        is_active: false,
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-01T00:00:00Z',
+        slots: { weapon: null, offhand: null, head: null, armor: null, feet: null, accessory_1: null, accessory_2: null, pet: null }
+      };
+
+      // Should handle empty slot assignments (edge case)
+      const emptySlots: LoadoutSlotAssignments = {
+        weapon: null,
+        offhand: null,
+        head: null,
+        armor: null,
+        feet: null,
+        accessory_1: null,
+        accessory_2: null,
+        pet: null
+      };
+
+      mockLoadoutRepository.updateLoadoutSlots.mockResolvedValue(undefined);
+      mockLoadoutRepository.findLoadoutById.mockResolvedValue(mockLoadout);
+
+      const result = await loadoutService.updateLoadoutSlots(loadoutId, userId, emptySlots);
+      expect(result).toEqual(mockLoadout);
+    });
+
+    it('should handle updateLoadoutSlots when loadout not found after update', async () => {
+      const loadoutId = 'loadout-123';
+      const slots: LoadoutSlotAssignments = {
+        weapon: 'item-1',
+        offhand: null,
+        head: null,
+        armor: null,
+        feet: null,
+        accessory_1: null,
+        accessory_2: null,
+        pet: null
+      };
+
+      mockLoadoutRepository.updateLoadoutSlots.mockResolvedValue(undefined);
+      mockLoadoutRepository.findLoadoutById.mockResolvedValue(null);
+
+      await expect(
+        loadoutService.updateLoadoutSlots(loadoutId, userId, slots)
+      ).rejects.toThrow(ValidationError);
+    });
+
+    it('should handle updateLoadoutSlots when user ownership changes', async () => {
+      const loadoutId = 'loadout-123';
+      const slots: LoadoutSlotAssignments = {
+        weapon: null,
+        offhand: null,
+        head: null,
+        armor: null,
+        feet: null,
+        accessory_1: null,
+        accessory_2: null,
+        pet: null
+      };
+
+      const mockLoadout: LoadoutWithSlots = {
+        id: loadoutId,
+        user_id: 'different-user',
+        name: 'Test',
+        is_active: false,
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-01T00:00:00Z',
+        slots: {
+          weapon: null,
+          offhand: null,
+          head: null,
+          armor: null,
+          feet: null,
+          accessory_1: null,
+          accessory_2: null,
+          pet: null
+        }
+      };
+
+      mockLoadoutRepository.updateLoadoutSlots.mockResolvedValue(undefined);
+      mockLoadoutRepository.findLoadoutById.mockResolvedValue(mockLoadout);
+
+      await expect(
+        loadoutService.updateLoadoutSlots(loadoutId, userId, slots)
+      ).rejects.toThrow(NotFoundError);
+    });
+  });
+
+  describe('name validation edge cases', () => {
+    it('should trim whitespace from loadout names', async () => {
+      const name = '  Test Loadout  ';
+      const mockCreatedLoadout = {
+        id: 'loadout-123',
+        user_id: userId,
+        name: 'Test Loadout',
+        is_active: false,
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-01T00:00:00Z'
+      };
+
+      mockLoadoutRepository.isLoadoutNameUnique.mockResolvedValue(true);
+      mockLoadoutRepository.createLoadout.mockResolvedValue(mockCreatedLoadout);
+
+      const result = await loadoutService.createLoadout(userId, name);
+
+      expect(mockLoadoutRepository.isLoadoutNameUnique).toHaveBeenCalledWith(userId, 'Test Loadout');
+      expect(mockLoadoutRepository.createLoadout).toHaveBeenCalledWith({
+        user_id: userId,
+        name: 'Test Loadout',
+        is_active: false
+      });
+      expect(result.name).toBe('Test Loadout');
     });
   });
 

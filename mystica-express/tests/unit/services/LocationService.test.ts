@@ -126,12 +126,12 @@ describe('LocationService', () => {
       expect(result).toHaveLength(0);
     });
 
-    it('should return empty array when repository returns null/undefined', async () => {
+    it('should return null when repository returns null/undefined', async () => {
       mockFindNearby.mockResolvedValue(null as any);
 
       const result = await locationService.nearby(validLat, validLng, validRadius);
 
-      expect(result).toEqual(null);
+      expect(result).toBeNull();
     });
 
     it('should throw DatabaseError on repository error', async () => {
@@ -409,6 +409,378 @@ describe('LocationService', () => {
       // Service returns data as-is from repository
       // In production, this would be caught by TypeScript validation
       expect(result).toBe('invalid-data-type');
+    });
+  });
+
+  // ============================================================================
+  // Combat Pool Operations Tests
+  // ============================================================================
+
+  describe('getMatchingEnemyPools()', () => {
+    const validLocationId = '123e4567-e89b-12d3-a456-426614174000';
+    const validCombatLevel = 50;
+    const mockLocation = {
+      id: validLocationId,
+      name: 'Test Location',
+      lat: 37.7749,
+      lng: -122.4194,
+      location_type: 'library',
+      state_code: 'CA',
+      country_code: 'US'
+    };
+    const mockEnemyPools = ['pool-1', 'pool-2'];
+
+    it('should fetch location and get matching enemy pools', async () => {
+      mockFindById.mockResolvedValue(mockLocation);
+      mockGetMatchingEnemyPools.mockResolvedValue(mockEnemyPools);
+
+      const result = await locationService.getMatchingEnemyPools(validLocationId, validCombatLevel);
+
+      expect(mockFindById).toHaveBeenCalledWith(validLocationId);
+      expect(mockGetMatchingEnemyPools).toHaveBeenCalledWith(mockLocation, validCombatLevel);
+      expect(result).toEqual(mockEnemyPools);
+    });
+
+    it('should throw ValidationError for invalid combat level', async () => {
+      await expect(
+        locationService.getMatchingEnemyPools(validLocationId, 0)
+      ).rejects.toThrow(ValidationError);
+
+      await expect(
+        locationService.getMatchingEnemyPools(validLocationId, 101)
+      ).rejects.toThrow('Combat level must be between 1 and 100');
+    });
+
+    it('should throw NotFoundError when location does not exist', async () => {
+      mockFindById.mockResolvedValue(null);
+
+      await expect(
+        locationService.getMatchingEnemyPools(validLocationId, validCombatLevel)
+      ).rejects.toThrow(NotFoundError);
+    });
+  });
+
+  describe('getEnemyPoolMembers()', () => {
+    const mockPoolIds = ['pool-1', 'pool-2'];
+    const mockPoolMembers = [
+      { enemy_type_id: 'enemy-1', spawn_weight: 70 },
+      { enemy_type_id: 'enemy-2', spawn_weight: 30 }
+    ];
+
+    it('should call repository getEnemyPoolMembers with correct parameters', async () => {
+      mockGetEnemyPoolMembers.mockResolvedValue(mockPoolMembers);
+
+      const result = await locationService.getEnemyPoolMembers(mockPoolIds);
+
+      expect(mockGetEnemyPoolMembers).toHaveBeenCalledWith(mockPoolIds);
+      expect(result).toEqual(mockPoolMembers);
+    });
+
+    it('should throw ValidationError for empty pool IDs', async () => {
+      await expect(
+        locationService.getEnemyPoolMembers([])
+      ).rejects.toThrow(ValidationError);
+
+      await expect(
+        locationService.getEnemyPoolMembers([])
+      ).rejects.toThrow('At least one pool ID is required');
+    });
+
+    it('should throw ValidationError for null/undefined pool IDs', async () => {
+      await expect(
+        locationService.getEnemyPoolMembers(null as any)
+      ).rejects.toThrow(ValidationError);
+
+      await expect(
+        locationService.getEnemyPoolMembers(undefined as any)
+      ).rejects.toThrow(ValidationError);
+    });
+  });
+
+  describe('selectRandomEnemy()', () => {
+    const mockPoolMembers = [
+      { enemy_type_id: 'enemy-1', spawn_weight: 70 },
+      { enemy_type_id: 'enemy-2', spawn_weight: 30 }
+    ];
+
+    it('should call repository selectRandomEnemy with correct parameters', () => {
+      mockSelectRandomEnemy.mockReturnValue('enemy-1');
+
+      const result = locationService.selectRandomEnemy(mockPoolMembers);
+
+      expect(mockSelectRandomEnemy).toHaveBeenCalledWith(mockPoolMembers);
+      expect(result).toBe('enemy-1');
+    });
+
+    it('should throw ValidationError for empty pool members', () => {
+      expect(() => {
+        locationService.selectRandomEnemy([]);
+      }).toThrow(ValidationError);
+
+      expect(() => {
+        locationService.selectRandomEnemy([]);
+      }).toThrow('No enemy pool members provided');
+    });
+
+    it('should throw ValidationError for null/undefined pool members', () => {
+      expect(() => {
+        locationService.selectRandomEnemy(null as any);
+      }).toThrow(ValidationError);
+
+      expect(() => {
+        locationService.selectRandomEnemy(undefined as any);
+      }).toThrow(ValidationError);
+    });
+  });
+
+  describe('getMatchingLootPools()', () => {
+    const validLocationId = '123e4567-e89b-12d3-a456-426614174000';
+    const validCombatLevel = 50;
+    const mockLocation = {
+      id: validLocationId,
+      name: 'Test Location',
+      lat: 37.7749,
+      lng: -122.4194,
+      location_type: 'library',
+      state_code: 'CA',
+      country_code: 'US'
+    };
+    const mockLootPools = ['loot-pool-1', 'loot-pool-2'];
+
+    it('should fetch location and get matching loot pools', async () => {
+      mockFindById.mockResolvedValue(mockLocation);
+      mockGetMatchingLootPools.mockResolvedValue(mockLootPools);
+
+      const result = await locationService.getMatchingLootPools(validLocationId, validCombatLevel);
+
+      expect(mockFindById).toHaveBeenCalledWith(validLocationId);
+      expect(mockGetMatchingLootPools).toHaveBeenCalledWith(mockLocation, validCombatLevel);
+      expect(result).toEqual(mockLootPools);
+    });
+
+    it('should throw ValidationError for invalid combat level', async () => {
+      await expect(
+        locationService.getMatchingLootPools(validLocationId, 0)
+      ).rejects.toThrow(ValidationError);
+
+      await expect(
+        locationService.getMatchingLootPools(validLocationId, 101)
+      ).rejects.toThrow('Combat level must be between 1 and 100');
+    });
+
+    it('should throw NotFoundError when location does not exist', async () => {
+      mockFindById.mockResolvedValue(null);
+
+      await expect(
+        locationService.getMatchingLootPools(validLocationId, validCombatLevel)
+      ).rejects.toThrow(NotFoundError);
+    });
+  });
+
+  describe('getLootPoolEntries()', () => {
+    const mockPoolIds = ['loot-pool-1', 'loot-pool-2'];
+    const mockLootEntries = [
+      { item_type_id: 'item-1', base_drop_weight: 50 },
+      { item_type_id: 'item-2', base_drop_weight: 25 }
+    ];
+
+    it('should call repository getLootPoolEntries with correct parameters', async () => {
+      mockGetLootPoolEntries.mockResolvedValue(mockLootEntries);
+
+      const result = await locationService.getLootPoolEntries(mockPoolIds);
+
+      expect(mockGetLootPoolEntries).toHaveBeenCalledWith(mockPoolIds);
+      expect(result).toEqual(mockLootEntries);
+    });
+
+    it('should throw ValidationError for empty pool IDs', async () => {
+      await expect(
+        locationService.getLootPoolEntries([])
+      ).rejects.toThrow(ValidationError);
+
+      await expect(
+        locationService.getLootPoolEntries([])
+      ).rejects.toThrow('At least one pool ID is required');
+    });
+
+    it('should throw ValidationError for null/undefined pool IDs', async () => {
+      await expect(
+        locationService.getLootPoolEntries(null as any)
+      ).rejects.toThrow(ValidationError);
+
+      await expect(
+        locationService.getLootPoolEntries(undefined as any)
+      ).rejects.toThrow(ValidationError);
+    });
+  });
+
+  describe('getLootPoolTierWeights()', () => {
+    const mockPoolIds = ['loot-pool-1', 'loot-pool-2'];
+    const mockTierWeights = [
+      { material_tier: 'common', weight_multiplier: 1.0 },
+      { material_tier: 'rare', weight_multiplier: 0.3 }
+    ];
+
+    it('should call repository getLootPoolTierWeights with correct parameters', async () => {
+      mockGetLootPoolTierWeights.mockResolvedValue(mockTierWeights);
+
+      const result = await locationService.getLootPoolTierWeights(mockPoolIds);
+
+      expect(mockGetLootPoolTierWeights).toHaveBeenCalledWith(mockPoolIds);
+      expect(result).toEqual(mockTierWeights);
+    });
+
+    it('should throw ValidationError for empty pool IDs', async () => {
+      await expect(
+        locationService.getLootPoolTierWeights([])
+      ).rejects.toThrow(ValidationError);
+
+      await expect(
+        locationService.getLootPoolTierWeights([])
+      ).rejects.toThrow('At least one pool ID is required');
+    });
+
+    it('should throw ValidationError for null/undefined pool IDs', async () => {
+      await expect(
+        locationService.getLootPoolTierWeights(null as any)
+      ).rejects.toThrow(ValidationError);
+
+      await expect(
+        locationService.getLootPoolTierWeights(undefined as any)
+      ).rejects.toThrow(ValidationError);
+    });
+  });
+
+  describe('selectRandomLoot()', () => {
+    const mockPoolEntries = [
+      { item_type_id: 'item-1', base_drop_weight: 50 },
+      { item_type_id: 'item-2', base_drop_weight: 25 }
+    ];
+    const mockTierWeights = [
+      { material_tier: 'common', weight_multiplier: 1.0 },
+      { material_tier: 'rare', weight_multiplier: 0.3 }
+    ];
+    const mockLootDrops = [
+      { item_type_id: 'item-1', material_id: 'wood', style_id: 'normal' }
+    ];
+
+    it('should call repository selectRandomLoot with default parameters', () => {
+      mockSelectRandomLoot.mockReturnValue(mockLootDrops);
+
+      const result = locationService.selectRandomLoot(mockPoolEntries, mockTierWeights);
+
+      expect(mockSelectRandomLoot).toHaveBeenCalledWith(
+        mockPoolEntries,
+        mockTierWeights,
+        'normal',
+        1
+      );
+      expect(result).toEqual(mockLootDrops);
+    });
+
+    it('should call repository selectRandomLoot with custom parameters', () => {
+      mockSelectRandomLoot.mockReturnValue(mockLootDrops);
+
+      const result = locationService.selectRandomLoot(
+        mockPoolEntries,
+        mockTierWeights,
+        'fire',
+        3
+      );
+
+      expect(mockSelectRandomLoot).toHaveBeenCalledWith(
+        mockPoolEntries,
+        mockTierWeights,
+        'fire',
+        3
+      );
+      expect(result).toEqual(mockLootDrops);
+    });
+
+    it('should throw ValidationError for empty pool entries', () => {
+      expect(() => {
+        locationService.selectRandomLoot([], mockTierWeights);
+      }).toThrow(ValidationError);
+
+      expect(() => {
+        locationService.selectRandomLoot([], mockTierWeights);
+      }).toThrow('No loot pool entries provided');
+    });
+
+    it('should throw ValidationError for null/undefined pool entries', () => {
+      expect(() => {
+        locationService.selectRandomLoot(null as any, mockTierWeights);
+      }).toThrow(ValidationError);
+
+      expect(() => {
+        locationService.selectRandomLoot(undefined as any, mockTierWeights);
+      }).toThrow(ValidationError);
+    });
+
+    it('should throw ValidationError for invalid drop count', () => {
+      expect(() => {
+        locationService.selectRandomLoot(mockPoolEntries, mockTierWeights, 'normal', 0);
+      }).toThrow(ValidationError);
+
+      expect(() => {
+        locationService.selectRandomLoot(mockPoolEntries, mockTierWeights, 'normal', 11);
+      }).toThrow('Drop count must be between 1 and 10');
+    });
+  });
+
+  describe('getAggregatedEnemyPools()', () => {
+    const validLocationId = '123e4567-e89b-12d3-a456-426614174000';
+    const validCombatLevel = 50;
+    const mockAggregatedPools = [
+      { enemy_type_id: 'enemy-1', total_spawn_weight: 70 },
+      { enemy_type_id: 'enemy-2', total_spawn_weight: 30 }
+    ];
+
+    it('should call repository getAggregatedEnemyPools with correct parameters', async () => {
+      mockGetAggregatedEnemyPools.mockResolvedValue(mockAggregatedPools);
+
+      const result = await locationService.getAggregatedEnemyPools(validLocationId, validCombatLevel);
+
+      expect(mockGetAggregatedEnemyPools).toHaveBeenCalledWith(validLocationId, validCombatLevel);
+      expect(result).toEqual(mockAggregatedPools);
+    });
+
+    it('should throw ValidationError for invalid combat level', async () => {
+      await expect(
+        locationService.getAggregatedEnemyPools(validLocationId, 0)
+      ).rejects.toThrow(ValidationError);
+
+      await expect(
+        locationService.getAggregatedEnemyPools(validLocationId, 101)
+      ).rejects.toThrow('Combat level must be between 1 and 100');
+    });
+  });
+
+  describe('getAggregatedLootPools()', () => {
+    const validLocationId = '123e4567-e89b-12d3-a456-426614174000';
+    const validCombatLevel = 50;
+    const mockAggregatedLoot = [
+      { item_type_id: 'item-1', total_drop_weight: 50 },
+      { item_type_id: 'item-2', total_drop_weight: 15 }
+    ];
+
+    it('should call repository getAggregatedLootPools with correct parameters', async () => {
+      mockGetAggregatedLootPools.mockResolvedValue(mockAggregatedLoot);
+
+      const result = await locationService.getAggregatedLootPools(validLocationId, validCombatLevel);
+
+      expect(mockGetAggregatedLootPools).toHaveBeenCalledWith(validLocationId, validCombatLevel);
+      expect(result).toEqual(mockAggregatedLoot);
+    });
+
+    it('should throw ValidationError for invalid combat level', async () => {
+      await expect(
+        locationService.getAggregatedLootPools(validLocationId, 0)
+      ).rejects.toThrow(ValidationError);
+
+      await expect(
+        locationService.getAggregatedLootPools(validLocationId, 101)
+      ).rejects.toThrow('Combat level must be between 1 and 100');
     });
   });
 });

@@ -195,7 +195,6 @@ describe('ImageGenerationService - Core Functionality', () => {
       delete process.env.REPLICATE_API_TOKEN;
 
       try {
-        // This should fail during env.ts validation when the module is loaded
         // Since we can't easily reload modules in Jest, we'll test the validation function directly
         expect(() => {
           if (!process.env.REPLICATE_API_TOKEN) {
@@ -231,20 +230,39 @@ describe('ImageGenerationService - Core Functionality', () => {
   });
 
   describe('legacy generateImage method', () => {
-    it('should convert legacy format to new format', async () => {
+    it('should convert legacy format to new format and call generateComboImage', async () => {
       const materials = [
         { material_id: 'material-123', style_id: 'normal', image_url: 'test.png' }
       ];
 
-      // This should call generateComboImage internally
-      // We'll just verify it doesn't crash on the conversion
-      try {
-        await service.generateImage('item-123', materials);
-      } catch (error) {
-        // Expected to fail due to missing environment setup for full flow
-        // But should not fail on the conversion logic
-        expect(error).toBeDefined();
-      }
+      // Mock successful repository responses
+      mockItemRepository.findItemTypeById.mockResolvedValue({
+        id: 'item-123',
+        name: 'Magic Wand',
+        slug: 'magic_wand'
+      });
+
+      // Mock cache hit to avoid full generation flow
+      mockSend.mockResolvedValueOnce({});
+
+      // Spy on generateComboImage to verify the conversion
+      const generateComboImageSpy = jest.spyOn(service, 'generateComboImage');
+
+      const result = await service.generateImage('item-123', materials);
+
+      // Verify the method converts to new format and calls generateComboImage
+      expect(generateComboImageSpy).toHaveBeenCalledWith({
+        itemTypeId: 'item-123',
+        materialIds: ['material-123'],
+        styleIds: ['normal']
+      });
+
+      // Verify it returns a valid URL format
+      expect(result).toContain('items-crafted/magic_wand/');
+      expect(result).toContain('.png');
+      expect(result).toMatch(/^https:\/\//);
+
+      generateComboImageSpy.mockRestore();
     });
   });
 
@@ -565,12 +583,324 @@ describe('ImageGenerationService - Core Functionality', () => {
         .mockResolvedValueOnce({}) // normal iron exists
         .mockResolvedValueOnce({}) // styled crystal exists
 
-      // Use reflection to access private method
+      // Access private method for testing reference image logic
       const referenceImages = await (service as any).fetchMaterialReferenceImages(materialIds, styleIds);
 
       expect(referenceImages).toHaveLength(11); // 10 base + 1 material image (only iron normal found)
       // Verify one material reference exists (the actual URL depends on material name normalization)
       expect(referenceImages.some((url: string) => url.includes('/materials/'))).toBe(true);
+    });
+  });
+
+  describe('comprehensive end-to-end scenarios', () => {
+    it('should handle complex style combinations with minimal materials', async () => {
+      const request = {
+        itemTypeId: 'item-456',
+        materialIds: ['material-456'],
+        styleIds: ['legendary'],
+        comboHash: 'legendary-single-material'
+      };
+
+      // Reset all mocks first
+      jest.clearAllMocks();
+
+      // Setup mocks for this specific test
+      mockItemRepository.findItemTypeById.mockResolvedValue({
+        id: 'item-456',
+        name: 'Enchanted Sword',
+        slug: 'enchanted_sword'
+      });
+
+      mockMaterialRepository.findMaterialById.mockResolvedValue({
+        id: 'material-456',
+        name: 'Mithril Ore',
+        description: 'Legendary silver-blue metal with magical properties'
+      });
+
+      mockStyleRepository.findById.mockResolvedValue({
+        id: 'legendary',
+        style_name: 'Legendary'
+      });
+
+      // Use cache hit to avoid complex generation path - focus on verifying end result
+      mockSend.mockResolvedValue({});
+
+      const result = await service.generateComboImage(request);
+
+      expect(result).toBe('https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/items-crafted/enchanted_sword/legendary-single-material.png');
+
+      // Verify that the service completed successfully with the correct URL structure
+      expect(result).toContain('items-crafted/enchanted_sword/');
+      expect(result).toContain('.png');
+      expect(mockSend).toHaveBeenCalled();
+    });
+
+    it('should validate hash generation consistency across requests', async () => {
+      const request1 = {
+        itemTypeId: 'item-456',
+        materialIds: ['material-456'],
+        styleIds: ['legendary']
+      };
+
+      const request2 = {
+        itemTypeId: 'item-456',
+        materialIds: ['material-456'],
+        styleIds: ['legendary'],
+        comboHash: 'custom-hash-override'
+      };
+
+      // Reset all mocks first
+      jest.clearAllMocks();
+
+      // Setup mocks for this specific test
+      mockItemRepository.findItemTypeById.mockResolvedValue({
+        id: 'item-456',
+        name: 'Enchanted Sword',
+        slug: 'enchanted_sword'
+      });
+
+      // Mock cache hits for both requests (don't count exact calls, focus on behavior)
+      mockSend.mockResolvedValue({});
+
+      const result1 = await service.generateComboImage(request1);
+      const result2 = await service.generateComboImage(request2);
+
+      // First request should use computed hash
+      expect(result1).toContain('items-crafted/enchanted_sword/');
+      expect(result1).not.toContain('custom-hash-override');
+
+      // Second request should use provided hash
+      expect(result2).toContain('custom-hash-override.png');
+
+      // Basic sanity check that cache was used
+      expect(mockSend).toHaveBeenCalled();
+    });
+
+    it('should handle network interruption during download phase gracefully', async () => {
+      const request = {
+        itemTypeId: 'item-456',
+        materialIds: ['material-456'],
+        styleIds: ['legendary']
+      };
+
+      // Reset all mocks first
+      jest.clearAllMocks();
+
+      // Setup mocks for this specific test
+      mockItemRepository.findItemTypeById.mockResolvedValue({
+        id: 'item-456',
+        name: 'Enchanted Sword',
+        slug: 'enchanted_sword'
+      });
+
+      mockMaterialRepository.findMaterialById.mockResolvedValue({
+        id: 'material-456',
+        name: 'Mithril Ore',
+        description: 'Legendary silver-blue metal with magical properties'
+      });
+
+      mockStyleRepository.findById.mockResolvedValue({
+        id: 'legendary',
+        style_name: 'Legendary'
+      });
+
+      // Mock cache miss
+      mockSend.mockRejectedValueOnce({ name: 'NotFound' });
+      mockSend.mockRejectedValueOnce({ name: 'NotFound' });
+
+      // Mock Replicate failures that will trigger retries with eventual download failure
+      mockReplicateRun
+        .mockRejectedValueOnce(new Error('First attempt failed'))
+        .mockRejectedValueOnce(new Error('Second attempt failed'))
+        .mockResolvedValueOnce({
+          url: () => 'https://replicate.delivery/network-test.png'
+        });
+
+      // Mock network timeout during download (will get retried)
+      (global.fetch as jest.Mock)
+        .mockRejectedValueOnce(new Error('Network timeout'));
+
+      await expect(service.generateComboImage(request))
+        .rejects
+        .toThrow('Generation failed after retries');
+
+      expect(mockReplicateRun).toHaveBeenCalledTimes(3);
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('should generate different prompts for identical materials with different styles', async () => {
+      const baseRequest = {
+        itemTypeId: 'item-456',
+        materialIds: ['material-456', 'material-456'],
+        styleIds: ['normal', 'legendary']
+      };
+
+      // Reset all mocks first
+      jest.clearAllMocks();
+
+      // Setup mocks for this specific test
+      mockItemRepository.findItemTypeById.mockResolvedValue({
+        id: 'item-456',
+        name: 'Enchanted Sword',
+        slug: 'enchanted_sword'
+      });
+
+      // Mock additional materials
+      mockMaterialRepository.findMaterialById
+        .mockResolvedValueOnce({
+          id: 'material-456',
+          description: 'Legendary silver-blue metal'
+        })
+        .mockResolvedValueOnce({
+          id: 'material-456',
+          description: 'Legendary silver-blue metal'
+        });
+
+      mockStyleRepository.findById
+        .mockResolvedValueOnce({
+          id: 'normal',
+          style_name: 'Normal'
+        })
+        .mockResolvedValueOnce({
+          id: 'legendary',
+          style_name: 'Legendary'
+        });
+
+      // Mock successful flow
+      mockSend
+        .mockRejectedValueOnce({ name: 'NotFound' })
+        .mockRejectedValueOnce({ name: 'NotFound' })
+        .mockRejectedValueOnce({ name: 'NotFound' })
+        .mockResolvedValueOnce({});
+
+      mockReplicateRun.mockResolvedValueOnce({
+        url: () => 'https://replicate.delivery/style-variant.png'
+      });
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        arrayBuffer: async () => Buffer.from('style-variant-data').buffer
+      });
+
+      await service.generateComboImage(baseRequest);
+
+      // Verify prompt differentiates styles
+      const generatedPrompt = mockReplicateRun.mock.calls[0][1].input.prompt;
+      expect(generatedPrompt).toContain('Legendary silver-blue metal,');
+      expect(generatedPrompt).toContain('rendered in Legendary style');
+      expect(generatedPrompt).not.toMatch(/rendered in Legendary style.*rendered in Legendary style/);
+    });
+
+    it('should maintain reference image consistency across multiple generations', async () => {
+      const request = {
+        itemTypeId: 'item-456',
+        materialIds: ['material-456'],
+        styleIds: ['legendary']
+      };
+
+      // Reset all mocks first
+      jest.clearAllMocks();
+
+      // Setup mocks for this specific test
+      mockItemRepository.findItemTypeById.mockResolvedValue({
+        id: 'item-456',
+        name: 'Enchanted Sword',
+        slug: 'enchanted_sword'
+      });
+
+      mockMaterialRepository.findMaterialById.mockResolvedValue({
+        id: 'material-456',
+        name: 'Mithril Ore',
+        description: 'Legendary silver-blue metal with magical properties'
+      });
+
+      mockStyleRepository.findById.mockResolvedValue({
+        id: 'legendary',
+        style_name: 'Legendary'
+      });
+
+      // Mock cache miss and successful flow
+      mockSend
+        .mockRejectedValueOnce({ name: 'NotFound' })
+        .mockRejectedValueOnce({ name: 'NotFound' })
+        .mockResolvedValueOnce({});
+
+      mockReplicateRun.mockResolvedValueOnce({
+        url: () => 'https://replicate.delivery/reference-test.png'
+      });
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        arrayBuffer: async () => Buffer.from('reference-test-data').buffer
+      });
+
+      await service.generateComboImage(request);
+
+      // Verify reference images include base set
+      const referenceImages = mockReplicateRun.mock.calls[0][1].input.image_input;
+      expect(Array.isArray(referenceImages)).toBe(true);
+      expect(referenceImages.length).toBeGreaterThanOrEqual(10); // At least base references
+      expect(referenceImages.some((url: string) => url.includes('fantasy-weapon-1.png'))).toBe(true);
+      expect(referenceImages.some((url: string) => url.includes('magic-crystal-2.png'))).toBe(true);
+    });
+
+    it('should handle concurrent generation requests without interference', async () => {
+      const request1 = {
+        itemTypeId: 'item-456',
+        materialIds: ['material-456'],
+        styleIds: ['legendary'],
+        comboHash: 'concurrent-test-1'
+      };
+
+      const request2 = {
+        itemTypeId: 'item-456',
+        materialIds: ['material-456'],
+        styleIds: ['normal'],
+        comboHash: 'concurrent-test-2'
+      };
+
+      // Reset all mocks first
+      jest.clearAllMocks();
+
+      // Setup mocks for this specific test - handles multiple requests for materials and item types
+      mockItemRepository.findItemTypeById.mockResolvedValue({
+        id: 'item-456',
+        name: 'Enchanted Sword',
+        slug: 'enchanted_sword'
+      });
+
+      mockMaterialRepository.findMaterialById.mockResolvedValue({
+        id: 'material-456',
+        name: 'Mithril Ore',
+        description: 'Legendary silver-blue metal with magical properties'
+      });
+
+      // Mock different style for second request
+      mockStyleRepository.findById
+        .mockResolvedValueOnce({
+          id: 'legendary',
+          style_name: 'Legendary'
+        })
+        .mockResolvedValueOnce({
+          id: 'normal',
+          style_name: 'Normal'
+        });
+
+      // Simplify to use cache hits for both requests to avoid complex S3 call counting
+      mockSend.mockResolvedValue({});
+
+      // Execute concurrently
+      const [result1, result2] = await Promise.all([
+        service.generateComboImage(request1),
+        service.generateComboImage(request2)
+      ]);
+
+      expect(result1).toContain('concurrent-test-1.png');
+      expect(result2).toContain('concurrent-test-2.png');
+      expect(result1).not.toBe(result2);
+
+      // Basic verification that the service was called
+      expect(mockSend).toHaveBeenCalled();
     });
   });
 });

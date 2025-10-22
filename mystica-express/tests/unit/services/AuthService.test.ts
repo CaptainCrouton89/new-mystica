@@ -44,15 +44,20 @@ jest.mock('uuid', () => ({
 }));
 
 // Mock ProfileRepository
-jest.mock('../../../src/repositories/ProfileRepository.js', () => ({
-  ProfileRepository: jest.fn().mockImplementation(() => ({
+jest.mock('../../../src/repositories/ProfileRepository.js', () => {
+  const mockInstance = {
     findUserById: jest.fn(),
     getAllCurrencyBalances: jest.fn().mockResolvedValue({ GOLD: 1000, GEMS: 50 }),
     updateLastLogin: jest.fn(),
     addCurrency: jest.fn(),
     deductCurrency: jest.fn()
-  }))
-}));
+  };
+
+  return {
+    ProfileRepository: jest.fn().mockImplementation(() => mockInstance),
+    __mockInstance: mockInstance // Export the mock instance for testing
+  };
+});
 
 jest.mock('../../../src/config/env', () => ({
   env: {
@@ -87,8 +92,8 @@ describe('AuthService', () => {
     mockAuthMethods = mockSupabaseAuth.auth;
 
     // Get the mock ProfileRepository instance
-    const { ProfileRepository } = require('../../../src/repositories/ProfileRepository.js');
-    mockProfileRepository = new ProfileRepository();
+    const { __mockInstance } = require('../../../src/repositories/ProfileRepository.js');
+    mockProfileRepository = __mockInstance;
 
     authService = new AuthService();
 
@@ -109,7 +114,7 @@ describe('AuthService', () => {
 
   describe('registerDevice()', () => {
     it('should register new device and return user profile with session', async () => {
-      // Arrange: No existing user found
+      // Arrange: Mock for new device registration (no existing user)
       mockSupabaseAdmin.from.mockImplementation((table: string) => {
         if (table === 'users') {
           return {
@@ -130,23 +135,6 @@ describe('AuthService', () => {
         return {};
       });
 
-      const mockUser = {
-        id: 'mock-uuid-12345',
-        device_id: 'test-device-123',
-        account_type: 'anonymous',
-        vanity_level: 0,
-        avg_item_level: 0,
-        created_at: new Date().toISOString(),
-        last_login: new Date().toISOString()
-      };
-
-      // Mock profile fetch response
-      mockSupabaseAdmin.from.mockReturnValueOnce({
-        select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        single: jest.fn().mockResolvedValue({ data: mockUser, error: null })
-      });
-
       // Act
       const result = await authService.registerDevice({ device_id: 'test-device-123' });
 
@@ -154,7 +142,7 @@ describe('AuthService', () => {
       expect(result.user.id).toBe('mock-uuid-12345');
       expect(result.session.access_token).toBe('mock-jwt-token');
       expect(result.session.refresh_token).toBeNull();
-      expect(result.message).toBe('Device login successful'); // This test actually hits the existing user path due to mock setup
+      expect(result.message).toBe('Device registered successfully');
       const mockGenerateAnonymousToken = require('../../../src/utils/jwt.js').generateAnonymousToken;
       expect(mockGenerateAnonymousToken).toHaveBeenCalledWith('mock-uuid-12345', 'test-device-123');
     });
@@ -178,7 +166,7 @@ describe('AuthService', () => {
         update: jest.fn().mockReturnThis()
       });
 
-      // Mock ProfileRepository methods
+      // Reset mock to track calls properly
       mockProfileRepository.updateLastLogin.mockResolvedValue(undefined);
       mockProfileRepository.getAllCurrencyBalances.mockResolvedValue({ GOLD: 1000, GEMS: 50 });
 
@@ -199,6 +187,9 @@ describe('AuthService', () => {
       await expect(authService.registerDevice({ device_id: '' }))
         .rejects.toThrow('Device ID is required');
     });
+
+    // Note: Race condition handling is complex to test in isolation
+    // and is already covered by the database constraint logic
   });
 
   describe('register()', () => {
@@ -244,6 +235,23 @@ describe('AuthService', () => {
       })).rejects.toThrow('Password must be at least 8 characters long');
     });
 
+    it('should throw ValidationError for missing email or password', async () => {
+      await expect(authService.register({
+        email: '',
+        password: 'password123'
+      })).rejects.toThrow(ValidationError);
+
+      await expect(authService.register({
+        email: 'test@example.com',
+        password: ''
+      })).rejects.toThrow(ValidationError);
+
+      await expect(authService.register({
+        email: '',
+        password: ''
+      })).rejects.toThrow('Email and password are required');
+    });
+
     it('should throw ConflictError for existing email', async () => {
       mockSupabaseAuth.auth.signUp.mockResolvedValue({
         data: null,
@@ -268,6 +276,7 @@ describe('AuthService', () => {
         error: null
       });
 
+      // Reset mock to track calls
       mockProfileRepository.updateLastLogin.mockResolvedValue(undefined);
 
       // Act
@@ -301,6 +310,23 @@ describe('AuthService', () => {
         email: 'test@example.com',
         password: 'wrongpassword'
       })).rejects.toThrow('Invalid email or password');
+    });
+
+    it('should throw ValidationError for missing email or password', async () => {
+      await expect(authService.login({
+        email: '',
+        password: 'password123'
+      })).rejects.toThrow(ValidationError);
+
+      await expect(authService.login({
+        email: 'test@example.com',
+        password: ''
+      })).rejects.toThrow(ValidationError);
+
+      await expect(authService.login({
+        email: '',
+        password: ''
+      })).rejects.toThrow('Email and password are required');
     });
   });
 
@@ -353,6 +379,14 @@ describe('AuthService', () => {
       await expect(authService.refresh({ refresh_token: 'invalid-token' }))
         .rejects.toThrow(ValidationError);
     });
+
+    it('should throw ValidationError for missing refresh token', async () => {
+      await expect(authService.refresh({ refresh_token: '' }))
+        .rejects.toThrow(ValidationError);
+
+      await expect(authService.refresh({ refresh_token: '' }))
+        .rejects.toThrow('Refresh token is required');
+    });
   });
 
   describe('resetPassword()', () => {
@@ -369,6 +403,12 @@ describe('AuthService', () => {
         'test@example.com',
         { redirectTo: 'https://test.supabase.co/auth/v1/verify' }
       );
+    });
+
+    // Note: resetPassword intentionally returns success for security even with invalid inputs
+    it('should return success message for empty email (security)', async () => {
+      const result = await authService.resetPassword({ email: '' });
+      expect(result.message).toBe('If an account with that email exists, a password reset link has been sent.');
     });
 
     it('should return success message even on error', async () => {
@@ -398,6 +438,12 @@ describe('AuthService', () => {
         email: 'test@example.com'
       });
     });
+
+    // Note: resendVerification intentionally returns success for security even with invalid inputs
+    it('should return success message for empty email (security)', async () => {
+      const result = await authService.resendVerification({ email: '' });
+      expect(result.message).toBe('If an account with that email exists, a verification link has been sent.');
+    });
   });
 
   describe('getCurrentUser()', () => {
@@ -412,7 +458,8 @@ describe('AuthService', () => {
         last_login: '2024-01-02T00:00:00Z'
       };
 
-      mockProfileRepository.findUserById.mockResolvedValueOnce(mockUser);
+      // Reset mocks to ensure calls are tracked
+      mockProfileRepository.findUserById.mockResolvedValue(mockUser);
       mockProfileRepository.getAllCurrencyBalances.mockResolvedValue({ GOLD: 1000, GEMS: 50 });
 
       const result = await authService.getCurrentUser('user-123');
@@ -428,6 +475,14 @@ describe('AuthService', () => {
 
       await expect(authService.getCurrentUser('nonexistent-user'))
         .rejects.toThrow(NotFoundError);
+    });
+
+    it('should throw ValidationError for missing user ID', async () => {
+      await expect(authService.getCurrentUser(''))
+        .rejects.toThrow(ValidationError);
+
+      await expect(authService.getCurrentUser(''))
+        .rejects.toThrow('User ID is required');
     });
   });
 
@@ -506,7 +561,9 @@ describe('AuthService', () => {
         update: jest.fn().mockReturnThis()
       });
 
-      mockProfileRepository.getAllCurrencyBalances.mockResolvedValueOnce({ GOLD: 750, GEMS: 25 });
+      // Reset mocks to ensure calls are tracked
+      mockProfileRepository.getAllCurrencyBalances.mockResolvedValue({ GOLD: 750, GEMS: 25 });
+      mockProfileRepository.updateLastLogin.mockResolvedValue(undefined);
 
       // Act
       const result = await authService.registerDevice({ device_id: 'returning-device-789' });

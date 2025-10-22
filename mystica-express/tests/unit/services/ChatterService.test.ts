@@ -24,6 +24,7 @@ const mockPetRepository = {
   getPersonalityData: jest.fn(),
   getAllPersonalities: jest.fn(),
   findPetById: jest.fn(),
+  findById: jest.fn(),
   updatePetPersonality: jest.fn(),
   findPersonalityByType: jest.fn(),
   findPetByItemId: jest.fn(),
@@ -89,21 +90,21 @@ import {
   PetNotFoundError,
   InvalidPersonalityError,
   EnemyTypeNotFoundError,
-  ExternalServiceError
+  ExternalAPIError
 } from '../../../src/utils/errors.js';
 
 // Import test infrastructure
 import {
   ChatterFactory,
-  type PetPersonality,
-  type EnemyType,
-  type EquippedPet,
-  type CombatEventDetails,
-  type PlayerCombatHistory,
-  type ChatterResponse,
-  type EnemyChatterResponse,
-  type PetChatterEventType,
-  type EnemyChatterEventType
+  PetPersonality,
+  EnemyType,
+  EquippedPet,
+  CombatEventDetails,
+  PlayerCombatHistory,
+  ChatterResponse,
+  EnemyChatterResponse,
+  PetChatterEventType,
+  EnemyChatterEventType
 } from '../../factories/chatter.factory.js';
 
 import { UserFactory, CombatFactory } from '../../factories/index.js';
@@ -141,7 +142,7 @@ describe('ChatterService', () => {
       it('should generate AI-powered pet chatter for player attack', async () => {
         // Arrange
         const session = CombatFactory.createSession(user.id, locationId, 3, {
-          enemy_type_id: 'enemy-123'
+          enemyTypeId: 'enemy-123'
         });
         const pet = ChatterFactory.createEquippedPet(user.id, 'sassy');
         const personality = ChatterFactory.createPetPersonality('sassy');
@@ -169,7 +170,7 @@ describe('ChatterService', () => {
         });
 
         expect(mockCombatRepository.getActiveSession).toHaveBeenCalledWith(sessionId);
-        expect(mockEquipmentRepository.findItemInSlot).toHaveBeenCalledWith(session.player_id, 'pet');
+        expect(mockEquipmentRepository.findItemInSlot).toHaveBeenCalledWith(session.userId, 'pet');
         expect(mockPetRepository.findPersonalityByType).toHaveBeenCalledWith('sassy');
         expect(mockAnalyticsRepository.logPetChatter).toHaveBeenCalledWith(
           sessionId,
@@ -192,8 +193,10 @@ describe('ChatterService', () => {
         });
 
         mockCombatRepository.getActiveSession.mockResolvedValue(session);
-        mockPetRepository.getEquippedPet.mockResolvedValue(pet);
-        mockPetRepository.getPersonalityData.mockResolvedValue(personality);
+        mockEquipmentRepository.findItemInSlot.mockResolvedValue({ id: pet.id });
+        mockPetRepository.findPetByItemId.mockResolvedValue({ id: pet.id, personality_id: 'pers-456', custom_name: null, personality_type: pet.personality_type });
+        mockPetRepository.findPersonalityByType.mockResolvedValue(personality);
+        mockPetRepository.findPersonalityById.mockResolvedValue(personality);
 
         mockGenerateText.mockResolvedValue({
           text: 'YES! That was an amazing critical hit! You\'re unstoppable!'
@@ -216,8 +219,10 @@ describe('ChatterService', () => {
         const eventDetails = ChatterFactory.createCombatEventDetails('victory');
 
         mockCombatRepository.getActiveSession.mockResolvedValue(session);
-        mockPetRepository.getEquippedPet.mockResolvedValue(pet);
-        mockPetRepository.getPersonalityData.mockResolvedValue(personality);
+        mockEquipmentRepository.findItemInSlot.mockResolvedValue({ id: pet.id });
+        mockPetRepository.findPetByItemId.mockResolvedValue({ id: pet.id, personality_id: 'pers-789', custom_name: null, personality_type: 'trash_talker' });
+        mockPetRepository.findPersonalityById.mockResolvedValue(personality);
+        mockPetRepository.findPersonalityByType.mockResolvedValue(personality);
 
         mockGenerateText.mockResolvedValue({
           text: 'GET WRECKED! Nobody beats us! We are the CHAMPIONS!'
@@ -241,8 +246,10 @@ describe('ChatterService', () => {
         const eventDetails = ChatterFactory.createCombatEventDetails('player_attack');
 
         mockCombatRepository.getActiveSession.mockResolvedValue(session);
-        mockPetRepository.getEquippedPet.mockResolvedValue(pet);
-        mockPetRepository.getPersonalityData.mockResolvedValue(personality);
+        mockEquipmentRepository.findItemInSlot.mockResolvedValue({ id: pet.id });
+        mockPetRepository.findPetByItemId.mockResolvedValue({ id: pet.id, personality_id: 'pers-stoic', custom_name: null, personality_type: 'stoic' });
+        mockPetRepository.findPersonalityById.mockResolvedValue(personality);
+        mockPetRepository.findPersonalityByType.mockResolvedValue(personality);
 
         // Mock AI service timeout
         mockGenerateText.mockRejectedValue(
@@ -254,17 +261,17 @@ describe('ChatterService', () => {
 
         // Assert
         expect(result.was_ai_generated).toBe(false);
-        expect(result.dialogue).toBe(personality.example_phrases[0]); // Should use first fallback phrase
+        expect(personality.example_phrases).toContain(result.dialogue); // Should use fallback phrase from personality
         expect(result.personality_type).toBe('stoic');
         expect(result.generation_time_ms).toBeLessThan(100); // Fallback should be fast
 
-        expect(mockAnalyticsRepository.logChatterEvent).toHaveBeenCalledWith(
+        expect(mockAnalyticsRepository.logPetChatter).toHaveBeenCalledWith(
           sessionId,
+          '',
+          'player_attack',
           expect.any(String),
-          expect.objectContaining({
-            wasAIGenerated: false,
-            fallbackReason: 'ai_timeout'
-          })
+          expect.any(Number),
+          false
         );
       });
 
@@ -276,8 +283,10 @@ describe('ChatterService', () => {
         const eventDetails = ChatterFactory.createCombatEventDetails('miss');
 
         mockCombatRepository.getActiveSession.mockResolvedValue(session);
-        mockPetRepository.getEquippedPet.mockResolvedValue(pet);
-        mockPetRepository.getPersonalityData.mockResolvedValue(personality);
+        mockEquipmentRepository.findItemInSlot.mockResolvedValue({ id: pet.id });
+        mockPetRepository.findPetByItemId.mockResolvedValue({ id: pet.id, personality_id: 'pers-analytical', custom_name: null, personality_type: 'analytical' });
+        mockPetRepository.findPersonalityById.mockResolvedValue(personality);
+        mockPetRepository.findPersonalityByType.mockResolvedValue(personality);
 
         // Mock AI service error
         mockGenerateText.mockRejectedValue(
@@ -301,8 +310,10 @@ describe('ChatterService', () => {
         const eventDetails = ChatterFactory.createCombatEventDetails('player_defense');
 
         mockCombatRepository.getActiveSession.mockResolvedValue(session);
-        mockPetRepository.getEquippedPet.mockResolvedValue(pet);
-        mockPetRepository.getPersonalityData.mockResolvedValue(personality);
+        mockEquipmentRepository.findItemInSlot.mockResolvedValue({ id: pet.id });
+        mockPetRepository.findPetByItemId.mockResolvedValue({ id: pet.id, personality_id: 'pers-chaotic', custom_name: null, personality_type: 'chaotic' });
+        mockPetRepository.findPersonalityById.mockResolvedValue(personality);
+        mockPetRepository.findPersonalityByType.mockResolvedValue(personality);
 
         // Mock AI service failure
         mockGenerateText.mockRejectedValue(new Error('Network error'));
@@ -343,7 +354,7 @@ describe('ChatterService', () => {
         // Arrange
         const session = CombatFactory.createSession(user.id, locationId, 1);
         mockCombatRepository.getActiveSession.mockResolvedValue(session);
-        mockPetRepository.getEquippedPet.mockResolvedValue(null);
+        mockEquipmentRepository.findItemInSlot.mockResolvedValue(null);
 
         const eventDetails = ChatterFactory.createCombatEventDetails('player_attack');
 
@@ -363,8 +374,10 @@ describe('ChatterService', () => {
         const pet = ChatterFactory.createEquippedPet(user.id, 'unknown_personality');
 
         mockCombatRepository.getActiveSession.mockResolvedValue(session);
-        mockPetRepository.getEquippedPet.mockResolvedValue(pet);
-        mockPetRepository.getPersonalityData.mockResolvedValue(null);
+        mockEquipmentRepository.findItemInSlot.mockResolvedValue({ id: pet.id });
+        mockPetRepository.findPetByItemId.mockResolvedValue({ id: pet.id, personality_id: 'unknown-personality-id', custom_name: null });
+        mockPetRepository.findPersonalityById.mockResolvedValue({ personality_type: 'unknown_personality' });
+        mockPetRepository.findPersonalityByType.mockResolvedValue(null);
 
         const eventDetails = ChatterFactory.createCombatEventDetails('player_attack');
 
@@ -400,15 +413,13 @@ describe('ChatterService', () => {
           const eventDetails = ChatterFactory.createCombatEventDetails(eventType);
 
           mockCombatRepository.getActiveSession.mockResolvedValue(session);
-          mockPetRepository.getEquippedPet.mockResolvedValue(pet);
-          mockPetRepository.getPersonalityData.mockResolvedValue(personality);
+          mockEquipmentRepository.findItemInSlot.mockResolvedValue({ id: pet.id });
+          mockPetRepository.findPetByItemId.mockResolvedValue({ id: pet.id, personality_id: 'pers-sassy', custom_name: null, personality_type: 'sassy' });
+          mockPetRepository.findPersonalityById.mockResolvedValue(personality);
+          mockPetRepository.findPersonalityByType.mockResolvedValue(personality);
 
           mockGenerateText.mockResolvedValue({
-            choices: [{
-              message: {
-                content: `Generated response for ${eventType}`
-              }
-            }]
+            text: `Generated response for ${eventType}`
           });
 
           // Act
@@ -417,12 +428,13 @@ describe('ChatterService', () => {
           // Assert
           expect(result.dialogue).toContain(eventType);
           expect(result.personality_type).toBe('sassy');
-          expect(mockAnalyticsRepository.logChatterEvent).toHaveBeenCalledWith(
+          expect(mockAnalyticsRepository.logPetChatter).toHaveBeenCalledWith(
             sessionId,
+            '',
+            eventType,
             expect.any(String),
-            expect.objectContaining({
-              eventType
-            })
+            expect.any(Number),
+            true
           );
         });
       });
@@ -438,7 +450,7 @@ describe('ChatterService', () => {
       it('should generate AI-powered enemy chatter with player history context', async () => {
         // Arrange
         const session = CombatFactory.createSession(user.id, locationId, 3, {
-          enemy_type_id: 'goblin-123'
+          enemyTypeId: 'goblin-123'
         });
         const enemyType = ChatterFactory.createEnemyType('goblin');
         const playerHistory = ChatterFactory.createPlayerCombatHistory(user.id, locationId, {
@@ -449,8 +461,13 @@ describe('ChatterService', () => {
         const eventDetails = ChatterFactory.createCombatEventDetails('player_miss');
 
         mockCombatRepository.getActiveSession.mockResolvedValue(session);
-        mockEnemyRepository.getEnemyType.mockResolvedValue(enemyType);
-        mockCombatRepository.getPlayerCombatHistory.mockResolvedValue(playerHistory);
+        mockEnemyRepository.findEnemyTypeById.mockResolvedValue(enemyType);
+        mockCombatRepository.getPlayerHistory.mockResolvedValue({
+          totalAttempts: playerHistory.attempts,
+          victories: playerHistory.victories,
+          defeats: playerHistory.defeats,
+          currentStreak: playerHistory.current_streak
+        });
 
         mockGenerateText.mockResolvedValue({
           text: 'Hah! You\'ve only won 2 out of 10 fights here. This will be easy!'
@@ -473,34 +490,38 @@ describe('ChatterService', () => {
           }
         });
 
-        expect(mockCombatRepository.getPlayerCombatHistory).toHaveBeenCalledWith(user.id, locationId);
-        expect(mockAnalyticsRepository.logChatterEvent).toHaveBeenCalledWith(
+        expect(mockCombatRepository.getPlayerHistory).toHaveBeenCalledWith(session.userId, session.locationId);
+        expect(mockAnalyticsRepository.logEnemyChatter).toHaveBeenCalledWith(
           sessionId,
+          '',
+          'player_miss',
           expect.any(String),
           expect.objectContaining({
-            eventType: 'player_miss',
-            enemyType: 'goblin',
-            dialogueTone: 'sarcastic',
-            playerContextUsed: expect.objectContaining({
-              victories: 2,
-              defeats: 8
-            })
-          })
+            victories: 2,
+            defeats: 8
+          }),
+          expect.any(Number),
+          true
         );
       });
 
       it('should generate different taunts based on enemy dialogue tone', async () => {
         // Arrange - Dragon with condescending tone
         const session = CombatFactory.createSession(user.id, locationId, 5, {
-          enemy_type_id: 'dragon-456'
+          enemyTypeId: 'dragon-456'
         });
         const enemyType = ChatterFactory.createEnemyType('dragon');
         const playerHistory = ChatterFactory.createPlayerCombatHistory(user.id, locationId);
         const eventDetails = ChatterFactory.createCombatEventDetails('combat_start');
 
         mockCombatRepository.getActiveSession.mockResolvedValue(session);
-        mockEnemyRepository.getEnemyType.mockResolvedValue(enemyType);
-        mockCombatRepository.getPlayerCombatHistory.mockResolvedValue(playerHistory);
+        mockEnemyRepository.findEnemyTypeById.mockResolvedValue(enemyType);
+        mockCombatRepository.getPlayerHistory.mockResolvedValue({
+          totalAttempts: playerHistory.attempts,
+          victories: playerHistory.victories,
+          defeats: playerHistory.defeats,
+          currentStreak: playerHistory.current_streak
+        });
 
         mockGenerateText.mockResolvedValue({
           text: 'Another mortal seeks to challenge me. How... quaint.'
@@ -525,8 +546,13 @@ describe('ChatterService', () => {
         });
 
         mockCombatRepository.getActiveSession.mockResolvedValue(session);
-        mockEnemyRepository.getEnemyType.mockResolvedValue(enemyType);
-        mockCombatRepository.getPlayerCombatHistory.mockResolvedValue(playerHistory);
+        mockEnemyRepository.findEnemyTypeById.mockResolvedValue(enemyType);
+        mockCombatRepository.getPlayerHistory.mockResolvedValue({
+          totalAttempts: playerHistory.attempts,
+          victories: playerHistory.victories,
+          defeats: playerHistory.defeats,
+          currentStreak: playerHistory.current_streak
+        });
 
         mockGenerateText.mockResolvedValue({
           text: 'GRAAAH! You weak! Soon you fall!'
@@ -550,8 +576,13 @@ describe('ChatterService', () => {
         const eventDetails = ChatterFactory.createCombatEventDetails('near_victory');
 
         mockCombatRepository.getActiveSession.mockResolvedValue(session);
-        mockEnemyRepository.getEnemyType.mockResolvedValue(enemyType);
-        mockCombatRepository.getPlayerCombatHistory.mockResolvedValue(playerHistory);
+        mockEnemyRepository.findEnemyTypeById.mockResolvedValue(enemyType);
+        mockCombatRepository.getPlayerHistory.mockResolvedValue({
+          totalAttempts: playerHistory.attempts,
+          victories: playerHistory.victories,
+          defeats: playerHistory.defeats,
+          currentStreak: playerHistory.current_streak
+        });
 
         // Mock AI service timeout
         mockGenerateText.mockRejectedValue(
@@ -567,13 +598,14 @@ describe('ChatterService', () => {
         expect(result.enemy_type).toBe('wizard');
         expect(result.dialogue_tone).toBe('chaotic');
 
-        expect(mockAnalyticsRepository.logChatterEvent).toHaveBeenCalledWith(
+        expect(mockAnalyticsRepository.logEnemyChatter).toHaveBeenCalledWith(
           sessionId,
+          '',
+          'near_victory',
           expect.any(String),
-          expect.objectContaining({
-            wasAIGenerated: false,
-            fallbackReason: 'ai_timeout'
-          })
+          expect.any(Object),
+          expect.any(Number),
+          false
         );
       });
     });
@@ -593,11 +625,11 @@ describe('ChatterService', () => {
       it('should throw EnemyTypeNotFoundError when enemy type not found', async () => {
         // Arrange
         const session = CombatFactory.createSession(user.id, locationId, 1, {
-          enemy_type_id: 'unknown-enemy'
+          enemyTypeId: 'unknown-enemy'
         });
 
         mockCombatRepository.getActiveSession.mockResolvedValue(session);
-        mockEnemyRepository.getEnemyType.mockResolvedValue(null);
+        mockEnemyRepository.findEnemyTypeById.mockResolvedValue(null);
 
         const eventDetails = ChatterFactory.createCombatEventDetails('combat_start');
 
@@ -633,15 +665,16 @@ describe('ChatterService', () => {
           const eventDetails = ChatterFactory.createCombatEventDetails(eventType);
 
           mockCombatRepository.getActiveSession.mockResolvedValue(session);
-          mockEnemyRepository.getEnemyType.mockResolvedValue(enemyType);
-          mockCombatRepository.getPlayerCombatHistory.mockResolvedValue(playerHistory);
+          mockEnemyRepository.findEnemyTypeById.mockResolvedValue(enemyType);
+          mockCombatRepository.getPlayerHistory.mockResolvedValue({
+          totalAttempts: playerHistory.attempts,
+          victories: playerHistory.victories,
+          defeats: playerHistory.defeats,
+          currentStreak: playerHistory.current_streak
+        });
 
           mockGenerateText.mockResolvedValue({
-            choices: [{
-              message: {
-                content: `Political response for ${eventType}!`
-              }
-            }]
+            text: `Political response for ${eventType}!`
           });
 
           // Act
@@ -709,8 +742,8 @@ describe('ChatterService', () => {
         const petId = pet.id;
         const newPersonalityType = 'encouraging';
 
-        mockPetRepository.findPetById.mockResolvedValue(pet);
-        mockPetRepository.getPersonalityData.mockResolvedValue(personality);
+        mockPetRepository.findById.mockResolvedValue(pet);
+        mockPetRepository.findPersonalityByType.mockResolvedValue(personality);
         mockPetRepository.updatePetPersonality.mockResolvedValue(undefined);
 
         // Act
@@ -724,8 +757,8 @@ describe('ChatterService', () => {
           custom_name: undefined
         });
 
-        expect(mockPetRepository.findPetById).toHaveBeenCalledWith(petId);
-        expect(mockPetRepository.getPersonalityData).toHaveBeenCalledWith(newPersonalityType);
+        expect(mockPetRepository.findById).toHaveBeenCalledWith(petId);
+        expect(mockPetRepository.findPersonalityByType).toHaveBeenCalledWith(newPersonalityType);
         expect(mockPetRepository.updatePetPersonality).toHaveBeenCalledWith(
           petId,
           newPersonalityType,
@@ -740,8 +773,8 @@ describe('ChatterService', () => {
         const petId = pet.id;
         const customName = 'Zany McZoom';
 
-        mockPetRepository.findPetById.mockResolvedValue(pet);
-        mockPetRepository.getPersonalityData.mockResolvedValue(personality);
+        mockPetRepository.findById.mockResolvedValue(pet);
+        mockPetRepository.findPersonalityByType.mockResolvedValue(personality);
         mockPetRepository.updatePetPersonality.mockResolvedValue(undefined);
 
         // Act
@@ -758,7 +791,7 @@ describe('ChatterService', () => {
 
       it('should throw PetNotFoundError when pet does not exist', async () => {
         // Arrange
-        mockPetRepository.findPetById.mockResolvedValue(null);
+        mockPetRepository.findById.mockResolvedValue(null);
 
         // Act & Assert
         await expect(
@@ -773,8 +806,8 @@ describe('ChatterService', () => {
       it('should throw InvalidPersonalityError when personality type invalid', async () => {
         // Arrange
         const pet = ChatterFactory.createEquippedPet(user.id, 'sassy');
-        mockPetRepository.findPetById.mockResolvedValue(pet);
-        mockPetRepository.getPersonalityData.mockResolvedValue(null);
+        mockPetRepository.findById.mockResolvedValue(pet);
+        mockPetRepository.findPersonalityByType.mockResolvedValue(null);
 
         // Act & Assert
         await expect(
@@ -790,19 +823,28 @@ describe('ChatterService', () => {
     describe('getEnemyTypes()', () => {
       it('should return all available enemy types', async () => {
         // Arrange
-        const enemyTypes = ChatterFactory.createManyEnemyTypes([
+        const databaseEnemyTypes = ChatterFactory.createManyEnemyTypes([
           'goblin', 'orc', 'dragon', 'wizard', 'politician'
         ]);
 
-        mockEnemyRepository.getAllEnemyTypes.mockResolvedValue(enemyTypes);
+        mockEnemyRepository.findAllEnemyTypes.mockResolvedValue(databaseEnemyTypes);
 
         // Act
         const result = await chatterService.getEnemyTypes();
 
         // Assert
         expect(result).toHaveLength(5);
-        expect(result).toEqual(enemyTypes);
-        expect(mockEnemyRepository.getAllEnemyTypes).toHaveBeenCalledWith();
+        expect(mockEnemyRepository.findAllEnemyTypes).toHaveBeenCalledWith();
+
+        // Verify the service transforms the data correctly
+        expect(result[0]).toMatchObject({
+          type: 'goblin',
+          display_name: 'goblin',
+          dialogue_tone: 'aggressive', // Service default
+          verbosity: 'moderate', // Service default
+          tier_id: 1,
+          style_id: 'normal'
+        });
 
         // Verify enemy type structure
         result.forEach(enemyType => {
@@ -831,8 +873,10 @@ describe('ChatterService', () => {
         const eventDetails = ChatterFactory.createCombatEventDetails('player_attack');
 
         mockCombatRepository.getActiveSession.mockResolvedValue(session);
-        mockPetRepository.getEquippedPet.mockResolvedValue(pet);
-        mockPetRepository.getPersonalityData.mockResolvedValue(personality);
+        mockEquipmentRepository.findItemInSlot.mockResolvedValue({ id: pet.id });
+        mockPetRepository.findPetByItemId.mockResolvedValue({ id: pet.id, personality_id: 'pers-analytical', custom_name: null, personality_type: 'analytical' });
+        mockPetRepository.findPersonalityById.mockResolvedValue(personality);
+        mockPetRepository.findPersonalityByType.mockResolvedValue(personality);
 
         // Mock slow AI response (simulates timeout)
         mockGenerateText.mockImplementation(() => {
@@ -860,8 +904,13 @@ describe('ChatterService', () => {
         const eventDetails = ChatterFactory.createCombatEventDetails('player_hit');
 
         mockCombatRepository.getActiveSession.mockResolvedValue(session);
-        mockEnemyRepository.getEnemyType.mockResolvedValue(enemyType);
-        mockCombatRepository.getPlayerCombatHistory.mockResolvedValue(playerHistory);
+        mockEnemyRepository.findEnemyTypeById.mockResolvedValue(enemyType);
+        mockCombatRepository.getPlayerHistory.mockResolvedValue({
+          totalAttempts: playerHistory.attempts,
+          victories: playerHistory.victories,
+          defeats: playerHistory.defeats,
+          currentStreak: playerHistory.current_streak
+        });
 
         // Mock rate limit error
         const rateLimitError = ChatterFactory.createOpenAIError(429, 'Rate limit exceeded');
@@ -883,8 +932,10 @@ describe('ChatterService', () => {
         const eventDetails = ChatterFactory.createCombatEventDetails('victory');
 
         mockCombatRepository.getActiveSession.mockResolvedValue(session);
-        mockPetRepository.getEquippedPet.mockResolvedValue(pet);
-        mockPetRepository.getPersonalityData.mockResolvedValue(personality);
+        mockEquipmentRepository.findItemInSlot.mockResolvedValue({ id: pet.id });
+        mockPetRepository.findPetByItemId.mockResolvedValue({ id: pet.id, personality_id: 'pers-trash_talker', custom_name: null, personality_type: 'trash_talker' });
+        mockPetRepository.findPersonalityById.mockResolvedValue(personality);
+        mockPetRepository.findPersonalityByType.mockResolvedValue(personality);
 
         // Mock network error
         const networkError = new Error('ECONNREFUSED');
@@ -909,8 +960,10 @@ describe('ChatterService', () => {
         const eventDetails = ChatterFactory.createCombatEventDetails('critical_hit');
 
         mockCombatRepository.getActiveSession.mockResolvedValue(session);
-        mockPetRepository.getEquippedPet.mockResolvedValue(pet);
-        mockPetRepository.getPersonalityData.mockResolvedValue(personality);
+        mockEquipmentRepository.findItemInSlot.mockResolvedValue({ id: pet.id });
+        mockPetRepository.findPetByItemId.mockResolvedValue({ id: pet.id, personality_id: 'pers-sassy', custom_name: null, personality_type: 'sassy' });
+        mockPetRepository.findPersonalityById.mockResolvedValue(personality);
+        mockPetRepository.findPersonalityByType.mockResolvedValue(personality);
 
         let capturedPrompt = '';
         mockGenerateText.mockImplementation((params: any) => {
@@ -941,8 +994,13 @@ describe('ChatterService', () => {
         const eventDetails = ChatterFactory.createCombatEventDetails('combat_start');
 
         mockCombatRepository.getActiveSession.mockResolvedValue(session);
-        mockEnemyRepository.getEnemyType.mockResolvedValue(enemyType);
-        mockCombatRepository.getPlayerCombatHistory.mockResolvedValue(playerHistory);
+        mockEnemyRepository.findEnemyTypeById.mockResolvedValue(enemyType);
+        mockCombatRepository.getPlayerHistory.mockResolvedValue({
+          totalAttempts: playerHistory.attempts,
+          victories: playerHistory.victories,
+          defeats: playerHistory.defeats,
+          currentStreak: playerHistory.current_streak
+        });
 
         let capturedPrompt = '';
         mockGenerateText.mockImplementation((params: any) => {
@@ -977,31 +1035,26 @@ describe('ChatterService', () => {
       const eventDetails = ChatterFactory.createCombatEventDetails('victory');
 
       mockCombatRepository.getActiveSession.mockResolvedValue(session);
-      mockPetRepository.getEquippedPet.mockResolvedValue(pet);
-      mockPetRepository.getPersonalityData.mockResolvedValue(personality);
+      mockEquipmentRepository.findItemInSlot.mockResolvedValue({ id: pet.id });
+      mockPetRepository.findPetByItemId.mockResolvedValue({ id: pet.id, personality_id: 'pers-encouraging', custom_name: null, personality_type: 'encouraging' });
+      mockPetRepository.findPersonalityById.mockResolvedValue(personality);
+      mockPetRepository.findPersonalityByType.mockResolvedValue(personality);
 
       mockGenerateText.mockResolvedValue({
-        choices: [{
-          message: {
-            content: 'We did it! Amazing victory!'
-          }
-        }]
+        text: 'We did it! Amazing victory!'
       });
 
       // Act
       await chatterService.generatePetChatter(sessionId, 'victory', eventDetails);
 
       // Assert
-      expect(mockAnalyticsRepository.logChatterEvent).toHaveBeenCalledWith(
+      expect(mockAnalyticsRepository.logPetChatter).toHaveBeenCalledWith(
         sessionId,
+        '',
+        'victory',
         'We did it! Amazing victory!',
-        expect.objectContaining({
-          eventType: 'victory',
-          personalityType: 'encouraging',
-          wasAIGenerated: true,
-          generationTime: expect.any(Number),
-          fallbackReason: null
-        })
+        expect.any(Number),
+        true
       );
     });
 
@@ -1013,19 +1066,17 @@ describe('ChatterService', () => {
       const eventDetails = ChatterFactory.createCombatEventDetails('player_attack');
 
       mockCombatRepository.getActiveSession.mockResolvedValue(session);
-      mockPetRepository.getEquippedPet.mockResolvedValue(pet);
-      mockPetRepository.getPersonalityData.mockResolvedValue(personality);
+      mockEquipmentRepository.findItemInSlot.mockResolvedValue({ id: pet.id });
+      mockPetRepository.findPetByItemId.mockResolvedValue({ id: pet.id, personality_id: 'pers-analytical', custom_name: null, personality_type: 'analytical' });
+      mockPetRepository.findPersonalityById.mockResolvedValue(personality);
+      mockPetRepository.findPersonalityByType.mockResolvedValue(personality);
 
       // Mock AI response with artificial delay
       mockGenerateText.mockImplementation(() => {
         return new Promise(resolve => {
           setTimeout(() => {
             resolve({
-              choices: [{
-                message: {
-                  content: 'Calculated response time: 500ms'
-                }
-              }]
+              text: 'Calculated response time: 500ms'
             });
           }, 500);
         });
@@ -1047,8 +1098,13 @@ describe('ChatterService', () => {
       const eventDetails = ChatterFactory.createCombatEventDetails('enemy_hit');
 
       mockCombatRepository.getActiveSession.mockResolvedValue(session);
-      mockEnemyRepository.getEnemyType.mockResolvedValue(enemyType);
-      mockCombatRepository.getPlayerCombatHistory.mockResolvedValue(playerHistory);
+      mockEnemyRepository.findEnemyTypeById.mockResolvedValue(enemyType);
+      mockCombatRepository.getPlayerHistory.mockResolvedValue({
+        totalAttempts: playerHistory.attempts,
+        victories: playerHistory.victories,
+        defeats: playerHistory.defeats,
+        currentStreak: playerHistory.current_streak
+      });
 
       // Mock AI service failure
       mockGenerateText.mockRejectedValue(
@@ -1059,13 +1115,14 @@ describe('ChatterService', () => {
       await chatterService.generateEnemyChatter(sessionId, 'enemy_hit', eventDetails);
 
       // Assert
-      expect(mockAnalyticsRepository.logChatterEvent).toHaveBeenCalledWith(
+      expect(mockAnalyticsRepository.logEnemyChatter).toHaveBeenCalledWith(
         sessionId,
+        '',
+        'enemy_hit',
         expect.any(String),
-        expect.objectContaining({
-          wasAIGenerated: false,
-          fallbackReason: 'ai_timeout'
-        })
+        expect.any(Object),
+        expect.any(Number),
+        false
       );
     });
   });

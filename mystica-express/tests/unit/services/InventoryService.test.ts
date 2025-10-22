@@ -63,6 +63,7 @@ describe('InventoryService', () => {
         expect(result.items).toEqual([]);
         expect(result.stacks).toEqual([]);
         expect(mockItemRepository.findByUser).toHaveBeenCalledWith(testUserId);
+        expect(mockItemRepository.findManyWithDetails).not.toHaveBeenCalled();
       });
 
       it('should handle user with only stackable items (no materials)', async () => {
@@ -110,7 +111,9 @@ describe('InventoryService', () => {
         expect(result.stacks[0]).toMatchObject({
           item_type_id: 'sword',
           level: 5,
-          quantity: 1
+          quantity: 1,
+          base_stats: { atkPower: 1.0, atkAccuracy: 0.8, defPower: 0.5, defAccuracy: 0.3 },
+          icon_url: 'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/icons/weapon_icon.png'
         });
       });
     });
@@ -354,12 +357,79 @@ describe('InventoryService', () => {
       it('should throw ValidationError for invalid userId format', async () => {
         // Act & Assert
         await expect(inventoryService.getPlayerInventory('')).rejects.toThrow(ValidationError);
+        await expect(inventoryService.getPlayerInventory('')).rejects.toThrow(/User ID is required/);
+      });
+
+      it('should throw ValidationError for null userId', async () => {
+        // Act & Assert
+        await expect(inventoryService.getPlayerInventory(null as any)).rejects.toThrow(ValidationError);
+        await expect(inventoryService.getPlayerInventory(undefined as any)).rejects.toThrow(ValidationError);
       });
 
       it('should handle ItemRepository database errors', async () => {
         // Arrange: Mock repository throwing database error
         const dbError = new Error('Connection failed');
         mockItemRepository.findByUser.mockRejectedValue(dbError);
+
+        // Act & Assert
+        await expect(inventoryService.getPlayerInventory(testUserId)).rejects.toThrow(DatabaseError);
+        await expect(inventoryService.getPlayerInventory(testUserId)).rejects.toThrow(/Failed to fetch inventory/);
+      });
+
+      it('should handle errors from findManyWithDetails', async () => {
+        // Arrange: findByUser succeeds but findManyWithDetails fails
+        const userItems = [{
+          id: 'item-1',
+          user_id: testUserId,
+          item_type_id: 'sword',
+          level: 1,
+          is_styled: false,
+          current_stats: { atkPower: 1.0, atkAccuracy: 0.8, defPower: 0.5, defAccuracy: 0.3 },
+          material_combo_hash: null,
+          generated_image_url: null,
+          image_generation_status: null,
+          created_at: '2025-01-21T10:00:00Z'
+        }];
+
+        mockItemRepository.findByUser.mockResolvedValue(userItems);
+        mockItemRepository.findManyWithDetails.mockRejectedValue(new Error('Database timeout'));
+
+        // Act & Assert
+        await expect(inventoryService.getPlayerInventory(testUserId)).rejects.toThrow(DatabaseError);
+        await expect(inventoryService.getPlayerInventory(testUserId)).rejects.toThrow(/Failed to fetch inventory/);
+      });
+
+      it('should handle errors from findEquippedByUser', async () => {
+        // Arrange: findByUser and findManyWithDetails succeed but findEquippedByUser fails
+        const userItems = [{
+          id: 'item-1',
+          user_id: testUserId,
+          item_type_id: 'sword',
+          level: 1,
+          is_styled: false,
+          current_stats: { atkPower: 1.0, atkAccuracy: 0.8, defPower: 0.5, defAccuracy: 0.3 },
+          material_combo_hash: null,
+          generated_image_url: null,
+          image_generation_status: null,
+          created_at: '2025-01-21T10:00:00Z'
+        }];
+
+        const itemWithDetails = {
+          ...userItems[0],
+          item_type: {
+            id: 'sword',
+            name: 'Iron Sword',
+            category: 'weapon',
+            base_stats_normalized: { atkPower: 0.4, atkAccuracy: 0.2, defPower: 0.2, defAccuracy: 0.2 },
+            rarity: 'common',
+            description: 'A basic sword'
+          },
+          materials: []
+        };
+
+        mockItemRepository.findByUser.mockResolvedValue(userItems);
+        mockItemRepository.findManyWithDetails.mockResolvedValue([itemWithDetails]);
+        mockItemRepository.findEquippedByUser.mockRejectedValue(new Error('Equipment query failed'));
 
         // Act & Assert
         await expect(inventoryService.getPlayerInventory(testUserId)).rejects.toThrow(DatabaseError);
@@ -374,6 +444,161 @@ describe('InventoryService', () => {
 
         // Act & Assert: Should propagate, not wrap
         await expect(inventoryService.getPlayerInventory(testUserId)).rejects.toBe(existingDbError);
+      });
+    });
+
+    describe('Mixed and Edge Cases', () => {
+      it('should handle mixed item types correctly', async () => {
+        // Arrange: Mix of stackable and unique items
+        const userItems = [
+          {
+            id: 'item-1',
+            user_id: testUserId,
+            item_type_id: 'sword',
+            level: 3,
+            is_styled: false,
+            current_stats: { atkPower: 1.2, atkAccuracy: 0.9, defPower: 0.6, defAccuracy: 0.3 },
+            material_combo_hash: 'abc123', // Has materials = unique
+            generated_image_url: 'https://example.com/sword.png',
+            image_generation_status: 'complete' as const,
+            created_at: '2025-01-21T10:00:00Z'
+          },
+          {
+            id: 'item-2',
+            user_id: testUserId,
+            item_type_id: 'dagger',
+            level: 2,
+            is_styled: false,
+            current_stats: { atkPower: 0.8, atkAccuracy: 1.0, defPower: 0.3, defAccuracy: 0.2 },
+            material_combo_hash: null, // No materials = stackable
+            generated_image_url: null,
+            image_generation_status: null,
+            created_at: '2025-01-21T11:00:00Z'
+          }
+        ];
+
+        const itemsWithDetails = [
+          {
+            ...userItems[0],
+            item_type: {
+              id: 'sword',
+              name: 'Iron Sword',
+              category: 'weapon',
+              base_stats_normalized: { atkPower: 0.4, atkAccuracy: 0.2, defPower: 0.2, defAccuracy: 0.2 },
+              rarity: 'common',
+              description: 'A basic sword'
+            },
+            materials: [{
+              id: 'mat-1',
+              material_id: 'iron',
+              style_id: 'normal',
+              slot_index: 0,
+              material: {
+                id: 'iron',
+                name: 'Iron',
+                stat_modifiers: { atkPower: 0.1, atkAccuracy: 0, defPower: -0.1, defAccuracy: 0 },
+                base_drop_weight: 1.0,
+                description: 'Strong metal'
+              }
+            }]
+          },
+          {
+            ...userItems[1],
+            item_type: {
+              id: 'dagger',
+              name: 'Steel Dagger',
+              category: 'weapon',
+              base_stats_normalized: { atkPower: 0.3, atkAccuracy: 0.4, defPower: 0.1, defAccuracy: 0.2 },
+              rarity: 'common',
+              description: 'A quick blade'
+            },
+            materials: []
+          }
+        ];
+
+        mockItemRepository.findByUser.mockResolvedValue(userItems);
+        mockItemRepository.findManyWithDetails.mockResolvedValue(itemsWithDetails);
+        mockItemRepository.findEquippedByUser.mockResolvedValue([]);
+
+        mockedStatsService.computeItemStats.mockReturnValue({
+          atkPower: 1.3, atkAccuracy: 0.9, defPower: 0.5, defAccuracy: 0.3
+        });
+        mockedStatsService.computeItemStatsForLevel.mockReturnValue({
+          atkPower: 0.8, atkAccuracy: 1.0, defPower: 0.3, defAccuracy: 0.2
+        });
+
+        // Act
+        const result = await inventoryService.getPlayerInventory(testUserId);
+
+        // Assert
+        expect(result.items).toHaveLength(1); // Only sword with materials
+        expect(result.stacks).toHaveLength(1); // Only dagger without materials
+
+        const uniqueItem = result.items[0];
+        expect(uniqueItem.id).toBe('item-1');
+        expect(uniqueItem.applied_materials).toHaveLength(1);
+
+        const stackableItem = result.stacks[0];
+        expect(stackableItem.item_type_id).toBe('dagger');
+        expect(stackableItem.level).toBe(2);
+        expect(stackableItem.quantity).toBe(1);
+      });
+
+      it('should handle items with null generated_image_url correctly', async () => {
+        // Arrange: Item with materials but no generated image
+        const item = {
+          id: 'item-1',
+          user_id: testUserId,
+          item_type_id: 'sword',
+          level: 3,
+          is_styled: false,
+          current_stats: { atkPower: 1.2, atkAccuracy: 0.9, defPower: 0.6, defAccuracy: 0.3 },
+          material_combo_hash: 'abc123',
+          generated_image_url: null, // No generated image
+          image_generation_status: 'pending' as const,
+          created_at: '2025-01-21T10:00:00Z'
+        };
+
+        const itemWithDetails = {
+          ...item,
+          item_type: {
+            id: 'sword',
+            name: 'Iron Sword',
+            category: 'weapon',
+            base_stats_normalized: { atkPower: 0.4, atkAccuracy: 0.2, defPower: 0.2, defAccuracy: 0.2 },
+            rarity: 'common',
+            description: 'A basic sword'
+          },
+          materials: [{
+            id: 'mat-1',
+            material_id: 'iron',
+            style_id: 'normal',
+            slot_index: 0,
+            material: {
+              id: 'iron',
+              name: 'Iron',
+              stat_modifiers: { atkPower: 0.1, atkAccuracy: 0, defPower: -0.1, defAccuracy: 0 },
+              base_drop_weight: 1.0,
+              description: 'Strong metal'
+            }
+          }]
+        };
+
+        mockItemRepository.findByUser.mockResolvedValue([item]);
+        mockItemRepository.findManyWithDetails.mockResolvedValue([itemWithDetails]);
+        mockItemRepository.findEquippedByUser.mockResolvedValue([]);
+
+        mockedStatsService.computeItemStats.mockReturnValue({
+          atkPower: 1.3, atkAccuracy: 1.0, defPower: 0.5, defAccuracy: 0.2
+        });
+
+        // Act
+        const result = await inventoryService.getPlayerInventory(testUserId);
+
+        // Assert
+        expect(result.items).toHaveLength(1);
+        const resultItem = result.items[0];
+        expect(resultItem.generated_image_url).toBe('https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/items/default_weapon.png'); // Default image
       });
     });
   });

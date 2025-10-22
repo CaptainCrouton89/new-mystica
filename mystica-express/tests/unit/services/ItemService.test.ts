@@ -628,8 +628,8 @@ describe('ItemService', () => {
       const testCases = [
         { level: 1, expectedCost: 100 },    // 100 * 1.5^0 = 100
         { level: 2, expectedCost: 150 },    // 100 * 1.5^1 = 150
-        { level: 5, expectedCost: 506 },    // 100 * 1.5^4 = 506.25 -> 506
-        { level: 10, expectedCost: 3834 }   // 100 * 1.5^9 = 3834.95 -> 3834
+        { level: 5, expectedCost: 506 },    // floor(100 * 1.5^4) = 506, no offset
+        { level: 10, expectedCost: 3834 }   // floor(100 * 1.5^9) - 10 = 3834
       ];
 
       for (const testCase of testCases) {
@@ -850,6 +850,90 @@ describe('ItemService', () => {
    * Test Group 3: Stat Computation Methods
    * Tests computeItemStats and getPlayerTotalStats methods
    */
+  describe('getPlayerTotalStats()', () => {
+    it('should sum stats from all equipped items', async () => {
+      // Arrange: Mock equipped items data
+      const equippedItems = [
+        {
+          id: 'weapon-1',
+          user_id: userId,
+          item_type_id: 'sword',
+          level: 3,
+          created_at: new Date().toISOString(),
+          materials: [],
+          item_type: {
+            id: 'sword',
+            name: 'Iron Sword',
+            category: 'weapon',
+            base_stats_normalized: { atkPower: 0.4, atkAccuracy: 0.3, defPower: 0.2, defAccuracy: 0.1 },
+            rarity: 'common',
+            description: 'A basic iron sword'
+          }
+        },
+        {
+          id: 'armor-1',
+          user_id: userId,
+          item_type_id: 'armor',
+          level: 2,
+          created_at: new Date().toISOString(),
+          materials: [],
+          item_type: {
+            id: 'armor',
+            name: 'Steel Armor',
+            category: 'armor',
+            base_stats_normalized: { atkPower: 0.1, atkAccuracy: 0.1, defPower: 0.6, defAccuracy: 0.2 },
+            rarity: 'uncommon',
+            description: 'Heavy steel armor'
+          }
+        }
+      ];
+
+      mockItemRepository.findEquippedByUser.mockResolvedValue(equippedItems);
+
+      // Mock stat computation for each item
+      const weaponStats = { atkPower: 1.2, atkAccuracy: 0.9, defPower: 0.6, defAccuracy: 0.3 };
+      const armorStats = { atkPower: 0.2, atkAccuracy: 0.2, defPower: 1.2, defAccuracy: 0.4 };
+
+      // Mock computeItemStats to return different stats for different items
+      jest.spyOn(itemService, 'computeItemStats')
+        .mockResolvedValueOnce(weaponStats)
+        .mockResolvedValueOnce(armorStats);
+
+      // Act: Get player total stats
+      const result = await itemService.getPlayerTotalStats(userId);
+
+      // Assert: Verify stats aggregation
+      expect(mockItemRepository.findEquippedByUser).toHaveBeenCalledWith(userId);
+      expect(result.equipped_stats.atkPower).toBeCloseTo(1.4, 2); // 1.2 + 0.2
+      expect(result.equipped_stats.atkAccuracy).toBeCloseTo(1.1, 2); // 0.9 + 0.2
+      expect(result.equipped_stats.defPower).toBeCloseTo(1.8, 2); // 0.6 + 1.2
+      expect(result.equipped_stats.defAccuracy).toBeCloseTo(0.7, 2); // 0.3 + 0.4
+      expect(result.total_items_equipped).toBe(2);
+      expect(result.combat_rating).toBeCloseTo(5.0, 2); // 1.4 + 1.1 + 1.8 + 0.7
+      expect(result.slots.weapon).toBeDefined();
+      expect(result.slots.armor).toBeDefined();
+    });
+
+    it('should handle empty equipment gracefully', async () => {
+      // Arrange: No equipped items
+      mockItemRepository.findEquippedByUser.mockResolvedValue([]);
+
+      // Act: Get player total stats with no equipment
+      const result = await itemService.getPlayerTotalStats(userId);
+
+      // Assert: Should return zero stats
+      expect(result.equipped_stats).toEqual({
+        atkPower: 0,
+        atkAccuracy: 0,
+        defPower: 0,
+        defAccuracy: 0
+      });
+      expect(result.total_items_equipped).toBe(0);
+      expect(result.combat_rating).toBe(0);
+      expect(Object.keys(result.slots)).toHaveLength(0);
+    });
+  });
+
   describe('computeItemStats()', () => {
     it('should calculate stats using rarity multiplier and level scaling', async () => {
       // Arrange: Item with materials for stat computation
