@@ -20,9 +20,7 @@ struct APIConfig {
         // Use build configuration defaults
         #if DEBUG
         // Development: local server
-        let url = "http://localhost:3000/api/v1"
-        print("🔧 [APIConfig] Using DEBUG base URL: \(url)")
-        return url
+        return "http://localhost:3000/api/v1"
         #else
         // Production: live API
         return "https://api.mystica.cloud/api/v1"
