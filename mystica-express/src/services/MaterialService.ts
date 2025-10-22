@@ -17,11 +17,16 @@ export class MaterialService {
   private itemRepository: ItemRepository;
   private imageGenerationService: ImageGenerationService;
 
-  constructor() {
-    this.materialRepository = new MaterialRepository();
-    this.imageCacheRepository = new ImageCacheRepository();
-    this.itemRepository = new ItemRepository();
-    this.imageGenerationService = new ImageGenerationService();
+  constructor(
+    materialRepository?: MaterialRepository,
+    imageCacheRepository?: ImageCacheRepository,
+    itemRepository?: ItemRepository,
+    imageGenerationService?: ImageGenerationService
+  ) {
+    this.materialRepository = materialRepository || new MaterialRepository();
+    this.imageCacheRepository = imageCacheRepository || new ImageCacheRepository();
+    this.itemRepository = itemRepository || new ItemRepository();
+    this.imageGenerationService = imageGenerationService || new ImageGenerationService();
   }
 
   /**
@@ -380,6 +385,7 @@ export class MaterialService {
       level: itemWithDetails.level,
       base_stats: itemWithDetails.item_type?.base_stats_normalized || {},
       current_stats: itemWithDetails.current_stats || {},
+      is_styled: itemWithDetails.is_styled || false,
       material_combo_hash: itemWithDetails.material_combo_hash,
       image_url: itemWithDetails.generated_image_url,
       materials: itemWithDetails.materials?.map((m: any) => ({

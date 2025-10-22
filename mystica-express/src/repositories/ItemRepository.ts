@@ -195,9 +195,7 @@ export class ItemRepository extends BaseRepository<ItemRow> {
               id,
               name,
               description,
-              rarity,
-              stat_modifiers,
-              image_url
+              stat_modifiers
             )
           )
         )
@@ -505,9 +503,7 @@ export class ItemRepository extends BaseRepository<ItemRow> {
               id,
               name,
               description,
-              rarity,
-              stat_modifiers,
-              image_url
+              stat_modifiers
             )
           )
         )
@@ -630,6 +626,26 @@ export class ItemRepository extends BaseRepository<ItemRow> {
     }
 
     return data as ItemTypeRow;
+  }
+
+  /**
+   * Find item types by rarity
+   *
+   * @param rarity - Rarity level to filter by (e.g., 'common', 'rare', 'epic')
+   * @returns Array of item types matching the rarity
+   * @throws DatabaseError on query failure
+   */
+  async findItemTypesByRarity(rarity: string): Promise<ItemTypeRow[]> {
+    const { data, error } = await this.client
+      .from('itemtypes')
+      .select('*')
+      .eq('rarity', rarity);
+
+    if (error) {
+      throw new DatabaseError(`Failed to fetch item types by rarity: ${rarity}`, error);
+    }
+
+    return (data || []) as ItemTypeRow[];
   }
 
   // ============================================================================

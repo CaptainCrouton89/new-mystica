@@ -41,7 +41,7 @@ export class ProfileService {
       await this.profileRepository.addCurrency(userId, 'GEMS', 0, 'profile_init');
 
       // 3. Create random common item
-      const commonItemTypes = await this.getItemTypesByRarity('common');
+      const commonItemTypes = await this.itemRepository.findItemTypesByRarity('common');
       if (commonItemTypes.length === 0) {
         throw new NotFoundError('No common item types available for profile initialization');
       }
@@ -256,19 +256,6 @@ export class ProfileService {
   // ============================================================================
   // Helper Methods
   // ============================================================================
-
-  /**
-   * Get item types by rarity (helper for profile initialization)
-   */
-  private async getItemTypesByRarity(rarity: string): Promise<any[]> {
-    // This would normally call ItemRepository or ItemTypeRepository
-    // For now, mock common item types
-    return [
-      { id: 'wooden_sword', name: 'Wooden Sword', rarity: 'common' },
-      { id: 'iron_dagger', name: 'Iron Dagger', rarity: 'common' },
-      { id: 'leather_boots', name: 'Leather Boots', rarity: 'common' }
-    ];
-  }
 }
 
 export const profileService = new ProfileService();

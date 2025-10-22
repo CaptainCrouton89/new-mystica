@@ -90,6 +90,7 @@ export interface Material {
   stat_modifiers: Stats;
   base_drop_weight: number;
   description?: string;
+  rarity?: Rarity;
 }
 
 /**

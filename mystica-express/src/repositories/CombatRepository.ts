@@ -242,6 +242,10 @@ export class CombatRepository extends BaseRepository<CombatSession> {
       throw new ValidationError(`Failed to get user active session: ${error.message}`);
     }
 
+    if (!data) {
+      return null; // No active session found
+    }
+
     return {
       id: data.id,
       userId: data.user_id,

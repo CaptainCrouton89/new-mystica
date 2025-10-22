@@ -230,7 +230,7 @@ export class ChatterService {
     // 5. Log chatter event for analytics
     await this.logChatterEvent(sessionId, dialogue, {
       eventType,
-      enemyType: enemyType.name,
+      enemyType: enemyType.name || '',
       dialogueTone: enemyType.dialogue_tone || '',
       wasAIGenerated,
       generationTime,
@@ -241,7 +241,7 @@ export class ChatterService {
     return {
       dialogue,
       personality_type: '', // Not applicable for enemies
-      enemy_type: enemyType.name,
+      enemy_type: enemyType.name || '',
       dialogue_tone: enemyType.dialogue_tone || '',
       generation_time_ms: generationTime,
       was_ai_generated: wasAIGenerated,
@@ -287,7 +287,7 @@ export class ChatterService {
     customName?: string
   ): Promise<PersonalityAssignmentResult> {
     // 1. Validate pet ownership and personality type exists
-    const pet = await this.petRepository.findPetByItemId(petId);
+    const pet = await this.petRepository.findById(petId);
     if (!pet) {
       throw new PetNotFoundError(`Pet ${petId} not found`);
     }
@@ -298,7 +298,7 @@ export class ChatterService {
     }
 
     // 2. Update pet with new personality and optional name
-    await this.petRepository.updatePetPersonality(petId, personality.id!, customName);
+    await this.petRepository.updatePetPersonality(petId, personalityType, customName);
 
     return {
       success: true,
