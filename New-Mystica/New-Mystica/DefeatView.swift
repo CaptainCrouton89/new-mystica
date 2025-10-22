@@ -52,24 +52,29 @@ struct DefeatView: View, NavigableView {
                     .font(.system(size: 48, weight: .medium))
                     .foregroundColor(Color.red)
             }
+            .popup(delay: 0.0)
             
             // Defeat Text
             VStack(spacing: 16) {
                 TitleText("Defeat", size: 32)
                     .foregroundColor(Color.red)
+                    .slideInFromBottom(delay: 0.1)
                 
                 VStack(spacing: 12) {
                     NormalText("You have been defeated in battle.", size: 18)
                         .foregroundColor(Color.textPrimary)
                         .multilineTextAlignment(.center)
+                        .slideInFromBottom(delay: 0.2)
                     
                     NormalText("Don't give up! Every defeat is a lesson learned.", size: 16)
                         .foregroundColor(Color.textSecondary)
                         .multilineTextAlignment(.center)
+                        .slideInFromBottom(delay: 0.3)
                     
                     NormalText("Return to the map to try again or explore other areas.", size: 14)
                         .foregroundColor(Color.textSecondary)
                         .multilineTextAlignment(.center)
+                        .slideInFromBottom(delay: 0.4)
                 }
             }
             
@@ -91,6 +96,7 @@ struct DefeatView: View, NavigableView {
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 16)
+            .slideInFromBottom(delay: 0.2)
         }
         .background(Color.backgroundPrimary)
     }

@@ -48,13 +48,14 @@ struct CollectionView: View, NavigableView {
                 // Collection Grid
                 ScrollView {
                     LazyVGrid(columns: columns, spacing: 16) {
-                        ForEach(dummyItems) { item in
+                        ForEach(Array(dummyItems.enumerated()), id: \.element.id) { index, item in
                             CollectionItemView(item: item)
                                 .onTapGesture {
                                     audioManager.playMenuButtonClick()
                                     selectedItem = item
                                     showItemPopup = true
                                 }
+                                .batchIn(batchIndex: index / 3) // 3 columns = 1 row per batch
                         }
                     }
                     .padding(.horizontal, 16)
