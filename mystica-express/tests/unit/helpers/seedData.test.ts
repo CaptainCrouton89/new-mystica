@@ -87,13 +87,13 @@ describe('Seed Data Loaders', () => {
       const lightning = materials.find(m => m.id === 'lightning');
 
       expect(coffee).toBeDefined();
-      expect(coffee?.rarity).toBe('common');
+      expect(coffee?.name).toBe('Coffee');
 
       expect(diamond).toBeDefined();
-      expect(diamond?.rarity).toBe('epic');
+      expect(diamond?.name).toBe('Diamond');
 
       expect(lightning).toBeDefined();
-      expect(lightning?.rarity).toBe('epic');
+      expect(lightning?.name).toBe('Lightning');
     });
   });
 

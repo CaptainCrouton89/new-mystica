@@ -19,11 +19,12 @@ const MockReplicate = jest.fn().mockImplementation(() => ({
 
 // Mock AWS S3 Client
 const mockSend = jest.fn();
+const mockS3Client = { send: mockSend };
 
 // Apply mocks
 jest.mocked(require('replicate')).default = MockReplicate;
 const { S3Client } = jest.requireMock('@aws-sdk/client-s3');
-S3Client.mockImplementation(() => ({ send: mockSend }));
+S3Client.mockImplementation(() => mockS3Client);
 global.fetch = jest.fn();
 
 // Mock dependencies
@@ -36,7 +37,7 @@ const mockMaterialRepository = {
 };
 
 const mockStyleRepository = {
-  findStyleById: jest.fn()
+  findById: jest.fn()
 };
 
 // Mock environment
@@ -150,9 +151,9 @@ describe('ImageGenerationService - Core Functionality', () => {
         description: 'Mystical crystal'
       });
 
-      mockStyleRepository.findStyleById.mockResolvedValue({
+      mockStyleRepository.findById.mockResolvedValue({
         id: 'normal',
-        name: 'Normal'
+        style_name: 'Normal'
       });
     });
 
@@ -241,6 +242,331 @@ describe('ImageGenerationService - Core Functionality', () => {
         // But should not fail on the conversion logic
         expect(error).toBeDefined();
       }
+    });
+  });
+
+  describe('end-to-end image generation flow', () => {
+    beforeEach(() => {
+      // Setup successful repository responses for E2E tests
+      mockItemRepository.findItemTypeById.mockResolvedValue({
+        id: 'item-123',
+        name: 'Magic Wand',
+        slug: 'magic_wand'
+      });
+
+      mockMaterialRepository.findMaterialById.mockResolvedValue({
+        id: 'material-123',
+        name: 'Crystal Shard',
+        description: 'Mystical blue crystal shard'
+      });
+
+      mockStyleRepository.findById.mockResolvedValue({
+        id: 'normal',
+        style_name: 'Normal'
+      });
+    });
+
+    it('should complete full generation flow - cache miss to upload', async () => {
+      const request = {
+        itemTypeId: 'item-123',
+        materialIds: ['material-123'],
+        styleIds: ['normal'],
+        comboHash: 'test-hash-123'
+      };
+
+      // Step 1: Mock cache miss (R2 HeadObject throws NotFound)
+      mockSend.mockRejectedValueOnce({
+        name: 'NotFound',
+        $metadata: { httpStatusCode: 404 }
+      });
+
+      // Step 2: Mock successful Replicate generation
+      const mockImageBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+      mockReplicateRun.mockResolvedValueOnce({
+        url: () => 'https://replicate.delivery/mock-image.png'
+      });
+
+      // Step 3: Mock successful image download
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        arrayBuffer: async () => Buffer.from(mockImageBase64, 'base64').buffer
+      });
+
+      // Step 4: Mock successful R2 upload
+      mockSend.mockResolvedValueOnce({});
+
+      const result = await service.generateComboImage(request);
+
+      expect(result).toBe('https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/items-crafted/magic_wand/test-hash-123.png');
+
+      // Verify full flow execution
+      expect(mockSend).toHaveBeenCalledTimes(2); // HeadObject + PutObject
+      expect(mockReplicateRun).toHaveBeenCalledTimes(1);
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('should return cached image when available in R2', async () => {
+      const request = {
+        itemTypeId: 'item-123',
+        materialIds: ['material-123'],
+        styleIds: ['normal'],
+        comboHash: 'cached-hash'
+      };
+
+      // Mock cache hit (R2 HeadObject succeeds)
+      mockSend.mockResolvedValueOnce({});
+
+      const result = await service.generateComboImage(request);
+
+      expect(result).toBe('https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/items-crafted/magic_wand/cached-hash.png');
+
+      // Should not trigger generation or upload
+      expect(mockSend).toHaveBeenCalledTimes(1); // Only HeadObject
+      expect(mockReplicateRun).not.toHaveBeenCalled();
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it('should handle Replicate generation failure with retry', async () => {
+      const request = {
+        itemTypeId: 'item-123',
+        materialIds: ['material-123'],
+        styleIds: ['normal']
+      };
+
+      // Mock cache miss
+      mockSend.mockRejectedValueOnce({
+        name: 'NotFound',
+        $metadata: { httpStatusCode: 404 }
+      });
+
+      // Mock Replicate failures then success
+      mockReplicateRun
+        .mockRejectedValueOnce(new Error('Rate limit exceeded'))
+        .mockRejectedValueOnce(new Error('Server overloaded'))
+        .mockResolvedValueOnce({
+          url: () => 'https://replicate.delivery/retry-success.png'
+        });
+
+      // Mock successful download and upload
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        arrayBuffer: async () => Buffer.from('test-image-data').buffer
+      });
+      mockSend.mockResolvedValueOnce({});
+
+      const result = await service.generateComboImage(request);
+
+      expect(result).toContain('items-crafted/magic_wand/');
+      expect(mockReplicateRun).toHaveBeenCalledTimes(3); // 2 failures + 1 success
+    });
+
+    it('should handle multiple materials with style variations', async () => {
+      const request = {
+        itemTypeId: 'item-123',
+        materialIds: ['material-1', 'material-2'],
+        styleIds: ['normal', 'shiny']
+      };
+
+      // Mock materials with different descriptions
+      mockMaterialRepository.findMaterialById
+        .mockResolvedValueOnce({
+          id: 'material-1',
+          name: 'Iron Ore',
+          description: 'Dense metallic ore'
+        })
+        .mockResolvedValueOnce({
+          id: 'material-2',
+          name: 'Dragon Scale',
+          description: 'Shimmering reptilian scale'
+        });
+
+      // Mock styles
+      mockStyleRepository.findById
+        .mockResolvedValueOnce({
+          id: 'normal',
+          style_name: 'Normal'
+        })
+        .mockResolvedValueOnce({
+          id: 'shiny',
+          style_name: 'Shiny'
+        });
+
+      // Mock cache miss and successful generation
+      mockSend.mockRejectedValueOnce({
+        name: 'NotFound',
+        $metadata: { httpStatusCode: 404 }
+      });
+
+      mockReplicateRun.mockResolvedValueOnce({
+        url: () => 'https://replicate.delivery/multi-material.png'
+      });
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        arrayBuffer: async () => Buffer.from('multi-material-data').buffer
+      });
+
+      mockSend.mockResolvedValueOnce({});
+
+      const result = await service.generateComboImage(request);
+
+      expect(result).toContain('items-crafted/magic_wand/');
+
+      // Verify AI prompt includes both materials
+      expect(mockReplicateRun).toHaveBeenCalledWith(
+        'google/nano-banana',
+        expect.objectContaining({
+          input: expect.objectContaining({
+            prompt: expect.stringContaining('Dense metallic ore, Shimmering reptilian scale (rendered in Shiny style)')
+          })
+        })
+      );
+    });
+
+    it('should handle R2 upload failure gracefully', async () => {
+      const request = {
+        itemTypeId: 'item-123',
+        materialIds: ['material-123'],
+        styleIds: ['normal']
+      };
+
+      // Mock cache miss and successful generation
+      mockSend.mockRejectedValueOnce({
+        name: 'NotFound',
+        $metadata: { httpStatusCode: 404 }
+      });
+
+      mockReplicateRun.mockResolvedValueOnce({
+        url: () => 'https://replicate.delivery/upload-fail-test.png'
+      });
+
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        arrayBuffer: async () => Buffer.from('test-data').buffer
+      });
+
+      // Mock R2 upload failure
+      mockSend.mockRejectedValueOnce(new Error('Network timeout'));
+
+      await expect(service.generateComboImage(request))
+        .rejects
+        .toThrow('R2 upload failed');
+    });
+
+    it('should validate and build correct R2 filenames', async () => {
+      const request = {
+        itemTypeId: 'item-123',
+        materialIds: ['material-123'],
+        styleIds: ['normal'],
+        comboHash: 'filename-test-hash'
+      };
+
+      // Mock cache hit to avoid full generation
+      mockSend.mockResolvedValueOnce({});
+
+      const result = await service.generateComboImage(request);
+
+      expect(result).toBe('https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/items-crafted/magic_wand/filename-test-hash.png');
+
+      // Verify HeadObject was called with correct key
+      expect(mockSend).toHaveBeenCalledWith(
+        expect.objectContaining({
+          input: expect.objectContaining({
+            Key: 'items-crafted/magic_wand/filename-test-hash.png'
+          })
+        })
+      );
+    });
+
+    it('should handle download failure after successful generation', async () => {
+      const request = {
+        itemTypeId: 'item-123',
+        materialIds: ['material-123'],
+        styleIds: ['normal']
+      };
+
+      // Mock cache miss and successful generation
+      mockSend.mockRejectedValueOnce({
+        name: 'NotFound',
+        $metadata: { httpStatusCode: 404 }
+      });
+
+      mockReplicateRun.mockResolvedValueOnce({
+        url: () => 'https://replicate.delivery/download-fail.png'
+      });
+
+      // Mock download failure
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        statusText: 'Internal Server Error'
+      });
+
+      await expect(service.generateComboImage(request))
+        .rejects
+        .toThrow('Failed to download generated image: Internal Server Error');
+    });
+  });
+
+  describe('uploadToR2 method', () => {
+    it('should upload buffer with correct metadata', async () => {
+      const buffer = Buffer.from('test-image-data');
+      const filename = 'test/image.png';
+
+      mockSend.mockResolvedValueOnce({});
+
+      const result = await service.uploadToR2(buffer, filename);
+
+      expect(result).toBe('https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/test/image.png');
+
+      expect(mockSend).toHaveBeenCalledWith(
+        expect.objectContaining({
+          input: expect.objectContaining({
+            Bucket: 'test-bucket',
+            Key: filename,
+            Body: buffer,
+            ContentType: 'image/png',
+            CacheControl: 'public, max-age=31536000',
+            Metadata: expect.objectContaining({
+              'service': 'mystica-image-generation',
+              'version': '1.0'
+            })
+          })
+        })
+      );
+    });
+  });
+
+  describe('fetchMaterialReferenceImages method', () => {
+    it('should include base references and specific material images', async () => {
+      const materialIds = ['iron', 'crystal'];
+      const styleIds = ['normal', 'shiny'];
+
+      // Mock materials
+      mockMaterialRepository.findMaterialById
+        .mockResolvedValueOnce({
+          id: 'iron',
+          name: 'Iron Ore',
+          description: 'Dense metal'
+        })
+        .mockResolvedValueOnce({
+          id: 'crystal',
+          name: 'Crystal Shard',
+          description: 'Clear crystal'
+        });
+
+      // Mock R2 material image existence checks
+      mockSend
+        .mockRejectedValueOnce({ name: 'NotFound' }) // styled iron doesn't exist
+        .mockResolvedValueOnce({}) // normal iron exists
+        .mockResolvedValueOnce({}) // styled crystal exists
+        .mockRejectedValueOnce({ name: 'NotFound' }); // normal crystal fallback not needed
+
+      // Use reflection to access private method
+      const referenceImages = await (service as any).fetchMaterialReferenceImages(materialIds, styleIds);
+
+      expect(referenceImages).toHaveLength(12); // 10 base + 2 material images
+      expect(referenceImages).toContain('https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/materials/iron_ore.png');
+      expect(referenceImages).toContain('https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/materials/styled/crystal_shard_shiny.png');
     });
   });
 });

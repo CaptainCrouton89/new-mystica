@@ -69,53 +69,44 @@ describe('Equipment API Endpoints', () => {
       });
 
       // Mock UserEquipment query response with equipped items
+      // This must match the repository's nested query structure: userequipment -> items:item_id -> itemtypes:item_type_id
       const mockQueryChain = {
         select: jest.fn().mockReturnThis(),
         eq: jest.fn().mockResolvedValue({
           data: [
             {
               slot_name: 'weapon',
-              item_id: 'weapon-123',
-              Items: {
+              equipped_at: '2025-01-21T10:00:00Z',
+              items: {
                 id: weaponItem.id,
-                user_id: weaponItem.user_id,
-                item_type_id: weaponItem.item_type_id,
                 level: weaponItem.level,
                 is_styled: weaponItem.is_styled,
                 current_stats: weaponItem.current_stats,
-                material_combo_hash: weaponItem.material_combo_hash,
                 generated_image_url: weaponItem.generated_image_url,
-                created_at: weaponItem.created_at,
-                ItemTypes: {
+                itemtypes: {
                   id: 'sword',
                   name: 'Iron Sword',
                   category: 'weapon',
                   base_stats_normalized: { atkPower: 0.4, atkAccuracy: 0.2, defPower: 0.2, defAccuracy: 0.2 },
-                  rarity: 'common',
-                  description: 'A basic iron sword'
+                  rarity: 'common'
                 }
               }
             },
             {
               slot_name: 'armor',
-              item_id: 'armor-456',
-              Items: {
+              equipped_at: '2025-01-21T10:00:00Z',
+              items: {
                 id: armorItem.id,
-                user_id: armorItem.user_id,
-                item_type_id: armorItem.item_type_id,
                 level: armorItem.level,
                 is_styled: armorItem.is_styled,
                 current_stats: armorItem.current_stats,
-                material_combo_hash: armorItem.material_combo_hash,
                 generated_image_url: armorItem.generated_image_url,
-                created_at: armorItem.created_at,
-                ItemTypes: {
+                itemtypes: {
                   id: 'chestplate',
                   name: 'Iron Chestplate',
                   category: 'armor',
                   base_stats_normalized: { atkPower: 0.1, atkAccuracy: 0.1, defPower: 0.5, defAccuracy: 0.3 },
-                  rarity: 'common',
-                  description: 'A sturdy iron chestplate'
+                  rarity: 'common'
                 }
               }
             }
@@ -124,7 +115,23 @@ describe('Equipment API Endpoints', () => {
         })
       };
 
-      mockFrom.mockReturnValue(mockQueryChain);
+      // Set up multiple mock responses for different tables
+      mockFrom.mockImplementation((tableName: string) => {
+        if (tableName === 'userequipment') {
+          return mockQueryChain;
+        } else if (tableName === 'v_player_equipped_stats') {
+          // Mock the stats view query - return error to force fallback
+          return {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            single: jest.fn().mockResolvedValue({
+              data: null,
+              error: { message: 'View not found' }
+            })
+          };
+        }
+        return mockQueryChain;
+      });
 
       const response = await request(app)
         .get('/api/v1/equipment')
@@ -164,7 +171,7 @@ describe('Equipment API Endpoints', () => {
       expect(response.body.equipment_count).toBe(2);
 
       // Verify the query was called correctly
-      expect(mockFrom).toHaveBeenCalledWith('UserEquipment');
+      expect(mockFrom).toHaveBeenCalledWith('userequipment');
       expect(mockQueryChain.select).toHaveBeenCalledWith(expect.stringContaining('slot_name'));
       expect(mockQueryChain.eq).toHaveBeenCalledWith('user_id', mockUserId);
     });
@@ -179,7 +186,23 @@ describe('Equipment API Endpoints', () => {
         })
       };
 
-      mockFrom.mockReturnValue(mockQueryChain);
+      // Set up multiple mock responses for different tables
+      mockFrom.mockImplementation((tableName: string) => {
+        if (tableName === 'userequipment') {
+          return mockQueryChain;
+        } else if (tableName === 'v_player_equipped_stats') {
+          // Mock the stats view query - return error to force fallback
+          return {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            single: jest.fn().mockResolvedValue({
+              data: null,
+              error: { message: 'View not found' }
+            })
+          };
+        }
+        return mockQueryChain;
+      });
 
       const response = await request(app)
         .get('/api/v1/equipment')
@@ -246,70 +269,55 @@ describe('Equipment API Endpoints', () => {
           data: [
             {
               slot_name: 'weapon',
-              item_id: 'weapon-123',
-              Items: {
+              equipped_at: '2025-01-21T10:00:00Z',
+              items: {
                 id: 'weapon-123',
-                user_id: mockUserId,
-                item_type_id: 'sword',
                 level: 5,
                 is_styled: false,
                 current_stats: weaponStats,
-                material_combo_hash: null,
                 generated_image_url: null,
-                created_at: new Date().toISOString(),
-                ItemTypes: {
+                itemtypes: {
                   id: 'sword',
                   name: 'Iron Sword',
                   category: 'weapon',
                   base_stats_normalized: { atkPower: 0.4, atkAccuracy: 0.2, defPower: 0.2, defAccuracy: 0.2 },
-                  rarity: 'common',
-                  description: 'A basic iron sword'
+                  rarity: 'common'
                 }
               }
             },
             {
               slot_name: 'armor',
-              item_id: 'armor-456',
-              Items: {
+              equipped_at: '2025-01-21T10:00:00Z',
+              items: {
                 id: 'armor-456',
-                user_id: mockUserId,
-                item_type_id: 'chestplate',
                 level: 7,
                 is_styled: false,
                 current_stats: armorStats,
-                material_combo_hash: null,
                 generated_image_url: null,
-                created_at: new Date().toISOString(),
-                ItemTypes: {
+                itemtypes: {
                   id: 'chestplate',
                   name: 'Iron Chestplate',
                   category: 'armor',
                   base_stats_normalized: { atkPower: 0.1, atkAccuracy: 0.1, defPower: 0.5, defAccuracy: 0.3 },
-                  rarity: 'common',
-                  description: 'A sturdy iron chestplate'
+                  rarity: 'common'
                 }
               }
             },
             {
               slot_name: 'accessory_1',
-              item_id: 'accessory-789',
-              Items: {
+              equipped_at: '2025-01-21T10:00:00Z',
+              items: {
                 id: 'accessory-789',
-                user_id: mockUserId,
-                item_type_id: 'ring',
                 level: 3,
                 is_styled: false,
                 current_stats: accessoryStats,
-                material_combo_hash: null,
                 generated_image_url: null,
-                created_at: new Date().toISOString(),
-                ItemTypes: {
+                itemtypes: {
                   id: 'ring',
                   name: 'Magic Ring',
                   category: 'accessory',
                   base_stats_normalized: { atkPower: 0.25, atkAccuracy: 0.25, defPower: 0.25, defAccuracy: 0.25 },
-                  rarity: 'uncommon',
-                  description: 'A ring imbued with magic'
+                  rarity: 'uncommon'
                 }
               }
             }
@@ -318,7 +326,23 @@ describe('Equipment API Endpoints', () => {
         })
       };
 
-      mockFrom.mockReturnValue(mockQueryChain);
+      // Set up multiple mock responses for different tables
+      mockFrom.mockImplementation((tableName: string) => {
+        if (tableName === 'userequipment') {
+          return mockQueryChain;
+        } else if (tableName === 'v_player_equipped_stats') {
+          // Mock the stats view query - return error to force fallback
+          return {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            single: jest.fn().mockResolvedValue({
+              data: null,
+              error: { message: 'View not found' }
+            })
+          };
+        }
+        return mockQueryChain;
+      });
 
       const response = await request(app)
         .get('/api/v1/equipment')
@@ -360,7 +384,23 @@ describe('Equipment API Endpoints', () => {
         })
       };
 
-      mockFrom.mockReturnValue(mockQueryChain);
+      // Set up multiple mock responses for different tables
+      mockFrom.mockImplementation((tableName: string) => {
+        if (tableName === 'userequipment') {
+          return mockQueryChain;
+        } else if (tableName === 'v_player_equipped_stats') {
+          // Mock the stats view query - return error to force fallback
+          return {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            single: jest.fn().mockResolvedValue({
+              data: null,
+              error: { message: 'View not found' }
+            })
+          };
+        }
+        return mockQueryChain;
+      });
 
       const response = await request(app)
         .get('/api/v1/equipment')
@@ -370,26 +410,22 @@ describe('Equipment API Endpoints', () => {
       expect(response.body.error.code).toBe('DATABASE_ERROR');
     });
 
-    it('should handle items with missing ItemTypes gracefully', async () => {
-      // Mock query response with item missing ItemTypes data
+    it('should handle corrupted data by skipping invalid items', async () => {
+      // Mock query response with item missing ItemTypes data (data integrity issue)
       const mockQueryChain = {
         select: jest.fn().mockReturnThis(),
         eq: jest.fn().mockResolvedValue({
           data: [
             {
               slot_name: 'weapon',
-              item_id: 'weapon-123',
-              Items: {
+              equipped_at: '2025-01-21T10:00:00Z',
+              items: {
                 id: 'weapon-123',
-                user_id: mockUserId,
-                item_type_id: 'sword',
                 level: 5,
                 is_styled: false,
                 current_stats: { atkPower: 10, atkAccuracy: 5, defPower: 2, defAccuracy: 3 },
-                material_combo_hash: null,
                 generated_image_url: null,
-                created_at: new Date().toISOString(),
-                ItemTypes: null // Missing ItemTypes data
+                itemtypes: null // Missing ItemTypes data - data integrity issue
               }
             }
           ],
@@ -397,20 +433,35 @@ describe('Equipment API Endpoints', () => {
         })
       };
 
-      mockFrom.mockReturnValue(mockQueryChain);
+      // Set up multiple mock responses for different tables
+      mockFrom.mockImplementation((tableName: string) => {
+        if (tableName === 'userequipment') {
+          return mockQueryChain;
+        } else if (tableName === 'v_player_equipped_stats') {
+          // Mock the stats view query - return error to force fallback
+          return {
+            select: jest.fn().mockReturnThis(),
+            eq: jest.fn().mockReturnThis(),
+            single: jest.fn().mockResolvedValue({
+              data: null,
+              error: { message: 'View not found' }
+            })
+          };
+        }
+        return mockQueryChain;
+      });
 
       const response = await request(app)
         .get('/api/v1/equipment')
         .set('Authorization', `Bearer valid-jwt-token`)
         .expect(200);
 
-      // Should still work with fallback base_stats
-      expect(response.body.slots.weapon).toBeDefined();
-      expect(response.body.slots.weapon.id).toBe('weapon-123');
-      expect(response.body.slots.weapon.base_stats).toEqual({
+      // Should skip the corrupted item and return empty slots
+      expect(response.body.slots.weapon).toBeUndefined();
+      expect(response.body.equipment_count).toBe(0);
+      expect(response.body.total_stats).toEqual({
         atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0
       });
-      expect(response.body.equipment_count).toBe(1);
     });
   });
 });

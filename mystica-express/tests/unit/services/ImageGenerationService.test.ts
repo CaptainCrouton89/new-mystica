@@ -74,7 +74,7 @@ const mockMaterialRepository = {
 };
 
 const mockStyleRepository = {
-  findStyleById: jest.fn()
+  findById: jest.fn()
 };
 
 // Mock environment variables
@@ -128,9 +128,9 @@ describe('ImageGenerationService (TDD)', () => {
     });
 
     mockMaterialRepository.findMaterialById.mockResolvedValue(IRON_MATERIAL);
-    mockStyleRepository.findStyleById.mockResolvedValue({
+    mockStyleRepository.findById.mockResolvedValue({
       id: 'normal',
-      name: 'Normal',
+      style_name: 'Normal',
       description: 'Standard material appearance'
     });
   });
@@ -515,9 +515,9 @@ describe('ImageGenerationService (TDD)', () => {
         description: 'Durable metallic material with defensive properties'
       });
 
-      mockStyleRepository.findStyleById.mockResolvedValue({
+      mockStyleRepository.findById.mockResolvedValue({
         id: 'normal',
-        name: 'Normal'
+        style_name: 'Normal'
       });
 
       // Act
@@ -547,14 +547,14 @@ describe('ImageGenerationService (TDD)', () => {
           description: 'Sparkling magical crystal'
         });
 
-      mockStyleRepository.findStyleById
+      mockStyleRepository.findById
         .mockResolvedValueOnce({
           id: 'normal',
-          name: 'Normal'
+          style_name: 'Normal'
         })
         .mockResolvedValueOnce({
           id: 'pixel_art',
-          name: 'Pixel Art'
+          style_name: 'Pixel Art'
         });
 
       // Act
@@ -578,7 +578,7 @@ describe('ImageGenerationService (TDD)', () => {
     });
 
     it('should handle missing styles gracefully', async () => {
-      mockStyleRepository.findStyleById.mockResolvedValue(null);
+      mockStyleRepository.findById.mockResolvedValue(null);
 
       await expect(
         imageGenerationService.buildAIPrompt('item-type-123', ['iron'], ['missing-style'])
