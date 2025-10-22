@@ -22,6 +22,9 @@ struct ContentView: View {
                 }
         }
         .modelContainer(for: Item.self)
+        .onChange(of: navigationManager.navigationPath) { oldValue, newValue in
+            navigationPath = newValue
+        }
     }
     
     @ViewBuilder
