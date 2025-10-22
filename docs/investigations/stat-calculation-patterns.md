@@ -18,7 +18,7 @@
 ```typescript
 // 1. Scale base stats by level: base_stats × level
 // 2. For each material:
-//    - Apply shiny multiplier if is_shiny: modifiers × 1.2
+//    - Apply style-specific modifiers based on style_id
 //    - Add to running total
 // 3. Combine: scaled_base + material_totals
 ```

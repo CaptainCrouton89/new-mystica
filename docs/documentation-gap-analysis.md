@@ -102,7 +102,7 @@ Should document:
     let itemType: ItemType // weapon, armor, pet, etc.
     let generation: Int // 1-3
     let stats: StatBlock
-    let isShiny: Bool
+    let styleId: String // e.g., "normal", "pixel_art", "watercolor"
     let isEquipped: Bool
     let materials: [Material] // max 3
   }
@@ -266,14 +266,14 @@ Should document:
     - And old material is destroyed (not refunded)
     - And gold cost is displayed and deducted
 
-- **US-404: Compare Shiny vs Normal Materials**
-  *As a player, I want to distinguish shiny materials so I know they're more valuable*
+- **US-404: Compare Different Material Styles**
+  *As a player, I want to distinguish styled materials so I know they have unique visual appearances*
   - Acceptance Criteria:
     - Given I view a material in inventory
-    - When it's shiny variant
-    - Then it has gold border and sparkle animation
-    - And stat modifiers show 1.2x effectiveness
-    - And rarity is clearly labeled
+    - When it has a non-default style (e.g., "pixel_art", "watercolor")
+    - Then it displays the style's unique visual treatment
+    - And style name is clearly labeled
+    - And styled materials are visually distinct from normal materials
 
 #### 🟡 High: F-06 - Item Upgrade System
 **PRD Reference:** [`docs/product-requirements.yaml:66-69`](file:///Users/silasrhyneer/Code/new-mystica/docs/product-requirements.yaml#L66)

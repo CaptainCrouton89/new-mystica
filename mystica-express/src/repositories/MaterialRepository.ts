@@ -607,11 +607,15 @@ export class MaterialRepository extends BaseRepository<MaterialRow> {
     styleId: string,
     slotIndex: number
   ): Promise<{ instance: MaterialInstance; newStackQuantity: number }> {
-    const result = await this.rpc<Array<{
-      instance_id: string;
-      new_stack_quantity: number;
-      item_is_styled: boolean;
-    }>>('apply_material_to_item', {
+    const result = await this.rpc<{
+      success: boolean;
+      data?: {
+        instance_id: string;
+        is_styled: boolean;
+      };
+      error_code?: string;
+      message?: string;
+    }>('apply_material_to_item', {
       p_user_id: userId,
       p_item_id: itemId,
       p_material_id: materialId,
@@ -619,11 +623,14 @@ export class MaterialRepository extends BaseRepository<MaterialRow> {
       p_slot_index: slotIndex
     });
 
-    if (!result || result.length === 0) {
-      throw new DatabaseError('No result from apply_material_to_item RPC');
+    if (!result || !result.success || !result.data) {
+      throw new DatabaseError(
+        result?.message || 'No result from apply_material_to_item RPC',
+        { postgresCode: result?.error_code }
+      );
     }
 
-    const { instance_id, new_stack_quantity } = result[0];
+    const { instance_id } = result.data;
 
     // Fetch the created instance
     const instance = await this.findInstanceById(instance_id);
@@ -631,9 +638,13 @@ export class MaterialRepository extends BaseRepository<MaterialRow> {
       throw new DatabaseError(`Failed to retrieve created instance ${instance_id}`);
     }
 
+    // Get updated stack quantity (or 0 if stack was deleted)
+    const stack = await this.findStackByUser(userId, materialId, styleId);
+    const newStackQuantity = stack?.quantity || 0;
+
     return {
       instance,
-      newStackQuantity: new_stack_quantity
+      newStackQuantity
     };
   }
 

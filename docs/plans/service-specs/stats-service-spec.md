@@ -34,7 +34,7 @@ interface Stats {
 
 interface AppliedMaterial {
   material_id: string;
-  is_shiny: boolean;
+  style_id: string;
   stat_modifiers: Stats; // Zero-sum: must sum to 0
 }
 
@@ -519,7 +519,7 @@ describe('StatsService', () => {
       const baseStats = { atkPower: 0.5, atkAccuracy: 0.2, defPower: 0.2, defAccuracy: 0.1 };
       const materials = [{
         material_id: 'steel',
-        is_shiny: false,
+        style_id: 'normal-style-uuid',
         stat_modifiers: { atkPower: -1, atkAccuracy: 0, defPower: 2, defAccuracy: -1 }
       }];
       const result = statsService.computeItemStats(baseStats, 2, materials);

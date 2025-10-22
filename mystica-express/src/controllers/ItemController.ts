@@ -189,7 +189,7 @@ export class ItemController {
     try {
       const userId = req.user!.id;
       const { item_id } = req.params;
-      const { material_id, style_id, slot_index } = req.validated?.body as ApplyMaterialRequest;
+      const { material_id, style_id, slot_index } = (req.validated?.body || req.body) as ApplyMaterialRequest;
 
       const result = await materialService.applyMaterial({
         userId,
@@ -220,7 +220,7 @@ export class ItemController {
     try {
       const userId = req.user!.id;
       const { item_id } = req.params;
-      const { slot_index, new_material_id, new_style_id, gold_cost } = req.validated?.body as ReplaceMaterialRequest;
+      const { slot_index, new_material_id, new_style_id, gold_cost } = (req.validated?.body || req.body) as ReplaceMaterialRequest;
 
       const result = await materialService.replaceMaterial({
         userId,
