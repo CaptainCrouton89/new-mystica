@@ -216,6 +216,62 @@ export class EquipmentService {
   }
 
   /**
+   * Get normalized base stats for category (fallback when not in repository)
+   */
+  private getNormalizedStatsForCategory(category: string): Stats {
+    const normalizedStats: Record<string, Stats> = {
+      sword: { atkPower: 0.4, atkAccuracy: 0.2, defPower: 0.2, defAccuracy: 0.2 },
+      weapon: { atkPower: 0.4, atkAccuracy: 0.2, defPower: 0.2, defAccuracy: 0.2 },
+      offhand: { atkPower: 0.1, atkAccuracy: 0.1, defPower: 0.5, defAccuracy: 0.3 },
+      shield: { atkPower: 0.1, atkAccuracy: 0.1, defPower: 0.5, defAccuracy: 0.3 },
+      helmet: { atkPower: 0.1, atkAccuracy: 0.1, defPower: 0.4, defAccuracy: 0.4 },
+      head: { atkPower: 0.1, atkAccuracy: 0.1, defPower: 0.4, defAccuracy: 0.4 },
+      chestplate: { atkPower: 0.1, atkAccuracy: 0.1, defPower: 0.5, defAccuracy: 0.3 },
+      armor: { atkPower: 0.1, atkAccuracy: 0.1, defPower: 0.5, defAccuracy: 0.3 },
+      boots: { atkPower: 0.2, atkAccuracy: 0.2, defPower: 0.3, defAccuracy: 0.3 },
+      feet: { atkPower: 0.2, atkAccuracy: 0.2, defPower: 0.3, defAccuracy: 0.3 },
+      accessory: { atkPower: 0.25, atkAccuracy: 0.25, defPower: 0.25, defAccuracy: 0.25 },
+      pet: { atkPower: 0.3, atkAccuracy: 0.2, defPower: 0.2, defAccuracy: 0.3 }
+    };
+
+    return normalizedStats[category] || { atkPower: 0.25, atkAccuracy: 0.25, defPower: 0.25, defAccuracy: 0.25 };
+  }
+
+  /**
+   * Map item category to valid equipment slot
+   */
+  private mapCategoryToEquipmentSlot(category: string): EquipmentSlot {
+    switch (category) {
+      case 'weapon':
+      case 'sword':
+      case 'axe':
+      case 'staff':
+      case 'bow':
+        return 'weapon';
+      case 'offhand':
+      case 'shield':
+        return 'offhand';
+      case 'head':
+      case 'helmet':
+        return 'head';
+      case 'armor':
+      case 'chestplate':
+        return 'armor';
+      case 'feet':
+      case 'boots':
+        return 'feet';
+      case 'accessory':
+      case 'ring':
+      case 'necklace':
+        return 'accessory_1'; // Default to first accessory slot
+      case 'pet':
+        return 'pet';
+      default:
+        throw new Error(`Unknown item category: ${category}`);
+    }
+  }
+
+  /**
    * Transform repository item format to PlayerItem API format
    */
   private transformRepositoryItemToPlayerItem(repositoryItem: any, isEquipped: boolean): PlayerItem {
@@ -232,8 +288,8 @@ export class EquipmentService {
         id: repositoryItem.item_type.id,
         name: repositoryItem.item_type.name,
         category: repositoryItem.item_type.category,
-        equipment_slot: repositoryItem.item_type.category as EquipmentSlot, // Assumes category matches slot
-        base_stats: repositoryItem.item_type.base_stats_normalized,
+        equipment_slot: this.mapCategoryToEquipmentSlot(repositoryItem.item_type.category),
+        base_stats: repositoryItem.item_type.base_stats_normalized || this.getNormalizedStatsForCategory(repositoryItem.item_type.category),
         rarity: repositoryItem.item_type.rarity,
         description: repositoryItem.item_type.description || '',
         image_url: repositoryItem.item_type.image_url

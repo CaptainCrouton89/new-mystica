@@ -22,12 +22,12 @@ import {
 } from '../utils/errors.js';
 import { locationService } from './LocationService.js';
 
-// Repository instances
-const combatRepository = new CombatRepository();
-const enemyRepository = new EnemyRepository();
-const equipmentRepository = new EquipmentRepository();
-const weaponRepository = new WeaponRepository();
-const materialRepository = new MaterialRepository();
+// Default repository instances (can be overridden for testing)
+let combatRepository = new CombatRepository();
+let enemyRepository = new EnemyRepository();
+let equipmentRepository = new EquipmentRepository();
+let weaponRepository = new WeaponRepository();
+let materialRepository = new MaterialRepository();
 
 // Type aliases
 type CombatResult = Database['public']['Enums']['combat_result'];
@@ -143,6 +143,25 @@ export interface EnemyStats {
  * - Combat completion with loot generation and history updates
  */
 export class CombatService {
+  private combatRepository: CombatRepository;
+  private enemyRepository: EnemyRepository;
+  private equipmentRepository: EquipmentRepository;
+  private weaponRepository: WeaponRepository;
+  private materialRepository: MaterialRepository;
+
+  constructor(
+    combatRepo?: CombatRepository,
+    enemyRepo?: EnemyRepository,
+    equipmentRepo?: EquipmentRepository,
+    weaponRepo?: WeaponRepository,
+    materialRepo?: MaterialRepository
+  ) {
+    this.combatRepository = combatRepo || combatRepository;
+    this.enemyRepository = enemyRepo || enemyRepository;
+    this.equipmentRepository = equipmentRepo || equipmentRepository;
+    this.weaponRepository = weaponRepo || weaponRepository;
+    this.materialRepository = materialRepo || materialRepository;
+  }
 
   // ============================================================================
   // Public API Methods
@@ -159,7 +178,7 @@ export class CombatService {
    */
   async startCombat(userId: string, locationId: string): Promise<CombatSession> {
     // Validate user doesn't have active session
-    const existingSession = await combatRepository.getUserActiveSession(userId);
+    const existingSession = await this.combatRepository.getUserActiveSession(userId);
     if (existingSession) {
       throw new ConflictError('User already has an active combat session');
     }
@@ -171,12 +190,13 @@ export class CombatService {
     const playerStats = await this.calculatePlayerStats(userId);
     const combatLevel = Math.floor((playerStats.atkPower + playerStats.defPower) / 20) || 1;
 
-    // Get location data for pool filtering
-    const locationData = await this.getLocationData(locationId);
-
     // Get matching enemy and loot pools for analytics
-    const appliedEnemyPools = await this.getMatchingEnemyPools(locationData, combatLevel);
-    const appliedLootPools = await this.getMatchingLootPools(locationData, combatLevel);
+    const enemyPoolIds = await locationService.getMatchingEnemyPools(locationId, combatLevel);
+    const lootPoolIds = await locationService.getMatchingLootPools(locationId, combatLevel);
+
+    // Convert to analytics format (pool IDs only for session storage)
+    const appliedEnemyPools = enemyPoolIds || [];
+    const appliedLootPools = lootPoolIds || [];
 
     // Select enemy from matching pools
     const enemy = await this.selectEnemy(locationId, combatLevel);
@@ -209,7 +229,7 @@ export class CombatService {
       combatLog: [],
     };
 
-    const sessionId = await combatRepository.createSession(userId, sessionData);
+    const sessionId = await this.combatRepository.createSession(userId, sessionData);
 
     return {
       session_id: sessionId,
@@ -230,7 +250,7 @@ export class CombatService {
    */
   async executeAttack(sessionId: string, tapPositionDegrees: number): Promise<AttackResult> {
     // Validate session exists and is active
-    const session = await combatRepository.getActiveSession(sessionId);
+    const session = await this.combatRepository.getActiveSession(sessionId);
     if (!session) {
       throw new NotFoundError('Combat session', sessionId);
     }
@@ -242,7 +262,7 @@ export class CombatService {
 
     // Get current combat state from session
     const playerStats = await this.calculatePlayerStats(session.userId);
-    const enemy = await enemyRepository.findEnemyTypeById(session.enemyTypeId);
+    const enemy = await this.enemyRepository.findEnemyTypeById(session.enemyTypeId);
     if (!enemy) {
       throw new NotFoundError('Enemy type', session.enemyTypeId);
     }
@@ -299,12 +319,12 @@ export class CombatService {
       timestamp: new Date().toISOString(),
     };
 
-    await combatRepository.updateSession(sessionId, {
+    await this.combatRepository.updateSession(sessionId, {
       combatLog: [...currentLog, newLogEntry],
     });
 
     // Log combat event
-    await combatRepository.addLogEvent(sessionId, {
+    await this.combatRepository.addLogEvent(sessionId, {
       seq: turnNumber,
       ts: new Date(),
       actor: 'player',
@@ -342,7 +362,7 @@ export class CombatService {
     combat_status: 'ongoing' | 'victory' | 'defeat';
   }> {
     // Validate session exists and is active
-    const session = await combatRepository.getActiveSession(sessionId);
+    const session = await this.combatRepository.getActiveSession(sessionId);
     if (!session) {
       throw new NotFoundError('Combat session', sessionId);
     }
@@ -394,12 +414,12 @@ export class CombatService {
       timestamp: new Date().toISOString(),
     };
 
-    await combatRepository.updateSession(sessionId, {
+    await this.combatRepository.updateSession(sessionId, {
       combatLog: [...currentLog, newLogEntry],
     });
 
     // Log combat event
-    await combatRepository.addLogEvent(sessionId, {
+    await this.combatRepository.addLogEvent(sessionId, {
       seq: turnNumber,
       ts: new Date(),
       actor: 'player',
@@ -427,7 +447,7 @@ export class CombatService {
    */
   async completeCombat(sessionId: string, result: 'victory' | 'defeat'): Promise<CombatRewards> {
     // Validate session exists
-    const session = await combatRepository.getActiveSession(sessionId);
+    const session = await this.combatRepository.getActiveSession(sessionId);
     if (!session) {
       throw new NotFoundError('Combat session', sessionId);
     }
@@ -444,10 +464,10 @@ export class CombatService {
     }
 
     // Complete session in database
-    await combatRepository.completeSession(sessionId, result);
+    await this.combatRepository.completeSession(sessionId, result);
 
     // Get updated player combat history
-    const playerHistory = await combatRepository.getPlayerHistory(session.userId, session.locationId);
+    const playerHistory = await this.combatRepository.getPlayerHistory(session.userId, session.locationId);
 
     return {
       result,
@@ -484,7 +504,7 @@ export class CombatService {
     created_at: string;
     updated_at: string;
   }> {
-    const session = await combatRepository.getActiveSession(sessionId);
+    const session = await this.combatRepository.getActiveSession(sessionId);
     if (!session) {
       throw new NotFoundError('Combat session', sessionId);
     }
@@ -521,11 +541,11 @@ export class CombatService {
   private async calculatePlayerStats(userId: string): Promise<PlayerStats> {
     try {
       // Get power level stats from v_player_powerlevel view via repository
-      const powerStats = await equipmentRepository.getPlayerPowerLevel(userId);
+      const powerStats = await this.equipmentRepository.getPlayerPowerLevel(userId);
 
       // Fallback to equipment repository if view query fails or no data
       if (!powerStats) {
-        const stats = await equipmentRepository.computeTotalStats(userId);
+        const stats = await this.equipmentRepository.computeTotalStats(userId);
         return {
           atkPower: stats?.atkPower ?? 10, // Default base stats
           atkAccuracy: stats?.atkAccuracy ?? 0.5,
@@ -545,7 +565,7 @@ export class CombatService {
     } catch (error) {
       console.warn('Database v_player_powerlevel query failed, using fallback:', error);
       // Fallback to equipment repository
-      const stats = await equipmentRepository.computeTotalStats(userId);
+      const stats = await this.equipmentRepository.computeTotalStats(userId);
       return {
         atkPower: stats?.atkPower ?? 10,
         atkAccuracy: stats?.atkAccuracy ?? 0.5,
@@ -562,14 +582,14 @@ export class CombatService {
   private async calculateEnemyStats(enemyTypeId: string): Promise<EnemyStats> {
     try {
       // Use v_enemy_realized_stats view for stats with tier scaling via repository
-      const realizedStats = await enemyRepository.getEnemyRealizedStats(enemyTypeId);
+      const realizedStats = await this.enemyRepository.getEnemyRealizedStats(enemyTypeId);
 
       if (!realizedStats) {
         throw new NotFoundError('Enemy stats', enemyTypeId);
       }
 
       // Get enemy type details for non-stat properties
-      const enemyType = await enemyRepository.findEnemyTypeById(enemyTypeId);
+      const enemyType = await this.enemyRepository.findEnemyTypeById(enemyTypeId);
       if (!enemyType) {
         throw new NotFoundError('Enemy type', enemyTypeId);
       }
@@ -587,12 +607,12 @@ export class CombatService {
     } catch (error) {
       console.warn('Database v_enemy_realized_stats query failed, using fallback:', error);
       // Fallback to existing repository method
-      const realizedStats = await enemyRepository.getEnemyRealizedStats(enemyTypeId);
+      const realizedStats = await this.enemyRepository.getEnemyRealizedStats(enemyTypeId);
       if (!realizedStats) {
         throw new NotFoundError('Enemy stats', enemyTypeId);
       }
 
-      const enemyType = await enemyRepository.findEnemyTypeById(enemyTypeId);
+      const enemyType = await this.enemyRepository.findEnemyTypeById(enemyTypeId);
       if (!enemyType) {
         throw new NotFoundError('Enemy type', enemyTypeId);
       }
@@ -640,7 +660,7 @@ export class CombatService {
     const selectedEnemyTypeId = locationService.selectRandomEnemy(poolMembers);
 
     // Get enemy details
-    const enemyType = await enemyRepository.findEnemyTypeById(selectedEnemyTypeId);
+    const enemyType = await this.enemyRepository.findEnemyTypeById(selectedEnemyTypeId);
     if (!enemyType) {
       throw new NotFoundError('Enemy type', selectedEnemyTypeId);
     }
@@ -669,7 +689,7 @@ export class CombatService {
     adjusted_bands: AdjustedBands;
   }> {
     // Get equipped weapon from slot
-    const equippedWeapon = await equipmentRepository.findItemInSlot(userId, 'weapon');
+    const equippedWeapon = await this.equipmentRepository.findItemInSlot(userId, 'weapon');
 
     if (!equippedWeapon) {
       // Default weapon configuration for no equipped weapon
@@ -688,13 +708,13 @@ export class CombatService {
     }
 
     // Get weapon timing data
-    const weapon = await weaponRepository.findWeaponByItemId(equippedWeapon.id);
+    const weapon = await this.weaponRepository.findWeaponByItemId(equippedWeapon.id);
     if (!weapon) {
       throw new NotFoundError('Weapon data', equippedWeapon.id);
     }
 
     // Calculate adjusted bands using database function
-    const adjustedBands = await weaponRepository.getAdjustedBands(weapon.item_id, playerAccuracy);
+    const adjustedBands = await this.weaponRepository.getAdjustedBands(weapon.item_id, playerAccuracy);
 
     return {
       pattern: weapon.pattern,
@@ -740,7 +760,7 @@ export class CombatService {
     if (!weaponId) return 1.0;
 
     try {
-      return await weaponRepository.getExpectedDamageMultiplier(weaponId, accuracy);
+      return await this.weaponRepository.getExpectedDamageMultiplier(weaponId, accuracy);
     } catch (error) {
       console.warn('Expected damage multiplier calculation failed:', error);
       return 1.0; // Fallback to base multiplier
@@ -794,7 +814,7 @@ export class CombatService {
   }> {
     try {
       // Get enemy style for inheritance
-      const enemy = await enemyRepository.findEnemyTypeById(enemyTypeId);
+      const enemy = await this.enemyRepository.findEnemyTypeById(enemyTypeId);
       const enemyStyleId = enemy?.style_id ?? 'normal';
 
       // Get matching loot pools
@@ -809,7 +829,7 @@ export class CombatService {
       }
 
       // Use v_loot_pool_material_weights view for weighted selection via repository
-      const weightedMaterials = await materialRepository.getLootPoolMaterialWeights(lootPoolIds);
+      const weightedMaterials = await this.materialRepository.getLootPoolMaterialWeights(lootPoolIds);
 
       // Filter for positive weights
       const validMaterials = weightedMaterials.filter(m => Number(m.spawn_weight) > 0);
@@ -837,7 +857,7 @@ export class CombatService {
 
         if (selectedMaterial) {
           // Get material details via repository
-          const materialData = await materialRepository.findMaterialById(selectedMaterial.material_id);
+          const materialData = await this.materialRepository.findMaterialById(selectedMaterial.material_id);
 
           // Apply style inheritance from enemy
           materials.push({
@@ -857,7 +877,7 @@ export class CombatService {
     } catch (error) {
       console.warn('Loot generation failed, using fallback:', error);
       // Get enemy style for fallback
-      const enemy = await enemyRepository.findEnemyTypeById(enemyTypeId);
+      const enemy = await this.enemyRepository.findEnemyTypeById(enemyTypeId);
       return this.generateLootFallback(locationId, combatLevel, enemy?.style_id ?? 'normal');
     }
   }
@@ -924,7 +944,7 @@ export class CombatService {
    */
   private async calculateCombatRating(atk: number, def: number, hp: number): Promise<number> {
     try {
-      return await combatRepository.calculateCombatRating(atk, def, hp);
+      return await this.combatRepository.calculateCombatRating(atk, def, hp);
     } catch (error) {
       // Fallback to simple calculation if DB function fails
       console.warn('Database combat_rating function failed, using fallback:', error);
@@ -932,186 +952,6 @@ export class CombatService {
     }
   }
 
-  /**
-   * Get location data needed for pool filtering
-   */
-  private async getLocationData(locationId: string): Promise<{
-    location_type: string | null;
-    state_code: string | null;
-    country_code: string | null;
-    lat: number;
-    lng: number;
-  }> {
-    try {
-      const { data, error } = await combatRepository['client']
-        .from('locations')
-        .select('location_type, state_code, country_code, lat, lng')
-        .eq('id', locationId)
-        .single();
-
-      if (error || !data) {
-        throw new NotFoundError('Location', locationId);
-      }
-
-      return {
-        location_type: data.location_type,
-        state_code: data.state_code,
-        country_code: data.country_code,
-        lat: Number(data.lat),
-        lng: Number(data.lng),
-      };
-    } catch (error) {
-      throw mapSupabaseError(error);
-    }
-  }
-
-  /**
-   * Get matching enemy pools for location and combat level
-   */
-  private async getMatchingEnemyPools(locationData: {
-    location_type: string | null;
-    state_code: string | null;
-    country_code: string | null;
-    lat: number;
-    lng: number;
-  }, combatLevel: number): Promise<Array<{
-    pool_id: string;
-    pool_name: string;
-    filter_type: string;
-    filter_value: string | null;
-    matched_criteria: string;
-  }>> {
-    try {
-      const { data, error } = await combatRepository['client']
-        .from('enemypools')
-        .select('id, name, filter_type, filter_value')
-        .eq('combat_level', combatLevel)
-        .or(`filter_type.eq.universal,filter_type.eq.location_type,filter_type.eq.state,filter_type.eq.country,filter_type.eq.lat_range,filter_type.eq.lng_range`);
-
-      if (error) {
-        throw mapSupabaseError(error);
-      }
-
-      const matchingPools = [];
-      for (const pool of data || []) {
-        let matched = false;
-        let matchedCriteria = '';
-
-        switch (pool.filter_type) {
-          case 'universal':
-            matched = pool.filter_value === null;
-            matchedCriteria = 'universal';
-            break;
-          case 'location_type':
-            matched = pool.filter_value === locationData.location_type;
-            matchedCriteria = `location_type:${locationData.location_type}`;
-            break;
-          case 'state':
-            matched = pool.filter_value === locationData.state_code;
-            matchedCriteria = `state:${locationData.state_code}`;
-            break;
-          case 'country':
-            matched = pool.filter_value === locationData.country_code;
-            matchedCriteria = `country:${locationData.country_code}`;
-            break;
-          case 'lat_range':
-          case 'lng_range':
-            // For MVP, skip lat/lng range parsing
-            matched = false;
-            break;
-        }
-
-        if (matched) {
-          matchingPools.push({
-            pool_id: pool.id,
-            pool_name: pool.name,
-            filter_type: pool.filter_type,
-            filter_value: pool.filter_value,
-            matched_criteria: matchedCriteria,
-          });
-        }
-      }
-
-      return matchingPools;
-    } catch (error) {
-      console.warn('Failed to get matching enemy pools:', error);
-      return [];
-    }
-  }
-
-  /**
-   * Get matching loot pools for location and combat level
-   */
-  private async getMatchingLootPools(locationData: {
-    location_type: string | null;
-    state_code: string | null;
-    country_code: string | null;
-    lat: number;
-    lng: number;
-  }, combatLevel: number): Promise<Array<{
-    pool_id: string;
-    pool_name: string;
-    filter_type: string;
-    filter_value: string | null;
-    matched_criteria: string;
-  }>> {
-    try {
-      const { data, error } = await combatRepository['client']
-        .from('lootpools')
-        .select('id, name, filter_type, filter_value')
-        .eq('combat_level', combatLevel)
-        .or(`filter_type.eq.universal,filter_type.eq.location_type,filter_type.eq.state,filter_type.eq.country,filter_type.eq.lat_range,filter_type.eq.lng_range`);
-
-      if (error) {
-        throw mapSupabaseError(error);
-      }
-
-      const matchingPools = [];
-      for (const pool of data || []) {
-        let matched = false;
-        let matchedCriteria = '';
-
-        switch (pool.filter_type) {
-          case 'universal':
-            matched = pool.filter_value === null;
-            matchedCriteria = 'universal';
-            break;
-          case 'location_type':
-            matched = pool.filter_value === locationData.location_type;
-            matchedCriteria = `location_type:${locationData.location_type}`;
-            break;
-          case 'state':
-            matched = pool.filter_value === locationData.state_code;
-            matchedCriteria = `state:${locationData.state_code}`;
-            break;
-          case 'country':
-            matched = pool.filter_value === locationData.country_code;
-            matchedCriteria = `country:${locationData.country_code}`;
-            break;
-          case 'lat_range':
-          case 'lng_range':
-            // For MVP, skip lat/lng range parsing
-            matched = false;
-            break;
-        }
-
-        if (matched) {
-          matchingPools.push({
-            pool_id: pool.id,
-            pool_name: pool.name,
-            filter_type: pool.filter_type,
-            filter_value: pool.filter_value,
-            matched_criteria: matchedCriteria,
-          });
-        }
-      }
-
-      return matchingPools;
-    } catch (error) {
-      console.warn('Failed to get matching loot pools:', error);
-      return [];
-    }
-  }
 
   /**
    * Capture player equipment snapshot at combat start
@@ -1129,10 +969,10 @@ export class CombatService {
   }> {
     try {
       // Get total stats
-      const totalStats = await equipmentRepository.getPlayerEquippedStats(userId);
+      const totalStats = await this.equipmentRepository.getPlayerEquippedStats(userId);
 
       // Get all equipped items
-      const equippedItems = await equipmentRepository.findEquippedByUser(userId);
+      const equippedItems = await this.equipmentRepository.findEquippedByUser(userId);
 
       // Convert to snapshot format
       const itemsSnapshot: Record<string, any> = {};

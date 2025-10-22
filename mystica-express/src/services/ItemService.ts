@@ -22,12 +22,12 @@ import { ItemTypeRepository } from '../repositories/ItemTypeRepository.js';
 import { ProfileRepository } from '../repositories/ProfileRepository.js';
 import { WeaponRepository } from '../repositories/WeaponRepository.js';
 import { PetRepository } from '../repositories/PetRepository.js';
+import { MaterialRepository } from '../repositories/MaterialRepository.js';
 import {
   ItemWithDetails,
   CreateItemData
 } from '../types/repository.types.js';
 import { Database } from '../types/database.types.js';
-import { supabase } from '../config/supabase.js';
 
 // Repository return types
 type ItemRow = Database['public']['Tables']['items']['Row'];
@@ -91,6 +91,7 @@ export class ItemService {
   private profileRepository: ProfileRepository;
   private weaponRepository: WeaponRepository;
   private petRepository: PetRepository;
+  private materialRepository: MaterialRepository;
 
   constructor() {
     this.itemRepository = new ItemRepository();
@@ -98,6 +99,7 @@ export class ItemService {
     this.profileRepository = new ProfileRepository();
     this.weaponRepository = new WeaponRepository();
     this.petRepository = new PetRepository();
+    this.materialRepository = new MaterialRepository();
   }
   /**
    * Get detailed item information by ID
@@ -349,31 +351,15 @@ export class ItemService {
    */
   private async getMaterialStacks(userId: string): Promise<MaterialStack[]> {
     try {
-      const { data, error } = await supabase
-        .from('materialstacks')
-        .select(`
-          material_id,
-          style_id,
-          quantity,
-          materials!inner(name),
-          styledefinitions!inner(style_name)
-        `)
-        .eq('user_id', userId)
-        .gt('quantity', 0)
-        .order('materials.name')
-        .order('styledefinitions.style_name');
+      const data = await this.materialRepository.findStacksByUserWithDetails(userId);
 
-      if (error) {
-        throw mapSupabaseError(error);
-      }
-
-      return (data || []).map(stack => ({
+      return data.map(stack => ({
         material_id: stack.material_id,
-        material_name: (stack.materials as any).name,
+        material_name: stack.materials.name,
         style_id: stack.style_id,
-        style_name: (stack.styledefinitions as any).style_name,
+        style_name: stack.styledefinitions.style_name,
         quantity: stack.quantity,
-        is_styled: (stack.styledefinitions as any).style_name !== 'normal'
+        is_styled: stack.styledefinitions.style_name !== 'normal'
       }));
     } catch (error) {
       console.warn('Failed to get material stacks:', error);
