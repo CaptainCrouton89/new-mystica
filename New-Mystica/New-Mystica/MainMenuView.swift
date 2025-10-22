@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct MainMenuView: View {
-    @Environment(\.navigationManager) private var navigationManager
+    @EnvironmentObject private var navigationManager: NavigationManager
     @Environment(\.audioManager) private var audioManager
     @Environment(\.backgroundImageManager) private var backgroundImageManager
 
@@ -32,8 +32,10 @@ struct MainMenuView: View {
                 // Menu Options
                 VStack(spacing: 24) {
                     Button {
+                        print("DEBUG: Map button tapped")
                         audioManager.playMenuButtonClick()
                         navigationManager.navigateTo(.map)
+                        print("DEBUG: NavigationManager path after tap: \(navigationManager.navigationPath.count)")
                     } label: {
                         MenuOptionView(
                             title: "Map",

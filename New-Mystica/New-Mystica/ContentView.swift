@@ -10,21 +10,17 @@ import SwiftData
 
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
-    @Environment(\.navigationManager) private var navigationManager
+    @EnvironmentObject private var navigationManager: NavigationManager
     @Query private var items: [Item]
-    @State private var navigationPath = NavigationPath()
 
     var body: some View {
-        NavigationStack(path: $navigationPath) {
+        NavigationStack(path: $navigationManager.navigationPath) {
             MainMenuView()
                 .navigationDestination(for: NavigationDestination.self) { destination in
                     destinationView(for: destination)
                 }
         }
         .modelContainer(for: Item.self)
-        .onChange(of: navigationManager.navigationPath) { oldValue, newValue in
-            navigationPath = newValue
-        }
     }
     
     @ViewBuilder
