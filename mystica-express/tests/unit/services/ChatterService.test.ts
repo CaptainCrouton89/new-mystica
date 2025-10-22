@@ -12,6 +12,75 @@
  * - AnalyticsRepository (chatter event logging)
  */
 
+// Mock all repository dependencies (must be at top level before imports)
+const mockCombatRepository = {
+  getActiveSession: jest.fn(),
+  getPlayerCombatHistory: jest.fn(),
+  getPlayerHistory: jest.fn()
+};
+
+const mockPetRepository = {
+  getEquippedPet: jest.fn(),
+  getPersonalityData: jest.fn(),
+  getAllPersonalities: jest.fn(),
+  findPetById: jest.fn(),
+  updatePetPersonality: jest.fn(),
+  findPersonalityByType: jest.fn(),
+  findPetByItemId: jest.fn(),
+  findPersonalityById: jest.fn()
+};
+
+const mockEnemyRepository = {
+  getEnemyType: jest.fn(),
+  getAllEnemyTypes: jest.fn(),
+  findEnemyTypeById: jest.fn(),
+  findAllEnemyTypes: jest.fn()
+};
+
+const mockAnalyticsRepository = {
+  logChatterEvent: jest.fn(),
+  logPetChatter: jest.fn(),
+  logEnemyChatter: jest.fn()
+};
+
+// Mock EquipmentRepository (imported dynamically)
+const mockEquipmentRepository = {
+  findItemInSlot: jest.fn()
+};
+
+// Mock AI service functions
+const mockGenerateText = jest.fn();
+const mockOpenAI = jest.fn();
+
+// Mock service dependencies
+jest.mock('../../../src/repositories/CombatRepository', () => ({
+  CombatRepository: jest.fn().mockImplementation(() => mockCombatRepository)
+}));
+
+jest.mock('../../../src/repositories/PetRepository', () => ({
+  PetRepository: jest.fn().mockImplementation(() => mockPetRepository)
+}));
+
+jest.mock('../../../src/repositories/EnemyRepository', () => ({
+  EnemyRepository: jest.fn().mockImplementation(() => mockEnemyRepository)
+}));
+
+jest.mock('../../../src/repositories/AnalyticsRepository', () => ({
+  AnalyticsRepository: jest.fn().mockImplementation(() => mockAnalyticsRepository)
+}));
+
+jest.mock('@ai-sdk/openai', () => ({
+  openai: jest.fn()
+}));
+
+jest.mock('ai', () => ({
+  generateText: jest.fn()
+}));
+
+jest.mock('../../../src/repositories/EquipmentRepository', () => ({
+  EquipmentRepository: jest.fn().mockImplementation(() => mockEquipmentRepository)
+}));
+
 import { ChatterService } from '../../../src/services/ChatterService.js';
 import {
   SessionNotFoundError,
@@ -39,63 +108,6 @@ import {
 
 import { UserFactory, CombatFactory } from '../../factories/index.js';
 
-// Mock all repository dependencies
-const mockCombatRepository = {
-  getActiveSession: jest.fn(),
-  getPlayerCombatHistory: jest.fn()
-};
-
-const mockPetRepository = {
-  getEquippedPet: jest.fn(),
-  getPersonalityData: jest.fn(),
-  getAllPersonalities: jest.fn(),
-  findPetById: jest.fn(),
-  updatePetPersonality: jest.fn()
-};
-
-const mockEnemyRepository = {
-  getEnemyType: jest.fn(),
-  getAllEnemyTypes: jest.fn()
-};
-
-const mockAnalyticsRepository = {
-  logChatterEvent: jest.fn()
-};
-
-// Mock OpenAI service
-const mockOpenAIService = {
-  chat: {
-    completions: {
-      create: jest.fn()
-    }
-  }
-};
-
-// Mock service dependencies
-jest.mock('../../../src/repositories/CombatRepository', () => ({
-  CombatRepository: jest.fn().mockImplementation(() => mockCombatRepository)
-}));
-
-jest.mock('../../../src/repositories/PetRepository', () => ({
-  PetRepository: jest.fn().mockImplementation(() => mockPetRepository)
-}));
-
-jest.mock('../../../src/repositories/EnemyRepository', () => ({
-  EnemyRepository: jest.fn().mockImplementation(() => mockEnemyRepository)
-}));
-
-jest.mock('../../../src/repositories/AnalyticsRepository', () => ({
-  AnalyticsRepository: jest.fn().mockImplementation(() => mockAnalyticsRepository)
-}));
-
-jest.mock('@ai-sdk/openai', () => ({
-  openai: jest.fn()
-}));
-
-jest.mock('ai', () => ({
-  generateText: jest.fn()
-}));
-
 describe('ChatterService', () => {
   let chatterService: ChatterService;
   let user: any;
@@ -113,6 +125,11 @@ describe('ChatterService', () => {
 
     // Setup default successful responses
     mockAnalyticsRepository.logChatterEvent.mockResolvedValue(undefined);
+    mockAnalyticsRepository.logPetChatter.mockResolvedValue(undefined);
+    mockAnalyticsRepository.logEnemyChatter.mockResolvedValue(undefined);
+
+    // Mock EquipmentRepository for getEquippedPet
+    mockEquipmentRepository.findItemInSlot.mockResolvedValue({ id: 'pet-item-123' });
   });
 
   /**

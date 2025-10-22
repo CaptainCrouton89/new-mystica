@@ -9,8 +9,8 @@
  */
 
 import { StatsService } from '../../../src/services/StatsService.js';
+import { AppliedMaterial, EquipmentSlot, Stats } from '../../../src/types/api.types.js';
 import { ValidationError } from '../../../src/utils/errors.js';
-import { Stats, AppliedMaterial, EquipmentSlot } from '../../../src/types/api.types.js';
 
 describe('StatsService', () => {
   let statsService: StatsService;
@@ -59,16 +59,16 @@ describe('StatsService', () => {
         style_id: 'normal',
         slot_index: 0,
         material: {
+          base_drop_weight: 1.0,
+          description: 'A sturdy metallic material that provides reliable defensive properties.',
           id: 'iron',
           name: 'Iron',
-          rarity: 'common',
           stat_modifiers: {
             atkPower: -1.0,
             atkAccuracy: 0.5,
             defPower: 1.0,
             defAccuracy: -0.5
-          }, // Sums to 0
-          theme: 'defensive'
+          } // Sums to 0
         }
       }];
 
@@ -90,11 +90,11 @@ describe('StatsService', () => {
           style_id: 'normal',
           slot_index: 0,
           material: {
+            base_drop_weight: 1.0,
+            description: 'A sturdy metallic material that provides reliable defensive properties.',
             id: 'iron',
             name: 'Iron',
-            rarity: 'common',
-            stat_modifiers: { atkPower: -2.0, atkAccuracy: 0.0, defPower: 3.0, defAccuracy: -1.0 }, // Sums to 0
-            theme: 'defensive'
+            stat_modifiers: { atkPower: -2.0, atkAccuracy: 0.0, defPower: 3.0, defAccuracy: -1.0 } // Sums to 0
           }
         },
         {
@@ -103,11 +103,11 @@ describe('StatsService', () => {
           style_id: 'normal',
           slot_index: 1,
           material: {
+            base_drop_weight: 1.0,
+            description: 'A precious red gem that enhances offensive capabilities.',
             id: 'ruby',
             name: 'Ruby',
-            rarity: 'rare',
-            stat_modifiers: { atkPower: 1.5, atkAccuracy: 0.5, defPower: -1.0, defAccuracy: -1.0 }, // Sums to 0
-            theme: 'offensive'
+            stat_modifiers: { atkPower: 1.5, atkAccuracy: 0.5, defPower: -1.0, defAccuracy: -1.0 } // Sums to 0
           }
         }
       ];
@@ -131,11 +131,11 @@ describe('StatsService', () => {
         style_id: 'normal',
         slot_index: 0,
         material: {
+          base_drop_weight: 1.0,
+          description: 'A test material for testing purposes.',
           id: 'test',
           name: 'Test',
-          rarity: 'common',
-          stat_modifiers: { atkPower: 0.333, atkAccuracy: 0.333, defPower: 0.333, defAccuracy: -0.999 }, // Sums to 0
-          theme: 'balanced'
+          stat_modifiers: { atkPower: 0.333, atkAccuracy: 0.333, defPower: 0.333, defAccuracy: -0.999 } // Sums to 0
         }
       }];
 
@@ -188,10 +188,10 @@ describe('StatsService', () => {
 
     it('should throw ValidationError for more than 3 materials', () => {
       const materials: AppliedMaterial[] = [
-        { id: '1', material_id: 'a', style_id: 'normal', slot_index: 0, material: { id: 'a', name: 'A', rarity: 'common', stat_modifiers: { atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0 }, theme: 'balanced' } },
-        { id: '2', material_id: 'b', style_id: 'normal', slot_index: 1, material: { id: 'b', name: 'B', rarity: 'common', stat_modifiers: { atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0 }, theme: 'balanced' } },
-        { id: '3', material_id: 'c', style_id: 'normal', slot_index: 2, material: { id: 'c', name: 'C', rarity: 'common', stat_modifiers: { atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0 }, theme: 'balanced' } },
-        { id: '4', material_id: 'd', style_id: 'normal', slot_index: 3, material: { id: 'd', name: 'D', rarity: 'common', stat_modifiers: { atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0 }, theme: 'balanced' } }
+        { id: '1', material_id: 'a', style_id: 'normal', slot_index: 0, material: { base_drop_weight: 1.0, description: 'A test material for testing purposes.', id: 'a', name: 'A', stat_modifiers: { atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0 } } },
+        { id: '2', material_id: 'b', style_id: 'normal', slot_index: 1, material: { base_drop_weight: 1.0, description: 'A test material for testing purposes.', id: 'b', name: 'B', stat_modifiers: { atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0 } } },
+        { id: '3', material_id: 'c', style_id: 'normal', slot_index: 2, material: { base_drop_weight: 1.0, description: 'A test material for testing purposes.', id: 'c', name: 'C', stat_modifiers: { atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0 } } },
+        { id: '4', material_id: 'd', style_id: 'normal', slot_index: 3, material: { base_drop_weight: 1.0, description: 'A test material for testing purposes.', id: 'd', name: 'D', stat_modifiers: { atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0 } } }
       ];
 
       expect(() => {
@@ -525,11 +525,11 @@ describe('StatsService', () => {
           style_id: 'normal',
           slot_index: 0,
           material: {
+            base_drop_weight: 1.0,
+            description: 'A sturdy metallic material that provides reliable defensive properties.',
             id: 'iron',
             name: 'Iron',
-            rarity: 'common',
-            stat_modifiers: { atkPower: 1.0, atkAccuracy: -0.5, defPower: -0.3, defAccuracy: -0.2 }, // Sums to 0
-            theme: 'defensive'
+            stat_modifiers: { atkPower: 1.0, atkAccuracy: -0.5, defPower: -0.3, defAccuracy: -0.2 } // Sums to 0
           }
         },
         {
@@ -538,11 +538,11 @@ describe('StatsService', () => {
           style_id: 'normal',
           slot_index: 1,
           material: {
+            base_drop_weight: 1.0,
+            description: 'A precious red gem that enhances offensive capabilities.',
             id: 'ruby',
             name: 'Ruby',
-            rarity: 'rare',
-            stat_modifiers: { atkPower: -1.0, atkAccuracy: 0.5, defPower: 0.3, defAccuracy: 0.2 }, // Sums to 0
-            theme: 'offensive'
+            stat_modifiers: { atkPower: -1.0, atkAccuracy: 0.5, defPower: 0.3, defAccuracy: 0.2 } // Sums to 0
           }
         }
       ];
@@ -569,11 +569,11 @@ describe('StatsService', () => {
         style_id: 'normal',
         slot_index: 0,
         material: {
+          base_drop_weight: 1.0,
+          description: 'A test material for testing purposes.',
           id: 'invalid',
           name: 'Invalid',
-          rarity: 'common',
-          stat_modifiers: { atkPower: 1.0, atkAccuracy: 1.0, defPower: 1.0, defAccuracy: 1.0 }, // Sums to 4.0
-          theme: 'balanced'
+          stat_modifiers: { atkPower: 1.0, atkAccuracy: 1.0, defPower: 1.0, defAccuracy: 1.0 } // Sums to 4.0
         }
       }];
 
@@ -593,11 +593,11 @@ describe('StatsService', () => {
           style_id: 'normal',
           slot_index: 0,
           material: {
+            base_drop_weight: 1.0,
+            description: 'A test material for testing purposes.',
             id: 'mat1',
             name: 'Material 1',
-            rarity: 'common',
-            stat_modifiers: { atkPower: 1.0, atkAccuracy: -0.5, defPower: -0.3, defAccuracy: -0.2 }, // Sums to 0
-            theme: 'balanced'
+            stat_modifiers: { atkPower: 1.0, atkAccuracy: -0.5, defPower: -0.3, defAccuracy: -0.2 } // Sums to 0
           }
         },
         {
@@ -606,11 +606,11 @@ describe('StatsService', () => {
           style_id: 'normal',
           slot_index: 1,
           material: {
+            base_drop_weight: 1.0,
+            description: 'A test material for testing purposes.',
             id: 'mat2',
             name: 'Material 2',
-            rarity: 'common',
-            stat_modifiers: { atkPower: 0.5, atkAccuracy: 0.5, defPower: -0.5, defAccuracy: -0.5 }, // Sums to 0
-            theme: 'balanced'
+            stat_modifiers: { atkPower: 0.5, atkAccuracy: 0.5, defPower: -0.5, defAccuracy: -0.5 } // Sums to 0
           }
         }
       ];
@@ -644,16 +644,16 @@ describe('StatsService', () => {
         style_id: 'normal',
         slot_index: 0,
         material: {
+          base_drop_weight: 1.0,
+          description: 'A test material for testing purposes.',
           id: 'floating',
           name: 'Floating Point',
-          rarity: 'common',
           stat_modifiers: {
             atkPower: 0.333333,
             atkAccuracy: 0.333333,
             defPower: 0.333333,
             defAccuracy: -0.999999 // Close enough to 0 within tolerance
-          },
-          theme: 'balanced'
+          }
         }
       }];
 
@@ -669,16 +669,16 @@ describe('StatsService', () => {
         style_id: 'normal',
         slot_index: 0,
         material: {
+          base_drop_weight: 1.0,
+          description: 'A test material for testing purposes.',
           id: 'outside',
           name: 'Outside Tolerance',
-          rarity: 'common',
           stat_modifiers: {
             atkPower: 0.5,
             atkAccuracy: 0.5,
             defPower: 0.5,
             defAccuracy: -1.52 // Sum = 0.02, outside ±0.01 tolerance
-          },
-          theme: 'balanced'
+          }
         }
       }];
 
@@ -709,11 +709,11 @@ describe('StatsService', () => {
         style_id: 'normal',
         slot_index: 0,
         material: {
+          base_drop_weight: 1.0,
+          description: 'A test material for testing purposes.',
           id: 'massive-negative',
           name: 'Massive Negative',
-          rarity: 'common',
-          stat_modifiers: { atkPower: -100, atkAccuracy: 50, defPower: 25, defAccuracy: 25 }, // Sums to 0
-          theme: 'exotic'
+          stat_modifiers: { atkPower: -100, atkAccuracy: 50, defPower: 25, defAccuracy: 25 } // Sums to 0
         }
       }];
 

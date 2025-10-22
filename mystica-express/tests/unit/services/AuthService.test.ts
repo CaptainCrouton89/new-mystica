@@ -12,48 +12,44 @@ import { AuthService } from '../../../src/services/AuthService.js';
 import { ValidationError, ConflictError, NotFoundError, BusinessLogicError } from '../../../src/utils/errors.js';
 
 // Mock external dependencies
-jest.mock('../../../src/config/supabase');
+jest.mock('@supabase/supabase-js', () => ({
+  createClient: jest.fn(() => ({
+    auth: {
+      signUp: jest.fn(),
+      signInWithPassword: jest.fn(),
+      signOut: jest.fn(),
+      refreshSession: jest.fn(),
+      resetPasswordForEmail: jest.fn(),
+      resend: jest.fn(),
+      admin: {
+        signOut: jest.fn()
+      }
+    }
+  }))
+}));
+
+jest.mock('../../../src/config/supabase', () => ({
+  supabase: {
+    from: jest.fn()
+  }
+}));
+
 jest.mock('../../../src/utils/jwt');
 jest.mock('uuid', () => ({
   v4: jest.fn(() => 'mock-uuid-12345')
 }));
 
-// Mock Supabase clients BEFORE other imports
-const mockSupabaseAdmin = {
-  from: jest.fn()
-};
-
-const mockSupabaseAuth = {
-  auth: {
-    signUp: jest.fn(),
-    signInWithPassword: jest.fn(),
-    signOut: jest.fn(),
-    refreshSession: jest.fn(),
-    resetPasswordForEmail: jest.fn(),
-    resend: jest.fn(),
-    admin: {
-      signOut: jest.fn()
-    }
-  }
-};
-
-jest.mock('@supabase/supabase-js', () => ({
-  createClient: jest.fn(() => mockSupabaseAuth)
-}));
-
-jest.mock('../../../src/config/supabase', () => ({
-  supabase: mockSupabaseAdmin
-}));
-
 // Mock ProfileRepository
+const mockProfileRepository = {
+  findUserById: jest.fn(),
+  getAllCurrencyBalances: jest.fn().mockResolvedValue({ GOLD: 1000, GEMS: 50 }),
+  updateLastLogin: jest.fn(),
+  addCurrency: jest.fn(),
+  deductCurrency: jest.fn()
+};
+
 jest.mock('../../../src/repositories/ProfileRepository.js', () => ({
-  ProfileRepository: jest.fn().mockImplementation(() => ({
-    findUserById: jest.fn(),
-    getAllCurrencyBalances: jest.fn(),
-    updateLastLogin: jest.fn(),
-    addCurrency: jest.fn(),
-    deductCurrency: jest.fn()
-  }))
+  ProfileRepository: jest.fn().mockImplementation(() => mockProfileRepository)
 }));
 
 jest.mock('../../../src/config/env', () => ({
@@ -64,23 +60,33 @@ jest.mock('../../../src/config/env', () => ({
   }
 }));
 
-// Mock JWT functions
-const mockGenerateAnonymousToken = jest.fn(() => ({
-  access_token: 'mock-jwt-token',
-  expires_in: 2592000,
-  expires_at: Math.floor(Date.now() / 1000) + 2592000
-}));
-
 jest.mock('../../../src/utils/jwt.js', () => ({
-  generateAnonymousToken: mockGenerateAnonymousToken
+  generateAnonymousToken: jest.fn(() => ({
+    access_token: 'mock-jwt-token',
+    expires_in: 2592000,
+    expires_at: Math.floor(Date.now() / 1000) + 2592000
+  }))
 }));
 
 describe('AuthService', () => {
   let authService: AuthService;
+  let mockSupabaseAdmin: any;
+  let mockSupabaseAuth: any;
 
   beforeEach(() => {
     jest.clearAllMocks();
+
+    // Get the mocked instances
+    mockSupabaseAdmin = require('../../../src/config/supabase').supabase;
+    const { createClient } = require('@supabase/supabase-js');
+    mockSupabaseAuth = createClient();
+
     authService = new AuthService();
+
+    // Reset ProfileRepository mock to default state
+    mockProfileRepository.getAllCurrencyBalances.mockResolvedValue({ GOLD: 1000, GEMS: 50 });
+    mockProfileRepository.findUserById.mockResolvedValue(null);
+    mockProfileRepository.updateLastLogin.mockResolvedValue(undefined);
 
     // Setup default mock chain
     mockSupabaseAdmin.from.mockReturnValue({
@@ -140,6 +146,7 @@ describe('AuthService', () => {
       expect(result.session.access_token).toBe('mock-jwt-token');
       expect(result.session.refresh_token).toBeNull();
       expect(result.message).toBe('Device registered successfully');
+      const mockGenerateAnonymousToken = require('../../../src/utils/jwt.js').generateAnonymousToken;
       expect(mockGenerateAnonymousToken).toHaveBeenCalledWith('mock-uuid-12345', 'test-device-123');
     });
 
@@ -163,10 +170,8 @@ describe('AuthService', () => {
       });
 
       // Mock ProfileRepository methods
-      const mockProfileRepo = require('../../../src/repositories/ProfileRepository.js').ProfileRepository;
-      const mockInstance = new mockProfileRepo();
-      mockInstance.updateLastLogin.mockResolvedValue(undefined);
-      mockInstance.getAllCurrencyBalances.mockResolvedValue({ GOLD: 1000, GEMS: 50 });
+      mockProfileRepository.updateLastLogin.mockResolvedValue(undefined);
+      mockProfileRepository.getAllCurrencyBalances.mockResolvedValue({ GOLD: 1000, GEMS: 50 });
 
       // Act
       const result = await authService.registerDevice({ device_id: 'test-device-123' });
@@ -175,7 +180,7 @@ describe('AuthService', () => {
       expect(result.user.id).toBe('existing-user-123');
       expect(result.user.gold).toBe(1000);
       expect(result.message).toBe('Device login successful');
-      expect(mockInstance.updateLastLogin).toHaveBeenCalledWith('existing-user-123');
+      expect(mockProfileRepository.updateLastLogin).toHaveBeenCalledWith('existing-user-123');
     });
 
     it('should throw ValidationError for missing device_id', async () => {
@@ -254,9 +259,7 @@ describe('AuthService', () => {
         error: null
       });
 
-      const mockProfileRepo = require('../../../src/repositories/ProfileRepository.js').ProfileRepository;
-      const mockInstance = new mockProfileRepo();
-      mockInstance.updateLastLogin.mockResolvedValue(undefined);
+      mockProfileRepository.updateLastLogin.mockResolvedValue(undefined);
 
       // Act
       const result = await authService.login({
@@ -271,7 +274,7 @@ describe('AuthService', () => {
         email: 'test@example.com',
         password: 'password123'
       });
-      expect(mockInstance.updateLastLogin).toHaveBeenCalledWith('user-123');
+      expect(mockProfileRepository.updateLastLogin).toHaveBeenCalledWith('user-123');
     });
 
     it('should throw ValidationError for invalid credentials', async () => {
@@ -294,14 +297,15 @@ describe('AuthService', () => {
 
   describe('logout()', () => {
     it('should logout successfully', async () => {
-      mockSupabaseAuth.auth.admin.signOut.mockResolvedValue({
+      const mockSignOut = jest.fn().mockResolvedValue({
         data: {},
         error: null
       });
+      mockSupabaseAuth.auth.admin.signOut = mockSignOut;
 
       // Should not throw
       await expect(authService.logout('valid-token')).resolves.toBeUndefined();
-      expect(mockSupabaseAuth.auth.admin.signOut).toHaveBeenCalledWith('valid-token');
+      expect(mockSignOut).toHaveBeenCalledWith('valid-token');
     });
 
     it('should handle logout errors gracefully', async () => {
@@ -345,15 +349,16 @@ describe('AuthService', () => {
 
   describe('resetPassword()', () => {
     it('should always return success message for security', async () => {
-      mockSupabaseAuth.auth.resetPasswordForEmail.mockResolvedValue({
+      const mockResetPassword = jest.fn().mockResolvedValue({
         data: {},
         error: null
       });
+      mockSupabaseAuth.auth.resetPasswordForEmail = mockResetPassword;
 
       const result = await authService.resetPassword({ email: 'test@example.com' });
 
       expect(result.message).toBe('If an account with that email exists, a password reset link has been sent.');
-      expect(mockSupabaseAuth.auth.resetPasswordForEmail).toHaveBeenCalledWith(
+      expect(mockResetPassword).toHaveBeenCalledWith(
         'test@example.com',
         { redirectTo: 'https://test.supabase.co/auth/v1/verify' }
       );
@@ -373,15 +378,16 @@ describe('AuthService', () => {
 
   describe('resendVerification()', () => {
     it('should always return success message for security', async () => {
-      mockSupabaseAuth.auth.resend.mockResolvedValue({
+      const mockResend = jest.fn().mockResolvedValue({
         data: {},
         error: null
       });
+      mockSupabaseAuth.auth.resend = mockResend;
 
       const result = await authService.resendVerification({ email: 'test@example.com' });
 
       expect(result.message).toBe('If an account with that email exists, a verification link has been sent.');
-      expect(mockSupabaseAuth.auth.resend).toHaveBeenCalledWith({
+      expect(mockResend).toHaveBeenCalledWith({
         type: 'signup',
         email: 'test@example.com'
       });
@@ -400,23 +406,19 @@ describe('AuthService', () => {
         updated_at: '2024-01-02T00:00:00Z'
       };
 
-      const mockProfileRepo = require('../../../src/repositories/ProfileRepository.js').ProfileRepository;
-      const mockInstance = new mockProfileRepo();
-      mockInstance.findUserById.mockResolvedValue(mockUser);
-      mockInstance.getAllCurrencyBalances.mockResolvedValue({ GOLD: 1000, GEMS: 50 });
+      mockProfileRepository.findUserById.mockResolvedValue(mockUser);
+      mockProfileRepository.getAllCurrencyBalances.mockResolvedValue({ GOLD: 1000, GEMS: 50 });
 
       const result = await authService.getCurrentUser('user-123');
 
       expect(result.user.id).toBe('user-123');
       expect(result.user.email).toBe('test@example.com');
       expect(result.user.gold).toBe(1000);
-      expect(mockInstance.findUserById).toHaveBeenCalledWith('user-123');
+      expect(mockProfileRepository.findUserById).toHaveBeenCalledWith('user-123');
     });
 
     it('should throw NotFoundError when user not found', async () => {
-      const mockProfileRepo = require('../../../src/repositories/ProfileRepository.js').ProfileRepository;
-      const mockInstance = new mockProfileRepo();
-      mockInstance.findUserById.mockResolvedValue(null);
+      mockProfileRepository.findUserById.mockResolvedValue(null);
 
       await expect(authService.getCurrentUser('nonexistent-user'))
         .rejects.toThrow(NotFoundError);

@@ -20,6 +20,7 @@ import {
 
 import {
   expectValidItem,
+  expectValidPlayerItem,
   expectValidUUID,
   expectValidEquipmentSlot,
   expectValidComputedStats
@@ -35,8 +36,41 @@ function expectValidPlayerStats(playerStats: any): void {
   }
 }
 
+// Helper to get normalized stats for category
+function getNormalizedStatsForCategory(category: string): Stats {
+  const normalizedStats: Record<string, Stats> = {
+    sword: { atkPower: 0.4, atkAccuracy: 0.2, defPower: 0.2, defAccuracy: 0.2 },
+    weapon: { atkPower: 0.4, atkAccuracy: 0.2, defPower: 0.2, defAccuracy: 0.2 },
+    offhand: { atkPower: 0.1, atkAccuracy: 0.1, defPower: 0.5, defAccuracy: 0.3 },
+    shield: { atkPower: 0.1, atkAccuracy: 0.1, defPower: 0.5, defAccuracy: 0.3 },
+    helmet: { atkPower: 0.1, atkAccuracy: 0.1, defPower: 0.4, defAccuracy: 0.4 },
+    head: { atkPower: 0.1, atkAccuracy: 0.1, defPower: 0.4, defAccuracy: 0.4 },
+    chestplate: { atkPower: 0.1, atkAccuracy: 0.1, defPower: 0.5, defAccuracy: 0.3 },
+    armor: { atkPower: 0.1, atkAccuracy: 0.1, defPower: 0.5, defAccuracy: 0.3 },
+    boots: { atkPower: 0.2, atkAccuracy: 0.2, defPower: 0.3, defAccuracy: 0.3 },
+    feet: { atkPower: 0.2, atkAccuracy: 0.2, defPower: 0.3, defAccuracy: 0.3 },
+    accessory: { atkPower: 0.25, atkAccuracy: 0.25, defPower: 0.25, defAccuracy: 0.25 },
+    pet: { atkPower: 0.3, atkAccuracy: 0.2, defPower: 0.2, defAccuracy: 0.3 }
+  };
+
+  return normalizedStats[category] || { atkPower: 0.25, atkAccuracy: 0.25, defPower: 0.25, defAccuracy: 0.25 };
+}
+
 // Helper to convert factory PlayerItem to repository format
 function toRepositoryFormat(item: any) {
+  // Map item type to proper category that matches equipment slot
+  const categoryMap: Record<string, string> = {
+    sword: 'weapon',
+    offhand: 'offhand',
+    helmet: 'head',
+    chestplate: 'armor',
+    boots: 'feet',
+    accessory: 'accessory',
+    pet: 'pet'
+  };
+
+  const category = categoryMap[item.item_type_id] || item.item_type_id;
+
   return {
     id: item.id,
     user_id: item.user_id,
@@ -49,8 +83,8 @@ function toRepositoryFormat(item: any) {
     item_type: {
       id: item.item_type_id,
       name: `Test ${item.item_type_id}`,
-      category: item.item_type_id, // Factory uses type as category
-      base_stats_normalized: { atkPower: 10, atkAccuracy: 8, defPower: 12, defAccuracy: 6 },
+      category: category,
+      base_stats_normalized: getNormalizedStatsForCategory(item.item_type_id),
       rarity: 'common' as const,
       description: `Test item of type ${item.item_type_id}`
     }
@@ -68,7 +102,11 @@ jest.mock('../../../src/config/supabase', () => ({
 jest.mock('../../../src/repositories/EquipmentRepository.js', () => ({
   EquipmentRepository: jest.fn().mockImplementation(() => ({
     findEquippedByUser: jest.fn(),
-    computeTotalStats: jest.fn()
+    computeTotalStats: jest.fn(),
+    equipItemAtomic: jest.fn(),
+    unequipItemAtomic: jest.fn(),
+    findItemInSlot: jest.fn(),
+    getPlayerEquippedStats: jest.fn()
   }))
 }));
 
@@ -103,6 +141,30 @@ describe('EquipmentService', () => {
       status: 200,
       statusText: 'OK',
       count: null
+    });
+
+    // Mock default atomic RPC responses
+    mockEquipmentRepository.equipItemAtomic.mockResolvedValue({
+      success: true,
+      data: {
+        previous_item_id: null,
+        equipped_item_id: 'test-item-id'
+      }
+    });
+
+    mockEquipmentRepository.unequipItemAtomic.mockResolvedValue({
+      success: true,
+      data: {
+        unequipped_item_id: 'test-item-id'
+      }
+    });
+
+    mockEquipmentRepository.findItemInSlot.mockResolvedValue(null);
+    mockEquipmentRepository.getPlayerEquippedStats.mockResolvedValue({
+      atkPower: 0,
+      atkAccuracy: 0,
+      defPower: 0,
+      defAccuracy: 0
     });
   });
 
@@ -190,8 +252,8 @@ describe('EquipmentService', () => {
       expect(result.slots.pet).toBeDefined();
 
       // Validate structure of equipped items
-      expectValidItem(result.slots.weapon!);
-      expectValidItem(result.slots.offhand!);
+      expectValidPlayerItem(result.slots.weapon!);
+      expectValidPlayerItem(result.slots.offhand!);
 
       // Total stats should be aggregated
       expect(result.total_stats.atkPower).toBeGreaterThan(0);
@@ -258,19 +320,13 @@ describe('EquipmentService', () => {
         }
       });
 
-      // Mock successful RPC response
-      (mockedSupabase.rpc as jest.Mock).mockResolvedValue({
+      // Mock atomic RPC response
+      mockEquipmentRepository.equipItemAtomic.mockResolvedValue({
+        success: true,
         data: {
-          success: true,
-          data: {
-            previous_item_id: null, // No previous item
-            equipped_item_id: weapon.id
-          }
-        },
-        error: null,
-        status: 200,
-        statusText: 'OK',
-        count: null
+          previous_item_id: null, // No previous item
+          equipped_item_id: weapon.id
+        }
       });
 
       // Mock updated player stats
@@ -284,12 +340,8 @@ describe('EquipmentService', () => {
       // Act: Equip weapon
       const result = await equipmentService.equipItem(userId, weapon.id);
 
-      // Assert: Verify RPC call and response
-      expect(mockedSupabase.rpc).toHaveBeenCalledWith('equip_item', {
-        p_user_id: userId,
-        p_item_id: weapon.id,
-        p_slot_name: 'weapon'
-      });
+      // Assert: Verify repository call and response
+      expect(mockEquipmentRepository.equipItemAtomic).toHaveBeenCalledWith(userId, weapon.id, 'weapon');
 
       expect(result.success).toBe(true);
       expect(result.equipped_item).toBeDefined();
@@ -323,19 +375,13 @@ describe('EquipmentService', () => {
           item_type: { id: 'chestplate', name: 'Iron Chestplate', category: 'armor' }
         });
 
-      // Mock RPC response with previous item
-      (mockedSupabase.rpc as jest.Mock).mockResolvedValue({
+      // Mock atomic RPC response with previous item
+      mockEquipmentRepository.equipItemAtomic.mockResolvedValue({
+        success: true,
         data: {
-          success: true,
-          data: {
-            previous_item_id: oldArmor.id,
-            equipped_item_id: newArmor.id
-          }
-        },
-        error: null,
-        status: 200,
-        statusText: 'OK',
-        count: null
+          previous_item_id: oldArmor.id,
+          equipped_item_id: newArmor.id
+        }
       });
 
       // Act: Equip new armor
@@ -361,26 +407,16 @@ describe('EquipmentService', () => {
         }
       });
 
-      (mockedSupabase.rpc as jest.Mock).mockResolvedValue({
-        data: {
-          success: true,
-          data: { previous_item_id: null, equipped_item_id: accessory.id }
-        },
-        error: null,
-        status: 200,
-        statusText: 'OK',
-        count: null
+      mockEquipmentRepository.equipItemAtomic.mockResolvedValue({
+        success: true,
+        data: { previous_item_id: null, equipped_item_id: accessory.id }
       });
 
       // Act: Equip accessory
       const result = await equipmentService.equipItem(userId, accessory.id);
 
       // Assert: Should use accessory_1 slot
-      expect(mockedSupabase.rpc).toHaveBeenCalledWith('equip_item', {
-        p_user_id: userId,
-        p_item_id: accessory.id,
-        p_slot_name: 'accessory_1'
-      });
+      expect(mockEquipmentRepository.equipItemAtomic).toHaveBeenCalledWith(userId, accessory.id, 'accessory_1');
 
       expect(result.success).toBe(true);
     });
@@ -422,13 +458,9 @@ describe('EquipmentService', () => {
       });
 
       // Mock RPC error
-      (mockedSupabase.rpc as jest.Mock).mockResolvedValue({
-        data: null,
-        error: { code: 'PGRST116', message: 'Item not owned by user' },
-        status: 400,
-        statusText: 'Bad Request',
-        count: null
-      });
+      mockEquipmentRepository.equipItemAtomic.mockRejectedValue(
+        new Error('Item not owned by user')
+      );
 
       // Act & Assert: Should propagate RPC error
       await expect(
@@ -446,15 +478,9 @@ describe('EquipmentService', () => {
       });
 
       // Mock RPC failure response
-      (mockedSupabase.rpc as jest.Mock).mockResolvedValue({
-        data: {
-          success: false,
-          message: 'Item category does not match slot'
-        },
-        error: null,
-        status: 200,
-        statusText: 'OK',
-        count: null
+      mockEquipmentRepository.equipItemAtomic.mockResolvedValue({
+        success: false,
+        message: 'Item category does not match slot'
       });
 
       // Act & Assert: Should throw business logic error
@@ -490,44 +516,29 @@ describe('EquipmentService', () => {
   describe('unequipItem()', () => {
     it('should successfully unequip item from occupied slot', async () => {
       // Arrange: Mock successful unequip
-      (mockedSupabase.rpc as jest.Mock).mockResolvedValue({
+      mockEquipmentRepository.unequipItemAtomic.mockResolvedValue({
+        success: true,
         data: {
-          success: true,
-          data: {
-            unequipped_item_id: 'some-item-id'
-          }
-        },
-        error: null,
-        status: 200,
-        statusText: 'OK',
-        count: null
+          unequipped_item_id: 'some-item-id'
+        }
       });
 
       // Act: Unequip weapon
       const result = await equipmentService.unequipItem(userId, 'weapon');
 
-      // Assert: Verify RPC call and response
-      expect(mockedSupabase.rpc).toHaveBeenCalledWith('unequip_item', {
-        p_user_id: userId,
-        p_slot_name: 'weapon'
-      });
+      // Assert: Verify repository call and response
+      expect(mockEquipmentRepository.unequipItemAtomic).toHaveBeenCalledWith(userId, 'weapon');
 
       expect(result).toBe(true); // Item was unequipped
     });
 
     it('should return false when unequipping empty slot', async () => {
       // Arrange: Mock empty slot response
-      (mockedSupabase.rpc as jest.Mock).mockResolvedValue({
+      mockEquipmentRepository.unequipItemAtomic.mockResolvedValue({
+        success: true,
         data: {
-          success: true,
-          data: {
-            unequipped_item_id: null // No item was in the slot
-          }
-        },
-        error: null,
-        status: 200,
-        statusText: 'OK',
-        count: null
+          unequipped_item_id: null // No item was in the slot
+        }
       });
 
       // Act: Unequip from empty slot
@@ -539,13 +550,9 @@ describe('EquipmentService', () => {
 
     it('should handle unequip RPC error correctly', async () => {
       // Arrange: Mock RPC error
-      (mockedSupabase.rpc as jest.Mock).mockResolvedValue({
-        data: null,
-        error: { code: 'PGRST204', message: 'User not found' },
-        status: 404,
-        statusText: 'Not Found',
-        count: null
-      });
+      mockEquipmentRepository.unequipItemAtomic.mockRejectedValue(
+        new Error('User not found')
+      );
 
       // Act & Assert: Should propagate error
       await expect(
@@ -555,15 +562,9 @@ describe('EquipmentService', () => {
 
     it('should handle unequip failure response (success: false)', async () => {
       // Arrange: Mock failure response
-      (mockedSupabase.rpc as jest.Mock).mockResolvedValue({
-        data: {
-          success: false,
-          message: 'Invalid slot name'
-        },
-        error: null,
-        status: 200,
-        statusText: 'OK',
-        count: null
+      mockEquipmentRepository.unequipItemAtomic.mockResolvedValue({
+        success: false,
+        message: 'Invalid slot name'
       });
 
       // Act & Assert: Should throw error

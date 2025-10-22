@@ -251,6 +251,211 @@ describe('LoadoutService', () => {
     });
   });
 
+  describe('updateLoadoutName()', () => {
+    it('should update loadout name successfully', async () => {
+      // Arrange
+      const loadoutId = 'loadout-123';
+      const newName = 'Updated Loadout';
+      const mockLoadout: LoadoutWithSlots = {
+        id: loadoutId,
+        user_id: userId,
+        name: 'Old Name',
+        is_active: false,
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-01T00:00:00Z',
+        slots: { weapon: null, offhand: null, head: null, armor: null, feet: null, accessory_1: null, accessory_2: null, pet: null }
+      };
+
+      const mockUpdatedLoadout: LoadoutWithSlots = { ...mockLoadout, name: newName };
+
+      mockLoadoutRepository.findLoadoutById
+        .mockResolvedValueOnce(mockLoadout) // For ownership check
+        .mockResolvedValueOnce(mockUpdatedLoadout); // For return value
+      mockLoadoutRepository.isLoadoutNameUnique.mockResolvedValue(true);
+      mockLoadoutRepository.updateLoadoutName.mockResolvedValue(undefined);
+
+      // Act
+      const result = await loadoutService.updateLoadoutName(loadoutId, userId, newName);
+
+      // Assert
+      expect(result).toEqual(mockUpdatedLoadout);
+      expect(mockLoadoutRepository.isLoadoutNameUnique).toHaveBeenCalledWith(userId, newName, loadoutId);
+      expect(mockLoadoutRepository.updateLoadoutName).toHaveBeenCalledWith(loadoutId, newName);
+    });
+
+    it('should throw ValidationError for empty name', async () => {
+      const loadoutId = 'loadout-123';
+      const mockLoadout: LoadoutWithSlots = {
+        id: loadoutId,
+        user_id: userId,
+        name: 'Test',
+        is_active: false,
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-01T00:00:00Z',
+        slots: { weapon: null, offhand: null, head: null, armor: null, feet: null, accessory_1: null, accessory_2: null, pet: null }
+      };
+
+      mockLoadoutRepository.findLoadoutById.mockResolvedValue(mockLoadout);
+
+      await expect(loadoutService.updateLoadoutName(loadoutId, userId, '')).rejects.toThrow(ValidationError);
+      await expect(loadoutService.updateLoadoutName(loadoutId, userId, '   ')).rejects.toThrow(ValidationError);
+    });
+
+    it('should throw ValidationError for duplicate name', async () => {
+      const loadoutId = 'loadout-123';
+      const mockLoadout: LoadoutWithSlots = {
+        id: loadoutId,
+        user_id: userId,
+        name: 'Test',
+        is_active: false,
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-01T00:00:00Z',
+        slots: { weapon: null, offhand: null, head: null, armor: null, feet: null, accessory_1: null, accessory_2: null, pet: null }
+      };
+
+      mockLoadoutRepository.findLoadoutById.mockResolvedValue(mockLoadout);
+      mockLoadoutRepository.isLoadoutNameUnique.mockResolvedValue(false);
+
+      await expect(loadoutService.updateLoadoutName(loadoutId, userId, 'Duplicate')).rejects.toThrow(ValidationError);
+    });
+  });
+
+  describe('updateLoadoutSlots()', () => {
+    it('should update loadout slots successfully', async () => {
+      // Arrange
+      const loadoutId = 'loadout-123';
+      const slots: LoadoutSlotAssignments = {
+        weapon: 'item-1',
+        offhand: null,
+        head: 'item-2',
+        armor: null,
+        feet: null,
+        accessory_1: null,
+        accessory_2: null,
+        pet: null
+      };
+
+      const mockUpdatedLoadout: LoadoutWithSlots = {
+        id: loadoutId,
+        user_id: userId,
+        name: 'Test',
+        is_active: false,
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-01T00:00:00Z',
+        slots: {
+          weapon: 'item-1',
+          offhand: null,
+          head: 'item-2',
+          armor: null,
+          feet: null,
+          accessory_1: null,
+          accessory_2: null,
+          pet: null
+        }
+      };
+
+      mockLoadoutRepository.updateLoadoutSlots.mockResolvedValue(undefined);
+      mockLoadoutRepository.findLoadoutById.mockResolvedValue(mockUpdatedLoadout);
+
+      // Act
+      const result = await loadoutService.updateLoadoutSlots(loadoutId, userId, slots);
+
+      // Assert
+      expect(result).toEqual(mockUpdatedLoadout);
+      expect(mockLoadoutRepository.updateLoadoutSlots).toHaveBeenCalledWith(loadoutId, slots);
+    });
+
+    it('should handle partial slot assignments', async () => {
+      // Arrange
+      const loadoutId = 'loadout-123';
+      const partialSlots = { weapon: 'item-1', head: 'item-2' };
+      const completeSlots: LoadoutSlotAssignments = {
+        weapon: 'item-1',
+        offhand: null,
+        head: 'item-2',
+        armor: null,
+        feet: null,
+        accessory_1: null,
+        accessory_2: null,
+        pet: null
+      };
+
+      const mockUpdatedLoadout: LoadoutWithSlots = {
+        id: loadoutId,
+        user_id: userId,
+        name: 'Test',
+        is_active: false,
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-01T00:00:00Z',
+        slots: {
+          weapon: 'item-1',
+          offhand: null,
+          head: 'item-2',
+          armor: null,
+          feet: null,
+          accessory_1: null,
+          accessory_2: null,
+          pet: null
+        }
+      };
+
+      mockLoadoutRepository.updateLoadoutSlots.mockResolvedValue(undefined);
+      mockLoadoutRepository.findLoadoutById.mockResolvedValue(mockUpdatedLoadout);
+
+      // Act
+      const result = await loadoutService.updateLoadoutSlots(loadoutId, userId, partialSlots);
+
+      // Assert
+      expect(result).toEqual(mockUpdatedLoadout);
+      expect(mockLoadoutRepository.updateLoadoutSlots).toHaveBeenCalledWith(loadoutId, completeSlots);
+    });
+  });
+
+  describe('getActiveLoadout()', () => {
+    it('should return active loadout when exists', async () => {
+      // Arrange
+      const mockActiveLoadout: LoadoutWithSlots = {
+        id: 'loadout-123',
+        user_id: userId,
+        name: 'Active Loadout',
+        is_active: true,
+        created_at: '2024-01-01T00:00:00Z',
+        updated_at: '2024-01-01T00:00:00Z',
+        slots: {
+          weapon: 'item-1',
+          offhand: null,
+          head: null,
+          armor: null,
+          feet: null,
+          accessory_1: null,
+          accessory_2: null,
+          pet: null
+        }
+      };
+
+      mockLoadoutRepository.getActiveLoadout.mockResolvedValue(mockActiveLoadout);
+
+      // Act
+      const result = await loadoutService.getActiveLoadout(userId);
+
+      // Assert
+      expect(result).toEqual(mockActiveLoadout);
+      expect(mockLoadoutRepository.getActiveLoadout).toHaveBeenCalledWith(userId);
+    });
+
+    it('should return null when no active loadout', async () => {
+      // Arrange
+      mockLoadoutRepository.getActiveLoadout.mockResolvedValue(null);
+
+      // Act
+      const result = await loadoutService.getActiveLoadout(userId);
+
+      // Assert
+      expect(result).toBeNull();
+      expect(mockLoadoutRepository.getActiveLoadout).toHaveBeenCalledWith(userId);
+    });
+  });
+
   describe('updateSingleSlot()', () => {
     it('should validate slot names', async () => {
       const loadoutId = 'loadout-123';
