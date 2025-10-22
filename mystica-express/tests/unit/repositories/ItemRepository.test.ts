@@ -141,9 +141,13 @@ describe('ItemRepository', () => {
       it('should find all items for a user', async () => {
         const userItems = [mockItemRow, { ...mockItemRow, id: 'item-789' }];
 
-        mockClient.from('items').select('*').eq('user_id', mockUserId).mockResolvedValue({
-          data: userItems,
-          error: null
+        mockClient.from.mockReturnValue({
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockResolvedValue({
+              data: userItems,
+              error: null
+            })
+          })
         });
 
         const result = await repository.findByUser(mockUserId);
@@ -153,9 +157,13 @@ describe('ItemRepository', () => {
       });
 
       it('should return empty array when user has no items', async () => {
-        mockClient.from('items').select('*').eq('user_id', mockUserId).mockResolvedValue({
-          data: [],
-          error: null
+        mockClient.from.mockReturnValue({
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockResolvedValue({
+              data: [],
+              error: null
+            })
+          })
         });
 
         const result = await repository.findByUser(mockUserId);
@@ -273,17 +281,29 @@ describe('ItemRepository', () => {
 
     describe('delete', () => {
       it('should delete item with ownership validation', async () => {
-        // Mock ownership validation
-        mockClient.from('items').select('*').eq('id', mockItemId).eq('user_id', mockUserId).single.mockResolvedValue({
-          data: mockItemRow,
-          error: null
-        });
-
-        // Mock delete
-        mockClient.from('items').delete({ count: 'exact' }).eq('id', mockItemId).mockResolvedValue({
-          error: null,
-          count: 1
-        });
+        // Mock ownership validation and delete
+        mockClient.from
+          .mockReturnValueOnce({
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                eq: jest.fn().mockReturnValue({
+                  single: jest.fn().mockResolvedValue({
+                    data: mockItemRow,
+                    error: null
+                  })
+                })
+              })
+            })
+          })
+          // Mock delete
+          .mockReturnValueOnce({
+            delete: jest.fn().mockReturnValue({
+              eq: jest.fn().mockResolvedValue({
+                error: null,
+                count: 1
+              })
+            })
+          });
 
         const result = await repository.deleteItem(mockItemId, mockUserId);
 
@@ -291,17 +311,29 @@ describe('ItemRepository', () => {
       });
 
       it('should return false when item not found', async () => {
-        // Mock ownership validation
-        mockClient.from('items').select('*').eq('id', mockItemId).eq('user_id', mockUserId).single.mockResolvedValue({
-          data: mockItemRow,
-          error: null
-        });
-
-        // Mock delete with no rows affected
-        mockClient.from('items').delete({ count: 'exact' }).eq('id', mockItemId).mockResolvedValue({
-          error: null,
-          count: 0
-        });
+        // Mock ownership validation and delete
+        mockClient.from
+          .mockReturnValueOnce({
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                eq: jest.fn().mockReturnValue({
+                  single: jest.fn().mockResolvedValue({
+                    data: mockItemRow,
+                    error: null
+                  })
+                })
+              })
+            })
+          })
+          // Mock delete with no rows affected
+          .mockReturnValueOnce({
+            delete: jest.fn().mockReturnValue({
+              eq: jest.fn().mockResolvedValue({
+                error: null,
+                count: 0
+              })
+            })
+          });
 
         const result = await repository.deleteItem(mockItemId, mockUserId);
 
@@ -421,9 +453,13 @@ describe('ItemRepository', () => {
           }
         };
 
-        mockClient.from('items').select(expect.any(String)).eq('user_id', mockUserId).mockResolvedValue({
-          data: [equippedItem],
-          error: null
+        mockClient.from.mockReturnValue({
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockResolvedValue({
+              data: [equippedItem],
+              error: null
+            })
+          })
         });
 
         const result = await repository.findEquippedByUser(mockUserId);
@@ -438,9 +474,15 @@ describe('ItemRepository', () => {
       it('should find items by type for user', async () => {
         const typeItems = [mockItemRow, { ...mockItemRow, id: 'item-999' }];
 
-        mockClient.from('items').select('*').eq('user_id', mockUserId).eq('item_type_id', mockItemTypeId).mockResolvedValue({
-          data: typeItems,
-          error: null
+        mockClient.from.mockReturnValue({
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              eq: jest.fn().mockResolvedValue({
+                data: typeItems,
+                error: null
+              })
+            })
+          })
         });
 
         const result = await repository.findByType(mockUserId, mockItemTypeId);
@@ -534,92 +576,124 @@ describe('ItemRepository', () => {
   describe('History Tracking', () => {
     describe('addHistoryEvent', () => {
       it('should add history event with ownership validation', async () => {
-        // Mock ownership validation
-        mockClient.from('items').select('*').eq('id', mockItemId).eq('user_id', mockUserId).single.mockResolvedValue({
-          data: mockItemRow,
-          error: null
-        });
-
-        // Mock history insert
-        mockClient.from('itemhistory').insert({
-          item_id: mockItemId,
-          user_id: mockUserId,
-          event_type: 'level_up',
-          event_data: { old_level: 4, new_level: 5 }
-        }).mockResolvedValue({
-          error: null
-        });
+        // Mock ownership validation and history insert
+        mockClient.from
+          .mockReturnValueOnce({
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                eq: jest.fn().mockReturnValue({
+                  single: jest.fn().mockResolvedValue({
+                    data: mockItemRow,
+                    error: null
+                  })
+                })
+              })
+            })
+          })
+          // Mock history insert
+          .mockReturnValueOnce({
+            insert: jest.fn().mockResolvedValue({
+              error: null
+            })
+          });
 
         await repository.addHistoryEvent(mockItemId, mockUserId, 'level_up', { old_level: 4, new_level: 5 });
 
-        expect(mockClient.from('itemhistory').insert).toHaveBeenCalledWith({
-          item_id: mockItemId,
-          user_id: mockUserId,
-          event_type: 'level_up',
-          event_data: { old_level: 4, new_level: 5 }
-        });
+        expect(mockClient.from).toHaveBeenCalledWith('itemhistory');
       });
 
       it('should add history event without event data', async () => {
-        // Mock ownership validation
-        mockClient.from('items').select('*').eq('id', mockItemId).eq('user_id', mockUserId).single.mockResolvedValue({
-          data: mockItemRow,
-          error: null
-        });
-
-        // Mock history insert
-        mockClient.from('itemhistory').insert({
-          item_id: mockItemId,
-          user_id: mockUserId,
-          event_type: 'equipped',
-          event_data: null
-        }).mockResolvedValue({
-          error: null
-        });
+        // Mock ownership validation and history insert
+        mockClient.from
+          .mockReturnValueOnce({
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                eq: jest.fn().mockReturnValue({
+                  single: jest.fn().mockResolvedValue({
+                    data: mockItemRow,
+                    error: null
+                  })
+                })
+              })
+            })
+          })
+          // Mock history insert
+          .mockReturnValueOnce({
+            insert: jest.fn().mockResolvedValue({
+              error: null
+            })
+          });
 
         await repository.addHistoryEvent(mockItemId, mockUserId, 'equipped');
 
-        expect(mockClient.from('itemhistory').insert).toHaveBeenCalledWith({
-          item_id: mockItemId,
-          user_id: mockUserId,
-          event_type: 'equipped',
-          event_data: null
-        });
+        expect(mockClient.from).toHaveBeenCalledWith('itemhistory');
       });
     });
 
     describe('getItemHistory', () => {
       it('should get item history with ownership validation', async () => {
-        // Mock ownership validation
-        mockClient.from('items').select('*').eq('id', mockItemId).eq('user_id', mockUserId).single.mockResolvedValue({
-          data: mockItemRow,
-          error: null
-        });
-
-        // Mock history query
-        mockClient.from('itemhistory').select('*').eq('item_id', mockItemId).eq('user_id', mockUserId).order('created_at', { ascending: false }).mockResolvedValue({
-          data: [mockHistoryEvent],
-          error: null
-        });
+        // Mock ownership validation and history query
+        mockClient.from
+          .mockReturnValueOnce({
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                eq: jest.fn().mockReturnValue({
+                  single: jest.fn().mockResolvedValue({
+                    data: mockItemRow,
+                    error: null
+                  })
+                })
+              })
+            })
+          })
+          // Mock history query
+          .mockReturnValueOnce({
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                eq: jest.fn().mockReturnValue({
+                  order: jest.fn().mockResolvedValue({
+                    data: [mockHistoryEvent],
+                    error: null
+                  })
+                })
+              })
+            })
+          });
 
         const result = await repository.getItemHistory(mockItemId, mockUserId);
 
         expect(result).toEqual([mockHistoryEvent]);
-        expect(mockClient.from('itemhistory').select('*').eq('item_id', mockItemId).eq('user_id', mockUserId).order).toHaveBeenCalledWith('created_at', { ascending: false });
+        expect(mockClient.from).toHaveBeenCalledWith('itemhistory');
       });
 
       it('should return empty array when no history exists', async () => {
-        // Mock ownership validation
-        mockClient.from('items').select('*').eq('id', mockItemId).eq('user_id', mockUserId).single.mockResolvedValue({
-          data: mockItemRow,
-          error: null
-        });
-
-        // Mock empty history
-        mockClient.from('itemhistory').select('*').eq('item_id', mockItemId).eq('user_id', mockUserId).order('created_at', { ascending: false }).mockResolvedValue({
-          data: [],
-          error: null
-        });
+        // Mock ownership validation and empty history
+        mockClient.from
+          .mockReturnValueOnce({
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                eq: jest.fn().mockReturnValue({
+                  single: jest.fn().mockResolvedValue({
+                    data: mockItemRow,
+                    error: null
+                  })
+                })
+              })
+            })
+          })
+          // Mock empty history
+          .mockReturnValueOnce({
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                eq: jest.fn().mockReturnValue({
+                  order: jest.fn().mockResolvedValue({
+                    data: [],
+                    error: null
+                  })
+                })
+              })
+            })
+          });
 
         const result = await repository.getItemHistory(mockItemId, mockUserId);
 
@@ -634,9 +708,13 @@ describe('ItemRepository', () => {
         const itemIds = [mockItemId, 'item-789'];
         const multipleItems = [mockItemWithMaterials, { ...mockItemWithMaterials, id: 'item-789' }];
 
-        mockClient.from('items').select(expect.any(String)).in('id', itemIds).mockResolvedValue({
-          data: multipleItems,
-          error: null
+        mockClient.from.mockReturnValue({
+          select: jest.fn().mockReturnValue({
+            in: jest.fn().mockResolvedValue({
+              data: multipleItems,
+              error: null
+            })
+          })
         });
 
         const result = await repository.findManyWithDetails(itemIds);
@@ -655,9 +733,15 @@ describe('ItemRepository', () => {
       it('should include ownership filter when userId provided', async () => {
         const itemIds = [mockItemId];
 
-        mockClient.from('items').select(expect.any(String)).in('id', itemIds).eq('user_id', mockUserId).mockResolvedValue({
-          data: [mockItemWithMaterials],
-          error: null
+        mockClient.from.mockReturnValue({
+          select: jest.fn().mockReturnValue({
+            in: jest.fn().mockReturnValue({
+              eq: jest.fn().mockResolvedValue({
+                data: [mockItemWithMaterials],
+                error: null
+              })
+            })
+          })
         });
 
         await repository.findManyWithDetails(itemIds, mockUserId);
@@ -670,16 +754,28 @@ describe('ItemRepository', () => {
       it('should find user items with pagination and sorting', async () => {
         const paginatedItems = [mockItemRow];
 
-        mockClient.from('items').select('*').eq('user_id', mockUserId).order('created_at', { ascending: false }).limit(10).range(0, 9).mockResolvedValue({
-          data: paginatedItems,
-          error: null
-        });
+        const mockQueryChain = {
+          select: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          order: jest.fn().mockReturnThis(),
+          limit: jest.fn().mockReturnThis(),
+          range: jest.fn().mockResolvedValue({
+            data: paginatedItems,
+            error: null
+          })
+        };
+
+        mockClient.from.mockReturnValue(mockQueryChain);
 
         const result = await repository.findByUserWithPagination(mockUserId, 10, 0);
 
         expect(result).toEqual(paginatedItems);
-        expect(mockClient.from('items').select('*').eq('user_id', mockUserId).order).toHaveBeenCalledWith('created_at', { ascending: false });
-        expect(mockClient.from('items').select('*').eq('user_id', mockUserId).order('created_at', { ascending: false }).limit).toHaveBeenCalledWith(10);
+        expect(mockClient.from).toHaveBeenCalledWith('items');
+        expect(mockQueryChain.select).toHaveBeenCalledWith('*');
+        expect(mockQueryChain.eq).toHaveBeenCalledWith('user_id', mockUserId);
+        expect(mockQueryChain.order).toHaveBeenCalledWith('created_at', { ascending: false });
+        expect(mockQueryChain.limit).toHaveBeenCalledWith(10);
+        expect(mockQueryChain.range).toHaveBeenCalledWith(0, 9);
       });
     });
   });

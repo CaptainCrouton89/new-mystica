@@ -172,38 +172,21 @@ describe('ImageCacheRepository', () => {
   });
 
   describe('incrementCraftCount', () => {
-    it('should atomically increment craft count via UPDATE', async () => {
-      const currentCraftCount = 5;
-      const expectedNewCount = 6; // currentCraftCount + 1
+    it('should atomically increment craft count via RPC', async () => {
+      const expectedNewCount = 6;
 
-      mockClient.from.mockReturnValue({
-        update: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            select: jest.fn().mockReturnValue({
-              single: jest.fn().mockResolvedValue({ data: { craft_count: currentCraftCount }, error: null })
-            })
-          })
-        })
-      });
+      mockClient.rpc.mockResolvedValue({ data: expectedNewCount, error: null });
 
       const result = await repository.incrementCraftCount('123e4567-e89b-12d3-a456-426614174000');
 
-      expect(mockClient.from).toHaveBeenCalledWith('itemimagecache');
+      expect(mockClient.rpc).toHaveBeenCalledWith('increment_craft_count', { cache_id: '123e4567-e89b-12d3-a456-426614174000' });
       expect(result).toBe(expectedNewCount);
     });
 
     it('should throw NotFoundError when cache entry does not exist', async () => {
-      mockClient.from.mockReturnValue({
-        update: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            select: jest.fn().mockReturnValue({
-              single: jest.fn().mockResolvedValue({
-                data: null,
-                error: { code: 'PGRST116', message: 'No rows returned' }
-              })
-            })
-          })
-        })
+      mockClient.rpc.mockResolvedValue({
+        data: null,
+        error: { message: 'Cache entry not found' }
       });
 
       await expect(
@@ -211,17 +194,9 @@ describe('ImageCacheRepository', () => {
       ).rejects.toThrow(NotFoundError);
     });
 
-    it('should throw DatabaseError on UPDATE failure', async () => {
+    it('should throw DatabaseError on RPC failure', async () => {
       const mockError = { code: 'PGRST000', message: 'Database error' };
-      mockClient.from.mockReturnValue({
-        update: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            select: jest.fn().mockReturnValue({
-              single: jest.fn().mockResolvedValue({ data: null, error: mockError })
-            })
-          })
-        })
-      });
+      mockClient.rpc.mockResolvedValue({ data: null, error: mockError });
 
       await expect(
         repository.incrementCraftCount('123e4567-e89b-12d3-a456-426614174000')

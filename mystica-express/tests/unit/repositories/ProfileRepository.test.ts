@@ -94,26 +94,26 @@ describe('ProfileRepository', () => {
     });
 
     describe('findUserByDeviceId', () => {
-      it('should return user when device token found', async () => {
+      it('should return user when device ID found', async () => {
         const mockUser = createMockUser();
         (mockClient as any).from().select().eq().eq().single.mockResolvedValue({
-          data: { user_id: 'user-123', users: mockUser },
+          data: mockUser,
           error: null
         });
 
-        const result = await repository.findUserByDeviceId('device-token-abc');
+        const result = await repository.findUserByDeviceId('device-123');
 
         expect(result).toEqual(mockUser);
-        expect(mockClient.from).toHaveBeenCalledWith('devicetokens');
+        expect(mockClient.from).toHaveBeenCalledWith('users');
       });
 
-      it('should return null when device token not found', async () => {
+      it('should return null when device ID not found', async () => {
         (mockClient as any).from().select().eq().eq().single.mockResolvedValue({
           data: null,
           error: { code: 'PGRST116', message: 'No rows returned' }
         });
 
-        const result = await repository.findUserByDeviceId('invalid-token');
+        const result = await repository.findUserByDeviceId('invalid-device');
 
         expect(result).toBeNull();
       });
