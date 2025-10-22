@@ -1,7 +1,7 @@
 title: Core Gameplay Loop
 template: ~/.claude/file-templates/init-project/user-flows/user-flow-title.yaml
 status: draft
-last_updated: 2025-10-20
+last_updated: 2025-01-27
 
 key_personas:
   - "Mobile RPG Player - Enjoys progression systems and combat strategy"
@@ -12,25 +12,33 @@ primary_flows:
   - name: "Exploration & Combat Flow"
     trigger: "Player opens app and wants to discover new items/pets"
     steps:
-      - "Player views map showing nearby location markers"
-      - "Player selects destination with desired item/enemy type"
-      - "Player navigates to physical location using map guidance"
+      - "Player views map showing nearby location markers (just icons, no preview)"
+      - "Player selects destination and navigates to physical location using map guidance"
       - "Player arrives at location, location icon becomes active"
-      - "Player taps active location to initiate encounter"
-      - "Enemy appears with stats and type displayed"
-      - "Combat screen loads with player stats (items + pet equipped)"
+      - "Player taps location marker to view encounter details"
+      - "If not close enough: modal shows 'You need to be closer to start this encounter'"
+      - "If close enough: modal shows location information, loot types that drop there (close to player level), and 'Start' button"
+      - "Player taps 'Start' button to proceed"
+      - "Level selection screen appears with scrollable list (levels 1-20 for now)"
+      - "Player selects desired combat level"
+      - "Combat launches with randomly chosen enemy at selected level"
+      - "Combat screen shows enemy idling, dial, and only HP (not full stats display)"
       - "Player taps timing dial to set attack multiplier"
       - "Damage calculated and applied to enemy"
       - "Enemy attacks back, damage applied to player"
       - "Combat continues until player wins or loses"
-      - "On victory: defeated enemy added to inventory as item/pet"
+      - "On victory: rewards screen shows all dropped materials and items with visual styling"
+      - "On defeat: screen shows 'Return to Map' or 'Retry' options"
       - "Player returns to map view or inventory"
     outcome: "Player collects new item/pet for their inventory"
     edge_cases: |
-      - Player leaves location before tapping: encounter expires
-      - Player loses combat: no item collected, can retry
+      - Player leaves location before starting: encounter becomes inactive
+      - Player loses combat: can retry immediately or return to map
       - Inventory full: prompt to discard item or manage inventory
       - GPS signal lost: pause encounter until signal restored
+      - Level selection: random enemy chosen from appropriate level pool
+      - Distance check: proximity required before 'Start' button becomes active
+      - Styled enemies: 100% chance to drop styled materials (not 5%)
 
   - name: "Material Application Flow"
     trigger: "Player has items and materials to apply"

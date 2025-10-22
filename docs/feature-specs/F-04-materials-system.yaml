@@ -2,12 +2,12 @@ title: Technical Specification - Materials System
 template: ~/.claude/file-templates/init-project/feature-spec/feature-title.yaml
 feature_id: F-04
 status: planned
-last_updated: 2025-10-20
+last_updated: 2025-01-27
 
-summary: "Collectible materials that modify item stats with zero-sum trade-offs. Materials stack in inventory (MaterialStacks), convert to unique instances when applied (MaterialInstances). Max 3 materials per item (hard limit). Styled materials are visual variants with normal stat effectiveness. Image generation creates combo-specific visuals cached globally with craft count tracking (20s sync for MVP, async with crafting times in later MVP)."
+summary: "Collectible materials that modify item stats with zero-sum trade-offs. Materials stack in inventory (MaterialStacks), convert to unique instances when applied (MaterialInstances). Max 3 materials per item (hard limit). Styled materials are visual variants with normal stat effectiveness. Image generation creates combo-specific visuals cached globally with craft count tracking (10-15s sync for MVP, async with crafting times in later MVP)."
 
 functional_overview:
-  core_logic: "Materials stack in player inventory (MaterialStacks table). Applying material decrements stack, creates MaterialInstance, links via ItemMaterials. Image generation creates combo-specific visuals cached globally with craft count tracking (20s SYNC for MVP0/1, async with crafting times in later MVPs). Global ItemImageCache stores combo images with craft_count. Material removal costs gold (100 × item level) and returns material to stack. To replace material: remove old (costs gold, returns to stack) then apply new (consumes from stack)."
+  core_logic: "Materials stack in player inventory (MaterialStacks table). Applying material decrements stack, creates MaterialInstance, links via ItemMaterials. Image generation creates combo-specific visuals cached globally with craft count tracking (10-15s SYNC for MVP0/1, async with crafting times in later MVPs). Global ItemImageCache stores combo images with craft_count. Material removal costs gold (100 × item level) and returns material to stack. To replace material: remove old (costs gold, returns to stack) then apply new (consumes from stack)."
   data_schema: "Materials (seed data), MaterialStacks (inventory), MaterialInstances (applied materials), ItemMaterials (junction), ItemImageCache (combo images)"
   api_endpoints:
     - "GET /materials"
@@ -95,7 +95,7 @@ detailed_design:
         - "400: Item already has 3 materials (max reached)"
         - "404: Item or material not found"
         - "400: Material not owned or quantity = 0"
-        - "423: Image generation in progress (20s), try again"
+        - "423: Image generation in progress (10-15s), try again"
 
     - method: "POST"
       endpoint: "/items/{item_id}/materials/remove"
@@ -106,24 +106,26 @@ detailed_design:
         - "400: Insufficient gold"
         - "400: Invalid material index or slot empty"
         - "404: Item not found"
-        - "423: Image generation in progress (20s), try again"
+        - "423: Image generation in progress (10-15s), try again"
 
   diagrams: |
     Material Application Flow (MaterialStacks → MaterialInstances):
     1. Player views item detail screen
     2. Player taps "Apply Material" button
     3. System shows MaterialStacks (material_id, style_id, quantity) filtered for materials not already on item
-    4. Player selects material from stack
-    5. System validates: item.applied_materials.length < 3 AND MaterialStacks.quantity >= 1
-    6. System decrements MaterialStacks.quantity by 1
-    7. System creates MaterialInstance row (user_id, material_id, style_id)
-    8. System creates ItemMaterials row linking item_id + material_instance_id + slot_index
-    9. System computes combo_hash from sorted material_ids + style flags (order-independent)
-    10. System checks ItemImageCache for existing combo image
-    11a. If cache hit: use existing image_url, increment craft_count
-    11b. If cache miss: trigger 20s sync image generation, upload to R2, create ItemImageCache row with craft_count=1
-    12. System recalculates item stats (base + all material modifiers × level)
-    13. Client displays updated item stats, image, and "X players have crafted this combo" if craft_count > 1
+    4. System displays preview: Left (original item), Middle (material + '='), Right (question mark - no generated preview)
+    5. Player sees stats comparison with increases (green, larger) and decreases (red, smaller)
+    6. Player selects material from stack
+    7. System validates: item.applied_materials.length < 3 AND MaterialStacks.quantity >= 1
+    8. System decrements MaterialStacks.quantity by 1
+    9. System creates MaterialInstance row (user_id, material_id, style_id)
+    10. System creates ItemMaterials row linking item_id + material_instance_id + slot_index
+    11. System computes combo_hash from sorted material_ids + style flags (order-independent)
+    12. System checks ItemImageCache for existing combo image
+    13a. If cache hit: use existing image_url, increment craft_count
+    13b. If cache miss: trigger 10-15s sync image generation, upload to R2, create ItemImageCache row with craft_count=1
+    14. System recalculates item stats (base + all material modifiers × level)
+    15. Client displays updated item stats, image, and "X players have crafted this combo" if craft_count > 1
 
     Material Removal Flow (Returns to Stack):
     1. Player views item with materials applied
@@ -140,14 +142,14 @@ detailed_design:
 
     Note: To replace a material, player must remove old material (returns to stack), then apply new material (consumes from stack). Two separate operations.
 
-    Image Generation Workflow (20s Sync on First Craft):
+    Image Generation Workflow (10-15s Sync on First Craft):
     1. System computes combo_hash: SHA256(sorted[material_ids] + style_flags)
     2. System queries ItemImageCache WHERE item_type_id AND combo_hash
     3a. Cache HIT: return image_url, increment craft_count, notify if is_first_craft=false
     3b. Cache MISS: proceed to generation
     4. System calls generate-image.ts with item_type + materials + style flags
     5. AI pipeline checks R2 for item/material reference images (generates missing ones)
-    6. AI generates composite image using R2 references (Gemini/Seedream, ~20s)
+    6. AI generates composite image using R2 references (Gemini/Seedream, ~10-15s)
     7. System uploads final image to R2 at items-crafted/{item_type_slug}/{combo_hash}.png
     8. System creates ItemImageCache row (item_type_id, combo_hash, image_url, craft_count=1)
     9. System returns image_url to client with is_first_craft=true notification
@@ -162,6 +164,12 @@ detailed_design:
     {atkPower: 0.4-0.1+0.2+0 = 0.5, atkAccuracy: 0.2+0-0.1+0.1 = 0.2, defPower: 0.3+0.1-0.1+0 = 0.3, defAccuracy: 0.1}
 
     Note: Styled materials have normal stat effectiveness (same modifiers as non-styled variants). Style only affects visual appearance.
+
+    Preview System:
+    - No generated image preview shown during material selection (question mark placeholder)
+    - Final appearance revealed only after material application completes
+    - Styled enemy defeats = 100% styled material drop (not 5% chance)
+    - Maintains surprise element while providing informed stat-based decisions
 
 dependencies:
   libraries: "AWS S3 SDK (for R2 operations), crypto (for combo_hash generation)"
@@ -188,7 +196,7 @@ implementation_status:
       impact: "Clients cannot fetch available materials library"
     - code: "IMAGE_GENERATION_NOT_INTEGRATED"
       description: "ImageGenerationService exists but not integrated with material combo workflow. Needs R2 upload to items-crafted/{item_type}/{combo_hash}.png and ItemImageCache management"
-      impact: "Material application will fail on image generation step (20s sync generation required)"
+      impact: "Material application will fail on image generation step (10-15s sync generation required)"
     - code: "MATERIAL_ROUTES_NOT_REGISTERED"
       description: "Material endpoints not wired in routes/index.ts or app.ts"
       impact: "API endpoints not accessible"
@@ -197,7 +205,7 @@ implementation_status:
     - "Service layer: Needs implementation of 3 core methods (getMaterialInventory, applyMaterial, replaceMaterial)"
     - "applyMaterial workflow: 11 steps documented in MaterialService TODOs"
     - "replaceMaterial workflow: 12 steps documented in MaterialService TODOs"
-    - "Light MVP planned: Sync 20s image generation (blocks UI), material count from seed data"
+    - "Light MVP planned: Sync 10-15s image generation (blocks UI), material count from seed data"
     - "Later MVP planned: Async image generation with crafting times, push notifications"
     - "Future planned: Visual effects for styled materials, material preview before apply, undo last material (grace period), material trading/gifting, 'X players crafted this combo' notifications, is_first_craft celebrations"
     - "Note: Material removal + apply = replacement flow. Two separate operations for clarity."

@@ -177,7 +177,7 @@ implementation_status:
 
 balancing_parameters:
   material_drop_rate: "MVP0: 100% (guaranteed), Full MVP: 60% (ensures steady material income without flooding inventory)"
-  style_inheritance: "Materials inherit enemy style_id (styled enemies drop styled materials, normal enemies drop normal materials)"
+  style_inheritance: "Materials inherit enemy style_id (styled enemies = 100% styled material drop, normal enemies drop normal materials)"
   gold_scaling: "100-200 × enemy_level (allows ~5 upgrades per combat at same level)"
   enemy_level_formula: "floor(avg_player_item_level) (enemies scale to player, always fair challenge)"
 

@@ -63,10 +63,13 @@ detailed_design:
     2. If permission denied → Continue with limited functionality, show advisory notice
     3. CLLocationManager starts tracking (if permitted)
     4. On location update → POST /locations/generate for instant location from 30 hardcoded SF set
-    5. Render markers on map
+    5. Render markers on map (just icons, no preview until tapped)
     6. Monitor distance to each location
-    7. When distance < spawn_radius → Activate marker (change color/icon)
-    8. Player taps active marker → Launch encounter (trigger F-02) - unlimited re-battles
+    7. Player taps location marker → Check proximity
+    8. If not close enough → Show modal: 'You need to be closer to start this encounter'
+    9. If close enough → Show location info modal with loot types and 'Start' button
+    10. Player taps 'Start' → Level selection screen (1-20 scrollable list)
+    11. Player selects level → Launch encounter with random enemy at selected level - unlimited re-battles
 
     Pool Union Strategy:
     - Location fetches: location_type pool ∪ state pool ∪ latitude pool ∪ longitude pool ∪ generic pool (100 base enemies)

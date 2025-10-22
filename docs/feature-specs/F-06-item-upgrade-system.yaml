@@ -21,11 +21,11 @@ detailed_design:
   data_structures:
     - name: "player_items (add level column)"
       columns:
-        - "level: INT (default 1, min 1, no max for now)"
+        - "level: INT (default 1, min 1, no maximum level)"
 
     - name: "users (add vanity_level)"
       columns:
-        - "vanity_level: INT (derived from sum of all item levels)"
+        - "vanity_level: INT (derived from sum of all item levels / 6)"
         - "gold: INT (currency balance)"
 
   apis:
@@ -141,7 +141,7 @@ implementation_status:
   notes:
     - "Light MVP planned: Hardcoded upgrade cost = 100 gold flat, simple level increment, no vanity level"
     - "Full MVP planned: Dynamic cost formula (level^1.5), vanity level calculation, gold validation"
-    - "Future planned: Upgrade animations, bulk upgrade (level up multiple times at once), upgrade preview, auto-upgrade suggestions"
+    - "Future planned: Upgrade animations, upgrade preview, auto-upgrade suggestions"
 
 balancing_parameters:
   base_upgrade_cost: "100 gold (configurable)"

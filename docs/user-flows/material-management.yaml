@@ -1,7 +1,7 @@
 title: Material Management
 template: ~/.claude/file-templates/init-project/user-flows/user-flow-title.yaml
 status: draft
-last_updated: 2025-10-21
+last_updated: 2025-01-27
 
 key_personas:
   - "Optimizer - Experiments with material combinations for best stats"
@@ -19,7 +19,8 @@ primary_flows:
       - "System filters out materials already applied to this item (no duplicates)"
       - "Player selects material from stack (shows quantity available)"
       - "System displays stat preview: current stats vs. enhanced stats"
-      - "System shows visual preview of material effect on item appearance"
+      - "Left: Original item image, Middle: Material icon with '=' sign, Right: Question mark (no preview image)"
+      - "Below: New stats comparison with stats that increase in larger font/green color, stats that decrease in smaller font/red color"
       - "Player confirms material application"
       - "System decrements MaterialStack quantity by 1"
       - "System creates MaterialInstance and links via ItemMaterials table"
@@ -71,7 +72,7 @@ primary_flows:
     trigger: "Player defeats enemy and receives material drop"
     steps:
       - "Combat victory screen displays rewards: gold + material drop"
-      - "System determines material type and style variant (5% styled rate)"
+      - "System determines material type and style variant (styled enemy = 100% styled material drop)"
       - "Material notification appears: '[Material Name] collected!' with visual effect"
       - "If styled material: special animation and '[Style] [Material] collected!' message"
       - "System checks existing MaterialStack for (user_id, material_id, style_id)"
@@ -95,17 +96,19 @@ primary_flows:
       - "System displays detailed material preview popup"
       - "Preview shows material description and stat modifiers"
       - "Preview shows before/after stat comparison for target item"
-      - "Preview displays visual effect mockup on item appearance"
-      - "If styled material: preview shows style variant difference"
+      - "Preview layout: Left (original item), Middle (material + '='), Right (question mark - no visual preview)"
+      - "Stats displayed with visual emphasis: increases (green, larger), decreases (red, smaller)"
+      - "If styled material: shows material style but no final item preview"
       - "Player can cycle through multiple materials for comparison"
-      - "Player can see combined effect preview when selecting multiple materials"
+      - "Player can see combined stat effects when selecting multiple materials"
       - "Player taps 'Apply' from preview or closes to continue browsing"
-    outcome: "Player makes informed decision about material application with full preview"
+    outcome: "Player makes informed decision about material application with stat preview but no visual spoilers"
     edge_cases: |
       - Material would cause negative stats: warning indicator in preview
-      - Styled vs normal preview: side-by-side comparison available
-      - Multiple materials selected: shows cumulative stat changes
+      - Styled vs normal preview: material style shown but no final result preview
+      - Multiple materials selected: shows cumulative stat changes with question mark for result
       - Preview timeout: popup auto-closes after 30 seconds of inactivity
+      - No visual spoilers: question mark maintains surprise element
 
 secondary_flows:
   - name: "Replace Materials Flow"

@@ -4,8 +4,7 @@ status: draft
 last_updated: 2025-10-21
 
 key_personas:
-  - "Completionist - Maximizes all progression systems, seeks 100% achievement completion"
-  - "Prestige Chaser - Focuses on prestige ranks for permanent gold bonuses and competitive status"
+  - "Completionist - Maximizes all progression systems"
   - "Casual Player - Enjoys natural progression without grinding, appreciates clear milestones"
 
 primary_flows:
@@ -13,84 +12,46 @@ primary_flows:
     trigger: "Player completes combat encounter successfully"
     steps:
       - "Player defeats enemy in combat encounter"
-      - "System awards 50 base XP (modified by prestige bonus if applicable)"
+      - "System awards 50 base XP from combat only"
       - "Backend calculates new total XP and level from progression formula"
       - "If level threshold crossed, level-up notification displays"
-      - "New level unlocks features/materials if applicable (level 5: materials, level 10: loadouts, level 15: upgrades, etc.)"
+      - "Player progression continues without level-gated unlocks"
       - "Available level rewards appear in progression status if claimable"
       - "XP progress bar updates showing progress toward next level"
     outcome: "Player sees clear progression feedback and understands advancement toward next milestone"
     edge_cases:
       - "Multiple level gains in single XP award (rare but possible at low levels)"
       - "Level 50+ soft cap applies exponential multiplier (1.5x per level beyond 50)"
-      - "Prestige players receive gold bonus multiplier on XP-related rewards"
       - "Max level 100 reached (theoretical cap, near-impossible to achieve)"
 
   - name: "Vanity Level Display Flow"
     trigger: "Player views profile or equipment screen"
     steps:
-      - "System calculates sum of all 8 equipped item levels"
+      - "System calculates sum of all 8 equipped item levels divided by 6"
       - "Vanity level displays prominently in player profile"
-      - "Vanity level comparison shows against achievement milestones (e.g., 347/500 for Vanity Milestone)"
       - "Visual progression indicator shows vanity level growth over time"
-      - "Achievement progress updates if vanity milestones approached"
-    outcome: "Player understands total equipment power and progress toward vanity-based achievements"
+    outcome: "Player understands total equipment power progression"
     edge_cases:
       - "Empty equipment slots count as level 0 in calculation"
       - "Cached vanity level may temporarily desync during rapid equipment changes"
       - "Database triggers maintain vanity level cache accuracy"
       - "Vanity level can decrease if player equips lower-level items"
 
-  - name: "Feature Unlock Notification Flow"
-    trigger: "Player reaches level milestone with feature unlock (levels 5, 10, 15, 20, 25, 50)"
-    steps:
-      - "Level-up calculation detects feature unlock threshold crossed"
-      - "Feature unlock notification displays with description and tutorial hint"
-      - "New UI elements/buttons become available and highlighted"
-      - "Tutorial tooltip or onboarding flow guides player to new feature"
-      - "Feature remains permanently unlocked for player account"
-    outcome: "Player discovers and understands new gameplay features as they progress"
-    edge_cases:
-      - "Multiple features unlock simultaneously (rare edge case)"
-      - "Feature unlock may be delayed if player offline during level-up"
-      - "Level-gated materials (level 20+) automatically become available in drops"
-      - "Tutorial features track first usage of unlocked systems"
 
-  - name: "Prestige System Flow (Post-MVP)"
-    trigger: "Player reaches level 50+ and chooses prestige option"
-    steps:
-      - "Player accesses prestige interface from progression menu"
-      - "System displays prestige benefits: +5% permanent gold bonus, prestige rank advancement"
-      - "Warning dialog explains level/XP reset but item/material retention"
-      - "Player confirms prestige decision with explicit confirmation"
-      - "System resets PlayerProgression.xp to 0 and level to 1"
-      - "Prestige level increments (+1), gold bonus multiplier updates (+5%)"
-      - "All items, materials, and unlocked features remain unchanged"
-      - "Prestige achievement notifications trigger if milestones reached"
-      - "Player begins progression again from level 1 with permanent gold bonus"
-    outcome: "Player trades progression reset for permanent economic advantage and prestige status"
-    edge_cases:
-      - "Maximum 10 prestige levels total (50% max gold bonus)"
-      - "Prestige blocked if already at max prestige level"
-      - "Combat enemies still scale to equipped item levels, not player level"
-      - "Feature unlocks remain active regardless of post-prestige level"
-      - "Total lifetime XP tracked separately for achievement purposes"
 
   - name: "View Progression Stats Flow"
     trigger: "Player accesses progression/profile screen"
     steps:
       - "System loads PlayerProgression data and calculates current status"
       - "Display current level, XP, and progress bar to next level"
-      - "Show prestige level and gold bonus multiplier if applicable"
       - "Display vanity level with equipped item level breakdown"
       - "List available level rewards ready for claiming"
-      - "Show endgame achievement progress (combat mastery, collection completion, etc.)"
+      - "Show endgame goals (combat mastery, collection completion, etc.)"
       - "Display progression statistics (time played, combat victories, etc.)"
     outcome: "Player has comprehensive view of all progression systems and goals"
     edge_cases:
       - "New players see simplified view with focus on early progression"
-      - "Level 50+ players see prestige eligibility and endgame content"
-      - "Achievement progress may update in real-time during active play"
+      - "High level players see endgame content focus"
       - "Cached data refresh handles concurrent progression updates"
 
 secondary_flows:
@@ -113,7 +74,7 @@ secondary_flows:
     trigger: "Player views detailed progression analytics"
     steps:
       - "System aggregates XP sources from analytics events"
-      - "Display breakdown: combat victories (80%), quests (15%), achievements (5%)"
+      - "Display breakdown: combat victories (100% - only XP source)"
       - "Show XP earning rate over time with trend analysis"
       - "Compare against average player progression rates"
       - "Suggest optimization for faster progression if desired"
@@ -121,36 +82,8 @@ secondary_flows:
     edge_cases:
       - "New players have limited data for meaningful breakdown"
       - "Analytics data may have lag in real-time display"
-      - "Prestige resets don't affect lifetime XP tracking"
 
-  - name: "Endgame Achievement Progress Flow"
-    trigger: "Player approaches or completes endgame milestone"
-    steps:
-      - "System monitors achievement progress in real-time"
-      - "Progress notifications appear for significant milestones (25%, 50%, 75%, 90%)"
-      - "Achievement completion triggers special notification and reward"
-      - "Badge/cosmetic unlocks appear in player profile"
-      - "New achievement goals become available if applicable"
-      - "Leaderboard position updates for competitive achievements"
-    outcome: "Player feels accomplished and motivated to pursue additional endgame goals"
-    edge_cases:
-      - "Multiple achievements complete simultaneously"
-      - "Achievement progress rollback if data inconsistency detected"
-      - "Seasonal achievements may expire and reset periodically"
 
-  - name: "Progression Pacing Warning Flow"
-    trigger: "Player approaches level 50 soft cap"
-    steps:
-      - "System detects player level 45+ progression"
-      - "Informational notification explains upcoming soft cap and prestige option"
-      - "XP requirements preview shows exponential scaling beyond level 50"
-      - "Prestige benefits explained as alternative to slow grinding"
-      - "Player can dismiss warning and continue or plan for prestige"
-    outcome: "Player makes informed decision about prestige timing versus continued leveling"
-    edge_cases:
-      - "Warning only appears once per player to avoid spam"
-      - "Player may already understand prestige system from previous characters"
-      - "Warning respects player preference settings for tutorial hints"
 
   - name: "Progression Sync Recovery Flow"
     trigger: "Player progression data becomes inconsistent or out of sync"

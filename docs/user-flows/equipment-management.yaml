@@ -1,12 +1,17 @@
 title: Equipment Management User Flows
 template: ~/.claude/file-templates/init-project/user-flows/user-flow-title.yaml
 status: draft
-last_updated: 2025-10-21
+last_updated: 2025-01-27
 
 key_personas:
   - "Optimizer - Min-maxer who frequently swaps equipment for optimal stats based on upcoming combat challenges"
   - "Collector - Wants organized inventory to track collection progress across all 8 equipment slots and material combinations"
   - "Casual Player - Needs simple equipment management without complexity, prefers automated suggestions over manual optimization"
+
+page_structure:
+  equipment_page: "Manage currently equipped items (8 slots), swap between owned items via bottom drawer modal selection"
+  inventory_page: "View all items + materials, organize, discard, enhance - two sections (All Items, All Materials)"
+  overlap_actions: "Both pages allow equipping from inventory and viewing stats from equipment"
 
 primary_flows:
   - name: "Equip/Unequip Items Flow"
@@ -15,11 +20,11 @@ primary_flows:
       - "Player opens equipment screen via inventory tab or character screen"
       - "System displays 8 equipment slots: weapon, offhand, head, armor, feet, accessory_1, accessory_2, pet"
       - "Player identifies slot to modify (empty slot or replacement needed)"
-      - "Player taps equipment slot to view available items for that category"
-      - "System filters inventory to show only items matching slot type (weapon items for weapon slot, etc.)"
-      - "Player views item details: name, level, rarity, applied materials, stat preview"
-      - "Player compares stats: current equipped vs. candidate item with highlighted differences"
-      - "Player confirms equip action"
+      - "Player taps equipment slot → bottom drawer opens with filtered item list"
+      - "Bottom drawer shows only items matching slot type (weapon items for weapon slot, etc.)"
+      - "Player taps item from drawer → modal opens with side-by-side stat comparison"
+      - "Modal shows all item details and stat differences with 'Confirm' and 'Cancel' buttons"
+      - "Player reviews comparison and confirms equip action via 'Confirm' button"
       - "System validates item category matches slot type and item ownership"
       - "If slot occupied: system shows replacement confirmation ('Replace equipped sword with axe?')"
       - "System updates UserEquipment table and recalculates total stats"
@@ -56,7 +61,9 @@ primary_flows:
     trigger: "Player wants to find specific items or organize large inventory efficiently"
     steps:
       - "Player opens inventory screen from main navigation"
-      - "System displays all owned items (up to 100 MVP cap) with pagination"
+      - "System displays two main sections: All Items (top) and All Materials (below items)"
+      - "All Items section shows all owned items (up to 100 MVP cap) with pagination"
+      - "All Materials section shows MaterialStacks organized by type"
       - "Player applies slot type filter: All, Weapons, Offhand, Head, Armor, Feet, Accessories, Pets"
       - "Filtered results update immediately showing only matching category items"
       - "Player selects sort option: Level (High-Low), Rarity (Legendary-Common), Newest, Name A-Z"
@@ -64,9 +71,9 @@ primary_flows:
       - "Player scrolls through paginated results (50 items per page)"
       - "Each item shows: icon, name, level, rarity, equipped status, applied materials indicator"
       - "Equipped items display slot indicator and visual badge"
-      - "Player can tap any item for detailed view or quick equip option"
+      - "Player taps item → three options appear: 'View Stats', 'Equip', 'Enhance'"
       - "For accessories: first empty slot (accessory_1 or accessory_2) auto-selected when equipping"
-    outcome: "Player efficiently locates desired items using filters and sorting"
+    outcome: "Player efficiently manages items and materials with organized two-section layout and three-action menu"
     edge_cases: |
       - Empty filter results: "No weapons found" message with suggestion to collect more
       - Image generation pending: placeholder icon shown until AI generation completes

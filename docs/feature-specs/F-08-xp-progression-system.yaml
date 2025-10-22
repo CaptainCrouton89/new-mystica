@@ -104,15 +104,9 @@ detailed_design:
 
             # Activity type modifiers
             if activity_type == 'combat_victory':
-                xp = 50  # Base combat XP
-            elif activity_type == 'daily_quest':
-                xp = 100  # Future: daily quest bonus
-            elif activity_type == 'achievement':
-                xp = 200  # Future: achievement milestone
+                xp = 50  # Only XP source
 
-            # Potential future modifiers
-            # xp *= (1 + prestige_bonus)  # F-13: prestige XP bonus
-            # xp *= weekend_event_multiplier  # Future: event bonuses
+            # No other XP sources implemented
 
             return int(xp)
 
@@ -183,41 +177,41 @@ detailed_design:
       unlocks: "Basic combat and item collection"
 
     - level: 5
-      unlocks: "Material application system (F-04)"
+      unlocks: "No level-gated unlocks"
       reward: "500 gold bonus"
 
     - level: 10
-      unlocks: "Loadout system (F-09)"
+      unlocks: "No level-gated unlocks"
       reward: "1000 gold bonus"
 
     - level: 15
-      unlocks: "Item upgrade system (F-06)"
+      unlocks: "No level-gated unlocks"
       reward: "Starter upgrade materials"
 
     - level: 20
-      unlocks: "Advanced combat mechanics"
+      unlocks: "No level-gated unlocks"
       reward: "1500 gold bonus"
 
     - level: 25
-      unlocks: "Pet personality system (F-11)"
+      unlocks: "No level-gated unlocks"
       reward: "Pet starter kit"
 
     - level: 30
-      unlocks: "Enemy reputation tracking"
+      unlocks: "No level-gated unlocks"
       reward: "Combat analytics access"
 
     - level: 40
-      unlocks: "Prestige preparation rewards"
-      reward: "Prestige preview information"
+      unlocks: "No level-gated unlocks"
+      reward: "Preview information"
 
     - level: 50
-      unlocks: "Prestige system eligibility (F-13)"
-      reward: "Prestige achievement + 5000 gold"
+      unlocks: "No level-gated unlocks"
+      reward: "5000 gold"
 
 dependencies:
   libraries: "SwiftUI for level-up notifications, progress bars"
   services: "Backend progression calculation, XP award processing, level reward distribution"
-  data_sources: "Combat victory events, future quest/achievement completion events"
+  data_sources: "Combat victory events only"
 
 implementation_status:
   progress: 0  # No implementation started
@@ -227,9 +221,8 @@ implementation_status:
   notes:
     - "MVP Phase 1 planned: PlayerProgression table creation, basic XP award from combat victories"
     - "MVP Phase 2 planned: Level reward system, progression API endpoints"
-    - "MVP Phase 3 planned: Level-gated feature unlocks integration"
-    - "Post-MVP planned: Integration with prestige system (F-13), daily quests, achievements"
-    - "Critical: XP formula must align with F-13 progression balance for prestige transition"
+    - "MVP Phase 3 planned: Basic level progression (no feature gates)"
+    - "Post-MVP planned: Integration with achievements"
 
 acceptance_criteria:
   xp_calculation:
@@ -271,14 +264,6 @@ acceptance_criteria:
       description: "Claimed rewards cannot be reclaimed"
       test: "Second claim attempt returns 409 error"
 
-  feature_gates:
-    - id: "AC-08-10"
-      description: "Feature unlocks respect level requirements"
-      test: "Level-gated features only accessible at appropriate levels"
-
-    - id: "AC-08-11"
-      description: "Progression gates prevent premature access"
-      test: "Material system, loadouts, upgrades blocked until level requirements met"
 
 events:
   - event_name: "xp_gained"
@@ -301,7 +286,7 @@ events:
       - "new_level: int"
       - "total_xp: int"
       - "time_to_level_up_seconds: int"
-      - "xp_source_breakdown: object {combat: 80%, quest: 20%}"
+      - "xp_source_breakdown: object {combat: 100%}"
       - "timestamp: datetime"
     destinations: ["Backend Analytics DB"]
 
@@ -318,25 +303,24 @@ events:
     destinations: ["Backend Analytics DB"]
 
 open_questions:
-  - "Should XP be awarded for non-combat activities like material collection or item crafting?"
+  - "Combat is the only XP source"
   - "Should there be XP bonuses for consecutive combat victories or win streaks?"
   - "How should XP be handled for failed combat encounters (partial XP vs none)?"
   - "Should level progression be visible to other players for social comparison?"
-  - "What should be the maximum reasonable level before prestige becomes mandatory?"
+  - "What should be the maximum reasonable level progression?"
   - "Should weekend/event XP multipliers be implemented from MVP or post-MVP?"
 
 implementation_priority:
   mvp: "Core XP system with combat awards, level calculation, basic progression API"
-  post_mvp_phase_1: "Level reward system, feature unlocks, progression notifications"
-  post_mvp_phase_2: "Integration with achievements, daily quests, social features"
-  future: "Advanced progression mechanics, seasonal XP events, prestige preparation"
+  post_mvp_phase_1: "Level reward system, progression notifications"
+  post_mvp_phase_2: "Integration with achievements, social features"
+  future: "Advanced progression mechanics, seasonal XP events"
 
 related_features:
   - "F-02: Combat System (primary XP source from victories)"
-  - "F-06: Item Upgrade System (unlocked at level 15)"
-  - "F-09: Inventory Management (unlocked at level 10)"
-  - "F-11: Pet Personality System (unlocked at level 25)"
-  - "F-13: Progression Balance & Endgame (prestige system at level 50+)"
+  - "F-06: Item Upgrade System"
+  - "F-09: Inventory Management"
+  - "F-11: Pet Personality System"
   - "Users table (FK relationship for progression tracking)"
   - "EconomyTransactions (level reward gold distribution)"
 

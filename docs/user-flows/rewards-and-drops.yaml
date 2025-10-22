@@ -136,14 +136,13 @@ secondary_flows:
       - "Reward screen displays level-appropriate values"
       - "Higher level = higher gold amounts (level 10 = 1000-2000 gold)"
       - "Material rarity chances improve at higher levels"
-      - "Experience points awarded based on enemy level"
+      - "XP awarded based on enemy level (separate from reward screen display)"
     outcome: "Player receives rewards appropriate to their progression level"
     edge_cases: |
       - Player level 1: Minimum reward floor to ensure progression
       - Maximum level cap: Rewards plateau at soft cap levels
       - Item level variance: Some items above/below average still functional
       - Economy balance: Rewards scale with upgrade costs to maintain progression
-      - Prestige bonuses: Post-MVP prestige ranks provide gold multipliers
 
   - name: "Combat Failure No Rewards Flow"
     trigger: "Player loses combat (player HP reaches 0)"

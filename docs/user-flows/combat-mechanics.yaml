@@ -1,7 +1,7 @@
 title: Combat Mechanics User Flows
 template: ~/.claude/file-templates/init-project/user-flows/user-flow-title.yaml
 status: draft
-last_updated: 2025-10-21
+last_updated: 2025-01-27
 
 key_personas:
   - "Skilled Player - Masters timing mechanics for optimal damage output and defensive timing"
@@ -73,25 +73,26 @@ primary_flows:
       - Network disconnection: combat state cached locally, synced on reconnection
       - Extended combat (20+ turns): no special mechanics, continues until resolution
 
-  - name: "View Enemy Stats Pre-Combat Flow"
-    trigger: "Player taps active location before confirming combat engagement"
+  - name: "Location Selection & Pre-Combat Flow"
+    trigger: "Player taps location marker to initiate encounter"
     steps:
-      - "Location tap displays enemy preview modal"
-      - "Enemy type shown: name, visual appearance, tier level"
-      - "Enemy stats displayed: attack power, defense power, HP"
-      - "Stats scaled to player's average equipped item level for appropriate challenge"
-      - "Enemy style_id shown if styled variant (affects reward material style)"
-      - "Player can see estimated combat difficulty based on stat comparison"
-      - "Combat engagement button: 'Fight [Enemy Name]' to proceed"
-      - "Cancel option returns to map without initiating combat"
-      - "Player makes informed decision whether to engage or seek different enemy"
-    outcome: "Player has full information to make strategic combat decisions"
+      - "Player taps location marker (just an icon, no preview until close)"
+      - "If not close enough: modal displays 'You need to be closer to start this encounter'"
+      - "If close enough: modal shows location information and loot types that drop there"
+      - "Modal displays type of loot close to player level (all possible loot for now)"
+      - "'Start' button appears at bottom (grayed out if not close, active when close)"
+      - "Player taps 'Start' button to proceed"
+      - "Level selection screen appears with scrollable list (levels 1-20 for now)"
+      - "Player selects desired combat level"
+      - "System randomly chooses enemy at selected level from appropriate pool"
+      - "Combat launches with selected level enemy"
+    outcome: "Player selects combat level and encounters random enemy at that level"
     edge_cases: |
-      - Enemy stats change if player equipment changes before combat starts
-      - Styled enemies clearly marked with visual style indicators
-      - Very high level enemies show warning about difficulty
-      - Player level much higher than enemy: shows 'easy' indicator
-      - Location cooldown active: shows time remaining until next spawn
+      - Distance check prevents combat initiation when too far
+      - Level selection determines enemy difficulty, not player equipment
+      - Random enemy selection from level-appropriate pool
+      - Styled enemies possible at any level with visual indicators
+      - No enemy preview - random selection maintains surprise element
 
   - name: "Combat Defeat & Retry Flow"
     trigger: "Player HP reaches 0 during combat"
@@ -119,18 +120,20 @@ secondary_flows:
     steps:
       - "Combat UI shows victory screen with 'Victory!' message"
       - "Enemy defeated, combat session cleared"
-      - "Reward generation: gold (always) + material drop (60% chance MVP0: 100%)"
-      - "Material style matches enemy's style_id (styled enemies → styled materials)"
-      - "Rewards added to player inventory automatically"
-      - "Victory notification shows: gold amount, material name and style if applicable"
-      - "Location becomes inactive (enemy defeated)"
+      - "Rewards screen displays all dropped materials and items"
+      - "Rare items shown with different color borders"
+      - "Styled items have visually distinct appearance and special borders"
+      - "Styled enemies provide 100% styled material drop (not 5% chance)"
+      - "All rewards added to player inventory automatically"
+      - "Victory notification shows complete loot breakdown with visual styling"
       - "Player can return to map to find new enemies"
       - "Combat statistics tracked: victories, defeats, damage dealt"
     outcome: "Player receives rewards and location becomes available for new spawns"
     edge_cases: |
       - Inventory full: prompt to discard items or expand storage
-      - Styled material drop: special notification with style indicator
+      - Styled material drop: guaranteed from styled enemies with special styling
       - Rare material drop: enhanced visual feedback and notification
+      - Multiple items/materials: scrollable rewards screen if needed
       - Network issues during victory: rewards cached and applied when connection restored
       - Player closes app immediately after victory: rewards still granted
 
@@ -179,7 +182,7 @@ secondary_flows:
       - "Enemy stats loaded from EnemyTypes table with tier scaling applied"
       - "Enemy final stats = base_stats + (tier_multiplier × tier_number)"
       - "Combat multipliers prepared: zone bands adjusted based on player accuracy stats"
-      - "Stats displayed in combat UI for player reference"
+      - "Only HP displayed in combat UI for player reference (not full stats display)"
       - "All calculations performed server-side for security"
     outcome: "Accurate combat stats calculated from current equipment and enemy scaling"
     edge_cases: |

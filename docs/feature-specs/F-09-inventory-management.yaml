@@ -4,10 +4,10 @@ feature_id: F-09
 status: planned
 last_updated: 2025-01-27
 
-summary: "Comprehensive inventory management system with item viewing, organizing, filtering, equipment management across 8 slots, and saved loadouts. Players can view all owned items, sort/filter by type/rarity/level, equip/unequip items to appropriate slots, and save/load equipment configurations for quick switching."
+summary: "Comprehensive inventory management system with two-page structure: Equipment page (8 slots with bottom drawer selection) and Inventory page (All Items + All Materials sections). Players can view items/materials, use three-action menu (View Stats, Equip, Enhance), and manage equipment through modal confirmations. Post-MVP adds saved loadouts for quick switching."
 
 functional_overview:
-  core_logic: "Players accumulate items through combat rewards (up to 100 item cap in MVP) and can organize them in a comprehensive inventory system. Items can be filtered by equipment slot (weapon, offhand, head, armor, feet, accessory_1, accessory_2, pet), sorted by level/rarity/acquisition date, and equipped to 8 equipment slots. Storage expansion available via $0.99 IAP (100→1000 slots). Post-MVP adds saved loadouts for quick equipment configuration switching. UserEquipment table is single source of truth for equipped state."
+  core_logic: "Two-page system: Equipment page manages 8 slots via bottom drawer + modal selection, Inventory page shows All Items (top) + All Materials (bottom) with three-action tap menu. Items filtered by slot type, sorted by level/rarity/date. Equipment selection uses bottom drawer → modal → confirmation flow. Storage expansion via $0.99 IAP (100→1000 slots). Both pages allow overlapping actions (equip from inventory, view stats from equipment). UserEquipment table is single source of truth for equipped state."
   data_schema: "Items table with user ownership, UserEquipment table for current equipment state (8 slots), Loadouts/LoadoutSlots tables for saved configurations, ItemHistory for audit trail"
   api_endpoints:
     - "GET /inventory?filter_slot=weapon&sort_by=level&sort_order=desc"
@@ -70,7 +70,7 @@ detailed_design:
         - "sort_order: VARCHAR (asc, desc)"
         - "limit: INT (pagination, default 50)"
         - "offset: INT (pagination, default 0)"
-      response: "{items: [{id, name, item_type_id, category, level, rarity, applied_materials: [], is_styled, current_stats, is_equipped, equipped_slot, generated_image_url}], total_count, has_more}"
+      response: "{sections: {all_items: [{id, name, item_type_id, category, level, rarity, applied_materials: [], is_styled, current_stats, is_equipped, equipped_slot, generated_image_url}], all_materials: [{material_id, name, style_id, quantity, stack_info}]}, total_count, has_more}"
       errors:
         - "401: Unauthorized"
 
@@ -181,22 +181,31 @@ detailed_design:
         - "404: Loadout not found"
 
   diagrams: |
-    Inventory Management Flow:
-    1. Player opens inventory → GET /inventory with optional filters
-    2. Items displayed with:
-       - Icon (from ItemTypes.appearance_data or Items.generated_image_url)
-       - Name, level, rarity indicator
-       - Equipped status and slot
-       - Applied materials (visual indicators)
-    3. Player filters by slot type → re-query with slot_type parameter
-    4. Player sorts by level/rarity → re-query with sort parameters
-
-    Equipment Management Flow:
+    Two-Page Structure:
+    Equipment Page:
     1. Player opens equipment screen → GET /equipment
     2. Display 8 slots with current items (or empty states)
-    3. Player equips item:
-       a. From inventory: tap item → show "Equip" button → PUT /equipment/{slot}
-       b. Drag and drop from inventory to slot → PUT /equipment/{slot}
+    3. Player taps equipment slot → bottom drawer opens with filtered items for that slot type
+    4. Player taps item from drawer → modal opens with side-by-side stat comparison
+    5. Modal shows all item details and stat differences with 'Confirm' and 'Cancel' buttons
+    6. Player confirms → PUT /equipment/{slot} → item equipped
+
+    Inventory Page:
+    1. Player opens inventory → GET /inventory
+    2. Two main sections displayed:
+       - All Items section (top): filtered/sorted item list
+       - All Materials section (bottom): MaterialStacks by type
+    3. Player taps item → three options appear: 'View Stats', 'Equip', 'Enhance'
+    4. View Stats: detailed item view with materials and stats
+    5. Equip: same bottom drawer → modal → confirmation flow as Equipment page
+    6. Enhance: opens material application screen
+
+    Item Display (Both Pages):
+    - Icon (from ItemTypes.appearance_data or Items.generated_image_url)
+    - Name, level, rarity indicator
+    - Equipped status and slot
+    - Applied materials (visual indicators)
+    - Three-action menu on tap (Inventory page only)
     4. Equipment API validates item category matches slot type
     5. Database updates UserEquipment table
     6. Triggers recalculate vanity_level and avg_item_level

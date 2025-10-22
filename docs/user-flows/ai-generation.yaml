@@ -5,7 +5,7 @@ last_updated: 2025-10-21
 
 key_personas:
   - "Patient Crafter - Willing to wait for custom appearances, enjoys seeing unique material combinations"
-  - "Impatient Player - Frustrated by 20s blocking wait, wants instant gratification"
+  - "Impatient Player - Frustrated by 10-15s blocking wait, wants instant gratification"
   - "Experimenter - Tries many material combinations, benefits most from cache hits"
   - "Social Discoverer - Motivated by craft count statistics and being first to create combos"
 
@@ -21,7 +21,7 @@ primary_flows:
       - "System creates MaterialInstances and ItemMaterials rows"
       - "System computes combo_hash from sorted material_ids + style_ids"
       - "System checks ItemImageCache for existing combo (cache miss)"
-      - "Loading screen displays: 'Generating unique appearance... (0-20s)'"
+      - "Loading screen displays: 'Generating unique appearance... (10-15s)'"
       - "Progress indicator shows AI generation status"
       - "System calls generate-image.ts with R2 dependency chain"
       - "AI generates composite image using material reference images"
@@ -31,7 +31,7 @@ primary_flows:
       - "Item preview updates with generated image"
       - "Special notification: 'You are the first to craft this combo!'"
       - "Player can equip enhanced item or continue crafting"
-    outcome: "Player successfully creates uniquely styled item with 20s generation time"
+    outcome: "Player successfully creates uniquely styled item with 10-15s generation time"
     edge_cases: |
       - Network timeout during generation: Retry option with exponential backoff
       - R2 upload fails: Temporary local storage with retry mechanism
@@ -64,7 +64,7 @@ primary_flows:
       - Style variants in cache: Different style_ids create separate cache entries
 
   - name: "Generation Progress Indicator Flow"
-    trigger: "Player waits during 20s synchronous image generation"
+    trigger: "Player waits during 10-15s synchronous image generation"
     steps:
       - "Loading screen appears with animated generation status"
       - "Progress bar shows estimated completion (0-100%)"
@@ -77,10 +77,10 @@ primary_flows:
       - "Timeout: Error message with retry option"
     outcome: "Player receives clear feedback during generation wait time"
     edge_cases: |
-      - Player backgrounds app: Pause generation, resume on foreground
+      - Player backgrounds app: Generation continues, blocking operation completes
       - Device low memory: Clear unused cache, continue generation
       - Generation takes >30s: Show extended wait message with retry option
-      - Multiple simultaneous generations: Queue requests, show position
+      - Multiple simultaneous generations: Not possible due to blocking operation
 
 secondary_flows:
   - name: "Generation Failure Recovery Flow"
@@ -90,13 +90,12 @@ secondary_flows:
       - "Error message appears: 'Image generation failed. Trying again...'"
       - "System attempts automatic retry (max 3 attempts)"
       - "If all retries fail: Show manual retry option"
-      - "Player can choose: Retry generation, Use fallback appearance, Cancel application"
+      - "Player can choose: Retry generation, Cancel application"
       - "Retry: Restart full generation process"
-      - "Fallback: Use base item image with material overlay badges"
       - "Cancel: Return materials to MaterialStacks, revert item"
     outcome: "Player has options to recover from generation failures gracefully"
     edge_cases: |
-      - Persistent API outage: Use fallback for all new generations
+      - Persistent API outage: Throw errors for all new generations
       - Partial generation (some materials processed): Continue from checkpoint
       - Invalid material reference images: Regenerate missing dependencies first
 
@@ -130,14 +129,14 @@ secondary_flows:
       - "System increments MaterialStacks quantity (returns material)"
       - "System recomputes combo_hash with remaining materials"
       - "If new combo_hash exists in cache: instant update"
-      - "If new combo_hash not cached: triggers 20s generation process"
+      - "If new combo_hash not cached: triggers 10-15s generation process"
       - "Item appearance updates with new/cached image"
       - "Item stats recalculated without removed material"
     outcome: "Player successfully removes material and sees updated item appearance"
     edge_cases: |
       - Removing last material: Revert to base item image, no generation needed
       - Insufficient gold: Show exact amount needed and earning suggestions
-      - Generation fails on removal: Use previous cached image as fallback
+      - Generation fails on removal: Throw error, revert material removal
 
   - name: "Style Variant Discovery Flow"
     trigger: "Player applies styled material (style_id != 'normal') to item"
@@ -153,9 +152,9 @@ secondary_flows:
       - "Special notification: 'Styled variant created!' with style badge"
     outcome: "Player creates visually distinct styled variant with unique appearance"
     edge_cases: |
-      - Multiple style types on one item: Blend styles in generation prompt
+      - Multiple style types on one item: Random selection of style to apply
       - Style conflicts: Use dominant style based on material order/strength
-      - Style generation fails: Fall back to normal variant appearance
+      - Style generation fails: Throw error, no fallback
 
   - name: "Global Cache Statistics Flow"
     trigger: "Player views item with materials applied or browses crafting interface"
