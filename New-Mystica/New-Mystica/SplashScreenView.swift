@@ -145,7 +145,14 @@ struct SplashScreenView: View {
                     // Data loading phase
                     loadingText = "Loading player data..."
                     print("⚔️ [SPLASH] Loading equipment data...")
-                    await equipmentViewModel.fetchEquipment()
+
+                    // Attempt to load equipment, but don't fail splash if it errors
+                    do {
+                        await equipmentViewModel.fetchEquipment()
+                    } catch {
+                        // Log equipment loading error but continue
+                        print("⚠️  [SPLASH] Equipment loading failed (continuing anyway):", error.localizedDescription)
+                    }
 
                     // Navigation (FIXED - no .map navigation)
                     // Let ContentView start at MainMenuView naturally
