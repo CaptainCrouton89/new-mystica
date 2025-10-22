@@ -53,6 +53,7 @@ export interface CombatSession {
     id: string;
     type: string;
     name: string;
+    level: number;
     atk: number;
     def: number;
     hp: number;
@@ -172,11 +173,12 @@ export class CombatService {
    *
    * @param userId - User UUID
    * @param locationId - Location UUID
+   * @param selectedLevel - Player-chosen combat difficulty level (1-20)
    * @returns Combat session data with enemy, player stats, and weapon config
    * @throws ConflictError if user already has active session
    * @throws NotFoundError if location not found or no enemies available
    */
-  async startCombat(userId: string, locationId: string): Promise<CombatSession> {
+  async startCombat(userId: string, locationId: string, selectedLevel: number): Promise<CombatSession> {
     // Validate user doesn't have active session
     const existingSession = await this.combatRepository.getUserActiveSession(userId);
     if (existingSession) {
@@ -188,7 +190,8 @@ export class CombatService {
 
     // Get player stats from equipped items
     const playerStats = await this.calculatePlayerStats(userId);
-    const combatLevel = Math.floor((playerStats.atkPower + playerStats.defPower) / 20) || 1;
+    // Use player-selected level instead of derived combat level
+    const combatLevel = selectedLevel;
 
     // Get matching enemy and loot pools for analytics
     const enemyPoolIds = await locationService.getMatchingEnemyPools(locationId, combatLevel);
@@ -218,7 +221,7 @@ export class CombatService {
     const sessionData: Omit<CombatSessionData, 'id' | 'createdAt' | 'updatedAt'> = {
       userId,
       locationId,
-      combatLevel,
+      combatLevel: selectedLevel, // Store the player-selected level
       enemyTypeId: enemy.id,
       appliedEnemyPools,
       appliedLootPools,
@@ -243,21 +246,21 @@ export class CombatService {
    * Execute player attack with timing dial mechanics
    *
    * @param sessionId - Combat session UUID
-   * @param tapPositionDegrees - Player tap position (0-360)
+   * @param attackAccuracy - Player attack accuracy (0.0-1.0)
    * @returns Attack result with damage, HP updates, and combat status
    * @throws NotFoundError if session not found or expired
-   * @throws ValidationError if invalid tap position
+   * @throws ValidationError if invalid attack accuracy
    */
-  async executeAttack(sessionId: string, tapPositionDegrees: number): Promise<AttackResult> {
+  async executeAttack(sessionId: string, attackAccuracy: number): Promise<AttackResult> {
     // Validate session exists and is active
     const session = await this.combatRepository.getActiveSession(sessionId);
     if (!session) {
       throw new NotFoundError('Combat session', sessionId);
     }
 
-    // Validate tap position
-    if (tapPositionDegrees < 0 || tapPositionDegrees > 360) {
-      throw new ValidationError('Tap position must be between 0 and 360 degrees');
+    // Validate attack accuracy
+    if (attackAccuracy < 0.0 || attackAccuracy > 1.0) {
+      throw new ValidationError('Attack accuracy must be between 0.0 and 1.0');
     }
 
     // Get current combat state from session
@@ -273,8 +276,8 @@ export class CombatService {
     // Get weapon bands for hit zone determination
     const weaponConfig = await this.getWeaponConfig(session.userId, playerStats.atkAccuracy);
 
-    // Determine hit zone based on tap position and adjusted bands
-    const hitZone = this.determineHitZone(tapPositionDegrees, weaponConfig.adjusted_bands);
+    // Determine hit zone based on attack accuracy (0.0-1.0)
+    const hitZone = this.determineHitZoneFromAccuracy(attackAccuracy);
 
     // Calculate damage based on hit zone
     const { damage: damageDealt, baseMultiplier, critBonus } = this.calculateDamage(
@@ -310,7 +313,7 @@ export class CombatService {
     const newLogEntry = {
       turn: turnNumber,
       action: 'attack',
-      tapDegrees: tapPositionDegrees,
+      attackAccuracy: attackAccuracy,
       hitZone,
       damageDealt,
       enemyDamage,
@@ -329,7 +332,7 @@ export class CombatService {
       ts: new Date(),
       actor: 'player',
       eventType: 'attack',
-      payload: { hitZone, damageDealt, tapPositionDegrees },
+      payload: { hitZone, damageDealt, attackAccuracy },
       valueI: damageDealt,
     });
 
@@ -531,6 +534,89 @@ export class CombatService {
     };
   }
 
+  /**
+   * Get combat session for recovery (API endpoint)
+   * Returns session state in the format specified by the API contract
+   *
+   * @param sessionId - Combat session UUID
+   * @param userId - User UUID for authorization
+   * @returns Session recovery data with enemy, HP, and turn state
+   * @throws NotFoundError if session not found, expired, or doesn't belong to user
+   */
+  async getCombatSessionForRecovery(sessionId: string, userId: string): Promise<{
+    session_id: string;
+    player_hp: number;
+    enemy_hp: number;
+    turn_count: number;
+    whose_turn: 'player' | 'enemy';
+    enemy: {
+      id: string;
+      type: string;
+      name: string;
+      atk: number;
+      def: number;
+      hp: number;
+      style_id: string;
+      dialogue_tone: string;
+      personality_traits: string[];
+    };
+    expires_at: string;
+  }> {
+    const session = await this.combatRepository.getActiveSession(sessionId);
+    if (!session) {
+      throw new NotFoundError('Combat session', sessionId);
+    }
+
+    // Verify session belongs to the requesting user
+    if (session.userId !== userId) {
+      throw new NotFoundError('Combat session', sessionId);
+    }
+
+    // Calculate current HP from combat log
+    const currentLog = session.combatLog || [];
+    const lastLogEntry = currentLog[currentLog.length - 1];
+
+    const playerStats = await this.calculatePlayerStats(session.userId);
+    const enemyStats = await this.calculateEnemyStats(session.enemyTypeId);
+
+    // Get enemy details
+    const enemyType = await this.enemyRepository.findEnemyTypeById(session.enemyTypeId);
+    if (!enemyType) {
+      throw new NotFoundError('Enemy type', session.enemyTypeId);
+    }
+
+    // Calculate current HP values
+    const currentPlayerHP = lastLogEntry?.playerHP ?? playerStats.hp;
+    const currentEnemyHP = lastLogEntry?.enemyHP ?? enemyStats.hp;
+
+    // Determine whose turn it is based on turn count
+    // Turn is always 'player' for this implementation since combat is player-initiated
+    const whoseTurn: 'player' | 'enemy' = 'player';
+
+    // Calculate session expiry (15 minutes from creation)
+    const expiresAt = new Date(session.createdAt.getTime() + (15 * 60 * 1000));
+
+    return {
+      session_id: sessionId,
+      player_hp: currentPlayerHP,
+      enemy_hp: currentEnemyHP,
+      turn_count: currentLog.length,
+      whose_turn: whoseTurn,
+      enemy: {
+        id: enemyType.id,
+        type: enemyType.name,
+        name: enemyType.name,
+        atk: enemyStats.atk,
+        def: enemyStats.def,
+        hp: enemyStats.hp,
+        style_id: enemyStats.style_id,
+        dialogue_tone: enemyStats.dialogue_tone,
+        personality_traits: enemyStats.personality_traits,
+      },
+      expires_at: expiresAt.toISOString(),
+    };
+  }
+
   // ============================================================================
   // Private Helper Methods
   // ============================================================================
@@ -637,6 +723,7 @@ export class CombatService {
     id: string;
     type: string;
     name: string;
+    level: number;
     atk: number;
     def: number;
     hp: number;
@@ -671,6 +758,7 @@ export class CombatService {
       id: enemyType.id,
       type: enemyType.name, // Using name as type identifier
       name: enemyType.name,
+      level: combatLevel, // Enemy level matches selected combat level
       atk: enemyStats.atk,
       def: enemyStats.def,
       hp: enemyStats.hp,
@@ -751,6 +839,31 @@ export class CombatService {
 
     // Remaining degrees are crit zone
     return 'crit';
+  }
+
+  /**
+   * Determine hit zone based on attack accuracy (0.0-1.0)
+   * Higher accuracy = better hit zones
+   */
+  private determineHitZoneFromAccuracy(attackAccuracy: number): HitBand {
+    // Map accuracy to hit zones with some randomness
+    // 0.0-0.1: injure (very poor accuracy hurts player)
+    // 0.1-0.3: miss
+    // 0.3-0.6: graze
+    // 0.6-0.9: normal
+    // 0.9-1.0: crit (perfect accuracy gets critical hits)
+
+    if (attackAccuracy < 0.1) {
+      return 'injure';
+    } else if (attackAccuracy < 0.3) {
+      return 'miss';
+    } else if (attackAccuracy < 0.6) {
+      return 'graze';
+    } else if (attackAccuracy < 0.9) {
+      return 'normal';
+    } else {
+      return 'crit';
+    }
   }
 
   /**

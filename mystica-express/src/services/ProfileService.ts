@@ -106,6 +106,7 @@ export class ProfileService {
         account_type: accountType,
         username: null, // Users table doesn't have username field yet
         vanity_level: user.vanity_level,
+        avg_item_level: user.avg_item_level || 0,
         gold: balances.GOLD,
         gems: balances.GEMS,
         total_stats: totalStats,

@@ -143,6 +143,7 @@ export class AuthService {
           account_type: 'anonymous',
           username: null, // Anonymous users don't have usernames
           vanity_level: existingUser.vanity_level,
+          avg_item_level: existingUser.avg_item_level || 0,
           gold: balances.GOLD,
           gems: balances.GEMS,
           total_stats: {
@@ -204,6 +205,7 @@ export class AuthService {
               account_type: 'anonymous',
               username: null,
               vanity_level: raceUser.vanity_level,
+              avg_item_level: raceUser.avg_item_level || 0,
               gold: balances.GOLD,
               gems: balances.GEMS,
               total_stats: {
@@ -231,6 +233,7 @@ export class AuthService {
             account_type: 'anonymous',
             username: null,
             vanity_level: 0,
+            avg_item_level: 0,
             gold: 500, // Starting balance
             gems: 0,
             total_stats: {
@@ -502,6 +505,7 @@ export class AuthService {
         account_type: userProfile.email ? 'email' : 'anonymous',
         username: null, // Users table doesn't have username field
         vanity_level: userProfile.vanity_level,
+        avg_item_level: userProfile.avg_item_level || 0,
         gold: balances.GOLD,
         gems: balances.GEMS,
         total_stats: {

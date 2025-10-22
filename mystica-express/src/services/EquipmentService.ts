@@ -113,6 +113,7 @@ export class EquipmentService {
         success: true,
         equipped_item: equippedItem,
         unequipped_item: unequippedItem,
+        slot: slotName as EquipmentSlot,
         updated_player_stats: updatedPlayerStats
       };
 

@@ -23,10 +23,12 @@ import { ProfileRepository } from '../repositories/ProfileRepository.js';
 import { WeaponRepository } from '../repositories/WeaponRepository.js';
 import { PetRepository } from '../repositories/PetRepository.js';
 import { MaterialRepository } from '../repositories/MaterialRepository.js';
+import { ImageCacheRepository } from '../repositories/ImageCacheRepository.js';
 import {
   ItemWithDetails,
   CreateItemData
 } from '../types/repository.types.js';
+import { computeComboHash } from '../utils/hash.js';
 import { Database } from '../types/database.types.js';
 
 // Repository return types
@@ -92,6 +94,7 @@ export class ItemService {
   private weaponRepository: WeaponRepository;
   private petRepository: PetRepository;
   private materialRepository: MaterialRepository;
+  private imageCacheRepository: ImageCacheRepository;
 
   constructor() {
     this.itemRepository = new ItemRepository();
@@ -100,6 +103,7 @@ export class ItemService {
     this.weaponRepository = new WeaponRepository();
     this.petRepository = new PetRepository();
     this.materialRepository = new MaterialRepository();
+    this.imageCacheRepository = new ImageCacheRepository();
   }
   /**
    * Get detailed item information by ID
@@ -294,13 +298,16 @@ export class ItemService {
         updated_at: new Date().toISOString()
       };
 
+      // Get new gold balance and vanity level after upgrade
+      const newGoldBalance = await this.profileRepository.getCurrencyBalance(userId, 'GOLD');
+      const profile = await this.profileRepository.findById(userId);
+
       return {
         success: true,
         updated_item: updatedItem,
         gold_spent: costInfo.gold_cost,
-        new_level: costInfo.next_level,
-        stat_increase: statIncrease,
-        message: `Item upgraded to level ${costInfo.next_level}!`
+        new_gold_balance: newGoldBalance,
+        new_vanity_level: profile?.vanity_level || 0
       };
     } catch (error) {
       if (error instanceof NotFoundError || error instanceof BusinessLogicError) {
@@ -785,6 +792,246 @@ export class ItemService {
   }
 
   /**
+   * Remove material from item slot and return to inventory
+   * - Validates ownership and slot occupancy
+   * - Calculates gold cost (100 × item level)
+   * - Checks affordability via EconomyService
+   * - Removes MaterialInstance from slot
+   * - Returns material to MaterialStacks (+1 quantity)
+   * - Recalculates item stats and updates combo hash
+   * - Updates/clears generated image URL
+   */
+  async removeMaterial(itemId: string, slotIndex: number, userId: string): Promise<{
+    success: boolean;
+    item: Item;
+    stats: Stats;
+    image_url: string | null;
+    gold_spent: number;
+    returned_material: {
+      material_id: string;
+      style_id: string;
+      quantity: number;
+    };
+    new_gold_balance: number;
+  }> {
+    try {
+      // 1. Validate item ownership
+      const item = await this.itemRepository.findById(itemId, userId);
+      if (!item) {
+        throw new NotFoundError('Item', itemId);
+      }
+
+      // 2. Validate slot_index (0-2) and check if occupied
+      if (slotIndex < 0 || slotIndex > 2) {
+        throw new ValidationError('Slot index must be between 0 and 2');
+      }
+
+      const occupiedSlots = await this.materialRepository.getSlotOccupancy(itemId);
+      if (!occupiedSlots.includes(slotIndex)) {
+        throw new BusinessLogicError(`Slot ${slotIndex} is empty`);
+      }
+
+      // 3. Calculate gold cost: 100 × item level
+      const goldCost = 100 * item.level;
+
+      // 4. Check affordability via EconomyService
+      const canAfford = await this.profileRepository.getCurrencyBalance(userId, 'GOLD') >= goldCost;
+      if (!canAfford) {
+        const currentBalance = await this.profileRepository.getCurrencyBalance(userId, 'GOLD');
+        throw new BusinessLogicError(`Insufficient gold. Need ${goldCost}, have ${currentBalance}`);
+      }
+
+      // 5. Get material instance before removal for return data
+      const materialInstances = await this.materialRepository.findMaterialsByItem(itemId);
+      const materialToRemove = materialInstances.find(m => m.slot_index === slotIndex);
+      if (!materialToRemove) {
+        throw new BusinessLogicError(`No material found in slot ${slotIndex}`);
+      }
+
+      // 6. Deduct gold via EconomyService
+      const economyService = (await import('./EconomyService.js')).economyService;
+      await economyService.deductCurrency(
+        userId,
+        'GOLD',
+        goldCost,
+        'material_replacement', // Using existing transaction type for material operations
+        itemId,
+        { operation: 'remove_material', slot_index: slotIndex }
+      );
+
+      // 7. Remove MaterialInstance and return to inventory atomically
+      await this.materialRepository.removeMaterialFromItemAtomic(
+        itemId,
+        slotIndex
+      );
+
+      // 8. Recalculate item stats with remaining materials
+      const updatedItem = await this.itemRepository.findWithMaterials(itemId, userId);
+      if (!updatedItem) {
+        throw new NotFoundError('Item', itemId);
+      }
+
+      const remainingMaterials = updatedItem.materials || [];
+      const shouldRecompute = remainingMaterials.length > 0 || updatedItem.level > 1;
+
+      const baseStats = updatedItem.item_type.base_stats_normalized;
+      let currentStats = baseStats;
+
+      if (shouldRecompute) {
+        const statsInput = {
+          ...updatedItem,
+          materials: remainingMaterials
+        } as any;
+        currentStats = statsService.computeItemStatsForLevel(statsInput, updatedItem.level);
+      }
+
+      // 9. Update material_combo_hash
+      const materialIds = remainingMaterials.map(m => m.material_id).filter(Boolean);
+      const styleIds = remainingMaterials.map(m => m.style_id || '00000000-0000-0000-0000-000000000000');
+      const comboHash = materialIds.length > 0 ? computeComboHash(materialIds, styleIds) : null;
+
+      // 10. Update image URL (revert to base or clear if no materials)
+      let imageUrl: string | null = null;
+      if (materialIds.length > 0 && comboHash) {
+        // Check cache for remaining combo
+        const cacheEntry = await this.imageCacheRepository.findByComboHash(updatedItem.item_type_id, comboHash);
+        if (cacheEntry) {
+          imageUrl = cacheEntry.image_url;
+        }
+        // Note: Not generating new images on removal - that's handled by apply/replace operations
+      }
+
+      // 11. Update item with new hash and image URL
+      await this.itemRepository.updateImageData(itemId, userId, comboHash || '', imageUrl || '', 'complete');
+
+      // 12. Get new gold balance
+      const newGoldBalance = await this.profileRepository.getCurrencyBalance(userId, 'GOLD');
+
+      // 13. Transform updated item to API format
+      const apiItem: Item = {
+        id: updatedItem.id,
+        user_id: updatedItem.user_id,
+        item_type_id: updatedItem.item_type_id,
+        level: updatedItem.level,
+        base_stats: baseStats,
+        current_stats: currentStats,
+        material_combo_hash: comboHash || undefined,
+        image_url: imageUrl || undefined,
+        materials: remainingMaterials,
+        item_type: {
+          id: updatedItem.item_type.id,
+          name: updatedItem.item_type.name,
+          category: updatedItem.item_type.category as any,
+          equipment_slot: updatedItem.item_type.category as any,
+          base_stats: baseStats,
+          rarity: updatedItem.item_type.rarity,
+          description: updatedItem.item_type.description
+        },
+        created_at: updatedItem.created_at,
+        updated_at: new Date().toISOString()
+      };
+
+      return {
+        success: true,
+        item: apiItem,
+        stats: currentStats,
+        image_url: imageUrl,
+        gold_spent: goldCost,
+        returned_material: {
+          material_id: materialToRemove.material_id,
+          style_id: materialToRemove.style_id || '00000000-0000-0000-0000-000000000000',
+          quantity: 1
+        },
+        new_gold_balance: newGoldBalance
+      };
+
+    } catch (error) {
+      if (error instanceof NotFoundError || error instanceof BusinessLogicError || error instanceof ValidationError) {
+        throw error;
+      }
+      throw mapSupabaseError(error);
+    }
+  }
+
+  /**
+   * Discard/sell item for gold compensation
+   * - Validates item ownership
+   * - Checks if item is equipped and unequips if necessary
+   * - Calculates gold compensation based on item level
+   * - Deletes item from PlayerItems table
+   * - Adds gold to user's balance via EconomyService
+   * - Returns confirmation details
+   */
+  async discardItem(itemId: string, userId: string): Promise<{
+    success: boolean;
+    gold_earned: number;
+    new_gold_balance: number;
+    item_name: string;
+  }> {
+    try {
+      // 1. Validate ownership and get item details
+      const item = await this.itemRepository.findWithItemType(itemId, userId);
+
+      if (!item) {
+        throw new NotFoundError('Item', itemId);
+      }
+
+      const itemName = item.item_type.name;
+
+      // 2. Check if item is currently equipped and unequip if necessary
+      const isEquipped = await this.checkIfItemEquipped(itemId, userId);
+      if (isEquipped) {
+        // Import equipmentService dynamically to avoid circular dependency
+        const { equipmentService } = await import('./EquipmentService.js');
+        const slotName = this.mapCategoryToSlotName(item.item_type.category);
+        await equipmentService.unequipItem(userId, slotName);
+      }
+
+      // 3. Calculate gold compensation based on item level
+      // Use a formula that gives reasonable compensation: level * 10 + base 25 gold
+      const goldEarned = Math.max(25, item.level * 10);
+
+      // 4. Add gold to user's balance via EconomyService
+      const { economyService } = await import('./EconomyService.js');
+      const currencyResult = await economyService.addCurrency(
+        userId,
+        'GOLD',
+        goldEarned,
+        'admin', // Using admin as source type for item discard compensation
+        itemId,
+        {
+          item_id: itemId,
+          item_name: itemName,
+          item_level: item.level,
+          operation: 'item_discard'
+        }
+      );
+
+      // 5. Add history event before deletion
+      await this.addHistoryEvent(itemId, userId, 'discarded', {
+        item_name: itemName,
+        gold_earned: goldEarned,
+        reason: 'player_discard'
+      });
+
+      // 6. Delete item from database
+      await this.itemRepository.deleteItem(itemId, userId);
+
+      return {
+        success: true,
+        gold_earned: goldEarned,
+        new_gold_balance: currencyResult.newBalance,
+        item_name: itemName
+      };
+    } catch (error) {
+      if (error instanceof NotFoundError || error instanceof BusinessLogicError) {
+        throw error;
+      }
+      throw mapSupabaseError(error);
+    }
+  }
+
+  /**
    * Create starter item for new user registration
    * - Selects random common rarity item type
    * - Creates item at level 1 with no materials
@@ -812,6 +1059,49 @@ export class ItemService {
   // ============================================================================
   // Private Helper Methods
   // ============================================================================
+
+  /**
+   * Check if item is currently equipped by user
+   * - Queries UserEquipment table to see if item is in any slot
+   */
+  private async checkIfItemEquipped(itemId: string, userId: string): Promise<boolean> {
+    try {
+      const equippedItems = await this.itemRepository.findEquippedByUser(userId);
+      return equippedItems.some(item => item.id === itemId);
+    } catch (error) {
+      // If there's an error checking equipment status, assume not equipped
+      // This is safer than blocking the discard operation
+      console.warn('Failed to check equipment status for item', itemId, error);
+      return false;
+    }
+  }
+
+  /**
+   * Map item category to equipment slot name for unequipping
+   * - Maps item categories to the slot names used by EquipmentService
+   */
+  private mapCategoryToSlotName(category: string): string {
+    switch (category) {
+      case 'weapon':
+        return 'weapon';
+      case 'offhand':
+        return 'offhand';
+      case 'head':
+        return 'head';
+      case 'armor':
+        return 'armor';
+      case 'feet':
+        return 'feet';
+      case 'accessory':
+        // For accessories, we need to check which slot it's in
+        // For simplicity, default to accessory_1 (EquipmentService will handle finding the correct slot)
+        return 'accessory_1';
+      case 'pet':
+        return 'pet';
+      default:
+        throw new ValidationError(`Unknown item category: ${category}`);
+    }
+  }
 
   /**
    * Transform repository ItemWithDetails to API Item type
