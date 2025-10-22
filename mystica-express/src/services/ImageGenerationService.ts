@@ -189,9 +189,13 @@ export class ImageGenerationService {
       }
 
       const style = styles[index];
+      if (!style) {
+        throw new NotFoundError('Style', styleIds[index]);
+      }
+
       const baseDesc = material.description;
 
-      if (!style || style.id === 'normal') {
+      if (style.id === 'normal') {
         return baseDesc;
       } else {
         return `${baseDesc} (rendered in ${style.style_name} style)`;
