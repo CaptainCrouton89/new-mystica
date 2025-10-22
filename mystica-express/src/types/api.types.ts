@@ -19,6 +19,7 @@ export interface UserProfile {
   account_type: 'anonymous' | 'email';
   username: string | null;
   vanity_level: number; // Sum of equipped item levels
+  avg_item_level: number; // Average level of equipped items
   gold: number;         // From UserCurrencyBalances
   gems: number;         // From UserCurrencyBalances
   total_stats: {
@@ -238,6 +239,7 @@ export interface EquipResult {
   success: boolean;
   unequipped_item?: PlayerItem;
   equipped_item: PlayerItem;
+  slot: EquipmentSlot;
   updated_player_stats: PlayerStats;
   message?: string;
 }
@@ -274,9 +276,8 @@ export interface UpgradeResult {
   success: boolean;
   updated_item: Item;
   gold_spent: number;
-  new_level: number;
-  stat_increase: Stats;
-  message?: string;
+  new_gold_balance: number;
+  new_vanity_level: number;
 }
 
 /**

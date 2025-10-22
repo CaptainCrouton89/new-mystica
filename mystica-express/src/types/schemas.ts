@@ -50,6 +50,11 @@ export const ItemIdParamsSchema = z.object({
   item_id: UUIDSchema
 });
 
+export const ItemIdSlotParamsSchema = z.object({
+  item_id: UUIDSchema,
+  slot_index: z.coerce.number().int().min(0).max(2, 'Slot index must be between 0 and 2')
+});
+
 export const LocationIdParamsSchema = z.object({
   location_id: UUIDSchema
 });
@@ -82,12 +87,13 @@ export const LocationQuerySchema = z.object({
 
 // Combat endpoints (for future implementation)
 export const StartCombatSchema = z.object({
-  location_id: UUIDSchema
+  location_id: UUIDSchema,
+  selected_level: z.number().int().min(1, 'Selected level must be at least 1').max(20, 'Selected level cannot exceed 20')
 });
 
 export const AttackSchema = z.object({
   session_id: UUIDSchema,
-  tap_position_degrees: z.number().min(0).max(360, 'Tap position must be between 0 and 360 degrees')
+  attack_accuracy: z.number().min(0.0, 'Attack accuracy must be between 0.0 and 1.0').max(1.0, 'Attack accuracy must be between 0.0 and 1.0')
 });
 
 export const DefenseSchema = z.object({
@@ -184,6 +190,7 @@ export type UnequipItemRequest = z.infer<typeof UnequipItemSchema>;
 export type ApplyMaterialRequest = z.infer<typeof ApplyMaterialSchema>;
 export type ReplaceMaterialRequest = z.infer<typeof ReplaceMaterialSchema>;
 export type ItemParams = z.infer<typeof ItemParamsSchema>;
+export type ItemIdSlotParams = z.infer<typeof ItemIdSlotParamsSchema>;
 export type LocationQuery = z.infer<typeof LocationQuerySchema>;
 export type StartCombatRequest = z.infer<typeof StartCombatSchema>;
 export type AttackRequest = z.infer<typeof AttackSchema>;
@@ -265,3 +272,14 @@ export const AwardExperienceSchema = z.object({
 // Type exports for progression
 export type ClaimLevelRewardRequest = z.infer<typeof ClaimLevelRewardSchema>;
 export type AwardExperienceRequest = z.infer<typeof AwardExperienceSchema>;
+
+// Inventory endpoints
+export const InventoryQuerySchema = z.object({
+  slot_type: z.enum(['all', 'weapon', 'offhand', 'head', 'armor', 'feet', 'accessory', 'pet']).default('all'),
+  sort_by: z.enum(['level', 'rarity', 'newest', 'name']).default('level'),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(50)
+});
+
+// Type exports for inventory
+export type InventoryQuery = z.infer<typeof InventoryQuerySchema>;
