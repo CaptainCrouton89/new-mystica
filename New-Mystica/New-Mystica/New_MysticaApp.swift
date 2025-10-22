@@ -13,7 +13,12 @@ struct New_MysticaApp: App {
     @StateObject private var navigationManager = NavigationManager()
     @StateObject private var audioManager = AudioManager.shared
     @StateObject private var backgroundImageManager = BackgroundImageManager()
-    
+
+    // New architecture
+    private let appState = AppState.shared
+    private let authViewModel: AuthViewModel
+    private let equipmentViewModel: EquipmentViewModel
+
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             Item.self,
@@ -27,14 +32,18 @@ struct New_MysticaApp: App {
         }
     }()
 
+    init() {
+        self.authViewModel = AuthViewModel(appState: AppState.shared)
+        self.equipmentViewModel = EquipmentViewModel()
+    }
+
     var body: some Scene {
         WindowGroup {
             SplashScreenView()
                 .environmentObject(navigationManager)
                 .environmentObject(audioManager)
                 .environmentObject(backgroundImageManager)
-                .environmentObject(AuthService.shared)
-                .environmentObject(EquipmentService.shared)
+                .environment(appState)
         }
         .modelContainer(sharedModelContainer)
     }

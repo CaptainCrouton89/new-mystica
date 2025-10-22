@@ -10,9 +10,9 @@ import SwiftUI
 struct CollectionView: View, NavigableView {
     @EnvironmentObject private var navigationManager: NavigationManager
     @EnvironmentObject private var audioManager: AudioManager
+    @Environment(AppState.self) private var appState
     @State private var selectedItem: CollectionItem? = nil
     @State private var showItemPopup = false
-    @State private var goldAmount: Int = 1234 // TODO: Replace with actual user gold balance
 
     var navigationTitle: String { "Collection" }
     
@@ -39,7 +39,7 @@ struct CollectionView: View, NavigableView {
                 // Gold Balance Header
                 HStack {
                     Spacer()
-                    GoldBalanceView(amount: goldAmount)
+                    GoldBalanceView(amount: appState.currencyBalance)
                         .padding(.trailing, 16)
                         .padding(.top, 8)
                 }
@@ -137,6 +137,10 @@ struct CollectionItemView: View {
 }
 
 #Preview {
-    CollectionView()
+    let appState = AppState.shared
+    appState.currencyBalance = 1234
+
+    return CollectionView()
         .environmentObject(NavigationManager())
+        .environment(appState)
 }

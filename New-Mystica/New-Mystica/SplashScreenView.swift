@@ -13,10 +13,11 @@ struct SplashScreenView: View {
     @State private var scale = 0.8
     @State private var loadingText: String = ""
     @State private var errorMessage: String?
+    @State private var authViewModel = AuthViewModel(appState: AppState.shared)
+    @State private var equipmentViewModel = EquipmentViewModel()
     @EnvironmentObject private var navigationManager: NavigationManager
     @EnvironmentObject private var audioManager: AudioManager
-    @EnvironmentObject private var authService: AuthService
-    @EnvironmentObject var equipmentService: EquipmentService
+    @Environment(AppState.self) private var appState
     
     var body: some View {
         if isActive {
@@ -63,13 +64,19 @@ struct SplashScreenView: View {
 
                                         loadingText = "Authenticating..."
                                         if !hasToken {
-                                            try await authService.registerDevice()
+                                            await authViewModel.registerDevice()
                                         } else {
-                                            try await authService.bootstrapSession()
+                                            await authViewModel.bootstrapSession()
+                                        }
+
+                                        // Check if auth succeeded
+                                        guard appState.isAuthenticated else {
+                                            errorMessage = appState.authError?.localizedDescription ?? "Authentication failed"
+                                            return
                                         }
 
                                         loadingText = "Loading player data..."
-                                        try await equipmentService.loadEquipment()
+                                        await equipmentViewModel.fetchEquipment()
 
                                         withAnimation(.easeInOut(duration: 0.5)) {
                                             isActive = true
@@ -116,16 +123,22 @@ struct SplashScreenView: View {
                     print("🔐 [SPLASH] Has existing token:", hasToken)
                     if !hasToken {
                         print("📱 [SPLASH] No token found, registering new device...")
-                        try await authService.registerDevice()
+                        await authViewModel.registerDevice()
                     } else {
                         print("🔄 [SPLASH] Token found, bootstrapping session...")
-                        try await authService.bootstrapSession()
+                        await authViewModel.bootstrapSession()
+                    }
+
+                    // Check if auth succeeded
+                    guard appState.isAuthenticated else {
+                        errorMessage = appState.authError?.localizedDescription ?? "Authentication failed"
+                        return
                     }
 
                     // Data loading phase
                     loadingText = "Loading player data..."
                     print("⚔️ [SPLASH] Loading equipment data...")
-                    try await equipmentService.loadEquipment()
+                    await equipmentViewModel.fetchEquipment()
 
                     // Navigation (FIXED - no .map navigation)
                     // Let ContentView start at MainMenuView naturally
@@ -146,6 +159,5 @@ struct SplashScreenView: View {
     SplashScreenView()
         .environmentObject(NavigationManager())
         .environmentObject(AudioManager.shared)
-        .environmentObject(AuthService.shared)
-        .environmentObject(EquipmentService.shared)
+        .environment(AppState.shared)
 }
