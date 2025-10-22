@@ -29,6 +29,10 @@ scripts/output/
 dist/
 *.tsbuildinfo
 
+# Test files
+**/temp-*.js
+**/temp-*.test.js
+
 # Additional Environment
 logs/
 
