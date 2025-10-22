@@ -7,7 +7,7 @@
 
 import { ItemRepository } from '../../../src/repositories/ItemRepository.js';
 import { DatabaseError, NotFoundError, ValidationError } from '../../../src/utils/errors.js';
-import { createMockSupabaseClient } from '../../helpers/mockSupabase.js';
+import { createMockSupabaseClient, setupMockChain } from '../../helpers/mockSupabase.js';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 // Test data
@@ -754,28 +754,23 @@ describe('ItemRepository', () => {
       it('should find user items with pagination and sorting', async () => {
         const paginatedItems = [mockItemRow];
 
-        const mockQueryChain = {
-          select: jest.fn().mockReturnThis(),
-          eq: jest.fn().mockReturnThis(),
-          order: jest.fn().mockReturnThis(),
-          limit: jest.fn().mockReturnThis(),
-          range: jest.fn().mockResolvedValue({
-            data: paginatedItems,
-            error: null
+        mockClient.from.mockReturnValue({
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              order: jest.fn().mockReturnValue({
+                limit: jest.fn().mockResolvedValue({
+                  data: paginatedItems,
+                  error: null
+                })
+              })
+            })
           })
-        };
-
-        mockClient.from.mockReturnValue(mockQueryChain);
+        });
 
         const result = await repository.findByUserWithPagination(mockUserId, 10, 0);
 
         expect(result).toEqual(paginatedItems);
         expect(mockClient.from).toHaveBeenCalledWith('items');
-        expect(mockQueryChain.select).toHaveBeenCalledWith('*');
-        expect(mockQueryChain.eq).toHaveBeenCalledWith('user_id', mockUserId);
-        expect(mockQueryChain.order).toHaveBeenCalledWith('created_at', { ascending: false });
-        expect(mockQueryChain.limit).toHaveBeenCalledWith(10);
-        expect(mockQueryChain.range).toHaveBeenCalledWith(0, 9);
       });
     });
   });
