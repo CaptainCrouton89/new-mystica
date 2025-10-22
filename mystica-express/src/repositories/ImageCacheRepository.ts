@@ -124,7 +124,7 @@ export class ImageCacheRepository extends BaseRepository<ItemImageCacheRow> {
   /**
    * Atomically increment craft count and return new value
    *
-   * Uses UPDATE ... RETURNING to ensure atomicity and avoid race conditions.
+   * Uses RPC function for true atomic increment operation.
    *
    * @param cacheId - Cache entry UUID
    * @returns New craft count after increment
@@ -132,33 +132,18 @@ export class ImageCacheRepository extends BaseRepository<ItemImageCacheRow> {
    * @throws DatabaseError on update failure
    */
   async incrementCraftCount(cacheId: string): Promise<number> {
-    // Use a simple UPDATE with RETURNING for atomic increment
-    // Note: In production, this should be replaced with a proper RPC function
+    // Use RPC function for atomic increment
     const { data, error } = await this.client
-      .from('itemimagecache')
-      .update({ craft_count: 1 }) // Placeholder - would need raw SQL for increment
-      .eq('id', cacheId)
-      .select('craft_count')
-      .single();
+      .rpc('increment_craft_count', { cache_id: cacheId });
 
     if (error) {
-      if (error.code === 'PGRST116') {
+      if (error.message?.includes('not found') || error.message?.includes('No rows')) {
         throw new NotFoundError('itemimagecache', cacheId);
       }
       throw mapSupabaseError(error);
     }
 
-    // For now, manually increment the returned value
-    // In production, this would be handled by the RPC function
-    const newCount = data.craft_count + 1;
-
-    // Update with the incremented value
-    await this.client
-      .from('itemimagecache')
-      .update({ craft_count: newCount })
-      .eq('id', cacheId);
-
-    return newCount;
+    return data as number;
   }
 
   /**

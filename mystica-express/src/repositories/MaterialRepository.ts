@@ -167,6 +167,37 @@ export class MaterialRepository extends BaseRepository<MaterialRow> {
   }
 
   /**
+   * Find material stacks with material and style details for inventory display
+   */
+  async findStacksByUserWithDetails(userId: string): Promise<Array<{
+    material_id: string;
+    style_id: string;
+    quantity: number;
+    materials: { name: string };
+    styledefinitions: { style_name: string };
+  }>> {
+    const { data, error } = await this.client
+      .from('materialstacks')
+      .select(`
+        material_id,
+        style_id,
+        quantity,
+        materials!inner(name),
+        styledefinitions!inner(style_name)
+      `)
+      .eq('user_id', userId)
+      .gt('quantity', 0)
+      .order('materials.name')
+      .order('styledefinitions.style_name');
+
+    if (error) {
+      throw mapSupabaseError(error);
+    }
+
+    return (data || []) as any;
+  }
+
+  /**
    * Increment material stack quantity (upsert operation)
    */
   async incrementStack(userId: string, materialId: string, styleId: string, quantity: number): Promise<MaterialStackRow> {

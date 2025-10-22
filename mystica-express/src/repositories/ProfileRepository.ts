@@ -79,13 +79,34 @@ export class ProfileRepository extends BaseRepository<User> {
   }
 
   /**
-   * Find user by device ID (via device tokens)
+   * Find user by device ID (direct device_id field for anonymous users)
    */
-  async findUserByDeviceId(deviceId: string): Promise<User | null> {
+  async findUserByDeviceId(deviceId: string, accountType: string = 'anonymous'): Promise<User | null> {
+    const { data, error } = await this.client
+      .from('users')
+      .select('*')
+      .eq('device_id', deviceId)
+      .eq('account_type', accountType)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        return null;
+      }
+      throw this.mapError(error);
+    }
+
+    return data;
+  }
+
+  /**
+   * Find user by device token (via device tokens table)
+   */
+  async findUserByDeviceToken(deviceToken: string): Promise<User | null> {
     const { data, error } = await this.client
       .from('devicetokens')
       .select('user_id, users(*)')
-      .eq('token', deviceId)
+      .eq('token', deviceToken)
       .eq('is_active', true)
       .single();
 
@@ -120,6 +141,61 @@ export class ProfileRepository extends BaseRepository<User> {
     await this.update(userId, {
       last_login: new Date().toISOString()
     });
+  }
+
+  /**
+   * Create anonymous user with device ID
+   * Handles race conditions via unique constraint errors
+   */
+  async createAnonymousUser(userId: string, deviceId: string): Promise<User> {
+    const { data, error } = await this.client
+      .from('users')
+      .insert({
+        id: userId,
+        device_id: deviceId,
+        account_type: 'anonymous',
+        is_anonymous: true,
+        email: null,
+        created_at: new Date().toISOString(),
+        last_login: new Date().toISOString(),
+        vanity_level: 0,
+        avg_item_level: 0
+      })
+      .select()
+      .single();
+
+    if (error) {
+      throw this.mapError(error);
+    }
+
+    return data;
+  }
+
+  /**
+   * Create email user profile
+   */
+  async createEmailUser(userId: string, email: string): Promise<User> {
+    const { data, error } = await this.client
+      .from('users')
+      .insert({
+        id: userId,
+        email: email,
+        account_type: 'email',
+        is_anonymous: false,
+        device_id: null,
+        created_at: new Date().toISOString(),
+        last_login: new Date().toISOString(),
+        vanity_level: 0,
+        avg_item_level: 0
+      })
+      .select()
+      .single();
+
+    if (error) {
+      throw this.mapError(error);
+    }
+
+    return data;
   }
 
   // ============================================================================
