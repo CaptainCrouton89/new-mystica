@@ -6,8 +6,19 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXContainerItemProxy section */
+		28AA65B62EA97A030072765F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 2817BD132EA5FD3700468184 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 2817BD1A2EA5FD3700468184;
+			remoteInfo = "New-Mystica";
+		};
+/* End PBXContainerItemProxy section */
+
 /* Begin PBXFileReference section */
 		2817BD1B2EA5FD3700468184 /* New-Mystica.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "New-Mystica.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		28AA65B22EA97A030072765F /* New-MysticaTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "New-MysticaTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		98EDADE22EA72B690033F76B /* Bungee-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "Bungee-Regular.ttf"; path = "New-Mystica/Fonts/Bungee/Bungee-Regular.ttf"; sourceTree = "<group>"; };
 		98EDADED2EA72E200033F76B /* Metamorphous-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "Metamorphous-Regular.ttf"; path = "New-Mystica/Fonts/Metamorphous/Metamorphous-Regular.ttf"; sourceTree = "<group>"; };
 		98EDADEE2EA72E8E0033F76B /* IMFellFrenchCanon-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "IMFellFrenchCanon-Regular.ttf"; path = "New-Mystica/Fonts/IM_Fell_French_Canon/IMFellFrenchCanon-Regular.ttf"; sourceTree = "<group>"; };
@@ -33,10 +44,22 @@
 			path = "New-Mystica";
 			sourceTree = "<group>";
 		};
+		28AA65B32EA97A030072765F /* New-MysticaTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "New-MysticaTests";
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		2817BD182EA5FD3700468184 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		28AA65AF2EA97A030072765F /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -54,6 +77,7 @@
 				98EDADED2EA72E200033F76B /* Metamorphous-Regular.ttf */,
 				98EDADE22EA72B690033F76B /* Bungee-Regular.ttf */,
 				2817BD1D2EA5FD3700468184 /* New-Mystica */,
+				28AA65B32EA97A030072765F /* New-MysticaTests */,
 				2817BD1C2EA5FD3700468184 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -62,6 +86,7 @@
 			isa = PBXGroup;
 			children = (
 				2817BD1B2EA5FD3700468184 /* New-Mystica.app */,
+				28AA65B22EA97A030072765F /* New-MysticaTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -91,6 +116,29 @@
 			productReference = 2817BD1B2EA5FD3700468184 /* New-Mystica.app */;
 			productType = "com.apple.product-type.application";
 		};
+		28AA65B12EA97A030072765F /* New-MysticaTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 28AA65B82EA97A030072765F /* Build configuration list for PBXNativeTarget "New-MysticaTests" */;
+			buildPhases = (
+				28AA65AE2EA97A030072765F /* Sources */,
+				28AA65AF2EA97A030072765F /* Frameworks */,
+				28AA65B02EA97A030072765F /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				28AA65B72EA97A030072765F /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				28AA65B32EA97A030072765F /* New-MysticaTests */,
+			);
+			name = "New-MysticaTests";
+			packageProductDependencies = (
+			);
+			productName = "New-MysticaTests";
+			productReference = 28AA65B22EA97A030072765F /* New-MysticaTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -103,6 +151,10 @@
 				TargetAttributes = {
 					2817BD1A2EA5FD3700468184 = {
 						CreatedOnToolsVersion = 26.0.1;
+					};
+					28AA65B12EA97A030072765F = {
+						CreatedOnToolsVersion = 26.0.1;
+						TestTargetID = 2817BD1A2EA5FD3700468184;
 					};
 				};
 			};
@@ -121,12 +173,20 @@
 			projectRoot = "";
 			targets = (
 				2817BD1A2EA5FD3700468184 /* New-Mystica */,
+				28AA65B12EA97A030072765F /* New-MysticaTests */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		2817BD192EA5FD3700468184 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		28AA65B02EA97A030072765F /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -143,7 +203,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		28AA65AE2EA97A030072765F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		28AA65B72EA97A030072765F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 2817BD1A2EA5FD3700468184 /* New-Mystica */;
+			targetProxy = 28AA65B62EA97A030072765F /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		2817BD262EA5FD3800468184 /* Debug */ = {
@@ -333,6 +408,48 @@
 			};
 			name = Release;
 		};
+		28AA65B92EA97A030072765F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 2C4VDA32CW;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "reindeer.New-MysticaTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/New-Mystica.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/New-Mystica";
+			};
+			name = Debug;
+		};
+		28AA65BA2EA97A030072765F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 2C4VDA32CW;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "reindeer.New-MysticaTests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				STRING_CATALOG_GENERATE_SYMBOLS = NO;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/New-Mystica.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/New-Mystica";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -350,6 +467,15 @@
 			buildConfigurations = (
 				2817BD292EA5FD3800468184 /* Debug */,
 				2817BD2A2EA5FD3800468184 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		28AA65B82EA97A030072765F /* Build configuration list for PBXNativeTarget "New-MysticaTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				28AA65B92EA97A030072765F /* Debug */,
+				28AA65BA2EA97A030072765F /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
