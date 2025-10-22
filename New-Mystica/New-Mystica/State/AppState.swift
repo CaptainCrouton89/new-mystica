@@ -22,7 +22,7 @@ final class AppState {
     // MARK: - Currency Balances
     var currencies: Loadable<[CurrencyBalance]> = .idle
 
-    private init() {}
+    init() {}
 
     // MARK: - Computed Properties
 
