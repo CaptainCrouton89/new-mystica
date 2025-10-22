@@ -13,13 +13,16 @@ struct APIConfig {
     static let baseURL: String = {
         // Check for environment variable override first
         if let envURL = ProcessInfo.processInfo.environment["API_BASE_URL"] {
+            print("🔧 [APIConfig] Using API_BASE_URL from environment: \(envURL)")
             return envURL
         }
 
         // Use build configuration defaults
         #if DEBUG
         // Development: local server
-        return "http://localhost:3000/api/v1"
+        let url = "http://localhost:3000/api/v1"
+        print("🔧 [APIConfig] Using DEBUG base URL: \(url)")
+        return url
         #else
         // Production: live API
         return "https://api.mystica.cloud/api/v1"

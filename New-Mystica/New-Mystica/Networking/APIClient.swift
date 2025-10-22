@@ -12,13 +12,27 @@ class APIClient {
     static let shared = APIClient()
 
     // Use configurable base URL (supports environment variable override)
-    private let baseURL = APIConfig.baseURL
+    // Fallback to explicit value if APIConfig returns wrong value
+    private let baseURL: String = {
+        let configURL = APIConfig.baseURL
+        // Ensure we have the /api/v1 prefix
+        if configURL.hasSuffix("/api/v1") {
+            return configURL
+        } else if configURL.hasSuffix("/") {
+            return configURL + "api/v1"
+        } else {
+            return configURL + "/api/v1"
+        }
+    }()
     private var authToken: String?
 
     private init() {
         // Load auth token from keychain on initialization
         self.authToken = KeychainService.get(key: "mystica_access_token")
 
+        print("🌐 APIClient DEBUG: baseURL = '\(baseURL)'")
+        print("🌐 APIClient DEBUG: baseURL isEmpty = \(baseURL.isEmpty)")
+        print("🌐 APIClient DEBUG: baseURL count = \(baseURL.count)")
         if APIConfig.enableNetworkLogging {
             print("🌐 APIClient initialized with baseURL: \(baseURL)")
         }

@@ -17,12 +17,16 @@ struct SplashScreenView: View {
     @State private var equipmentViewModel = EquipmentViewModel()
     @Environment(\.navigationManager) private var navigationManager
     @Environment(\.audioManager) private var audioManager
+    @Environment(\.backgroundImageManager) private var backgroundImageManager
     @Environment(AppState.self) private var appState
     
     var body: some View {
         if isActive {
             ContentView()
+                .environmentObject(navigationManager)
                 .environmentObject(audioManager)
+                .environment(\.backgroundImageManager, backgroundImageManager)
+                .environment(appState)
         } else {
             ZStack {
                 // Background color that matches the splash screen aesthetic
