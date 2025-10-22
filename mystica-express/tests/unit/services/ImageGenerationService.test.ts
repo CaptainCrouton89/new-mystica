@@ -39,28 +39,22 @@ import {
 } from '../../helpers/assertions.js';
 
 // Mock external dependencies BEFORE importing service
-jest.mock('replicate', () => {
-  return {
-    default: jest.fn().mockImplementation(() => ({
-      run: jest.fn()
-    }))
-  };
-});
+jest.mock('replicate');
 jest.mock('@aws-sdk/client-s3');
 
-// Get the mocked Replicate
-const mockReplicateRun = jest.fn();
-const MockedReplicate = jest.requireMock('replicate').default as jest.MockedClass<any>;
+const MockReplicate = require('replicate');
+const mockReplicateRun = MockReplicate.mockRun;
 
 // Mock AWS S3 Client
 const mockSend = jest.fn();
+const { S3Client, HeadObjectCommand, PutObjectCommand } = jest.requireMock('@aws-sdk/client-s3');
+
+S3Client.mockImplementation(() => ({ send: mockSend }));
+HeadObjectCommand.mockImplementation((input: any) => ({ input }));
+PutObjectCommand.mockImplementation((input: any) => ({ input }));
 
 // Mock node-fetch
 const mockFetch = jest.fn();
-
-// Apply mocks
-const { S3Client } = jest.requireMock('@aws-sdk/client-s3');
-S3Client.mockImplementation(() => ({ send: mockSend }));
 global.fetch = mockFetch;
 
 // Mock repository dependencies
@@ -114,11 +108,6 @@ describe('ImageGenerationService (TDD)', () => {
     mockReplicateRun.mockClear();
     mockFetch.mockClear();
 
-    // Set up Replicate mock instance to return mockReplicateRun
-    MockedReplicate.mockImplementation(() => ({
-      run: mockReplicateRun
-    }));
-
     // Setup default mock responses
     mockItemRepository.findItemTypeById.mockResolvedValue({
       id: 'item-type-123',
@@ -149,11 +138,6 @@ describe('ImageGenerationService (TDD)', () => {
       mockReplicateRun.mockResolvedValue({
         url: () => 'https://replicate.delivery/generated-image.png'
       });
-
-      // Also ensure the MockedReplicate constructor returns an instance with the run method
-      MockedReplicate.mockImplementation(() => ({
-        run: mockReplicateRun
-      }));
 
       // Mock fetch for image download
       const mockImageBuffer = Buffer.from('fake-image-data');
@@ -344,7 +328,17 @@ describe('ImageGenerationService (TDD)', () => {
     });
 
     it('should throw NotFoundError when material does not exist', async () => {
+      // Mock item type exists but material doesn't
+      mockItemRepository.findItemTypeById.mockResolvedValue({
+        id: 'item-type-123',
+        name: 'Magic Wand',
+        slug: 'magic_wand'
+      });
       mockMaterialRepository.findMaterialById.mockResolvedValue(null);
+      mockStyleRepository.findById.mockResolvedValue({
+        id: 'normal',
+        style_name: 'Normal'
+      });
 
       const request = {
         itemTypeId: 'item-type-123',
@@ -369,7 +363,7 @@ describe('ImageGenerationService (TDD)', () => {
     it('should throw ExternalAPIError when Replicate API fails', async () => {
       // Arrange: Cache miss, then Replicate failure
       mockSend.mockRejectedValueOnce({ name: 'NotFound' });
-      mockReplicateRun.mockRejectedValue(new Error('Replicate API unavailable'));
+      mockReplicateRun.mockReset().mockRejectedValue(new Error('Replicate API unavailable'));
 
       const request = {
         itemTypeId: 'item-type-123',
@@ -390,10 +384,10 @@ describe('ImageGenerationService (TDD)', () => {
     it('should throw ExternalServiceError when image download fails', async () => {
       // Arrange: Successful generation, failed download
       mockSend.mockRejectedValueOnce({ name: 'NotFound' });
-      mockReplicateRun.mockResolvedValue({
+      mockReplicateRun.mockReset().mockResolvedValue({
         url: () => 'https://replicate.delivery/test.png'
       });
-      mockFetch.mockResolvedValue({
+      mockFetch.mockReset().mockResolvedValue({
         ok: false,
         statusText: 'Internal Server Error'
       });
@@ -420,11 +414,11 @@ describe('ImageGenerationService (TDD)', () => {
         .mockRejectedValueOnce({ name: 'NotFound' }) // Cache miss
         .mockRejectedValueOnce(new Error('R2 upload failed')); // Upload fails
 
-      mockReplicateRun.mockResolvedValue({
+      mockReplicateRun.mockReset().mockResolvedValue({
         url: () => 'https://replicate.delivery/test.png'
       });
 
-      mockFetch.mockResolvedValue({
+      mockFetch.mockReset().mockResolvedValue({
         ok: true,
         arrayBuffer: () => Promise.resolve(Buffer.from('test'))
       });
@@ -487,7 +481,12 @@ describe('ImageGenerationService (TDD)', () => {
 
     it('should throw ExternalAPIError for non-404 R2 errors', async () => {
       // Arrange: R2 connection error
-      mockSend.mockRejectedValueOnce({
+      mockItemRepository.findItemTypeById.mockResolvedValue({
+        id: 'item-type-123',
+        name: 'Magic Wand',
+        slug: 'magic_wand'
+      });
+      mockSend.mockReset().mockRejectedValueOnce({
         name: 'NetworkError',
         message: 'Connection timeout'
       });
@@ -578,6 +577,7 @@ describe('ImageGenerationService (TDD)', () => {
     });
 
     it('should handle missing styles gracefully', async () => {
+      mockMaterialRepository.findMaterialById.mockResolvedValue(IRON_MATERIAL);
       mockStyleRepository.findById.mockResolvedValue(null);
 
       await expect(
@@ -850,7 +850,7 @@ describe('ImageGenerationService (TDD)', () => {
     it('should handle malformed Replicate responses', async () => {
       // Arrange
       mockSend.mockRejectedValueOnce({ name: 'NotFound' });
-      mockReplicateRun.mockResolvedValue(null); // Malformed response
+      mockReplicateRun.mockReset().mockResolvedValue(null); // Malformed response
 
       const request = {
         itemTypeId: 'item-type-123',
@@ -866,7 +866,7 @@ describe('ImageGenerationService (TDD)', () => {
       await expect(
         imageGenerationService.generateComboImage(request)
       ).rejects.toThrow('No image returned from Replicate API');
-    });
+    }, 5000);
 
     it('should normalize item type slug for filename generation', async () => {
       // Arrange: Item type with spaces and special characters

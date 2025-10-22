@@ -70,11 +70,11 @@ jest.mock('../../../src/repositories/AnalyticsRepository', () => ({
 }));
 
 jest.mock('@ai-sdk/openai', () => ({
-  openai: jest.fn()
+  openai: mockOpenAI
 }));
 
 jest.mock('ai', () => ({
-  generateText: jest.fn()
+  generateText: mockGenerateText
 }));
 
 jest.mock('../../../src/repositories/EquipmentRepository', () => ({
@@ -140,22 +140,21 @@ describe('ChatterService', () => {
     describe('successful generation', () => {
       it('should generate AI-powered pet chatter for player attack', async () => {
         // Arrange
-        const session = CombatFactory.createSession(user.id, locationId, 3);
+        const session = CombatFactory.createSession(user.id, locationId, 3, {
+          enemy_type_id: 'enemy-123'
+        });
         const pet = ChatterFactory.createEquippedPet(user.id, 'sassy');
         const personality = ChatterFactory.createPetPersonality('sassy');
         const eventDetails = ChatterFactory.createCombatEventDetails('player_attack');
 
         mockCombatRepository.getActiveSession.mockResolvedValue(session);
-        mockPetRepository.getEquippedPet.mockResolvedValue(pet);
-        mockPetRepository.getPersonalityData.mockResolvedValue(personality);
+        mockPetRepository.findPetByItemId.mockResolvedValue({ personality_id: 'pers-123', custom_name: null });
+        mockPetRepository.findPersonalityByType.mockResolvedValue(personality);
+        mockPetRepository.findPersonalityById.mockResolvedValue(personality);
 
         // Mock successful AI response
-        mockOpenAIService.chat.completions.create.mockResolvedValue({
-          choices: [{
-            message: {
-              content: 'Oh please, is that the best you can do? I\'ve seen better swings from a sleepy kitten!'
-            }
-          }]
+        mockGenerateText.mockResolvedValue({
+          text: 'Oh please, is that the best you can do? I\'ve seen better swings from a sleepy kitten!'
         });
 
         // Act
@@ -170,16 +169,15 @@ describe('ChatterService', () => {
         });
 
         expect(mockCombatRepository.getActiveSession).toHaveBeenCalledWith(sessionId);
-        expect(mockPetRepository.getEquippedPet).toHaveBeenCalledWith(user.id);
-        expect(mockPetRepository.getPersonalityData).toHaveBeenCalledWith('sassy');
-        expect(mockAnalyticsRepository.logChatterEvent).toHaveBeenCalledWith(
+        expect(mockEquipmentRepository.findItemInSlot).toHaveBeenCalledWith(session.player_id, 'pet');
+        expect(mockPetRepository.findPersonalityByType).toHaveBeenCalledWith('sassy');
+        expect(mockAnalyticsRepository.logPetChatter).toHaveBeenCalledWith(
           sessionId,
-          expect.any(String),
-          expect.objectContaining({
-            eventType: 'player_attack',
-            personalityType: 'sassy',
-            wasAIGenerated: true
-          })
+          '',
+          'player_attack',
+          expect.stringContaining('Oh please'),
+          expect.any(Number),
+          true
         );
       });
 
@@ -197,12 +195,8 @@ describe('ChatterService', () => {
         mockPetRepository.getEquippedPet.mockResolvedValue(pet);
         mockPetRepository.getPersonalityData.mockResolvedValue(personality);
 
-        mockOpenAIService.chat.completions.create.mockResolvedValue({
-          choices: [{
-            message: {
-              content: 'YES! That was an amazing critical hit! You\'re unstoppable!'
-            }
-          }]
+        mockGenerateText.mockResolvedValue({
+          text: 'YES! That was an amazing critical hit! You\'re unstoppable!'
         });
 
         // Act
@@ -225,12 +219,8 @@ describe('ChatterService', () => {
         mockPetRepository.getEquippedPet.mockResolvedValue(pet);
         mockPetRepository.getPersonalityData.mockResolvedValue(personality);
 
-        mockOpenAIService.chat.completions.create.mockResolvedValue({
-          choices: [{
-            message: {
-              content: 'GET WRECKED! Nobody beats us! We are the CHAMPIONS!'
-            }
-          }]
+        mockGenerateText.mockResolvedValue({
+          text: 'GET WRECKED! Nobody beats us! We are the CHAMPIONS!'
         });
 
         // Act
@@ -255,7 +245,7 @@ describe('ChatterService', () => {
         mockPetRepository.getPersonalityData.mockResolvedValue(personality);
 
         // Mock AI service timeout
-        mockOpenAIService.chat.completions.create.mockRejectedValue(
+        mockGenerateText.mockRejectedValue(
           ChatterFactory.createTimeoutError()
         );
 
@@ -290,7 +280,7 @@ describe('ChatterService', () => {
         mockPetRepository.getPersonalityData.mockResolvedValue(personality);
 
         // Mock AI service error
-        mockOpenAIService.chat.completions.create.mockRejectedValue(
+        mockGenerateText.mockRejectedValue(
           ChatterFactory.createOpenAIError(500, 'Internal server error')
         );
 
@@ -315,7 +305,7 @@ describe('ChatterService', () => {
         mockPetRepository.getPersonalityData.mockResolvedValue(personality);
 
         // Mock AI service failure
-        mockOpenAIService.chat.completions.create.mockRejectedValue(new Error('Network error'));
+        mockGenerateText.mockRejectedValue(new Error('Network error'));
 
         // Act - call multiple times to test randomness
         const results = await Promise.all([
@@ -413,7 +403,7 @@ describe('ChatterService', () => {
           mockPetRepository.getEquippedPet.mockResolvedValue(pet);
           mockPetRepository.getPersonalityData.mockResolvedValue(personality);
 
-          mockOpenAIService.chat.completions.create.mockResolvedValue({
+          mockGenerateText.mockResolvedValue({
             choices: [{
               message: {
                 content: `Generated response for ${eventType}`
@@ -462,12 +452,8 @@ describe('ChatterService', () => {
         mockEnemyRepository.getEnemyType.mockResolvedValue(enemyType);
         mockCombatRepository.getPlayerCombatHistory.mockResolvedValue(playerHistory);
 
-        mockOpenAIService.chat.completions.create.mockResolvedValue({
-          choices: [{
-            message: {
-              content: 'Hah! You\'ve only won 2 out of 10 fights here. This will be easy!'
-            }
-          }]
+        mockGenerateText.mockResolvedValue({
+          text: 'Hah! You\'ve only won 2 out of 10 fights here. This will be easy!'
         });
 
         // Act
@@ -516,12 +502,8 @@ describe('ChatterService', () => {
         mockEnemyRepository.getEnemyType.mockResolvedValue(enemyType);
         mockCombatRepository.getPlayerCombatHistory.mockResolvedValue(playerHistory);
 
-        mockOpenAIService.chat.completions.create.mockResolvedValue({
-          choices: [{
-            message: {
-              content: 'Another mortal seeks to challenge me. How... quaint.'
-            }
-          }]
+        mockGenerateText.mockResolvedValue({
+          text: 'Another mortal seeks to challenge me. How... quaint.'
         });
 
         // Act
@@ -546,12 +528,8 @@ describe('ChatterService', () => {
         mockEnemyRepository.getEnemyType.mockResolvedValue(enemyType);
         mockCombatRepository.getPlayerCombatHistory.mockResolvedValue(playerHistory);
 
-        mockOpenAIService.chat.completions.create.mockResolvedValue({
-          choices: [{
-            message: {
-              content: 'GRAAAH! You weak! Soon you fall!'
-            }
-          }]
+        mockGenerateText.mockResolvedValue({
+          text: 'GRAAAH! You weak! Soon you fall!'
         });
 
         // Act
@@ -576,7 +554,7 @@ describe('ChatterService', () => {
         mockCombatRepository.getPlayerCombatHistory.mockResolvedValue(playerHistory);
 
         // Mock AI service timeout
-        mockOpenAIService.chat.completions.create.mockRejectedValue(
+        mockGenerateText.mockRejectedValue(
           ChatterFactory.createTimeoutError()
         );
 
@@ -658,7 +636,7 @@ describe('ChatterService', () => {
           mockEnemyRepository.getEnemyType.mockResolvedValue(enemyType);
           mockCombatRepository.getPlayerCombatHistory.mockResolvedValue(playerHistory);
 
-          mockOpenAIService.chat.completions.create.mockResolvedValue({
+          mockGenerateText.mockResolvedValue({
             choices: [{
               message: {
                 content: `Political response for ${eventType}!`
@@ -857,7 +835,7 @@ describe('ChatterService', () => {
         mockPetRepository.getPersonalityData.mockResolvedValue(personality);
 
         // Mock slow AI response (simulates timeout)
-        mockOpenAIService.chat.completions.create.mockImplementation(() => {
+        mockGenerateText.mockImplementation(() => {
           return new Promise((_, reject) => {
             setTimeout(() => reject(new Error('Timeout')), 3000); // 3 seconds
           });
@@ -887,7 +865,7 @@ describe('ChatterService', () => {
 
         // Mock rate limit error
         const rateLimitError = ChatterFactory.createOpenAIError(429, 'Rate limit exceeded');
-        mockOpenAIService.chat.completions.create.mockRejectedValue(rateLimitError);
+        mockGenerateText.mockRejectedValue(rateLimitError);
 
         // Act
         const result = await chatterService.generateEnemyChatter(sessionId, 'player_hit', eventDetails);
@@ -911,7 +889,7 @@ describe('ChatterService', () => {
         // Mock network error
         const networkError = new Error('ECONNREFUSED');
         networkError.name = 'NetworkError';
-        mockOpenAIService.chat.completions.create.mockRejectedValue(networkError);
+        mockGenerateText.mockRejectedValue(networkError);
 
         // Act
         const result = await chatterService.generatePetChatter(sessionId, 'victory', eventDetails);
@@ -935,14 +913,10 @@ describe('ChatterService', () => {
         mockPetRepository.getPersonalityData.mockResolvedValue(personality);
 
         let capturedPrompt = '';
-        mockOpenAIService.chat.completions.create.mockImplementation((params) => {
-          capturedPrompt = params.messages[0].content;
+        mockGenerateText.mockImplementation((params: any) => {
+          capturedPrompt = params.prompt;
           return Promise.resolve({
-            choices: [{
-              message: {
-                content: 'Test response'
-              }
-            }]
+            text: 'Test response'
           });
         });
 
@@ -971,14 +945,10 @@ describe('ChatterService', () => {
         mockCombatRepository.getPlayerCombatHistory.mockResolvedValue(playerHistory);
 
         let capturedPrompt = '';
-        mockOpenAIService.chat.completions.create.mockImplementation((params) => {
-          capturedPrompt = params.messages[0].content;
+        mockGenerateText.mockImplementation((params: any) => {
+          capturedPrompt = params.prompt;
           return Promise.resolve({
-            choices: [{
-              message: {
-                content: 'Test response'
-              }
-            }]
+            text: 'Test response'
           });
         });
 
@@ -1010,7 +980,7 @@ describe('ChatterService', () => {
       mockPetRepository.getEquippedPet.mockResolvedValue(pet);
       mockPetRepository.getPersonalityData.mockResolvedValue(personality);
 
-      mockOpenAIService.chat.completions.create.mockResolvedValue({
+      mockGenerateText.mockResolvedValue({
         choices: [{
           message: {
             content: 'We did it! Amazing victory!'
@@ -1047,7 +1017,7 @@ describe('ChatterService', () => {
       mockPetRepository.getPersonalityData.mockResolvedValue(personality);
 
       // Mock AI response with artificial delay
-      mockOpenAIService.chat.completions.create.mockImplementation(() => {
+      mockGenerateText.mockImplementation(() => {
         return new Promise(resolve => {
           setTimeout(() => {
             resolve({
@@ -1081,7 +1051,7 @@ describe('ChatterService', () => {
       mockCombatRepository.getPlayerCombatHistory.mockResolvedValue(playerHistory);
 
       // Mock AI service failure
-      mockOpenAIService.chat.completions.create.mockRejectedValue(
+      mockGenerateText.mockRejectedValue(
         new Error('Service unavailable')
       );
 

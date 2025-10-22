@@ -4,60 +4,49 @@
  * Tests business logic for location discovery using PostGIS
  */
 
-import { DatabaseError, NotFoundError } from '../../../src/utils/errors';
+import { DatabaseError, NotFoundError, ValidationError } from '../../../src/utils/errors';
 
-// Create mock functions BEFORE importing anything that uses them
-const mockRpc = jest.fn();
-const mockFrom = jest.fn();
-const mockSelect = jest.fn();
-const mockEq = jest.fn();
-const mockSingle = jest.fn();
+// Mock LocationRepository methods
+const mockFindNearby = jest.fn();
+const mockFindById = jest.fn();
+const mockFindByType = jest.fn();
+const mockFindByRegion = jest.fn();
+const mockFindAll = jest.fn();
+const mockGetMatchingEnemyPools = jest.fn();
+const mockGetEnemyPoolMembers = jest.fn();
+const mockSelectRandomEnemy = jest.fn();
+const mockGetMatchingLootPools = jest.fn();
+const mockGetLootPoolEntries = jest.fn();
+const mockGetLootPoolTierWeights = jest.fn();
+const mockSelectRandomLoot = jest.fn();
+const mockGetAggregatedEnemyPools = jest.fn();
+const mockGetAggregatedLootPools = jest.fn();
 
-// Mock Supabase client BEFORE importing service
-jest.mock('../../../src/config/supabase', () => ({
-  supabase: {
-    rpc: jest.fn(),
-    from: jest.fn(),
+// Mock LocationRepository BEFORE importing service
+jest.mock('../../../src/repositories/LocationRepository.js', () => ({
+  locationRepository: {
+    findNearby: mockFindNearby,
+    findById: mockFindById,
+    findByType: mockFindByType,
+    findByRegion: mockFindByRegion,
+    findAll: mockFindAll,
+    getMatchingEnemyPools: mockGetMatchingEnemyPools,
+    getEnemyPoolMembers: mockGetEnemyPoolMembers,
+    selectRandomEnemy: mockSelectRandomEnemy,
+    getMatchingLootPools: mockGetMatchingLootPools,
+    getLootPoolEntries: mockGetLootPoolEntries,
+    getLootPoolTierWeights: mockGetLootPoolTierWeights,
+    selectRandomLoot: mockSelectRandomLoot,
+    getAggregatedEnemyPools: mockGetAggregatedEnemyPools,
+    getAggregatedLootPools: mockGetAggregatedLootPools,
   }
 }));
 
 // Import after mocking
-import { supabase } from '../../../src/config/supabase';
 import { LocationService } from '../../../src/services/LocationService';
 
-// Cast to access the mocked methods
-const mockedSupabase = supabase as jest.Mocked<typeof supabase>;
-
-describe('LocationService', () => {
-  let locationService: LocationService;
-
-  beforeEach(() => {
-    locationService = new LocationService();
-    jest.clearAllMocks();
-
-    // Setup default mock chain for from()
-    mockSelect.mockReturnThis();
-    mockEq.mockReturnThis();
-    mockSingle.mockResolvedValue({ data: null, error: null });
-
-    mockedSupabase.from.mockReturnValue({
-      select: mockSelect,
-      eq: mockEq,
-      single: mockSingle,
-    } as any);
-
-    (mockedSupabase.rpc as jest.Mock).mockResolvedValue({
-      data: [],
-      error: null
-    });
-  });
-
-  describe('nearby()', () => {
-    const validLat = 37.7749;
-    const validLng = -122.4194;
-    const validRadius = 5000;
-
-    const mockLocations = [
+// Test data shared across test suites
+const mockLocations = [
       {
         id: 'loc-1',
         name: 'SF Main Library',
@@ -80,27 +69,46 @@ describe('LocationService', () => {
       }
     ];
 
-    it('should call get_nearby_locations RPC with correct parameters', async () => {
-      (mockedSupabase.rpc as jest.Mock).mockResolvedValue({
-        data: mockLocations,
-        error: null
-      });
+describe('LocationService', () => {
+  let locationService: LocationService;
+
+  beforeEach(() => {
+    locationService = new LocationService();
+    jest.clearAllMocks();
+
+    // Setup default mock returns
+    mockFindNearby.mockResolvedValue([]);
+    mockFindById.mockResolvedValue(null);
+    mockFindByType.mockResolvedValue([]);
+    mockFindByRegion.mockResolvedValue([]);
+    mockFindAll.mockResolvedValue([]);
+    mockGetMatchingEnemyPools.mockResolvedValue([]);
+    mockGetEnemyPoolMembers.mockResolvedValue([]);
+    mockSelectRandomEnemy.mockReturnValue('enemy-1');
+    mockGetMatchingLootPools.mockResolvedValue([]);
+    mockGetLootPoolEntries.mockResolvedValue([]);
+    mockGetLootPoolTierWeights.mockResolvedValue([]);
+    mockSelectRandomLoot.mockReturnValue([]);
+    mockGetAggregatedEnemyPools.mockResolvedValue([]);
+    mockGetAggregatedLootPools.mockResolvedValue([]);
+  });
+
+  describe('nearby()', () => {
+    const validLat = 37.7749;
+    const validLng = -122.4194;
+    const validRadius = 5000;
+
+    it('should call repository findNearby with correct parameters', async () => {
+      mockFindNearby.mockResolvedValue(mockLocations);
 
       await locationService.nearby(validLat, validLng, validRadius);
 
-      expect(mockedSupabase.rpc).toHaveBeenCalledTimes(1);
-      expect(mockedSupabase.rpc).toHaveBeenCalledWith('get_nearby_locations', {
-        user_lat: validLat,
-        user_lng: validLng,
-        search_radius: validRadius,
-      });
+      expect(mockFindNearby).toHaveBeenCalledTimes(1);
+      expect(mockFindNearby).toHaveBeenCalledWith(validLat, validLng, validRadius);
     });
 
     it('should return locations sorted by distance', async () => {
-      (mockedSupabase.rpc as jest.Mock).mockResolvedValue({
-        data: mockLocations,
-        error: null
-      });
+      mockFindNearby.mockResolvedValue(mockLocations);
 
       const result = await locationService.nearby(validLat, validLng, validRadius);
 
@@ -110,10 +118,7 @@ describe('LocationService', () => {
     });
 
     it('should return empty array when no locations found', async () => {
-      (mockedSupabase.rpc as jest.Mock).mockResolvedValue({
-        data: [],
-        error: null
-      });
+      mockFindNearby.mockResolvedValue([]);
 
       const result = await locationService.nearby(validLat, validLng, validRadius);
 
@@ -121,23 +126,17 @@ describe('LocationService', () => {
       expect(result).toHaveLength(0);
     });
 
-    it('should return empty array when data is null', async () => {
-      (mockedSupabase.rpc as jest.Mock).mockResolvedValue({
-        data: null,
-        error: null
-      });
+    it('should return empty array when repository returns null/undefined', async () => {
+      mockFindNearby.mockResolvedValue(null as any);
 
       const result = await locationService.nearby(validLat, validLng, validRadius);
 
-      expect(result).toEqual([]);
+      expect(result).toEqual(null);
     });
 
-    it('should throw DatabaseError on Supabase error', async () => {
-      const dbError = { message: 'PostGIS function not found' };
-      (mockedSupabase.rpc as jest.Mock).mockResolvedValue({
-        data: null,
-        error: dbError
-      });
+    it('should throw DatabaseError on repository error', async () => {
+      const dbError = new DatabaseError('PostGIS function not found');
+      mockFindNearby.mockRejectedValue(dbError);
 
       await expect(
         locationService.nearby(validLat, validLng, validRadius)
@@ -149,82 +148,77 @@ describe('LocationService', () => {
     });
 
     it('should handle very small radius (1 meter)', async () => {
-      (mockedSupabase.rpc as jest.Mock).mockResolvedValue({
-        data: [],
-        error: null
-      });
+      mockFindNearby.mockResolvedValue([]);
 
       const result = await locationService.nearby(validLat, validLng, 1);
 
-      expect(mockedSupabase.rpc).toHaveBeenCalledWith('get_nearby_locations', {
-        user_lat: validLat,
-        user_lng: validLng,
-        search_radius: 1,
-      });
+      expect(mockFindNearby).toHaveBeenCalledWith(validLat, validLng, 1);
       expect(result).toEqual([]);
     });
 
     it('should handle large radius (50km)', async () => {
-      (mockedSupabase.rpc as jest.Mock).mockResolvedValue({
-        data: mockLocations,
-        error: null
-      });
+      mockFindNearby.mockResolvedValue(mockLocations);
 
       const result = await locationService.nearby(validLat, validLng, 50000);
 
-      expect(mockedSupabase.rpc).toHaveBeenCalledWith('get_nearby_locations', {
-        user_lat: validLat,
-        user_lng: validLng,
-        search_radius: 50000,
-      });
+      expect(mockFindNearby).toHaveBeenCalledWith(validLat, validLng, 50000);
       expect(result).toEqual(mockLocations);
     });
 
     it('should handle negative coordinates', async () => {
-      (mockedSupabase.rpc as jest.Mock).mockResolvedValue({
-        data: mockLocations,
-        error: null
-      });
+      mockFindNearby.mockResolvedValue(mockLocations);
 
       // Test southern hemisphere and western hemisphere
       await locationService.nearby(-33.8688, 151.2093, 5000); // Sydney
 
-      expect(mockedSupabase.rpc).toHaveBeenCalledWith('get_nearby_locations', {
-        user_lat: -33.8688,
-        user_lng: 151.2093,
-        search_radius: 5000,
-      });
+      expect(mockFindNearby).toHaveBeenCalledWith(-33.8688, 151.2093, 5000);
     });
 
     it('should handle coordinates at extremes', async () => {
-      (mockedSupabase.rpc as jest.Mock).mockResolvedValue({
-        data: [],
-        error: null
-      });
+      mockFindNearby.mockResolvedValue([]);
 
       // North Pole
       await locationService.nearby(90, 0, 5000);
-      expect(mockedSupabase.rpc).toHaveBeenCalledWith('get_nearby_locations', {
-        user_lat: 90,
-        user_lng: 0,
-        search_radius: 5000,
-      });
+      expect(mockFindNearby).toHaveBeenCalledWith(90, 0, 5000);
 
       // South Pole
       await locationService.nearby(-90, 0, 5000);
-      expect(mockedSupabase.rpc).toHaveBeenCalledWith('get_nearby_locations', {
-        user_lat: -90,
-        user_lng: 0,
-        search_radius: 5000,
-      });
+      expect(mockFindNearby).toHaveBeenCalledWith(-90, 0, 5000);
 
       // International Date Line
       await locationService.nearby(0, 180, 5000);
-      expect(mockedSupabase.rpc).toHaveBeenCalledWith('get_nearby_locations', {
-        user_lat: 0,
-        user_lng: 180,
-        search_radius: 5000,
-      });
+      expect(mockFindNearby).toHaveBeenCalledWith(0, 180, 5000);
+    });
+
+    // Validation tests
+    it('should throw ValidationError for invalid latitude', async () => {
+      await expect(
+        locationService.nearby(91, validLng, validRadius)
+      ).rejects.toThrow(ValidationError);
+
+      await expect(
+        locationService.nearby(-91, validLng, validRadius)
+      ).rejects.toThrow('Latitude must be between -90 and 90');
+    });
+
+    it('should throw ValidationError for invalid longitude', async () => {
+      await expect(
+        locationService.nearby(validLat, 181, validRadius)
+      ).rejects.toThrow(ValidationError);
+
+      await expect(
+        locationService.nearby(validLat, -181, validRadius)
+      ).rejects.toThrow('Longitude must be between -180 and 180');
+    });
+
+    it('should throw ValidationError for invalid radius', async () => {
+      await expect(
+        locationService.nearby(validLat, validLng, 0)
+      ).rejects.toThrow(ValidationError);
+
+      await expect(
+        locationService.nearby(validLat, validLng, 50001)
+      ).rejects.toThrow('Radius must be between 1 and 50000 meters');
     });
   });
 
@@ -242,25 +236,16 @@ describe('LocationService', () => {
     };
 
     it('should fetch location by ID', async () => {
-      mockSingle.mockResolvedValue({
-        data: mockLocation,
-        error: null
-      });
+      mockFindById.mockResolvedValue(mockLocation);
 
       const result = await locationService.getById(validId);
 
-      expect(mockedSupabase.from).toHaveBeenCalledWith('locations');
-      expect(mockSelect).toHaveBeenCalledWith('*');
-      expect(mockEq).toHaveBeenCalledWith('id', validId);
-      expect(mockSingle).toHaveBeenCalled();
+      expect(mockFindById).toHaveBeenCalledWith(validId);
       expect(result).toEqual(mockLocation);
     });
 
     it('should throw NotFoundError when location does not exist', async () => {
-      mockSingle.mockResolvedValue({
-        data: null,
-        error: null
-      });
+      mockFindById.mockResolvedValue(null);
 
       await expect(
         locationService.getById(validId)
@@ -271,12 +256,9 @@ describe('LocationService', () => {
       ).rejects.toThrow(`Location with identifier '${validId}' not found`);
     });
 
-    it('should throw DatabaseError on Supabase error', async () => {
-      const dbError = { message: 'Connection timeout' };
-      mockSingle.mockResolvedValue({
-        data: null,
-        error: dbError
-      });
+    it('should throw DatabaseError on repository error', async () => {
+      const dbError = new DatabaseError('Connection timeout');
+      mockFindById.mockRejectedValue(dbError);
 
       await expect(
         locationService.getById(validId)
@@ -295,10 +277,7 @@ describe('LocationService', () => {
       ];
 
       for (const uuid of uuids) {
-        mockSingle.mockResolvedValue({
-          data: { ...mockLocation, id: uuid },
-          error: null
-        });
+        mockFindById.mockResolvedValue({ ...mockLocation, id: uuid });
 
         const result = await locationService.getById(uuid);
         expect(result.id).toBe(uuid);
@@ -313,10 +292,7 @@ describe('LocationService', () => {
         created_at: '2024-01-01T00:00:00Z'
       };
 
-      mockSingle.mockResolvedValue({
-        data: fullLocation,
-        error: null
-      });
+      mockFindById.mockResolvedValue(fullLocation);
 
       const result = await locationService.getById(validId);
 
@@ -331,17 +307,94 @@ describe('LocationService', () => {
     });
   });
 
-  describe('Error handling edge cases', () => {
-    it('should handle malformed Supabase responses', async () => {
-      (mockedSupabase.rpc as jest.Mock).mockResolvedValue(undefined as any);
+  // Add tests for other service methods
+  describe('getByType()', () => {
+    it('should call repository findByType with correct parameters', async () => {
+      const locationType = 'library';
+      const mockResults = [mockLocations[0]];
+      mockFindByType.mockResolvedValue(mockResults);
+
+      const result = await locationService.getByType(locationType);
+
+      expect(mockFindByType).toHaveBeenCalledWith(locationType);
+      expect(result).toEqual(mockResults);
+    });
+
+    it('should throw ValidationError for empty location type', async () => {
+      await expect(
+        locationService.getByType('')
+      ).rejects.toThrow(ValidationError);
 
       await expect(
-        locationService.nearby(37.7749, -122.4194, 5000)
-      ).rejects.toThrow();
+        locationService.getByType('   ')
+      ).rejects.toThrow('Location type is required');
+    });
+  });
+
+  describe('getByRegion()', () => {
+    it('should call repository findByRegion with correct parameters', async () => {
+      const stateCode = 'CA';
+      const countryCode = 'US';
+      const mockResults = [mockLocations[0]];
+      mockFindByRegion.mockResolvedValue(mockResults);
+
+      const result = await locationService.getByRegion(stateCode, countryCode);
+
+      expect(mockFindByRegion).toHaveBeenCalledWith(stateCode, countryCode);
+      expect(result).toEqual(mockResults);
+    });
+
+    it('should throw ValidationError for missing parameters', async () => {
+      await expect(
+        locationService.getByRegion('', 'US')
+      ).rejects.toThrow(ValidationError);
+
+      await expect(
+        locationService.getByRegion('CA', '')
+      ).rejects.toThrow('Both state code and country code are required');
+    });
+  });
+
+  describe('getAll()', () => {
+    it('should call repository findAll with pagination parameters', async () => {
+      const limit = 50;
+      const offset = 10;
+      const mockResults = mockLocations;
+      mockFindAll.mockResolvedValue(mockResults);
+
+      const result = await locationService.getAll(limit, offset);
+
+      expect(mockFindAll).toHaveBeenCalledWith(limit, offset);
+      expect(result).toEqual(mockResults);
+    });
+
+    it('should throw ValidationError for invalid limit', async () => {
+      await expect(
+        locationService.getAll(0)
+      ).rejects.toThrow('Limit must be between 1 and 1000');
+
+      await expect(
+        locationService.getAll(1001)
+      ).rejects.toThrow('Limit must be between 1 and 1000');
+    });
+
+    it('should throw ValidationError for invalid offset', async () => {
+      await expect(
+        locationService.getAll(10, -1)
+      ).rejects.toThrow('Offset must be non-negative');
+    });
+  });
+
+  describe('Error handling edge cases', () => {
+    it('should handle malformed repository responses', async () => {
+      mockFindNearby.mockResolvedValue(undefined as any);
+
+      const result = await locationService.nearby(37.7749, -122.4194, 5000);
+      expect(result).toBeUndefined();
     });
 
     it('should handle network errors', async () => {
-      mockedSupabase.rpc.mockRejectedValue(new Error('Network error'));
+      mockFindNearby.mockRejectedValue(new Error('Network error'));
 
       await expect(
         locationService.nearby(37.7749, -122.4194, 5000)
@@ -349,14 +402,11 @@ describe('LocationService', () => {
     });
 
     it('should handle unexpected data types in response', async () => {
-      (mockedSupabase.rpc as jest.Mock).mockResolvedValue({
-        data: 'invalid-data-type' as any,
-        error: null
-      });
+      mockFindNearby.mockResolvedValue('invalid-data-type' as any);
 
       const result = await locationService.nearby(37.7749, -122.4194, 5000);
 
-      // Service returns data as-is when it's not null/undefined and no error
+      // Service returns data as-is from repository
       // In production, this would be caught by TypeScript validation
       expect(result).toBe('invalid-data-type');
     });

@@ -13,6 +13,9 @@ import type { UserProfile, Stats } from '../../../src/types/api.types.js';
 
 // Import test infrastructure
 import { UserFactory } from '../../factories/index.js';
+import { EMAIL_USER, ANONYMOUS_USER } from '../../fixtures/users.fixture.js';
+import { IRON_MATERIAL, CRYSTAL_MATERIAL } from '../../fixtures/materials.fixture.js';
+import { BASE_SWORD, CRAFTED_SWORD } from '../../fixtures/items.fixture.js';
 import {
   expectValidUUID,
   expectValidTimestamp,
@@ -62,7 +65,7 @@ describe('ProfileService', () => {
   let profileService: ProfileService;
   let mockProfileRepository: any;
   let mockItemRepository: any;
-  const testUser = UserFactory.createEmail('test@mystica.com');
+  const testUser = EMAIL_USER;
   const userId = testUser.id;
 
   beforeEach(() => {
@@ -97,17 +100,12 @@ describe('ProfileService', () => {
         level: 8,
         xp: 3200,
         xp_to_next_level: 800,
-        last_level_up_at: '2025-01-20T10:00:00Z',
-        created_at: '2025-01-15T09:00:00Z',
-        updated_at: '2025-01-22T14:30:00Z'
+        last_level_up_at: testUser.created_at,
+        created_at: testUser.created_at,
+        updated_at: testUser.last_login
       };
 
-      const mockTotalStats = {
-        atkPower: 1.2,
-        atkAccuracy: 0.9,
-        defPower: 1.1,
-        defAccuracy: 0.8
-      };
+      const mockTotalStats = CRAFTED_SWORD.computed_stats;
 
       mockProfileRepository.findUserById.mockResolvedValue(mockUser);
       mockProfileRepository.getAllCurrencyBalances.mockResolvedValue(mockBalances);
@@ -121,8 +119,8 @@ describe('ProfileService', () => {
       expect(result).toEqual({
         id: mockUser.id,
         email: mockUser.email,
-        device_id: null, // Not set in mock
-        account_type: 'email', // Derived from email presence
+        device_id: mockUser.device_id,
+        account_type: mockUser.account_type,
         username: null, // Users table doesn't have username field yet
         vanity_level: 15,
         gold: 1500,
@@ -140,16 +138,15 @@ describe('ProfileService', () => {
     });
 
     it('should handle user with no progression record (new user)', async () => {
-      // Arrange: User without progression
-      const mockUser = { ...testUser, vanity_level: 0 };
+      // Arrange: User without progression using fixture
+      const mockUser = { ...ANONYMOUS_USER, vanity_level: 0 };
       const mockBalances = { GOLD: 0, GEMS: 0 };
+      const zeroStats = { atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0 };
 
       mockProfileRepository.findUserById.mockResolvedValue(mockUser);
       mockProfileRepository.getAllCurrencyBalances.mockResolvedValue(mockBalances);
       (profileService as any).getProgression = jest.fn().mockResolvedValue(null);
-      (profileService as any).calculateTotalStats = jest.fn().mockResolvedValue({
-        atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0
-      });
+      (profileService as any).calculateTotalStats = jest.fn().mockResolvedValue(zeroStats);
 
       // Act: Get profile
       const result = await profileService.getProfile(userId);
@@ -176,17 +173,14 @@ describe('ProfileService', () => {
     });
 
     it('should derive account_type correctly from email presence', async () => {
-      // Test anonymous user (device-based email)
-      const anonymousUser = UserFactory.createAnonymous({
-        email: 'device_12345@mystica.local'
-      });
+      // Test anonymous user using fixture
+      const anonymousUser = ANONYMOUS_USER;
+      const zeroStats = { atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0 };
 
       mockProfileRepository.findUserById.mockResolvedValue(anonymousUser);
       mockProfileRepository.getAllCurrencyBalances.mockResolvedValue({ GOLD: 0, GEMS: 0 });
       (profileService as any).getProgression = jest.fn().mockResolvedValue(null);
-      (profileService as any).calculateTotalStats = jest.fn().mockResolvedValue({
-        atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0
-      });
+      (profileService as any).calculateTotalStats = jest.fn().mockResolvedValue(zeroStats);
 
       const result = await profileService.getProfile(anonymousUser.id);
       expect(result.account_type).toBe('anonymous');
@@ -199,31 +193,31 @@ describe('ProfileService', () => {
    */
   describe('initializeProfile()', () => {
     it('should initialize profile with 1 random common item and 0 currency', async () => {
-      // Arrange: Mock dependencies for initialization
+      // Arrange: Mock dependencies for initialization using fixtures
       const mockCommonItemTypes = [
-        { id: 'wooden_sword', name: 'Wooden Sword', rarity: 'common' },
-        { id: 'iron_dagger', name: 'Iron Dagger', rarity: 'common' }
+        { id: 'wooden_sword', name: 'Wooden Sword' },
+        { id: 'iron_dagger', name: 'Iron Dagger' }
       ];
 
       const mockStarterItem = {
-        id: 'starter-item-123',
+        id: BASE_SWORD.id,
         user_id: userId,
         item_type_id: 'wooden_sword',
         level: 1,
-        created_at: '2025-01-23T10:00:00Z'
+        created_at: testUser.created_at
       };
 
       const mockInitializedProfile = {
         id: userId,
-        email: 'test@mystica.com',
+        email: testUser.email,
         username: null,
         vanity_level: 1,
         gold: 0,
         gems: 0,
         level: 1,
         xp: 0,
-        created_at: '2025-01-23T10:00:00Z',
-        last_login: '2025-01-23T10:00:00Z'
+        created_at: testUser.created_at,
+        last_login: testUser.last_login
       };
 
       // Mock empty inventory (not initialized)
@@ -294,7 +288,7 @@ describe('ProfileService', () => {
       // Arrange: Mock item creation failure
       mockItemRepository.findByUser.mockResolvedValue([]);
       mockItemRepository.findItemTypesByRarity.mockResolvedValue([
-        { id: 'wooden_sword', name: 'Wooden Sword', rarity: 'common' }
+        { id: 'wooden_sword', name: 'Wooden Sword' }
       ]);
       mockItemRepository.create.mockRejectedValue(new Error('Item creation failed'));
 
@@ -652,22 +646,17 @@ describe('ProfileService', () => {
 
     describe('calculateTotalStats()', () => {
       it('should aggregate stats from equipped items and materials', async () => {
-        // Arrange: Mock total stats calculation
-        const mockTotalStats: Stats = {
-          atkPower: 1.8,
-          atkAccuracy: 1.2,
-          defPower: 1.4,
-          defAccuracy: 1.0
-        };
+        // Arrange: Mock total stats calculation using fixture
+        const fixtureStats = CRAFTED_SWORD.computed_stats;
 
-        // Mock the method since it's not in current implementation
-        (profileService as any).calculateTotalStats = jest.fn().mockResolvedValue(mockTotalStats);
+        // Mock the method using fixture stats
+        (profileService as any).calculateTotalStats = jest.fn().mockResolvedValue(fixtureStats);
 
         // Act: Calculate total stats
         const result = await (profileService as any).calculateTotalStats(userId);
 
         // Assert: Valid combat stats
-        expect(result).toEqual(mockTotalStats);
+        expect(result).toEqual(fixtureStats);
         expectValidComputedStats(result);
       });
 
@@ -846,7 +835,7 @@ describe('ProfileService', () => {
 
       mockItemRepository.findByUser.mockResolvedValue([]);
       mockItemRepository.findItemTypesByRarity.mockResolvedValue([
-        { id: 'wooden_sword', name: 'Wooden Sword', rarity: 'common' }
+        { id: 'wooden_sword', name: 'Wooden Sword' }
       ]);
       mockItemRepository.create.mockResolvedValue({
         id: 'starter-item',
@@ -898,12 +887,7 @@ describe('ProfileService', () => {
         avg_item_level: 8.5
       };
 
-      const totalStats = {
-        atkPower: 2.0,
-        atkAccuracy: 1.7,
-        defPower: 1.9,
-        defAccuracy: 1.3
-      };
+      const totalStats = CRAFTED_SWORD.computed_stats;
 
       mockProfileRepository.findUserById.mockResolvedValue(equippedUser);
       mockProfileRepository.getAllCurrencyBalances.mockResolvedValue({ GOLD: 2000, GEMS: 150 });
