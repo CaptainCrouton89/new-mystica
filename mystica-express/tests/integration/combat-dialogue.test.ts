@@ -33,6 +33,14 @@ jest.mock('../../src/services/EnemyChatterService.js', () => ({
   }
 }));
 
+// Mock CombatService to avoid database calls
+const mockGetCombatSession = jest.fn();
+jest.mock('../../src/services/CombatService.js', () => ({
+  combatService: {
+    getCombatSession: mockGetCombatSession
+  }
+}));
+
 // Import app AFTER mocking
 import app from '../../src/app';
 import type { DialogueResponse } from '../../src/types/combat.types';
@@ -60,14 +68,34 @@ describe('Combat API Endpoints', () => {
       error: null
     });
 
-    // Default mock for database queries
+    // Default mock for database queries - properly chain Supabase methods
+    const mockSelect = jest.fn().mockReturnThis();
+    const mockEq = jest.fn().mockReturnThis();
+    const mockSingle = jest.fn().mockResolvedValue({ data: null, error: null });
+    const mockIs = jest.fn().mockReturnThis();
+
     mockFrom.mockReturnValue({
-      select: jest.fn().mockReturnThis(),
-      eq: jest.fn().mockReturnThis(),
-      single: jest.fn().mockResolvedValue({
-        data: null,
-        error: null
-      }),
+      select: mockSelect,
+      eq: mockEq,
+      single: mockSingle,
+      is: mockIs
+    });
+
+    // Mock CombatService.getCombatSession for valid sessions
+    mockGetCombatSession.mockImplementation((sessionId: string) => {
+      if (sessionId === validSessionId) {
+        return Promise.resolve({
+          id: sessionId,
+          player_id: 'user-123',
+          location_id: 'location-123',
+          enemy_type_id: 'd9e715fb-5de0-4639-96f8-3b4f03476314'
+        });
+      }
+      if (sessionId === invalidSessionId) {
+        const { NotFoundError } = require('../../src/utils/errors.js');
+        throw new NotFoundError('Combat session', sessionId);
+      }
+      throw new Error('Invalid session ID format');
     });
 
     // Default mock for AI dialogue generation
@@ -403,7 +431,7 @@ describe('Combat API Endpoints', () => {
       // Mock AI service to throw ExternalAPIError
       const { ExternalAPIError } = require('../../src/utils/errors.js');
       mockGenerateDialogue.mockRejectedValue(
-        new ExternalAPIError('OpenAI API rate limit exceeded')
+        new ExternalAPIError('OpenAI', 'API rate limit exceeded')
       );
 
       const response = await request(app)
@@ -414,7 +442,51 @@ describe('Combat API Endpoints', () => {
       expect(response.status).toBe(503);
       expect(response.body.error.code).toBe('AI_SERVICE_UNAVAILABLE');
       expect(response.body.error.message).toContain('AI dialogue generation service is temporarily unavailable');
-      expect(response.body.error.details).toContain('OpenAI API rate limit exceeded');
+      expect(response.body.error.details).toContain('API rate limit exceeded');
+    });
+
+    it('should handle CombatService errors gracefully', async () => {
+      // Mock CombatService to throw DatabaseError
+      const { DatabaseError } = require('../../src/utils/errors.js');
+      mockGetCombatSession.mockRejectedValue(
+        new DatabaseError('Database connection failed')
+      );
+
+      const response = await request(app)
+        .post('/api/v1/combat/enemy-chatter')
+        .set('Authorization', 'Bearer valid-token')
+        .send(validRequest);
+
+      expect(response.status).toBe(500);
+      expect(response.body.error.code).toBe('DATABASE_ERROR');
+      expect(mockGenerateDialogue).not.toHaveBeenCalled();
+    });
+
+    it('should validate turn_number is positive', async () => {
+      const invalidTurnRequest = {
+        ...validRequest,
+        event_details: {
+          turn_number: 0, // Invalid: must be positive
+          player_hp_pct: 1.0,
+          enemy_hp_pct: 1.0
+        }
+      };
+
+      const response = await request(app)
+        .post('/api/v1/combat/enemy-chatter')
+        .set('Authorization', 'Bearer valid-token')
+        .send(invalidTurnRequest);
+
+      expect(response.status).toBe(400);
+      expect(response.body.error.code).toBe('VALIDATION_ERROR');
+      expect(response.body.error.details).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            field: 'body.event_details.turn_number',
+            message: 'Turn number must be positive'
+          })
+        ])
+      );
     });
 
     it('should reject request with expired token', async () => {

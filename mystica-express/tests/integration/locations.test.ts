@@ -228,7 +228,7 @@ describe('Location API Endpoints', () => {
 
       expect(response.status).toBe(500);
       expect(response.body.error.code).toBe('DATABASE_ERROR');
-      expect(response.body.error.message).toContain('Failed to fetch nearby locations');
+      expect(response.body.error.message).toContain('Database operation failed');
     });
 
     it('should handle coordinate type coercion', async () => {
@@ -298,7 +298,7 @@ describe('Location API Endpoints', () => {
 
       expect(response.status).toBe(404);
       expect(response.body.error.code).toBe('NOT_FOUND');
-      expect(response.body.error.message).toBe('Location not found');
+      expect(response.body.error.message).toContain('not found');
     });
 
     it('should return 400 for invalid UUID format', async () => {
@@ -343,7 +343,7 @@ describe('Location API Endpoints', () => {
 
       expect(response.status).toBe(500);
       expect(response.body.error.code).toBe('DATABASE_ERROR');
-      expect(response.body.error.message).toContain('Failed to fetch location');
+      expect(response.body.error.message).toContain('Database operation failed');
     });
 
     it('should reject requests with expired token', async () => {

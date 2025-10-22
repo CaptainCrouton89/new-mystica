@@ -108,7 +108,7 @@ describe('Auth API Endpoints', () => {
         });
 
       expect(response.status).toBe(400);
-      expect(response.body.error.code).toBe('missing_credentials');
+      expect(response.body.error.code).toBe('MISSING_CREDENTIALS');
     });
 
     it('should reject registration with weak password', async () => {
@@ -120,7 +120,7 @@ describe('Auth API Endpoints', () => {
         });
 
       expect(response.status).toBe(422);
-      expect(response.body.error.code).toBe('weak_password');
+      expect(response.body.error.code).toBe('WEAK_PASSWORD');
     });
 
     it('should reject registration with existing email', async () => {
@@ -137,7 +137,7 @@ describe('Auth API Endpoints', () => {
         });
 
       expect(response.status).toBe(422);
-      expect(response.body.error.code).toBe('email_exists');
+      expect(response.body.error.code).toBe('EMAIL_EXISTS');
     });
   });
 
@@ -191,7 +191,7 @@ describe('Auth API Endpoints', () => {
         });
 
       expect(response.status).toBe(401);
-      expect(response.body.error.code).toBe('invalid_credentials');
+      expect(response.body.error.code).toBe('INVALID_CREDENTIALS');
     });
 
     it('should reject login with missing credentials', async () => {
@@ -202,7 +202,7 @@ describe('Auth API Endpoints', () => {
         });
 
       expect(response.status).toBe(400);
-      expect(response.body.error.code).toBe('missing_credentials');
+      expect(response.body.error.code).toBe('MISSING_CREDENTIALS');
     });
   });
 
@@ -247,7 +247,7 @@ describe('Auth API Endpoints', () => {
         });
 
       expect(response.status).toBe(401);
-      expect(response.body.error.code).toBe('invalid_refresh_token');
+      expect(response.body.error.code).toBe('INVALID_REFRESH_TOKEN');
     });
   });
 
@@ -389,7 +389,7 @@ describe('Auth API Endpoints', () => {
         .post('/api/v1/auth/logout');
 
       expect(response.status).toBe(401);
-      expect(response.body.error.code).toBe('missing_token');
+      expect(response.body.error.code).toBe('MISSING_TOKEN');
     });
   });
 });

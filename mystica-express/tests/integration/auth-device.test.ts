@@ -16,6 +16,18 @@ jest.mock('uuid', () => ({
   v4: () => 'test-device-id-1234-5678-9abc-def0'
 }));
 
+// Mock ProfileRepository methods
+const mockUpdateLastLogin = jest.fn();
+const mockGetAllCurrencyBalances = jest.fn();
+const mockFindUserById = jest.fn();
+jest.mock('../../src/repositories/ProfileRepository.js', () => ({
+  ProfileRepository: jest.fn().mockImplementation(() => ({
+    updateLastLogin: mockUpdateLastLogin,
+    getAllCurrencyBalances: mockGetAllCurrencyBalances,
+    findUserById: mockFindUserById
+  }))
+}));
+
 // Create mock functions BEFORE importing app
 const mockGetClaims = jest.fn();
 const mockFrom = jest.fn();
@@ -38,6 +50,14 @@ describe('Device-Based Anonymous Authentication (F-07)', () => {
   beforeEach(() => {
     // Reset all mocks before each test
     jest.clearAllMocks();
+    mockUpdateLastLogin.mockClear();
+    mockGetAllCurrencyBalances.mockClear();
+    mockFindUserById.mockClear();
+
+    // Default ProfileRepository mock returns
+    mockUpdateLastLogin.mockResolvedValue(undefined);
+    mockGetAllCurrencyBalances.mockResolvedValue({ GOLD: 500, GEMS: 0 });
+    mockFindUserById.mockResolvedValue(null);
   });
 
   describe('POST /api/v1/auth/register-device - Validation Tests', () => {
@@ -93,52 +113,109 @@ describe('Device-Based Anonymous Authentication (F-07)', () => {
     it('should successfully register new device with valid UUID', async () => {
       const validDeviceId = 'f47ac10b-58cc-4372-a567-0e02b2c3d479';
 
-      // Mock successful database operations
-      const mockChain = {
-        select: jest.fn().mockReturnThis(),
+      // Mock successful database operations with proper chaining
+      const mockSelectChain = {
         eq: jest.fn().mockReturnThis(),
-        single: jest.fn()
-          .mockResolvedValueOnce({ data: null, error: { code: 'PGRST116' } }) // No existing user
-          .mockResolvedValueOnce({ // Profile fetch after creation
-            data: {
-              id: 'user-123',
-              device_id: validDeviceId,
-              account_type: 'anonymous',
-              created_at: new Date().toISOString(),
-              last_login: new Date().toISOString(),
-              vanity_level: 0,
-              avg_item_level: null
-            },
-            error: null
-          }),
-        insert: jest.fn().mockResolvedValue({ data: null, error: null }),
-        update: jest.fn().mockReturnThis()
+        single: jest.fn().mockResolvedValue({ data: null, error: { code: 'PGRST116' } }) // No existing user
       };
 
-      mockFrom.mockReturnValue(mockChain);
+      const mockInsertChain = {
+        insert: jest.fn().mockResolvedValue({ data: null, error: null })
+      };
+
+      mockFrom
+        .mockReturnValueOnce({ select: jest.fn().mockReturnValue(mockSelectChain) }) // Check existing user
+        .mockReturnValueOnce({ insert: jest.fn().mockResolvedValue({ data: null, error: null }) }) // Insert new user
+        .mockReturnValueOnce({ insert: jest.fn().mockResolvedValue({ data: null, error: null }) }); // Initialize currency balance
 
       const response = await request(app)
         .post('/api/v1/auth/register-device')
         .send({ device_id: validDeviceId });
 
-      // Should return 201 for new user or 200 for existing
-      expect([200, 201]).toContain(response.status);
+      expect(response.status).toBe(201);
+      expect(response.body).toMatchObject({
+        user: {
+          id: 'test-device-id-1234-5678-9abc-def0', // Matches mocked UUID
+          device_id: validDeviceId,
+          account_type: 'anonymous'
+        },
+        session: {
+          access_token: expect.any(String),
+          refresh_token: null,
+          expires_in: 2592000, // 30 days
+          token_type: 'bearer'
+        },
+        message: 'Device registered successfully'
+      });
+    });
 
-      if (response.status === 201) {
-        expect(response.body).toMatchObject({
-          user: {
-            device_id: validDeviceId,
-            account_type: 'anonymous'
+    it('should return existing user for already registered device', async () => {
+      const existingDeviceId = 'f47ac10b-58cc-4372-a567-0e02b2c3d479';
+
+      // Mock existing user found
+      const mockSelectChain = {
+        eq: jest.fn().mockReturnThis(),
+        single: jest.fn().mockResolvedValue({
+          data: {
+            id: 'existing-user-456',
+            device_id: existingDeviceId,
+            account_type: 'anonymous',
+            created_at: new Date().toISOString(),
+            last_login: new Date().toISOString(),
+            vanity_level: 0,
+            avg_item_level: null
           },
-          session: {
-            access_token: expect.any(String),
-            refresh_token: null,
-            expires_in: 2592000, // 30 days
-            token_type: 'bearer'
-          },
-          message: 'Device registered successfully'
-        });
-      }
+          error: null
+        })
+      };
+
+      mockFrom.mockReturnValueOnce({ select: jest.fn().mockReturnValue(mockSelectChain) }); // Find existing user
+
+      // Mock ProfileRepository methods for existing user
+      mockUpdateLastLogin.mockResolvedValue(undefined);
+      mockGetAllCurrencyBalances.mockResolvedValue({ GOLD: 500, GEMS: 0 });
+
+      const response = await request(app)
+        .post('/api/v1/auth/register-device')
+        .send({ device_id: existingDeviceId });
+
+      expect(response.status).toBe(200);
+      expect(response.body).toMatchObject({
+        user: {
+          id: 'existing-user-456',
+          device_id: existingDeviceId,
+          account_type: 'anonymous'
+        },
+        session: {
+          access_token: expect.any(String),
+          refresh_token: null,
+          expires_in: 2592000,
+          token_type: 'bearer'
+        },
+        message: 'Device login successful'
+      });
+    });
+
+    it('should handle database errors gracefully', async () => {
+      const validDeviceId = 'f47ac10b-58cc-4372-a567-0e02b2c3d479';
+
+      // Mock database error on select query
+      const mockSelectChain = {
+        eq: jest.fn().mockReturnThis(),
+        single: jest.fn().mockResolvedValue({
+          data: null,
+          error: { code: 'PGRST301', message: 'Database connection failed' }
+        })
+      };
+
+      mockFrom.mockReturnValue({ select: jest.fn().mockReturnValue(mockSelectChain) });
+
+      const response = await request(app)
+        .post('/api/v1/auth/register-device')
+        .send({ device_id: validDeviceId });
+
+      expect(response.status).toBe(500);
+      expect(response.body.error.code).toBe('INTERNAL_ERROR');
     });
   });
 
@@ -146,29 +223,37 @@ describe('Device-Based Anonymous Authentication (F-07)', () => {
     it('should generate valid JWT tokens with correct claims', async () => {
       const validDeviceId = 'f47ac10b-58cc-4372-a567-0e02b2c3d479';
 
-      // Mock successful response
-      mockFrom.mockReturnValue({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            single: jest.fn().mockResolvedValue({
-              data: {
-                id: 'user-123',
-                device_id: validDeviceId,
-                account_type: 'anonymous',
-                created_at: new Date().toISOString(),
-                last_login: new Date().toISOString(),
-                vanity_level: 0,
-                avg_item_level: null
-              },
-              error: null
-            })
-          })
-        }),
-        insert: jest.fn().mockResolvedValue({ data: null, error: null }),
-        update: jest.fn().mockReturnValue({
-          eq: jest.fn().mockResolvedValue({ data: null, error: null })
+      // Mock successful response with proper chaining
+      const mockSelectChain = {
+        eq: jest.fn().mockReturnThis(),
+        single: jest.fn().mockResolvedValue({
+          data: {
+            id: 'user-123',
+            device_id: validDeviceId,
+            account_type: 'anonymous',
+            created_at: new Date().toISOString(),
+            last_login: new Date().toISOString(),
+            vanity_level: 0,
+            avg_item_level: null
+          },
+          error: null
         })
-      });
+      };
+
+      const mockInsertChain = {
+        insert: jest.fn().mockResolvedValue({ data: null, error: null })
+      };
+
+      const mockUpdateChain = {
+        update: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockResolvedValue({ data: null, error: null })
+      };
+
+      mockFrom
+        .mockReturnValueOnce({ select: jest.fn().mockReturnValue(mockSelectChain) }) // Check existing
+        .mockReturnValueOnce(mockInsertChain) // Insert new user
+        .mockReturnValueOnce({ select: jest.fn().mockReturnValue(mockSelectChain) }) // Fetch profile
+        .mockReturnValueOnce(mockUpdateChain); // Update last_login
 
       const response = await request(app)
         .post('/api/v1/auth/register-device')
@@ -212,26 +297,19 @@ describe('Device-Based Anonymous Authentication (F-07)', () => {
         env.JWT_SECRET
       );
 
-      // Mock profile fetch for /auth/me endpoint
-      mockFrom.mockReturnValue({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            single: jest.fn().mockResolvedValue({
-              data: {
-                id: userId,
-                email: null,
-                device_id: deviceId,
-                account_type: 'anonymous',
-                created_at: new Date().toISOString(),
-                last_login: new Date().toISOString(),
-                vanity_level: 0,
-                avg_item_level: null
-              },
-              error: null
-            })
-          })
-        })
+      // Mock ProfileRepository.findUserById for getCurrentUser
+      mockFindUserById.mockResolvedValue({
+        id: userId,
+        email: null,
+        device_id: deviceId,
+        account_type: 'anonymous',
+        created_at: new Date().toISOString(),
+        last_login: new Date().toISOString(),
+        vanity_level: 0,
+        avg_item_level: null
       });
+
+      mockGetAllCurrencyBalances.mockResolvedValue({ GOLD: 500, GEMS: 0 });
 
       // Test that anonymous token works with protected endpoint
       const response = await request(app)
@@ -262,26 +340,19 @@ describe('Device-Based Anonymous Authentication (F-07)', () => {
         error: null
       });
 
-      // Mock profile fetch for email user
-      mockFrom.mockReturnValue({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            single: jest.fn().mockResolvedValue({
-              data: {
-                id: 'email-user-123',
-                email: 'test@example.com',
-                device_id: null,
-                account_type: 'email',
-                created_at: new Date().toISOString(),
-                last_login: new Date().toISOString(),
-                vanity_level: 5,
-                avg_item_level: 15
-              },
-              error: null
-            })
-          })
-        })
+      // Mock ProfileRepository.findUserById for email user
+      mockFindUserById.mockResolvedValue({
+        id: 'email-user-123',
+        email: 'test@example.com',
+        device_id: null,
+        account_type: 'email',
+        created_at: new Date().toISOString(),
+        last_login: new Date().toISOString(),
+        vanity_level: 5,
+        avg_item_level: 15
       });
+
+      mockGetAllCurrencyBalances.mockResolvedValue({ GOLD: 1000, GEMS: 50 });
 
       // Test that email authentication still works
       const response = await request(app)
@@ -342,29 +413,37 @@ describe('Device-Based Anonymous Authentication (F-07)', () => {
     it('should generate tokens with correct 30-day expiry', async () => {
       const deviceId = 'f47ac10b-58cc-4372-a567-0e02b2c3d479';
 
-      // Mock successful response
-      mockFrom.mockReturnValue({
-        select: jest.fn().mockReturnValue({
-          eq: jest.fn().mockReturnValue({
-            single: jest.fn().mockResolvedValue({
-              data: {
-                id: 'user-123',
-                device_id: deviceId,
-                account_type: 'anonymous',
-                created_at: new Date().toISOString(),
-                last_login: new Date().toISOString(),
-                vanity_level: 0,
-                avg_item_level: null
-              },
-              error: null
-            })
-          })
-        }),
-        insert: jest.fn().mockResolvedValue({ data: null, error: null }),
-        update: jest.fn().mockReturnValue({
-          eq: jest.fn().mockResolvedValue({ data: null, error: null })
+      // Mock successful response with proper chaining
+      const mockSelectChain = {
+        eq: jest.fn().mockReturnThis(),
+        single: jest.fn().mockResolvedValue({
+          data: {
+            id: 'user-123',
+            device_id: deviceId,
+            account_type: 'anonymous',
+            created_at: new Date().toISOString(),
+            last_login: new Date().toISOString(),
+            vanity_level: 0,
+            avg_item_level: null
+          },
+          error: null
         })
-      });
+      };
+
+      const mockInsertChain = {
+        insert: jest.fn().mockResolvedValue({ data: null, error: null })
+      };
+
+      const mockUpdateChain = {
+        update: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockResolvedValue({ data: null, error: null })
+      };
+
+      mockFrom
+        .mockReturnValueOnce({ select: jest.fn().mockReturnValue(mockSelectChain) }) // Check existing
+        .mockReturnValueOnce(mockInsertChain) // Insert new user
+        .mockReturnValueOnce({ select: jest.fn().mockReturnValue(mockSelectChain) }) // Fetch profile
+        .mockReturnValueOnce(mockUpdateChain); // Update last_login
 
       const response = await request(app)
         .post('/api/v1/auth/register-device')

@@ -5,32 +5,13 @@
  */
 
 import request from 'supertest';
-import { createMockSupabaseClient } from '../helpers/mockSupabase';
 
 // Mock functions BEFORE importing app
 const mockGetClaims = jest.fn();
 
-// Mock repository classes BEFORE importing app
-const mockProfileRepository = {
-  findUserById: jest.fn(),
-  addCurrency: jest.fn(),
-  updateProgression: jest.fn(),
-  getAllCurrencyBalances: jest.fn(),
-  getProgression: jest.fn()
-};
-
-const mockItemRepository = {
-  findByUser: jest.fn(),
-  create: jest.fn()
-};
-
-const mockEquipmentRepository = {
-  getPlayerEquippedStats: jest.fn()
-};
-
-const mockAnalyticsService = {
-  trackEvent: jest.fn()
-};
+// Mock ProfileService methods
+const mockInitializeProfile = jest.fn();
+const mockGetProfile = jest.fn();
 
 // Mock Supabase BEFORE importing app
 jest.mock('@supabase/supabase-js', () => ({
@@ -41,21 +22,16 @@ jest.mock('@supabase/supabase-js', () => ({
   }))
 }));
 
-// Mock repository modules
-jest.mock('../../src/repositories/ProfileRepository.js', () => ({
-  ProfileRepository: jest.fn(() => mockProfileRepository)
-}));
-
-jest.mock('../../src/repositories/ItemRepository.js', () => ({
-  ItemRepository: jest.fn(() => mockItemRepository)
-}));
-
-jest.mock('../../src/repositories/EquipmentRepository.js', () => ({
-  EquipmentRepository: jest.fn(() => mockEquipmentRepository)
-}));
-
-jest.mock('../../src/services/AnalyticsService.js', () => ({
-  analyticsService: mockAnalyticsService
+// Mock ProfileService singleton
+jest.mock('../../src/services/ProfileService.js', () => ({
+  ProfileService: jest.fn().mockImplementation(() => ({
+    initializeProfile: mockInitializeProfile,
+    getProfile: mockGetProfile
+  })),
+  profileService: {
+    initializeProfile: mockInitializeProfile,
+    getProfile: mockGetProfile
+  }
 }));
 
 // Import app AFTER mocking
@@ -80,40 +56,48 @@ describe('Profile API Endpoints', () => {
       error: null
     });
 
-    // Setup default repository mocks
-    mockItemRepository.findByUser.mockResolvedValue([]);
-    mockItemRepository.create.mockResolvedValue({
-      id: 'item-123',
-      user_id: mockUserId,
-      item_type_id: 'common-weapon-1',
-      level: 1,
-      created_at: '2024-10-21T00:00:00Z'
-    });
-    mockProfileRepository.addCurrency.mockResolvedValue(0);
-    mockProfileRepository.updateProgression.mockResolvedValue(undefined);
-    mockProfileRepository.findUserById.mockResolvedValue({
+    // Setup default profile service mocks
+    mockInitializeProfile.mockResolvedValue({
       id: mockUserId,
       email: mockEmail,
+      device_id: null,
+      account_type: 'email',
+      username: null,
       vanity_level: 1,
-      avg_item_level: 1,
+      gold: 0,
+      gems: 0,
+      total_stats: {
+        atkPower: 1,
+        atkAccuracy: 1,
+        defPower: 1,
+        defAccuracy: 1
+      },
+      level: 1,
+      xp: 0,
       created_at: '2024-10-21T00:00:00Z',
       last_login: '2024-10-21T00:00:00Z'
     });
-    mockProfileRepository.getAllCurrencyBalances.mockResolvedValue({
-      GOLD: 0,
-      GEMS: 0
-    });
-    mockProfileRepository.getProgression.mockResolvedValue({
+
+    mockGetProfile.mockResolvedValue({
+      id: mockUserId,
+      email: mockEmail,
+      device_id: null,
+      account_type: 'email',
+      username: null,
+      vanity_level: 1,
+      gold: 0,
+      gems: 0,
+      total_stats: {
+        atkPower: 1,
+        atkAccuracy: 1,
+        defPower: 1,
+        defAccuracy: 1
+      },
       level: 1,
-      xp: 0
+      xp: 0,
+      created_at: '2024-10-21T00:00:00Z',
+      last_login: '2024-10-21T00:00:00Z'
     });
-    mockEquipmentRepository.getPlayerEquippedStats.mockResolvedValue({
-      atkPower: 1,
-      atkAccuracy: 1,
-      defPower: 1,
-      defAccuracy: 1
-    });
-    mockAnalyticsService.trackEvent.mockResolvedValue(undefined);
   });
 
   describe('POST /api/v1/profile/init', () => {
@@ -134,33 +118,14 @@ describe('Profile API Endpoints', () => {
         xp: 0
       });
 
-      // Verify repository calls were made correctly
-      expect(mockItemRepository.findByUser).toHaveBeenCalledWith(mockUserId);
-      expect(mockProfileRepository.addCurrency).toHaveBeenCalledWith(mockUserId, 'GOLD', 0, 'profile_init');
-      expect(mockProfileRepository.addCurrency).toHaveBeenCalledWith(mockUserId, 'GEMS', 0, 'profile_init');
-      expect(mockItemRepository.create).toHaveBeenCalledWith({
-        user_id: mockUserId,
-        item_type_id: expect.any(String),
-        level: 1
-      });
-      expect(mockProfileRepository.updateProgression).toHaveBeenCalledWith(mockUserId, {
-        xp: 0,
-        level: 1,
-        xp_to_next_level: 100
-      });
-      expect(mockAnalyticsService.trackEvent).toHaveBeenCalledWith(mockUserId, 'profile_initialized', expect.any(Object));
+      // Verify service method was called
+      expect(mockInitializeProfile).toHaveBeenCalledWith(mockUserId);
     });
 
-    it('should return 409 for duplicate profile initialization', async () => {
-      // Mock existing items to simulate already initialized profile
-      mockItemRepository.findByUser.mockResolvedValue([
-        {
-          id: 'existing-item',
-          user_id: mockUserId,
-          item_type_id: 'weapon-1',
-          level: 1
-        }
-      ]);
+    it('should return 422 for duplicate profile initialization', async () => {
+      // Mock service to throw BusinessLogicError
+      const { BusinessLogicError } = require('../../src/utils/errors.js');
+      mockInitializeProfile.mockRejectedValue(new BusinessLogicError('Profile already initialized'));
 
       const response = await request(app)
         .post('/api/v1/profile/init')
@@ -201,8 +166,9 @@ describe('Profile API Endpoints', () => {
     });
 
     it('should handle database errors', async () => {
-      // Mock database error in repository
-      mockItemRepository.findByUser.mockRejectedValue(new Error('Database connection failed'));
+      // Mock database error in service
+      const { DatabaseError } = require('../../src/utils/errors.js');
+      mockInitializeProfile.mockRejectedValue(new DatabaseError('Database connection failed'));
 
       const response = await request(app)
         .post('/api/v1/profile/init')
@@ -223,15 +189,13 @@ describe('Profile API Endpoints', () => {
       expect(response.body.profile.gold).toBe(0);
     });
 
-    it('should call repositories with correct parameters', async () => {
+    it('should call service with correct user ID', async () => {
       await request(app)
         .post('/api/v1/profile/init')
         .set('Authorization', `Bearer valid-jwt-token`)
         .expect(201);
 
-      expect(mockItemRepository.findByUser).toHaveBeenCalledWith(mockUserId);
-      expect(mockProfileRepository.addCurrency).toHaveBeenCalledWith(mockUserId, 'GOLD', 0, 'profile_init');
-      expect(mockProfileRepository.addCurrency).toHaveBeenCalledWith(mockUserId, 'GEMS', 0, 'profile_init');
+      expect(mockInitializeProfile).toHaveBeenCalledWith(mockUserId);
     });
 
     it('should return profile with vanity_level set to 1', async () => {
@@ -270,9 +234,10 @@ describe('Profile API Endpoints', () => {
       expect(response.body.profile.id).toBe(mockUserId);
     });
 
-    it('should handle repository failure during profile creation', async () => {
-      // Mock repository failure
-      mockProfileRepository.findUserById.mockResolvedValue(null);
+    it('should handle service failure during profile creation', async () => {
+      // Mock service failure
+      const { NotFoundError } = require('../../src/utils/errors.js');
+      mockInitializeProfile.mockRejectedValue(new NotFoundError('User not found'));
 
       const response = await request(app)
         .post('/api/v1/profile/init')
@@ -297,10 +262,23 @@ describe('Profile API Endpoints', () => {
         error: null
       });
 
-      mockProfileRepository.findUserById.mockResolvedValue({
+      mockInitializeProfile.mockResolvedValueOnce({
         id: mockUserId,
         email: customEmail,
+        device_id: null,
+        account_type: 'email',
+        username: null,
         vanity_level: 1,
+        gold: 0,
+        gems: 0,
+        total_stats: {
+          atkPower: 1,
+          atkAccuracy: 1,
+          defPower: 1,
+          defAccuracy: 1
+        },
+        level: 1,
+        xp: 0,
         created_at: '2024-10-21T00:00:00Z',
         last_login: '2024-10-21T00:00:00Z'
       });

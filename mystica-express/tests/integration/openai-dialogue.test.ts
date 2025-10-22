@@ -31,6 +31,8 @@ import app from '../../src/app';
 
 describe('OpenAI Dialogue Generation Proof Test', () => {
   const validToken = 'test-jwt-token';
+  // Use a hardcoded session ID that exists in CombatStubService
+  const validSessionId = '550e8400-e29b-41d4-a716-446655440001';
 
   beforeEach(() => {
     // Reset all mocks before each test
@@ -49,23 +51,77 @@ describe('OpenAI Dialogue Generation Proof Test', () => {
       error: null
     });
 
-    // Default mock for database queries - return empty data for combat history
-    mockFrom.mockReturnValue({
-      select: jest.fn().mockReturnThis(),
-      eq: jest.fn().mockReturnThis(),
-      single: jest.fn().mockResolvedValue({
-        data: null,
-        error: null
-      }),
-      insert: jest.fn().mockResolvedValue({
-        data: null,
-        error: null
-      }),
+    // Mock combat session data
+    // Use actual Spray Paint Goblin UUID from EnemyChatterService
+    const sprayPaintGoblinId = 'd9e715fb-5de0-4639-96f8-3b4f03476314';
+    const mockCombatSession = {
+      id: validSessionId,
+      user_id: 'user-123',
+      location_id: 'loc-123',
+      combat_level: 5,
+      enemy_type_id: sprayPaintGoblinId,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      outcome: null,
+      combat_log: [],
+      player_rating: 1200,
+      enemy_rating: 1150,
+      win_prob_est: 0.55,
+      rewards: null
+    };
+
+    // Default mock for database queries
+    mockFrom.mockImplementation((table: string) => {
+      let responseData = null;
+
+      if (table === 'combatsessions') {
+        responseData = mockCombatSession;
+      } else if (table === 'v_player_powerlevel') {
+        responseData = {
+          user_id: 'user-123',
+          atk: 25,
+          def: 20,
+          acc: 0.75,
+          hp: 100
+        };
+      } else if (table === 'v_enemy_realized_stats') {
+        responseData = {
+          enemy_type_id: sprayPaintGoblinId,
+          atk: 18,
+          def: 15,
+          hp: 80,
+          combat_rating: 1150
+        };
+      } else if (table === 'enemytypes') {
+        responseData = {
+          id: sprayPaintGoblinId,
+          name: 'Spray Paint Goblin',
+          style_id: 'graffiti',
+          dialogue_tone: 'taunting',
+          flavor_text: 'A mischievous vandal'
+        };
+      } else if (table === 'combathistory') {
+        responseData = [];
+      }
+
+      const mockChain = {
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        is: jest.fn().mockReturnThis(),
+        order: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockReturnThis(),
+        single: jest.fn().mockResolvedValue({
+          data: responseData,
+          error: responseData === null ? { code: 'PGRST116', message: 'Not found' } : null
+        }),
+        insert: jest.fn().mockResolvedValue({
+          data: null,
+          error: null
+        }),
+      };
+      return mockChain;
     });
   });
-
-  // Use a hardcoded session ID that exists in CombatStubService
-  const validSessionId = '550e8400-e29b-41d4-a716-446655440001';
 
   it('should generate AI dialogue with 2-30 words', async () => {
     const response = await request(app)
