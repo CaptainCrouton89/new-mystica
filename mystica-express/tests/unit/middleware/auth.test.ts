@@ -6,6 +6,12 @@
 
 import { Request, Response, NextFunction } from 'express';
 
+// Mock JWT utils BEFORE importing middleware
+const mockVerifyAnonymousToken = jest.fn();
+jest.mock('../../../src/utils/jwt.js', () => ({
+  verifyAnonymousToken: mockVerifyAnonymousToken
+}));
+
 // Mock Supabase BEFORE importing middleware
 const mockGetClaims = jest.fn();
 jest.mock('@supabase/supabase-js', () => {
@@ -38,6 +44,7 @@ describe('Auth Middleware', () => {
 
     // Reset mock implementations
     mockGetClaims.mockReset();
+    mockVerifyAnonymousToken.mockReset();
   });
 
   describe('authenticate middleware', () => {
@@ -98,6 +105,7 @@ describe('Auth Middleware', () => {
 
     it('should reject requests with invalid JWT token', async () => {
       mockRequest.headers = { authorization: 'Bearer invalid-token' };
+      mockVerifyAnonymousToken.mockReturnValue(null); // Not anonymous
       mockGetClaims.mockResolvedValue({
         data: null,
         error: { message: 'Invalid token signature' }
@@ -120,9 +128,10 @@ describe('Auth Middleware', () => {
       expect(nextFunction).not.toHaveBeenCalled();
     });
 
-    it('should reject expired tokens', async () => {
+    it('should reject expired Supabase tokens', async () => {
       const expiredTime = Math.floor(Date.now() / 1000) - 3600; // 1 hour ago
       mockRequest.headers = { authorization: 'Bearer expired-token' };
+      mockVerifyAnonymousToken.mockReturnValue(null); // Not anonymous
       mockGetClaims.mockResolvedValue({
         data: {
           claims: {
@@ -150,9 +159,37 @@ describe('Auth Middleware', () => {
       expect(nextFunction).not.toHaveBeenCalled();
     });
 
-    it('should accept valid JWT token and attach user to request', async () => {
+    it('should accept valid anonymous token and attach user to request', async () => {
+      mockRequest.headers = { authorization: 'Bearer anon-token' };
+      mockVerifyAnonymousToken.mockReturnValue({
+        sub: 'anon-123',
+        device_id: 'device-456',
+        account_type: 'anonymous',
+        iat: Math.floor(Date.now() / 1000),
+        exp: Math.floor(Date.now() / 1000) + 3600
+      });
+
+      await authenticate(
+        mockRequest as Request,
+        mockResponse as Response,
+        nextFunction
+      );
+
+      expect((mockRequest as any).user).toEqual({
+        id: 'anon-123',
+        email: null,
+        device_id: 'device-456',
+        account_type: 'anonymous'
+      });
+      expect(nextFunction).toHaveBeenCalled();
+      expect(mockResponse.status).not.toHaveBeenCalled();
+      expect(mockGetClaims).not.toHaveBeenCalled();
+    });
+
+    it('should accept valid Supabase JWT token and attach user to request', async () => {
       const futureTime = Math.floor(Date.now() / 1000) + 3600; // 1 hour from now
-      mockRequest.headers = { authorization: 'Bearer valid-token' };
+      mockRequest.headers = { authorization: 'Bearer supabase-token' };
+      mockVerifyAnonymousToken.mockReturnValue(null); // Not anonymous
       mockGetClaims.mockResolvedValue({
         data: {
           claims: {
@@ -183,6 +220,7 @@ describe('Auth Middleware', () => {
 
     it('should handle getClaims errors gracefully', async () => {
       mockRequest.headers = { authorization: 'Bearer valid-token' };
+      mockVerifyAnonymousToken.mockReturnValue(null); // Not anonymous
       mockGetClaims.mockRejectedValue(new Error('Network error'));
 
       await authenticate(
@@ -197,6 +235,29 @@ describe('Auth Middleware', () => {
           code: 'auth_error',
           message: 'Failed to authenticate request',
           details: 'Network error'
+        }
+      });
+      expect(nextFunction).not.toHaveBeenCalled();
+    });
+
+    it('should handle anonymous token verification errors gracefully', async () => {
+      mockRequest.headers = { authorization: 'Bearer malformed-token' };
+      mockVerifyAnonymousToken.mockImplementation(() => {
+        throw new Error('JWT malformed');
+      });
+
+      await authenticate(
+        mockRequest as Request,
+        mockResponse as Response,
+        nextFunction
+      );
+
+      expect(mockResponse.status).toHaveBeenCalledWith(401);
+      expect(mockResponse.json).toHaveBeenCalledWith({
+        error: {
+          code: 'auth_error',
+          message: 'Failed to authenticate request',
+          details: 'JWT malformed'
         }
       });
       expect(nextFunction).not.toHaveBeenCalled();
@@ -230,14 +291,17 @@ describe('Auth Middleware', () => {
       expect(mockResponse.status).not.toHaveBeenCalled();
     });
 
-    it('should allow requests with expired token', async () => {
+    it('should allow requests with expired Supabase token', async () => {
       const expiredTime = Math.floor(Date.now() / 1000) - 3600;
       mockRequest.headers = { authorization: 'Bearer expired-token' };
+      mockVerifyAnonymousToken.mockReturnValue(null); // Not anonymous
       mockGetClaims.mockResolvedValue({
         data: {
-          sub: 'user-123',
-          email: 'test@example.com',
-          exp: expiredTime
+          claims: {
+            sub: 'user-123',
+            email: 'test@example.com',
+            exp: expiredTime
+          }
         },
         error: null
       });
@@ -253,9 +317,36 @@ describe('Auth Middleware', () => {
       expect(mockResponse.status).not.toHaveBeenCalled();
     });
 
-    it('should attach user for valid token', async () => {
+    it('should attach user for valid anonymous token', async () => {
+      mockRequest.headers = { authorization: 'Bearer anon-token' };
+      mockVerifyAnonymousToken.mockReturnValue({
+        sub: 'anon-123',
+        device_id: 'device-456',
+        account_type: 'anonymous',
+        iat: Math.floor(Date.now() / 1000),
+        exp: Math.floor(Date.now() / 1000) + 3600
+      });
+
+      await optionalAuthenticate(
+        mockRequest as Request,
+        mockResponse as Response,
+        nextFunction
+      );
+
+      expect((mockRequest as any).user).toEqual({
+        id: 'anon-123',
+        email: null,
+        device_id: 'device-456',
+        account_type: 'anonymous'
+      });
+      expect(nextFunction).toHaveBeenCalled();
+      expect(mockResponse.status).not.toHaveBeenCalled();
+    });
+
+    it('should attach user for valid Supabase token', async () => {
       const futureTime = Math.floor(Date.now() / 1000) + 3600;
-      mockRequest.headers = { authorization: 'Bearer valid-token' };
+      mockRequest.headers = { authorization: 'Bearer supabase-token' };
+      mockVerifyAnonymousToken.mockReturnValue(null); // Not anonymous
       mockGetClaims.mockResolvedValue({
         data: {
           claims: {
@@ -283,9 +374,27 @@ describe('Auth Middleware', () => {
       expect(mockResponse.status).not.toHaveBeenCalled();
     });
 
-    it('should handle errors gracefully without failing request', async () => {
+    it('should handle Supabase errors gracefully without failing request', async () => {
       mockRequest.headers = { authorization: 'Bearer valid-token' };
+      mockVerifyAnonymousToken.mockReturnValue(null); // Not anonymous
       mockGetClaims.mockRejectedValue(new Error('Network error'));
+
+      await optionalAuthenticate(
+        mockRequest as Request,
+        mockResponse as Response,
+        nextFunction
+      );
+
+      expect((mockRequest as any).user).toBeUndefined();
+      expect(nextFunction).toHaveBeenCalled();
+      expect(mockResponse.status).not.toHaveBeenCalled();
+    });
+
+    it('should handle anonymous token errors gracefully without failing request', async () => {
+      mockRequest.headers = { authorization: 'Bearer malformed-token' };
+      mockVerifyAnonymousToken.mockImplementation(() => {
+        throw new Error('JWT malformed');
+      });
 
       await optionalAuthenticate(
         mockRequest as Request,
