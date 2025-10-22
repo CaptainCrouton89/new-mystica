@@ -1,5 +1,12 @@
 # SwiftUI Frontend Reference
 
+## Building & Testing
+
+- **Build command:** `./build.sh [simulator-name]` (from New-Mystica/ directory)
+  - Default simulator: iPhone 17 Pro
+  - Example: `./build.sh "iPhone 17 Pro"` or just `./build.sh`
+  - Outputs `build.log` and shows errors directly
+
 ## Navigation System Critical Rules
 
 - **NavigationManager is singleton @MainActor:** NEVER create multiple instances, always use `@EnvironmentObject`

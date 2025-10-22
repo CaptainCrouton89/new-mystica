@@ -36,7 +36,7 @@ pnpm supabase:types # Generate types from remote DB
 
 ### Frontend (New-Mystica/)
 ```bash
-# Open New-Mystica.xcodeproj in Xcode → ⌘R to build/run
+./build.sh                          # Build for iOS Simulator
 ```
 
 ### AI Image Generation (scripts/)
