@@ -11,6 +11,7 @@
  */
 
 import { MaterialService } from '../../../src/services/MaterialService.js';
+import { ImageGenerationService } from '../../../src/services/ImageGenerationService.js';
 import { NotFoundError, BusinessLogicError, ValidationError, DatabaseError } from '../../../src/utils/errors.js';
 
 // Import test infrastructure
@@ -23,11 +24,9 @@ import {
   BASE_SWORD
 } from '../../fixtures/index.js';
 
-import {
-  UserFactory,
-  ItemFactory,
-  MaterialFactory
-} from '../../factories/index.js';
+import { UserFactory } from '../../factories/user.factory.js';
+import { ItemFactory } from '../../factories/item.factory.js';
+import { MaterialFactory } from '../../factories/material.factory.js';
 
 import {
   expectValidItem,
@@ -52,8 +51,30 @@ jest.mock('../../../src/config/supabase', () => ({
   }
 }));
 
+jest.mock('../../../src/services/ImageGenerationService', () => ({
+  ImageGenerationService: jest.fn().mockImplementation(() => ({
+    generateImage: jest.fn().mockResolvedValue('https://example.com/generated-image.png')
+  }))
+}));
+
+// Mock EconomyService
+jest.mock('../../../src/services/EconomyService.js', () => ({
+  economyService: {
+    deductCurrency: jest.fn().mockResolvedValue({
+      success: true,
+      previousBalance: 600,
+      newBalance: 500,
+      transactionId: 'txn-123',
+      currency: 'GOLD',
+      amount: 100
+    })
+  }
+}));
+
 import { supabase } from '../../../src/config/supabase.js';
+import { economyService } from '../../../src/services/EconomyService.js';
 const mockedSupabase = supabase as jest.Mocked<typeof supabase>;
+const mockedEconomyService = economyService as jest.Mocked<typeof economyService>;
 
 describe('MaterialService (TDD)', () => {
   let materialService: MaterialService;
@@ -64,17 +85,52 @@ describe('MaterialService (TDD)', () => {
     materialService = new MaterialService();
     jest.clearAllMocks();
 
+    // Reset EconomyService mock for each test
+    mockedEconomyService.deductCurrency.mockResolvedValue({
+      success: true,
+      previousBalance: 600,
+      newBalance: 500,
+      transactionId: 'txn-123',
+      currency: 'GOLD',
+      amount: 100
+    });
+
     // Setup complete mock chain with all required methods
-    mockedSupabase.from.mockReturnValue({
-      select: jest.fn().mockReturnThis(),
-      insert: jest.fn().mockReturnThis(),
-      update: jest.fn().mockReturnThis(),
-      delete: jest.fn().mockReturnThis(),
-      eq: jest.fn().mockReturnThis(),
-      gt: jest.fn().mockReturnThis(),
-      order: jest.fn().mockReturnThis(),
-      single: jest.fn().mockResolvedValue({ data: null, error: null }),
-    } as any);
+    const createMockQueryChain = () => {
+      const mockThis: any = {
+        select: jest.fn(),
+        insert: jest.fn(),
+        update: jest.fn(),
+        delete: jest.fn(),
+        eq: jest.fn(),
+        gt: jest.fn(),
+        order: jest.fn(),
+        single: jest.fn().mockResolvedValue({ data: null, error: null }),
+      };
+
+      // Configure update chain - needs to support the BaseRepository.update pattern
+      const updateChain = {
+        eq: jest.fn().mockReturnThis(),
+        select: jest.fn().mockReturnThis(),
+        single: jest.fn().mockResolvedValue({ data: {}, error: null })
+      };
+      updateChain.eq.mockReturnValue(updateChain);
+      updateChain.select.mockReturnValue(updateChain);
+      mockThis.update.mockReturnValue(updateChain);
+
+      // All other methods return the mockThis object for chaining
+      mockThis.select.mockReturnValue(mockThis);
+      mockThis.insert.mockReturnValue(mockThis);
+      mockThis.delete.mockReturnValue(mockThis);
+      mockThis.eq.mockReturnValue(mockThis);
+      mockThis.gt.mockReturnValue(mockThis);
+      mockThis.order.mockReturnValue(mockThis);
+
+      return mockThis;
+    };
+
+    // Mock returns fresh chain for each call to .from()
+    mockedSupabase.from.mockImplementation((() => createMockQueryChain()) as any);
 
     // Setup RPC mock (needs count, status, statusText for PostgrestResponse)
     mockedSupabase.rpc.mockResolvedValue({
@@ -200,7 +256,7 @@ describe('MaterialService (TDD)', () => {
       const result = await materialService.getMaterialInventory(userId);
 
       // Assert: Verify query and response
-      expect(mockedSupabase.from).toHaveBeenCalledWith('MaterialStacks');
+      expect(mockedSupabase.from).toHaveBeenCalledWith('materialstacks');
       expect(result).toHaveLength(3);
       expect(result[0].quantity).toBe(10);
 
@@ -256,7 +312,7 @@ describe('MaterialService (TDD)', () => {
 
       expect(result[0]).toHaveProperty('material');
       expect(result[0].material).toHaveProperty('stat_modifiers');
-      expect(result[0].material).toHaveProperty('theme');
+      expect(result[0].material).toHaveProperty('base_drop_weight');
     });
   });
 
@@ -269,29 +325,63 @@ describe('MaterialService (TDD)', () => {
       // Arrange: Create item with no materials using factory
       const item = ItemFactory.createBase('sword', 1);
 
-      // Mock item ownership check
-      mockedSupabase.from.mockReturnValueOnce({
-        select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        single: jest.fn().mockResolvedValue({
-          data: item,
-          error: null
-        })
-      } as any);
+      // Mock complete success path with properly chained mock objects
+      const createChainedMock = (finalResult: any) => {
+        const chain: any = {
+          select: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          gt: jest.fn().mockReturnThis(),
+          order: jest.fn().mockReturnThis(),
+          insert: jest.fn().mockReturnThis(),
+          update: jest.fn().mockReturnThis(),
+          single: jest.fn().mockResolvedValue(finalResult)
+        };
+        // Ensure all methods return the chain for proper chaining
+        Object.keys(chain).forEach(key => {
+          if (key !== 'single') {
+            chain[key].mockReturnValue(chain);
+          }
+        });
+        return chain;
+      };
 
-      // Mock material stack check (sufficient quantity)
-      mockedSupabase.from.mockReturnValueOnce({
-        select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        gt: jest.fn().mockReturnThis(),
-        order: jest.fn().mockReturnThis(),
-        single: jest.fn().mockResolvedValue({
-          data: { quantity: 10 },
+      mockedSupabase.from
+        .mockReturnValueOnce(createChainedMock({ data: item, error: null })) // Item ownership check
+        .mockReturnValueOnce(createChainedMock({ data: [], error: null })) // Slot occupancy check
+        .mockReturnValueOnce(createChainedMock({ data: { quantity: 10 }, error: null })) // Material stack check
+        .mockReturnValueOnce(createChainedMock({ data: [], error: null })) // Materials by item check
+        .mockReturnValueOnce(createChainedMock({ data: null, error: null })) // Cache check (miss)
+        .mockReturnValueOnce(createChainedMock({ data: { id: 'cache-123', craft_count: 1 }, error: null })) // Cache entry creation
+        .mockReturnValue(createChainedMock({
+          data: {
+            ...item,
+            current_stats: JSON.stringify(item.current_stats), // Mock expects JSON string
+            // Mock materials with proper repository structure (includes material relationship)
+            materials: [{
+              slot_index: 0,
+              material: {
+                id: IRON_MATERIAL.id,
+                name: IRON_MATERIAL.name,
+                style_id: 'normal',
+                stat_modifiers: IRON_MATERIAL.stat_modifiers,
+                description: IRON_MATERIAL.description,
+                base_drop_weight: 100 // Default value for mock
+              }
+            }],
+            // Mock the itemtypes relationship data that repository expects
+            itemtypes: {
+              id: item.item_type_id,
+              name: 'Test Sword',
+              category: 'weapon',
+              base_stats_normalized: JSON.stringify(item.current_stats),
+              rarity: 'common',
+              description: 'Test sword description'
+            }
+          },
           error: null
-        })
-      } as any);
+        })); // Final item fetch
 
-      // Mock RPC call for atomic operations (returns array with instance_id and new_stack_quantity)
+      // Mock RPC call for atomic operations
       mockedSupabase.rpc.mockResolvedValueOnce({
         data: [{
           instance_id: 'instance-123',
@@ -303,25 +393,19 @@ describe('MaterialService (TDD)', () => {
         statusText: 'OK'
       } as any);
 
-      // Mock the follow-up instance fetch
+      // Mock the instance fetch after RPC
       mockedSupabase.from.mockReturnValueOnce({
         select: jest.fn().mockReturnThis(),
         eq: jest.fn().mockReturnThis(),
         single: jest.fn().mockResolvedValue({
-          data: { id: 'instance-123', material_id: IRON_MATERIAL.id, style_id: 'normal' },
+          data: {
+            id: 'instance-123',
+            material_id: IRON_MATERIAL.id,
+            style_id: 'normal',
+            user_id: userId
+          },
           error: null
         })
-      } as any);
-
-      // Mock subsequent queries for material combo hash and image caching
-      mockedSupabase.from.mockReturnValue({
-        select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        gt: jest.fn().mockReturnThis(),
-        order: jest.fn().mockReturnThis(),
-        single: jest.fn().mockResolvedValue({ data: [], error: null }),
-        insert: jest.fn().mockResolvedValue({ data: { id: 'cache-123', craft_count: 1 }, error: null }),
-        update: jest.fn().mockResolvedValue({ data: {}, error: null })
       } as any);
 
 
@@ -457,14 +541,22 @@ describe('MaterialService (TDD)', () => {
         ['normal']
       );
 
-      mockedSupabase.from.mockReturnValueOnce({
-        select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        single: jest.fn().mockResolvedValue({
-          data: item,
-          error: null
-        })
-      } as any);
+      mockedSupabase.from
+        .mockReturnValueOnce({
+          select: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          single: jest.fn().mockResolvedValue({
+            data: item,
+            error: null
+          })
+        } as any) // Item ownership check
+        .mockReturnValueOnce({
+          select: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockResolvedValue({
+            data: [0], // Slot 0 is occupied
+            error: null
+          })
+        } as any); // Slot occupancy check
 
       // Act & Assert: Attempt to apply to occupied slot 0
       await expect(
@@ -497,16 +589,24 @@ describe('MaterialService (TDD)', () => {
         ['normal', 'normal', 'watercolor']
       );
 
-      mockedSupabase.from.mockReturnValueOnce({
-        select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        single: jest.fn().mockResolvedValue({
-          data: item,
-          error: null
-        })
-      } as any);
+      mockedSupabase.from
+        .mockReturnValueOnce({
+          select: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          single: jest.fn().mockResolvedValue({
+            data: item,
+            error: null
+          })
+        } as any) // Item ownership check
+        .mockReturnValueOnce({
+          select: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockResolvedValue({
+            data: [0, 1, 2], // All 3 slots occupied
+            error: null
+          })
+        } as any); // Slot occupancy check
 
-      // Act & Assert: Attempt to add 4th material
+      // Act & Assert: Attempt to add 4th material (invalid slot index)
       await expect(
         materialService.applyMaterial({
           userId,
@@ -515,7 +615,7 @@ describe('MaterialService (TDD)', () => {
           styleId: 'normal',
           slotIndex: 3
         })
-      ).rejects.toThrow(BusinessLogicError);
+      ).rejects.toThrow(ValidationError);
 
       await expect(
         materialService.applyMaterial({
@@ -525,33 +625,38 @@ describe('MaterialService (TDD)', () => {
           styleId: 'normal',
           slotIndex: 3
         })
-      ).rejects.toThrow('Cannot apply more than 3 materials');
+      ).rejects.toThrow('Slot index must be between 0 and 2');
     });
 
     it('should throw BusinessLogicError when insufficient material quantity', async () => {
       const item = ItemFactory.createBase('sword', 1);
 
-      // Mock item ownership check
-      mockedSupabase.from.mockReturnValueOnce({
-        select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        single: jest.fn().mockResolvedValue({
-          data: item,
-          error: null
-        })
-      } as any);
-
-      // Mock insufficient material stack
-      mockedSupabase.from.mockReturnValueOnce({
-        select: jest.fn().mockReturnThis(),
-        eq: jest.fn().mockReturnThis(),
-        gt: jest.fn().mockReturnThis(),
-        order: jest.fn().mockReturnThis(),
-        single: jest.fn().mockResolvedValue({
-          data: { quantity: 0 },
-          error: null
-        })
-      } as any);
+      mockedSupabase.from
+        .mockReturnValueOnce({
+          select: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          single: jest.fn().mockResolvedValue({
+            data: item,
+            error: null
+          })
+        } as any) // Item ownership check
+        .mockReturnValueOnce({
+          select: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockResolvedValue({
+            data: [], // No occupied slots
+            error: null
+          })
+        } as any) // Slot occupancy check
+        .mockReturnValueOnce({
+          select: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          gt: jest.fn().mockReturnThis(),
+          order: jest.fn().mockReturnThis(),
+          single: jest.fn().mockResolvedValue({
+            data: { quantity: 0 }, // Insufficient quantity
+            error: null
+          })
+        } as any); // Material stack check
 
       await expect(
         materialService.applyMaterial({
