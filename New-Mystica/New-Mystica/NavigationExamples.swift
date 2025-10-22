@@ -38,26 +38,7 @@ struct ExampleSettingsView: View, NavigableView {
     }
 }
 
-// Method 2: Using SimpleNavigableView (Perfect for simple views)
-struct ProfileView: View {
-    @EnvironmentObject private var navigationManager: NavigationManager
-    
-    var body: some View {
-        SimpleNavigableView(title: "Profile") {
-            VStack(spacing: 20) {
-                Spacer()
-                
-                TitleText("Profile")
-                
-                NormalText("Manage your account")
-                
-                Spacer()
-            }
-        }
-    }
-}
-
-// Method 3: Using the withNavigation modifier (Quick and easy)
+// Method 2: Using the withNavigation modifier (Quick and easy)
 struct ExampleInventoryView: View {
     @EnvironmentObject private var navigationManager: NavigationManager
 
