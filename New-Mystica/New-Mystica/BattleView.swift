@@ -163,9 +163,9 @@ struct BattleView: View {
                             Spacer()
                         }
 
-                        ForEach(rewards.itemsDropped, id: \.id) { item in
+                        ForEach(Array(rewards.itemsDropped.enumerated()), id: \.element.id) { _, item in
                             HStack {
-                                SmallText("• \(item.itemType?.name ?? "Unknown Item")")
+                                SmallText("• \(item.baseType) [Level \(item.level)]")
                                     .foregroundColor(Color.textSecondary)
                                 Spacer()
                             }
@@ -652,5 +652,5 @@ struct BattleView: View {
     BattleView(locationId: "test-location-id")
         .environmentObject(NavigationManager())
         .environmentObject(AudioManager.shared)
-        .environment(AppState())
+        .environment(AppState.shared)
 }

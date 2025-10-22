@@ -37,20 +37,9 @@ struct ContentView: View {
         case .settings:
             SettingsView()
         case .profile:
-            // Another example of automatic navigation
-            SimpleNavigableView(title: "Profile") {
-                VStack(spacing: 20) {
-                    Spacer()
-
-                    TitleText("Profile")
-
-                    NormalText("Coming Soon")
-
-                    Spacer()
-                }
-            }
+            ProfileView()
         case .battle:
-            BattleView()
+            BattleView(locationId: "default-location")
         case .victory:
             VictoryView()
         case .defeat:
