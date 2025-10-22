@@ -132,6 +132,7 @@ describe('ProfileService', () => {
         account_type: mockUser.account_type,
         username: null, // Users table doesn't have username field yet
         vanity_level: 15,
+        avg_item_level: 7.5,
         gold: 1500,
         gems: 250,
         total_stats: mockTotalStats,
@@ -239,6 +240,7 @@ describe('ProfileService', () => {
         email: testUser.email,
         username: null,
         vanity_level: 1,
+        avg_item_level: 0,
         gold: 0,
         gems: 0,
         level: 1,
@@ -864,6 +866,7 @@ describe('ProfileService', () => {
       const startProfile = {
         id: userId,
         email: 'new@mystica.com',
+        avg_item_level: 0,
         gold: 0,
         gems: 0,
         level: 1,

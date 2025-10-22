@@ -96,7 +96,7 @@ describe('Auth API Endpoints', () => {
           access_token: expect.any(String),
           refresh_token: expect.any(String)
         }),
-        message: expect.stringContaining('Registration successful')
+        message: 'User registered successfully. Verification email sent.'
       });
     });
 
@@ -324,7 +324,8 @@ describe('Auth API Endpoints', () => {
       expect(response.status).toBe(200);
       expect(response.body.user).toMatchObject({
         id: 'user-123',
-        email: 'test@example.com'
+        email: 'test@example.com',
+        avg_item_level: 0
       });
     });
 

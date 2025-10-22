@@ -187,7 +187,7 @@ describe('CombatService', () => {
       mockCombatRepository.createSession.mockResolvedValue(sessionUuid);
 
       // Act
-      const result = await combatService.startCombat(testUser.id, testLocation.id);
+      const result = await combatService.startCombat(testUser.id, testLocation.id, 5);
 
       // Assert
       expectValidUUID(result.session_id);
@@ -225,7 +225,7 @@ describe('CombatService', () => {
         hp: dragonEnemy.computed_hp
       });
 
-      const result = await combatService.startCombat(testUser.id, testLocation.id);
+      const result = await combatService.startCombat(testUser.id, testLocation.id, 5);
 
       expect(result.enemy.name).toContain('Dragon');
       expect(result.enemy.hp).toBeGreaterThan(100); // Dragons have more HP
@@ -234,7 +234,7 @@ describe('CombatService', () => {
     it('should use default weapon config when no weapon equipped', async () => {
       mockEquipmentRepository.findItemInSlot.mockResolvedValue(null);
 
-      const result = await combatService.startCombat(testUser.id, testLocation.id);
+      const result = await combatService.startCombat(testUser.id, testLocation.id, 5);
 
       expect(result.weapon_config.pattern).toBe('single_arc');
       expect(result.weapon_config.spin_deg_per_s).toBe(180);
@@ -258,7 +258,7 @@ describe('CombatService', () => {
         total_degrees: 360
       });
 
-      const result = await combatService.startCombat(testUser.id, testLocation.id);
+      const result = await combatService.startCombat(testUser.id, testLocation.id, 5);
 
       expect(result.weapon_config.pattern).toBe('dual_arcs');
       expect(result.weapon_config.spin_deg_per_s).toBe(240);
@@ -276,7 +276,7 @@ describe('CombatService', () => {
       mockCombatRepository.getUserActiveSession.mockResolvedValue(existingSession);
 
       await expect(
-        combatService.startCombat(testUser.id, testLocation.id)
+        combatService.startCombat(testUser.id, testLocation.id, 1)
       ).rejects.toThrow(ConflictError);
     });
 
@@ -285,7 +285,7 @@ describe('CombatService', () => {
       mockLocationService.getById.mockRejectedValue(new NotFoundError('location', 'fake-id'));
 
       await expect(
-        combatService.startCombat(testUser.id, 'fake-location-id')
+        combatService.startCombat(testUser.id, 'fake-location-id', 1)
       ).rejects.toThrow(NotFoundError);
     });
 
@@ -304,7 +304,7 @@ describe('CombatService', () => {
       mockLocationService.getMatchingEnemyPools.mockResolvedValue([]);
 
       await expect(
-        combatService.startCombat(testUser.id, testLocation.id)
+        combatService.startCombat(testUser.id, testLocation.id, 1)
       ).rejects.toThrow(NotFoundError);
     });
   });
@@ -358,7 +358,7 @@ describe('CombatService', () => {
     });
 
     it('should execute successful normal hit with correct damage calculation', async () => {
-      const result = await combatService.executeAttack(sessionId, 200);
+      const result = await combatService.executeAttack(sessionId, 0.7);
 
       expect(result.hit_zone).toBe('normal');
       expect(result.base_multiplier).toBe(1.0);
@@ -383,7 +383,7 @@ describe('CombatService', () => {
     });
 
     it('should execute critical hit with bonus multiplier', async () => {
-      const result = await combatService.executeAttack(sessionId, 350);
+      const result = await combatService.executeAttack(sessionId, 0.95);
 
       expect(result.hit_zone).toBe('crit');
       expect(result.base_multiplier).toBe(1.6);
@@ -393,7 +393,7 @@ describe('CombatService', () => {
     });
 
     it('should handle graze hit with reduced damage', async () => {
-      const result = await combatService.executeAttack(sessionId, 120);
+      const result = await combatService.executeAttack(sessionId, 0.45);
 
       expect(result.hit_zone).toBe('graze');
       expect(result.base_multiplier).toBe(0.6);
@@ -401,7 +401,7 @@ describe('CombatService', () => {
     });
 
     it('should handle miss with no damage to enemy', async () => {
-      const result = await combatService.executeAttack(sessionId, 50);
+      const result = await combatService.executeAttack(sessionId, 0.2);
 
       expect(result.hit_zone).toBe('miss');
       expect(result.base_multiplier).toBe(0.0);
@@ -410,7 +410,7 @@ describe('CombatService', () => {
     });
 
     it('should handle injure zone where player takes self-damage', async () => {
-      const result = await combatService.executeAttack(sessionId, 15);
+      const result = await combatService.executeAttack(sessionId, 0.05);
 
       expect(result.hit_zone).toBe('injure');
       expect(result.base_multiplier).toBe(-0.5);
@@ -437,7 +437,7 @@ describe('CombatService', () => {
         updatedAt: new Date()
       });
 
-      const result = await combatService.executeAttack(sessionId, 200);
+      const result = await combatService.executeAttack(sessionId, 0.7);
 
       if (result.enemy_hp_remaining === 0) {
         expect(result.combat_status).toBe('victory');
@@ -466,7 +466,7 @@ describe('CombatService', () => {
         updatedAt: new Date()
       });
 
-      const result = await combatService.executeAttack(sessionId, 200);
+      const result = await combatService.executeAttack(sessionId, 0.7);
 
       if (result.player_hp_remaining === 0) {
         expect(result.combat_status).toBe('defeat');
@@ -483,11 +483,11 @@ describe('CombatService', () => {
       mockCombatRepository.getActiveSession.mockResolvedValue(null);
 
       await expect(
-        combatService.executeAttack('fake-session-id', 180)
+        combatService.executeAttack('fake-session-id', 0.5)
       ).rejects.toThrow(NotFoundError);
     });
 
-    it('should throw ValidationError for invalid tap position (negative)', async () => {
+    it('should throw ValidationError for invalid attack accuracy (negative)', async () => {
       mockCombatRepository.getActiveSession.mockResolvedValue({
         id: 'test-session',
         userId: testUser.id,
@@ -495,11 +495,11 @@ describe('CombatService', () => {
       });
 
       await expect(
-        combatService.executeAttack('test-session', -10)
+        combatService.executeAttack('test-session', -0.1)
       ).rejects.toThrow(ValidationError);
     });
 
-    it('should throw ValidationError for invalid tap position (>360)', async () => {
+    it('should throw ValidationError for invalid attack accuracy (>1.0)', async () => {
       mockCombatRepository.getActiveSession.mockResolvedValue({
         id: 'test-session',
         userId: testUser.id,
@@ -507,7 +507,7 @@ describe('CombatService', () => {
       });
 
       await expect(
-        combatService.executeAttack('test-session', 400)
+        combatService.executeAttack('test-session', 1.5)
       ).rejects.toThrow(ValidationError);
     });
   });

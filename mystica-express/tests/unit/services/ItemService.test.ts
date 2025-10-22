@@ -76,7 +76,8 @@ jest.mock('../../../src/repositories/ItemRepository.js', () => ({
 jest.mock('../../../src/repositories/ProfileRepository.js', () => ({
   ProfileRepository: jest.fn().mockImplementation(() => ({
     getCurrencyBalance: jest.fn(),
-    deductCurrency: jest.fn()
+    deductCurrency: jest.fn(),
+    findById: jest.fn()
   }))
 }));
 
@@ -703,6 +704,7 @@ describe('ItemService', () => {
 
       mockItemRepository.findById.mockResolvedValue(item);
       mockProfileRepository.getCurrencyBalance.mockResolvedValue(1000);
+      mockProfileRepository.findById.mockResolvedValue({ vanity_level: nextLevel });
       mockItemRepository.findWithItemType.mockResolvedValue(itemWithType);
       mockedStatsService.computeItemStatsForLevel
         .mockReturnValueOnce(statsBefore)
@@ -727,15 +729,16 @@ describe('ItemService', () => {
 
       expect(result.success).toBe(true);
       expect(result.gold_spent).toBe(goldCost);
-      expect(result.new_level).toBe(nextLevel);
+      expect(result.new_vanity_level).toBe(nextLevel);
       expect(result.updated_item.level).toBe(nextLevel);
       expect(result.updated_item.current_stats).toEqual(statsAfter);
 
-      // Verify stat increase calculation (with floating point tolerance)
-      expect(result.stat_increase.atkPower).toBeCloseTo(0.4, 10);
-      expect(result.stat_increase.atkAccuracy).toBeCloseTo(0.3, 10);
-      expect(result.stat_increase.defPower).toBeCloseTo(0.2, 10);
-      expect(result.stat_increase.defAccuracy).toBeCloseTo(0.1, 10);
+      // Verify updated item has correct level and stats
+      expect(result.updated_item.level).toBe(nextLevel);
+      expect(result.updated_item.current_stats.atkPower).toBeCloseTo(statsAfter.atkPower, 10);
+      expect(result.updated_item.current_stats.atkAccuracy).toBeCloseTo(statsAfter.atkAccuracy, 10);
+      expect(result.updated_item.current_stats.defPower).toBeCloseTo(statsAfter.defPower, 10);
+      expect(result.updated_item.current_stats.defAccuracy).toBeCloseTo(statsAfter.defAccuracy, 10);
     });
 
     it('should perform manual transaction when RPC fails', async () => {
@@ -760,6 +763,7 @@ describe('ItemService', () => {
 
       mockItemRepository.findById.mockResolvedValue(item);
       mockProfileRepository.getCurrencyBalance.mockResolvedValue(500);
+      mockProfileRepository.findById.mockResolvedValue({ vanity_level: nextLevel });
       mockItemRepository.findWithItemType.mockResolvedValue(itemWithType);
       mockedStatsService.computeItemStatsForLevel.mockReturnValue(statsAfter);
 

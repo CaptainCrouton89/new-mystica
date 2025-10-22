@@ -64,6 +64,7 @@ describe('Profile API Endpoints', () => {
       account_type: 'email',
       username: null,
       vanity_level: 1,
+      avg_item_level: 0,
       gold: 0,
       gems: 0,
       total_stats: {
@@ -85,6 +86,7 @@ describe('Profile API Endpoints', () => {
       account_type: 'email',
       username: null,
       vanity_level: 1,
+      avg_item_level: 0,
       gold: 0,
       gems: 0,
       total_stats: {
@@ -107,13 +109,13 @@ describe('Profile API Endpoints', () => {
         .set('Authorization', `Bearer valid-jwt-token`)
         .expect(201);
 
-      expect(response.body.success).toBe(true);
-      expect(response.body.profile).toMatchObject({
+      expect(response.body).toMatchObject({
         id: mockUserId,
         email: mockEmail,
         gold: 0,
         gems: 0,
         vanity_level: 1,
+        avg_item_level: 0,
         level: 1,
         xp: 0
       });
@@ -186,7 +188,7 @@ describe('Profile API Endpoints', () => {
         .set('Authorization', `Bearer valid-jwt-token`)
         .expect(201);
 
-      expect(response.body.profile.gold).toBe(0);
+      expect(response.body.gold).toBe(0);
     });
 
     it('should call service with correct user ID', async () => {
@@ -204,7 +206,7 @@ describe('Profile API Endpoints', () => {
         .set('Authorization', `Bearer valid-jwt-token`)
         .expect(201);
 
-      expect(response.body.profile.vanity_level).toBe(1);
+      expect(response.body.vanity_level).toBe(1);
     });
 
     it('should return profile with level set to 1', async () => {
@@ -213,7 +215,7 @@ describe('Profile API Endpoints', () => {
         .set('Authorization', `Bearer valid-jwt-token`)
         .expect(201);
 
-      expect(response.body.profile.level).toBe(1);
+      expect(response.body.level).toBe(1);
     });
 
     it('should set username to null when not provided', async () => {
@@ -222,7 +224,7 @@ describe('Profile API Endpoints', () => {
         .set('Authorization', `Bearer valid-jwt-token`)
         .expect(201);
 
-      expect(response.body.profile.username).toBe(null);
+      expect(response.body.username).toBe(null);
     });
 
     it('should include id in response', async () => {
@@ -231,7 +233,7 @@ describe('Profile API Endpoints', () => {
         .set('Authorization', `Bearer valid-jwt-token`)
         .expect(201);
 
-      expect(response.body.profile.id).toBe(mockUserId);
+      expect(response.body.id).toBe(mockUserId);
     });
 
     it('should handle service failure during profile creation', async () => {
@@ -269,6 +271,7 @@ describe('Profile API Endpoints', () => {
         account_type: 'email',
         username: null,
         vanity_level: 1,
+        avg_item_level: 0,
         gold: 0,
         gems: 0,
         total_stats: {
@@ -288,7 +291,7 @@ describe('Profile API Endpoints', () => {
         .set('Authorization', `Bearer valid-jwt-token`)
         .expect(201);
 
-      expect(response.body.profile.email).toBe(customEmail);
+      expect(response.body.email).toBe(customEmail);
     });
   });
 });
