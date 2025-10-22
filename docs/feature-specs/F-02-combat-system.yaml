@@ -157,7 +157,7 @@ dependencies:
   data_sources: "Player equipment from F-03 via v_player_equipped_stats, Weapons table for dial patterns, EnemyTypes with tier scaling, Tiers table (1-20+ tiers)"
 
 implementation_status:
-  progress: 85  # Backend fully implemented and tested, frontend and universal weapon config remaining
+  progress: 95  # Backend 100% complete with all weapon configs, only frontend remains
   completed_components:
     - "PostgreSQL combat functions: fn_weapon_bands_adjusted(), fn_expected_mul_quick(), fn_acc_scale(), combat_rating(), effective_hp()"
     - "Database tables: CombatSessions, EnemyPools, EnemyPoolMembers, LootPools, LootPoolEntries, Weapons"
@@ -165,28 +165,34 @@ implementation_status:
     - "Enemy pools: 3 universal pools (levels 1, 5, 10) with 8 pool member assignments"
     - "Loot pools: 3 universal pools (levels 1, 5, 10) with 123 weighted loot entries (materials + item types)"
     - "Material seed data: 15 materials (Cactus, Coffee, Feather, Gum, Flame, Sparkles, etc.)"
-    - "CombatService with full session management: startCombat, getCombatSession, recovery"
+    - "Weapon dial configurations: ALL 4 weapon ItemTypes have configs (Enormous Key, Gatling Gun, Sword, Wooden Stick) with single_arc pattern"
+    - "CombatService with full session management: startCombat, executeAttack, executeDefense, completeCombat, getCombatSession"
     - "Attack system: 5 hit zones (injure -50%, miss 0%, graze 60%, normal 100%, crit 160%+RNG)"
     - "Defense system: damage reduction 20-80% based on accuracy and defense timing"
     - "Loot generation with style inheritance (enemies with style_id drop matching styled materials)"
     - "Enemy selection via weighted random from pools"
-    - "5 hit zone system with accuracy-based band scaling"
-    - "Elo-style combat rating system"
-    - "All RPC functions created and tested (/combat/start, /combat/attack, /combat/complete)"
-    - "Routes and controllers complete"
-    - "Counterattacks on non-injure hits"
+    - "Weapon band adjustment via fn_weapon_bands_adjusted() with player accuracy scaling"
+    - "Elo-style combat rating system with win probability estimation"
+    - "All API endpoints: POST /combat/start, /combat/attack, /combat/defend, /combat/complete, GET /combat/session/:id"
+    - "AI dialogue endpoints: POST /combat/pet-chatter (F-11), /combat/enemy-chatter (F-12)"
+    - "Routes, controllers, and services fully implemented and tested"
+    - "Counterattacks on non-injure hits with automatic enemy damage calculation"
+    - "Combat session recovery for app backgrounding (15min TTL)"
   in_progress_components: []
   blocked_items:
-    - "Universal weapon dial configuration (can use temporary config for MVP0)"
-    - "Frontend SwiftUI combat UI"
+    - "Frontend SwiftUI combat UI (not started)"
   notes:
-    - "Backend fully implemented and tested. Combat system is production-ready."
-    - "MVP0 uses single universal weapon config - all items equipped as weapons use same dial pattern"
-    - "Current pools are 'universal' filter_type - can add location-specific pools later (filter_type='location_type', filter_value='gym')"
+    - "✅ Backend 100% complete and production-ready with all weapon configs"
+    - "✅ Weapon configs: 4/4 ItemTypes complete (Enormous Key, Gatling Gun, Sword, Wooden Stick)"
+    - "5 total weapon dial configs in database (2x Wooden Stick items, 1x each for other types)"
+    - "CombatService falls back to hardcoded config if weapon not equipped"
+    - "All equipped weapons will now have dial configs - no NotFoundError risk"
+    - "MVP0 uses single_arc pattern only (speeds: 180-360 deg/s, all zones sum to 360°)"
+    - "Current pools are 'universal' filter_type - can add location-specific pools later"
     - "Pool system supports weighted random selection (spawn_weight, drop_weight columns)"
-    - "Enemy tier scaling via Tiers table (5 tiers currently seeded)"
-    - "Style system integrated: enemies with style_id drop materials with matching style_id"
-    - "Next steps: (1) Create universal weapon dial config, (2) Implement frontend SwiftUI combat UI, (3) Optional: Add location-specific pools"
+    - "Enemy tier scaling via Tiers table (5 tiers seeded, supports 1-20+)"
+    - "Style system integrated: enemies drop materials matching their style_id"
+    - "Next steps: (1) Complete weapon seed data (optional), (2) Implement frontend SwiftUI combat UI"
 
 user_stories:
   - US-201
