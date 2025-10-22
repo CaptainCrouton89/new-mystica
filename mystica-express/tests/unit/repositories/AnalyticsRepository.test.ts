@@ -227,6 +227,26 @@ describe('AnalyticsRepository', () => {
           was_ai_generated: true
         });
       });
+
+      it('should throw DatabaseError on insert failure', async () => {
+        const mockInsert = jest.fn().mockResolvedValue({
+          data: null,
+          error: { message: 'Insert failed' }
+        });
+
+        mockClient.from.mockReturnValue({
+          insert: mockInsert
+        } as any);
+
+        await expect(repository.logPetChatter(
+          'session-1',
+          'pet-item-1',
+          'combat_start',
+          'Let me help you fight!',
+          150,
+          true
+        )).rejects.toThrow(DatabaseError);
+      });
     });
 
     describe('getPetChatterBySession', () => {
@@ -250,6 +270,42 @@ describe('AnalyticsRepository', () => {
         expect(mockQuery.eq).toHaveBeenCalledWith('session_id', 'session-1');
         expect(mockQuery.order).toHaveBeenCalledWith('timestamp', { ascending: true });
         expect(result).toEqual(mockChatter);
+      });
+    });
+
+    describe('getPetChatterByPersonality', () => {
+      it('should get pet chatter by personality type ordered by timestamp desc', async () => {
+        const mockChatter = [
+          { id: 'chat-2', personality_type: 'friendly', event_type: 'taunt', timestamp: '2023-01-01T00:02:00Z' },
+          { id: 'chat-1', personality_type: 'friendly', event_type: 'combat_start', timestamp: '2023-01-01T00:01:00Z' }
+        ];
+
+        const mockQuery = {
+          select: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          order: jest.fn().mockResolvedValue({ data: mockChatter, error: null })
+        };
+
+        mockClient.from.mockReturnValue(mockQuery as any);
+
+        const result = await repository.getPetChatterByPersonality('friendly');
+
+        expect(mockClient.from).toHaveBeenCalledWith('combatchatterlog');
+        expect(mockQuery.eq).toHaveBeenCalledWith('personality_type', 'friendly');
+        expect(mockQuery.order).toHaveBeenCalledWith('timestamp', { ascending: false });
+        expect(result).toEqual(mockChatter);
+      });
+
+      it('should throw DatabaseError on query failure', async () => {
+        const mockQuery = {
+          select: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          order: jest.fn().mockResolvedValue({ data: null, error: { message: 'Database error' } })
+        };
+
+        mockClient.from.mockReturnValue(mockQuery as any);
+
+        await expect(repository.getPetChatterByPersonality('friendly')).rejects.toThrow(DatabaseError);
       });
     });
 
@@ -288,6 +344,18 @@ describe('AnalyticsRepository', () => {
         const result = await repository.getAvgGenerationTime('friendly');
         expect(result).toBe(0);
       });
+
+      it('should throw DatabaseError on query failure', async () => {
+        const mockQuery = {
+          select: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          not: jest.fn().mockResolvedValue({ data: null, error: { message: 'Database error' } })
+        };
+
+        mockClient.from.mockReturnValue(mockQuery as any);
+
+        await expect(repository.getAvgGenerationTime('friendly')).rejects.toThrow(DatabaseError);
+      });
     });
   });
 
@@ -323,6 +391,65 @@ describe('AnalyticsRepository', () => {
           was_ai_generated: true
         });
       });
+
+      it('should throw DatabaseError on insert failure', async () => {
+        const mockInsert = jest.fn().mockResolvedValue({
+          data: null,
+          error: { message: 'Insert failed' }
+        });
+
+        mockClient.from.mockReturnValue({
+          insert: mockInsert
+        } as any);
+
+        const playerContext = { level: 5, equipment: ['sword', 'armor'] };
+
+        await expect(repository.logEnemyChatter(
+          'session-1',
+          'enemy-type-1',
+          'player_miss',
+          'Haha, you missed!',
+          playerContext,
+          200,
+          true
+        )).rejects.toThrow(DatabaseError);
+      });
+    });
+
+    describe('getEnemyChatterBySession', () => {
+      it('should get enemy chatter by session ordered by timestamp asc', async () => {
+        const mockChatter = [
+          { id: 'chat-1', session_id: 'session-1', event_type: 'combat_start', timestamp: '2023-01-01T00:01:00Z' },
+          { id: 'chat-2', session_id: 'session-1', event_type: 'taunt', timestamp: '2023-01-01T00:02:00Z' }
+        ];
+
+        const mockQuery = {
+          select: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          order: jest.fn().mockResolvedValue({ data: mockChatter, error: null })
+        };
+
+        mockClient.from.mockReturnValue(mockQuery as any);
+
+        const result = await repository.getEnemyChatterBySession('session-1');
+
+        expect(mockClient.from).toHaveBeenCalledWith('enemychatterlog');
+        expect(mockQuery.eq).toHaveBeenCalledWith('session_id', 'session-1');
+        expect(mockQuery.order).toHaveBeenCalledWith('timestamp', { ascending: true });
+        expect(result).toEqual(mockChatter);
+      });
+
+      it('should throw DatabaseError on query failure', async () => {
+        const mockQuery = {
+          select: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          order: jest.fn().mockResolvedValue({ data: null, error: { message: 'Database error' } })
+        };
+
+        mockClient.from.mockReturnValue(mockQuery as any);
+
+        await expect(repository.getEnemyChatterBySession('session-1')).rejects.toThrow(DatabaseError);
+      });
     });
 
     describe('getEnemyChatterByType', () => {
@@ -345,6 +472,68 @@ describe('AnalyticsRepository', () => {
         expect(mockQuery.eq).toHaveBeenCalledWith('enemy_type_id', 'goblin');
         expect(mockQuery.order).toHaveBeenCalledWith('timestamp', { ascending: false });
         expect(result).toEqual(mockChatter);
+      });
+
+      it('should throw DatabaseError on query failure', async () => {
+        const mockQuery = {
+          select: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          order: jest.fn().mockResolvedValue({ data: null, error: { message: 'Database error' } })
+        };
+
+        mockClient.from.mockReturnValue(mockQuery as any);
+
+        await expect(repository.getEnemyChatterByType('goblin')).rejects.toThrow(DatabaseError);
+      });
+    });
+
+    describe('getAvgEnemyChatterGenerationTime', () => {
+      it('should calculate average generation time for enemy type', async () => {
+        const mockData = [
+          { generation_time_ms: 120 },
+          { generation_time_ms: 180 },
+          { generation_time_ms: 300 }
+        ];
+
+        const mockQuery = {
+          select: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          not: jest.fn().mockResolvedValue({ data: mockData, error: null })
+        };
+
+        mockClient.from.mockReturnValue(mockQuery as any);
+
+        const result = await repository.getAvgEnemyChatterGenerationTime('goblin');
+
+        expect(mockClient.from).toHaveBeenCalledWith('enemychatterlog');
+        expect(mockQuery.eq).toHaveBeenCalledWith('enemy_type_id', 'goblin');
+        expect(mockQuery.not).toHaveBeenCalledWith('generation_time_ms', 'is', null);
+        expect(result).toBe(200); // (120 + 180 + 300) / 3
+      });
+
+      it('should return 0 for empty dataset', async () => {
+        const mockQuery = {
+          select: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          not: jest.fn().mockResolvedValue({ data: [], error: null })
+        };
+
+        mockClient.from.mockReturnValue(mockQuery as any);
+
+        const result = await repository.getAvgEnemyChatterGenerationTime('goblin');
+        expect(result).toBe(0);
+      });
+
+      it('should throw DatabaseError on query failure', async () => {
+        const mockQuery = {
+          select: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          not: jest.fn().mockResolvedValue({ data: null, error: { message: 'Database error' } })
+        };
+
+        mockClient.from.mockReturnValue(mockQuery as any);
+
+        await expect(repository.getAvgEnemyChatterGenerationTime('goblin')).rejects.toThrow(DatabaseError);
       });
     });
   });
@@ -439,6 +628,34 @@ describe('AnalyticsRepository', () => {
 
         expect(mockDelete).toHaveBeenCalledWith({ count: 'exact' });
         expect(result).toBe(5);
+      });
+
+      it('should return 0 when no events deleted', async () => {
+        const mockDelete = jest.fn().mockReturnValue({
+          lt: jest.fn().mockResolvedValue({ error: null, count: 0 })
+        });
+
+        mockClient.from.mockReturnValue({
+          delete: mockDelete
+        } as any);
+
+        const result = await repository.cleanupOldEvents(30);
+        expect(result).toBe(0);
+      });
+
+      it('should throw DatabaseError on delete failure', async () => {
+        const mockDelete = jest.fn().mockReturnValue({
+          lt: jest.fn().mockResolvedValue({
+            error: { message: 'Delete failed' },
+            count: null
+          })
+        });
+
+        mockClient.from.mockReturnValue({
+          delete: mockDelete
+        } as any);
+
+        await expect(repository.cleanupOldEvents(30)).rejects.toThrow(DatabaseError);
       });
     });
   });

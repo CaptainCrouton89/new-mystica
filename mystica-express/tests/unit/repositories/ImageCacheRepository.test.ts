@@ -354,6 +354,49 @@ describe('ImageCacheRepository', () => {
     });
   });
 
+  describe('getProviderStats', () => {
+    it('should return aggregated stats by provider', async () => {
+      const mockRawData = [
+        { provider: 'gemini', craft_count: 5 },
+        { provider: 'gemini', craft_count: 3 },
+        { provider: 'seedream', craft_count: 2 },
+        { provider: null, craft_count: 1 },
+      ];
+
+      mockClient.from.mockReturnValue({
+        select: jest.fn().mockResolvedValue({ data: mockRawData, error: null })
+      });
+
+      const result = await repository.getProviderStats();
+
+      expect(mockClient.from).toHaveBeenCalledWith('itemimagecache');
+      expect(result).toEqual([
+        { provider: 'gemini', combo_count: 2, total_crafts: 8 },
+        { provider: 'seedream', combo_count: 1, total_crafts: 2 },
+        { provider: null, combo_count: 1, total_crafts: 1 },
+      ]);
+    });
+
+    it('should handle empty data', async () => {
+      mockClient.from.mockReturnValue({
+        select: jest.fn().mockResolvedValue({ data: [], error: null })
+      });
+
+      const result = await repository.getProviderStats();
+
+      expect(result).toEqual([]);
+    });
+
+    it('should throw DatabaseError on query failure', async () => {
+      const mockError = { code: 'PGRST000', message: 'Database error' };
+      mockClient.from.mockReturnValue({
+        select: jest.fn().mockResolvedValue({ data: null, error: mockError })
+      });
+
+      await expect(repository.getProviderStats()).rejects.toThrow(DatabaseError);
+    });
+  });
+
   describe('getTotalUniqueComboCount', () => {
     it('should return total count of unique combos', async () => {
       // Mock the count method from BaseRepository

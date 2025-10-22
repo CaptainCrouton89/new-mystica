@@ -164,6 +164,29 @@ describe('WeaponRepository', () => {
       await expect(repository.createWeapon(invalidData))
         .rejects.toThrow(ValidationError);
     });
+
+    it('should throw ValidationError on foreign key constraint violation', async () => {
+      mockClient.single.mockResolvedValue({
+        data: null,
+        error: {
+          code: '23503',
+          message: 'insert or update on table "weapons" violates foreign key constraint'
+        }
+      });
+
+      await expect(repository.createWeapon(validWeaponData))
+        .rejects.toThrow(ValidationError);
+    });
+
+    it('should throw DatabaseError on general creation failure', async () => {
+      mockClient.single.mockResolvedValue({
+        data: null,
+        error: { code: 'PGRST500', message: 'Internal server error' }
+      });
+
+      await expect(repository.createWeapon(validWeaponData))
+        .rejects.toThrow(DatabaseError);
+    });
   });
 
   describe('updateWeaponPattern', () => {
@@ -256,10 +279,24 @@ describe('WeaponRepository', () => {
     });
 
     it('should throw NotFoundError for nonexistent weapon', async () => {
-      mockClient.rpc.mockRejectedValue(new DatabaseError('Weapon not found: weapon-1'));
+      const errorMessage = 'Weapon not found: nonexistent';
+      mockClient.rpc.mockResolvedValue({
+        data: null,
+        error: { message: errorMessage, code: 'P0001' }
+      });
 
       await expect(repository.getAdjustedBands('nonexistent', 85.0))
         .rejects.toThrow(NotFoundError);
+    });
+
+    it('should handle PostgreSQL function errors', async () => {
+      mockClient.rpc.mockResolvedValue({
+        data: null,
+        error: { message: 'Function execution failed', code: 'P0002' }
+      });
+
+      await expect(repository.getAdjustedBands('weapon-1', 85.0))
+        .rejects.toThrow(DatabaseError);
     });
   });
 
@@ -379,6 +416,210 @@ describe('WeaponRepository', () => {
       });
 
       await expect(repository.getWeaponCombatStats('nonexistent', 85.0))
+        .rejects.toThrow(NotFoundError);
+    });
+  });
+
+  describe('findWeaponWithItem', () => {
+    it('should find weapon with item details', async () => {
+      const mockWeaponWithItem = {
+        item_id: 'weapon-1',
+        pattern: 'single_arc',
+        spin_deg_per_s: 360,
+        deg_injure: 5,
+        deg_miss: 45,
+        deg_graze: 60,
+        deg_normal: 200,
+        deg_crit: 50,
+        item: {
+          id: 'weapon-1',
+          user_id: 'user-1',
+          name: 'Iron Sword',
+          category: 'weapon',
+          rarity: 'common'
+        }
+      };
+
+      mockClient.single.mockResolvedValue({ data: mockWeaponWithItem, error: null });
+
+      const result = await repository.findWeaponWithItem('weapon-1');
+
+      expect(result).toEqual(mockWeaponWithItem);
+      expect(mockClient.from).toHaveBeenCalledWith('weapons');
+      expect(mockClient.select).toHaveBeenCalledWith(`
+        *,
+        item:items!inner(*)
+      `);
+      expect(mockClient.eq).toHaveBeenCalledWith('item_id', 'weapon-1');
+    });
+
+    it('should return null when weapon with item not found', async () => {
+      mockClient.single.mockResolvedValue({
+        data: null,
+        error: { code: 'PGRST116', message: 'No rows found' }
+      });
+
+      const result = await repository.findWeaponWithItem('nonexistent');
+
+      expect(result).toBeNull();
+    });
+
+    it('should throw DatabaseError on query failure', async () => {
+      mockClient.single.mockResolvedValue({
+        data: null,
+        error: { code: 'PGRST500', message: 'Internal error' }
+      });
+
+      await expect(repository.findWeaponWithItem('weapon-1'))
+        .rejects.toThrow(DatabaseError);
+    });
+  });
+
+  describe('findUserWeapons', () => {
+    it('should find all weapons for a user', async () => {
+      const mockUserWeapons = [
+        {
+          item_id: 'weapon-1',
+          pattern: 'single_arc',
+          spin_deg_per_s: 360,
+          deg_injure: 5,
+          deg_miss: 45,
+          deg_graze: 60,
+          deg_normal: 200,
+          deg_crit: 50,
+          item: {
+            id: 'weapon-1',
+            user_id: 'user-1',
+            name: 'Iron Sword',
+            category: 'weapon'
+          }
+        },
+        {
+          item_id: 'weapon-2',
+          pattern: 'single_arc',
+          spin_deg_per_s: 180,
+          deg_injure: 10,
+          deg_miss: 40,
+          deg_graze: 50,
+          deg_normal: 190,
+          deg_crit: 70,
+          item: {
+            id: 'weapon-2',
+            user_id: 'user-1',
+            name: 'Steel Axe',
+            category: 'weapon'
+          }
+        }
+      ];
+
+      mockClient.eq.mockReturnValue({ data: mockUserWeapons, error: null });
+
+      const result = await repository.findUserWeapons('user-1');
+
+      expect(result).toEqual(mockUserWeapons);
+      expect(mockClient.from).toHaveBeenCalledWith('weapons');
+      expect(mockClient.select).toHaveBeenCalledWith(`
+        *,
+        item:items!inner(*)
+      `);
+      expect(mockClient.eq).toHaveBeenCalledWith('item.user_id', 'user-1');
+    });
+
+    it('should return empty array when user has no weapons', async () => {
+      mockClient.eq.mockReturnValue({ data: [], error: null });
+
+      const result = await repository.findUserWeapons('user-1');
+
+      expect(result).toEqual([]);
+    });
+
+    it('should handle null data response', async () => {
+      mockClient.eq.mockReturnValue({ data: null, error: null });
+
+      const result = await repository.findUserWeapons('user-1');
+
+      expect(result).toEqual([]);
+    });
+
+    it('should throw DatabaseError on query failure', async () => {
+      mockClient.eq.mockReturnValue({
+        data: null,
+        error: { code: 'PGRST500', message: 'Query failed' }
+      });
+
+      await expect(repository.findUserWeapons('user-1'))
+        .rejects.toThrow(DatabaseError);
+    });
+  });
+
+  describe('updateWeapon', () => {
+    const currentWeapon = {
+      item_id: 'weapon-1',
+      pattern: 'single_arc',
+      spin_deg_per_s: 360,
+      deg_injure: 5,
+      deg_miss: 45,
+      deg_graze: 60,
+      deg_normal: 200,
+      deg_crit: 50
+    };
+
+    it('should update weapon with valid data', async () => {
+      const updateData = { spin_deg_per_s: 180 };
+      const updatedWeapon = { ...currentWeapon, spin_deg_per_s: 180 };
+
+      mockClient.single.mockResolvedValue({ data: updatedWeapon, error: null });
+
+      const result = await repository.updateWeapon('weapon-1', updateData);
+
+      expect(result).toEqual(updatedWeapon);
+      expect(mockClient.update).toHaveBeenCalledWith(updateData);
+      expect(mockClient.eq).toHaveBeenCalledWith('item_id', 'weapon-1');
+    });
+
+    it('should validate pattern updates', async () => {
+      const invalidUpdate = { pattern: 'dual_arcs' as any };
+
+      await expect(repository.updateWeapon('weapon-1', invalidUpdate))
+        .rejects.toThrow('MVP0 only supports single_arc pattern');
+    });
+
+    it('should validate spin speed updates', async () => {
+      const invalidUpdate = { spin_deg_per_s: -10 };
+
+      await expect(repository.updateWeapon('weapon-1', invalidUpdate))
+        .rejects.toThrow('Spin speed must be greater than 0');
+    });
+
+    it('should validate degree updates with current weapon state', async () => {
+      // Mock findWeaponByItemId first, then update
+      mockClient.single
+        .mockResolvedValueOnce({ data: currentWeapon, error: null })
+        .mockResolvedValueOnce({ data: null, error: { code: 'PGRST116' } });
+
+      const invalidUpdate = { deg_crit: 150 }; // Would make total > 360
+
+      await expect(repository.updateWeapon('weapon-1', invalidUpdate))
+        .rejects.toThrow('Total degree sum cannot exceed 360');
+    });
+
+    it('should throw NotFoundError when weapon does not exist', async () => {
+      mockClient.single.mockResolvedValue({
+        data: null,
+        error: { code: 'PGRST116', message: 'No rows found' }
+      });
+
+      await expect(repository.updateWeapon('nonexistent', { spin_deg_per_s: 180 }))
+        .rejects.toThrow(NotFoundError);
+    });
+
+    it('should throw NotFoundError during degree validation lookup', async () => {
+      mockClient.single.mockResolvedValue({
+        data: null,
+        error: { code: 'PGRST116', message: 'No rows found' }
+      });
+
+      await expect(repository.updateWeapon('weapon-1', { deg_crit: 100 }))
         .rejects.toThrow(NotFoundError);
     });
   });

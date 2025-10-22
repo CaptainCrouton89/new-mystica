@@ -255,7 +255,7 @@ describe('ItemRepository', () => {
         // Mock update
         const expectedUpdate = {
           level: 10,
-          current_stats: JSON.stringify({ atkPower: 30, defPower: 20 })
+          current_stats: JSON.stringify({ atkPower: 30, atkAccuracy: 25, defPower: 20, defAccuracy: 15 })
         };
 
         mockClient.from('items').update(expectedUpdate).eq('id', mockItemId).select().single.mockResolvedValue({
@@ -266,7 +266,8 @@ describe('ItemRepository', () => {
         const result = await repository.updateItem(mockItemId, mockUserId, updateData);
 
         expect(result.level).toBe(10);
-        expect(mockClient.from).toHaveBeenCalledWith('items');
+        expect(mockClient.from('items').update).toHaveBeenCalledWith(expectedUpdate);
+        expect(mockClient.from('items').update(expectedUpdate).eq).toHaveBeenCalledWith('id', mockItemId);
       });
 
       it('should throw NotFoundError for invalid ownership', async () => {
@@ -775,6 +776,148 @@ describe('ItemRepository', () => {
     });
   });
 
+  describe('Item Type Operations', () => {
+    describe('findItemTypeById', () => {
+      it('should find item type by ID', async () => {
+        mockClient.from('itemtypes').select('*').eq('id', mockItemTypeId).single.mockResolvedValue({
+          data: mockItemType,
+          error: null
+        });
+
+        const result = await repository.findItemTypeById(mockItemTypeId);
+
+        expect(result).toEqual(mockItemType);
+        expect(mockClient.from).toHaveBeenCalledWith('itemtypes');
+      });
+
+      it('should return null when item type not found', async () => {
+        mockClient.from('itemtypes').select('*').eq('id', mockItemTypeId).single.mockResolvedValue({
+          data: null,
+          error: { code: 'PGRST116', message: 'No rows returned' }
+        });
+
+        const result = await repository.findItemTypeById(mockItemTypeId);
+
+        expect(result).toBeNull();
+      });
+
+      it('should throw DatabaseError on query failure', async () => {
+        mockClient.from('itemtypes').select('*').eq('id', mockItemTypeId).single.mockResolvedValue({
+          data: null,
+          error: { code: 'ERROR', message: 'Database error' }
+        });
+
+        await expect(repository.findItemTypeById(mockItemTypeId)).rejects.toThrow(DatabaseError);
+      });
+    });
+
+    describe('findItemTypesByRarity', () => {
+      it('should find item types by rarity', async () => {
+        const rarity = 'epic';
+        const itemTypes = [mockItemType, { ...mockItemType, id: 'itemtype-999' }];
+
+        mockClient.from.mockReturnValue({
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockResolvedValue({
+              data: itemTypes,
+              error: null
+            })
+          })
+        });
+
+        const result = await repository.findItemTypesByRarity(rarity);
+
+        expect(result).toEqual(itemTypes);
+        expect(mockClient.from('itemtypes').select('*').eq).toHaveBeenCalledWith('rarity', rarity);
+      });
+
+      it('should return empty array when no item types found', async () => {
+        const rarity = 'legendary';
+
+        mockClient.from.mockReturnValue({
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockResolvedValue({
+              data: [],
+              error: null
+            })
+          })
+        });
+
+        const result = await repository.findItemTypesByRarity(rarity);
+
+        expect(result).toEqual([]);
+      });
+
+      it('should throw DatabaseError on query failure', async () => {
+        const rarity = 'epic';
+
+        mockClient.from.mockReturnValue({
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockResolvedValue({
+              data: null,
+              error: { code: 'ERROR', message: 'Database error' }
+            })
+          })
+        });
+
+        await expect(repository.findItemTypesByRarity(rarity)).rejects.toThrow(DatabaseError);
+      });
+    });
+  });
+
+  describe('Atomic Transaction Operations (RPC)', () => {
+    describe('processUpgrade', () => {
+      it('should process item upgrade via RPC', async () => {
+        const upgradeParams = {
+          userId: mockUserId,
+          itemId: mockItemId,
+          goldCost: 100,
+          newLevel: 6,
+          newStats: { atkPower: 35, atkAccuracy: 30, defPower: 25, defAccuracy: 20 }
+        };
+
+        const expectedRpcResult = {
+          success: true,
+          item: { ...mockItemRow, level: 6 },
+          user_balance: 900
+        };
+
+        mockClient.rpc.mockResolvedValue({
+          data: expectedRpcResult,
+          error: null
+        });
+
+        const result = await repository.processUpgrade(
+          upgradeParams.userId,
+          upgradeParams.itemId,
+          upgradeParams.goldCost,
+          upgradeParams.newLevel,
+          upgradeParams.newStats
+        );
+
+        expect(result).toEqual(expectedRpcResult);
+        expect(mockClient.rpc).toHaveBeenCalledWith('process_item_upgrade', {
+          p_user_id: upgradeParams.userId,
+          p_item_id: upgradeParams.itemId,
+          p_gold_cost: upgradeParams.goldCost,
+          p_new_level: upgradeParams.newLevel,
+          p_new_stats: upgradeParams.newStats
+        });
+      });
+
+      it('should throw DatabaseError on RPC failure', async () => {
+        mockClient.rpc.mockResolvedValue({
+          data: null,
+          error: { code: 'RPC_ERROR', message: 'Insufficient gold' }
+        });
+
+        await expect(
+          repository.processUpgrade(mockUserId, mockItemId, 1000, 10, {})
+        ).rejects.toThrow(DatabaseError);
+      });
+    });
+  });
+
   describe('Private Helper Methods', () => {
     describe('transformToItemWithDetails', () => {
       it('should transform raw Supabase data to ItemWithDetails interface', async () => {
@@ -808,6 +951,57 @@ describe('ItemRepository', () => {
 
         expect(result).toBeDefined();
         expect(result?.materials).toEqual([]);
+      });
+    });
+  });
+
+  describe('Enhanced Error Handling', () => {
+    describe('updateImageData', () => {
+      it('should handle database update failure gracefully', async () => {
+        // Mock ownership validation success
+        mockClient.from('items').select('*').eq('id', mockItemId).eq('user_id', mockUserId).single.mockResolvedValue({
+          data: mockItemRow,
+          error: null
+        });
+
+        // Mock update failure
+        mockClient.from('items').update(expect.any(Object)).eq('id', mockItemId).select().single.mockResolvedValue({
+          data: null,
+          error: { code: 'UPDATE_ERROR', message: 'Update failed' }
+        });
+
+        await expect(
+          repository.updateImageData(mockItemId, mockUserId, 'hash123', 'https://example.com/img.png', 'complete')
+        ).rejects.toThrow(DatabaseError);
+      });
+    });
+
+    describe('addHistoryEvent', () => {
+      it('should throw DatabaseError on insert failure', async () => {
+        // Mock ownership validation success
+        mockClient.from
+          .mockReturnValueOnce({
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                eq: jest.fn().mockReturnValue({
+                  single: jest.fn().mockResolvedValue({
+                    data: mockItemRow,
+                    error: null
+                  })
+                })
+              })
+            })
+          })
+          // Mock history insert failure
+          .mockReturnValueOnce({
+            insert: jest.fn().mockResolvedValue({
+              error: { code: 'INSERT_ERROR', message: 'Insert failed' }
+            })
+          });
+
+        await expect(
+          repository.addHistoryEvent(mockItemId, mockUserId, 'test_event', { data: 'test' })
+        ).rejects.toThrow(DatabaseError);
       });
     });
   });

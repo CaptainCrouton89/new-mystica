@@ -22,7 +22,7 @@ type MaterialStack = Database['public']['Tables']['materialstacks']['Row'];
 
 describe('MaterialRepository', () => {
   let repository: MaterialRepository;
-  let mockClient: any;
+  let mockClient: ReturnType<typeof createMockSupabaseClient>;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -94,7 +94,7 @@ describe('MaterialRepository', () => {
           })
         });
 
-        await expect(repository.findMaterialById('material-123')).rejects.toThrow();
+        await expect(repository.findMaterialById('material-123')).rejects.toThrow(DatabaseError);
       });
     });
 
@@ -651,6 +651,301 @@ describe('MaterialRepository', () => {
         expect(result.oldStackQuantity).toBe(3);
         expect(result.newStackQuantity).toBe(7);
       });
+    });
+  });
+
+  // ============================================================================
+  // Material Templates with Details (Missing Coverage)
+  // ============================================================================
+
+  describe('findStacksByUserWithDetails', () => {
+    it('should return stacks with material and style details', async () => {
+      const mockDetailsData = [
+        {
+          material_id: 'mat-1',
+          style_id: 'style-1',
+          quantity: 5,
+          materials: { name: 'Steel' },
+          styledefinitions: { style_name: 'Mystical' }
+        }
+      ];
+
+      mockClient.from.mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            gt: jest.fn().mockReturnValue({
+              order: jest.fn().mockReturnValue({
+                order: jest.fn().mockResolvedValue({
+                  data: mockDetailsData,
+                  error: null
+                })
+              })
+            })
+          })
+        })
+      });
+
+      const result = await repository.findStacksByUserWithDetails('user-123');
+
+      expect(result).toEqual(mockDetailsData);
+      expect(mockClient.from).toHaveBeenCalledWith('materialstacks');
+    });
+
+    it('should handle database errors', async () => {
+      mockClient.from.mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            gt: jest.fn().mockReturnValue({
+              order: jest.fn().mockReturnValue({
+                order: jest.fn().mockResolvedValue({
+                  data: null,
+                  error: { code: 'DATABASE_ERROR', message: 'Connection failed' }
+                })
+              })
+            })
+          })
+        })
+      });
+
+      await expect(repository.findStacksByUserWithDetails('user-123')).rejects.toThrow(DatabaseError);
+    });
+  });
+
+  describe('deleteStackIfEmpty', () => {
+    const mockStackForCleanup: MaterialStack = {
+      user_id: 'user-123',
+      material_id: 'material-456',
+      style_id: 'style-789',
+      quantity: 5,
+      updated_at: '2024-01-01T00:00:00.000Z'
+    };
+
+    it('should delete stack when quantity is zero', async () => {
+      const zeroStack = { ...mockStackForCleanup, quantity: 0 };
+
+      // Mock findStackByUser returning zero quantity stack
+      mockClient.from
+        .mockReturnValueOnce({
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                eq: jest.fn().mockReturnValue({
+                  single: jest.fn().mockResolvedValue({ data: zeroStack, error: null })
+                })
+              })
+            })
+          })
+        })
+        // Mock delete operation
+        .mockReturnValueOnce({
+          delete: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                eq: jest.fn().mockResolvedValue({ error: null, count: 1 })
+              })
+            })
+          })
+        });
+
+      await repository.deleteStackIfEmpty('user-123', 'material-456', 'style-789');
+
+      expect(mockClient.from).toHaveBeenCalledWith('materialstacks');
+    });
+
+    it('should not delete stack when quantity is positive', async () => {
+      const positiveStack = { ...mockStackForCleanup, quantity: 5 };
+
+      mockClient.from.mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                single: jest.fn().mockResolvedValue({ data: positiveStack, error: null })
+              })
+            })
+          })
+        })
+      });
+
+      await repository.deleteStackIfEmpty('user-123', 'material-456', 'style-789');
+
+      // Should only call findStackByUser, not delete
+      expect(mockClient.from).toHaveBeenCalledTimes(1);
+    });
+
+    it('should handle non-existent stack gracefully', async () => {
+      mockClient.from.mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                single: jest.fn().mockResolvedValue({ data: null, error: { code: 'PGRST116' } })
+              })
+            })
+          })
+        })
+      });
+
+      await repository.deleteStackIfEmpty('user-123', 'material-456', 'style-789');
+
+      expect(mockClient.from).toHaveBeenCalledWith('materialstacks');
+    });
+  });
+
+  describe('findInstanceWithTemplate', () => {
+    const mockInstanceForTemplate: MaterialInstance = {
+      id: 'instance-123',
+      user_id: 'user-456',
+      material_id: 'material-789',
+      style_id: 'style-abc',
+      created_at: '2024-01-01T00:00:00.000Z'
+    };
+
+    it('should find instance with material template data', async () => {
+      const mockInstanceWithTemplate = {
+        ...mockInstanceForTemplate,
+        material: {
+          id: 'material-789',
+          name: 'Crystal',
+          stat_modifiers: { atkPower: 5, atkAccuracy: -2, defPower: 0, defAccuracy: 0 },
+          description: 'Mystical crystal'
+        }
+      };
+
+      mockClient.from.mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            single: jest.fn().mockResolvedValue({ data: mockInstanceWithTemplate, error: null })
+          })
+        })
+      });
+
+      const result = await repository.findInstanceWithTemplate('instance-123');
+
+      expect(result).toEqual(mockInstanceWithTemplate);
+      expect(mockClient.from).toHaveBeenCalledWith('materialinstances');
+    });
+
+    it('should return null when instance not found', async () => {
+      mockClient.from.mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            single: jest.fn().mockResolvedValue({ data: null, error: { code: 'PGRST116' } })
+          })
+        })
+      });
+
+      const result = await repository.findInstanceWithTemplate('non-existent');
+
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('findMaterialsByItem', () => {
+    it('should find all materials applied to an item', async () => {
+      const mockAppliedMaterials = [
+        {
+          id: 'applied-1',
+          slot_index: 0,
+          material_instance: {
+            material_id: 'mat-1',
+            style_id: 'style-1'
+          },
+          material: {
+            material: {
+              id: 'mat-1',
+              name: 'Steel',
+              stat_modifiers: { atkPower: 2, atkAccuracy: 1, defPower: 0, defAccuracy: 0 }
+            }
+          }
+        }
+      ];
+
+      mockClient.from.mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            order: jest.fn().mockResolvedValue({
+              data: mockAppliedMaterials,
+              error: null
+            })
+          })
+        })
+      });
+
+      const result = await repository.findMaterialsByItem('item-123');
+
+      expect(result).toHaveLength(1);
+      expect(result[0].material_id).toBe('mat-1');
+      expect(result[0].slot_index).toBe(0);
+      expect(mockClient.from).toHaveBeenCalledWith('itemmaterials');
+    });
+
+    it('should return empty array when no materials applied', async () => {
+      mockClient.from.mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            order: jest.fn().mockResolvedValue({
+              data: [],
+              error: null
+            })
+          })
+        })
+      });
+
+      const result = await repository.findMaterialsByItem('item-123');
+
+      expect(result).toEqual([]);
+    });
+  });
+
+  describe('getLootPoolMaterialWeights', () => {
+    it('should get material weights for loot pools', async () => {
+      const mockWeights = [
+        {
+          loot_pool_id: 'pool-1',
+          material_id: 'mat-1',
+          spawn_weight: 100
+        },
+        {
+          loot_pool_id: 'pool-1',
+          material_id: 'mat-2',
+          spawn_weight: 50
+        }
+      ];
+
+      mockClient.from.mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          in: jest.fn().mockResolvedValue({
+            data: mockWeights,
+            error: null
+          })
+        })
+      });
+
+      const result = await repository.getLootPoolMaterialWeights(['pool-1']);
+
+      expect(result).toEqual(mockWeights);
+      expect(mockClient.from).toHaveBeenCalledWith('v_loot_pool_material_weights');
+    });
+
+    it('should return empty array for empty loot pool list', async () => {
+      const result = await repository.getLootPoolMaterialWeights([]);
+
+      expect(result).toEqual([]);
+      expect(mockClient.from).not.toHaveBeenCalled();
+    });
+
+    it('should handle database errors', async () => {
+      mockClient.from.mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          in: jest.fn().mockResolvedValue({
+            data: null,
+            error: { code: 'DATABASE_ERROR', message: 'Query failed' }
+          })
+        })
+      });
+
+      await expect(repository.getLootPoolMaterialWeights(['pool-1'])).rejects.toThrow(DatabaseError);
     });
   });
 

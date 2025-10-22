@@ -8,23 +8,27 @@
 import { CombatRepository, CombatSessionData, CombatLogEventData, PlayerCombatHistoryData, COMBAT_SESSION_TTL } from '../../../src/repositories/CombatRepository.js';
 import { ValidationError, BusinessLogicError, NotFoundError } from '../../../src/utils/errors.js';
 
-// Mock Supabase client
+// Mock Supabase client with proper chain tracking
+const createMockSupabaseChain = () => ({
+  select: jest.fn().mockReturnThis(),
+  insert: jest.fn().mockReturnThis(),
+  update: jest.fn().mockReturnThis(),
+  upsert: jest.fn().mockReturnThis(),
+  delete: jest.fn().mockReturnThis(),
+  eq: jest.fn().mockReturnThis(),
+  not: jest.fn().mockReturnThis(),
+  gte: jest.fn().mockReturnThis(),
+  lt: jest.fn().mockReturnThis(),
+  is: jest.fn().mockReturnThis(),
+  order: jest.fn().mockReturnThis(),
+  limit: jest.fn().mockReturnThis(),
+  single: jest.fn(),
+  onConflict: jest.fn().mockReturnThis(),
+  ignoreDuplicates: jest.fn().mockReturnThis(),
+});
+
 const mockSupabase = {
-  from: jest.fn(() => ({
-    select: jest.fn().mockReturnThis(),
-    insert: jest.fn().mockReturnThis(),
-    update: jest.fn().mockReturnThis(),
-    upsert: jest.fn().mockReturnThis(),
-    delete: jest.fn().mockReturnThis(),
-    eq: jest.fn().mockReturnThis(),
-    not: jest.fn().mockReturnThis(),
-    gte: jest.fn().mockReturnThis(),
-    order: jest.fn().mockReturnThis(),
-    limit: jest.fn().mockReturnThis(),
-    single: jest.fn(),
-    onConflict: jest.fn().mockReturnThis(),
-    ignoreDuplicates: jest.fn().mockReturnThis(),
-  })),
+  from: jest.fn(() => createMockSupabaseChain()),
   rpc: jest.fn(),
 };
 
@@ -183,6 +187,21 @@ describe('CombatRepository', () => {
         expect(result).toBeNull();
       });
 
+      it('should handle database errors properly', async () => {
+        mockClient.from.mockReturnValue({
+          select: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          is: jest.fn().mockReturnThis(),
+          single: jest.fn().mockResolvedValue({
+            data: null,
+            error: { message: 'Database connection failed', code: 'CONNECTION_ERROR' }
+          })
+        });
+
+        await expect(repository.getActiveSession('session-1'))
+          .rejects.toThrow(ValidationError);
+      });
+
       it('should throw error for invalid session ID', async () => {
         await expect(repository.getActiveSession(''))
           .rejects.toThrow(ValidationError);
@@ -336,6 +355,16 @@ describe('CombatRepository', () => {
 
         await expect(repository.deleteSession('session-1'))
           .rejects.toThrow(ValidationError);
+      });
+
+      it('should handle concurrent deletion attempts gracefully', async () => {
+        mockClient.from.mockReturnValue({
+          delete: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockResolvedValue({ error: null })
+        });
+
+        await repository.deleteSession('session-1');
+        expect(mockClient.from).toHaveBeenCalledWith('combatsessions');
       });
     });
   });
@@ -555,6 +584,16 @@ describe('CombatRepository', () => {
           p_result: 'defeat', // abandoned mapped to defeat
         });
       });
+
+      it('should handle RPC errors gracefully', async () => {
+        mockClient.rpc.mockResolvedValue({
+          data: null,
+          error: { message: 'RPC function failed', code: 'FUNCTION_ERROR' }
+        });
+
+        await expect(repository.updatePlayerHistory('user-1', 'location-1', 'victory'))
+          .rejects.toThrow();
+      });
     });
   });
 
@@ -760,6 +799,126 @@ describe('CombatRepository', () => {
 
           expect(result).toBe(2);
           expect(mockClient.from).toHaveBeenCalledWith('combatsessions');
+        });
+      });
+    });
+
+    describe('Combat Rating Calculation', () => {
+      it('should calculate combat rating using RPC', async () => {
+        mockClient.rpc.mockResolvedValue({ data: 150, error: null });
+
+        const rating = await repository.calculateCombatRating(100, 50, 200);
+
+        expect(rating).toBe(150);
+        expect(mockClient.rpc).toHaveBeenCalledWith('combat_rating', {
+          atk: 100,
+          def: 50,
+          hp: 200
+        });
+      });
+
+      it('should handle RPC errors for combat rating', async () => {
+        mockClient.rpc.mockResolvedValue({
+          data: null,
+          error: { message: 'Combat rating calculation failed' }
+        });
+
+        await expect(repository.calculateCombatRating(100, 50, 200))
+          .rejects.toThrow();
+      });
+
+      it('should handle null rating response', async () => {
+        mockClient.rpc.mockResolvedValue({ data: null, error: null });
+
+        const rating = await repository.calculateCombatRating(100, 50, 200);
+        expect(rating).toBe(0);
+      });
+    });
+
+    describe('Chatter Logging', () => {
+      it('should log chatter attempts successfully', async () => {
+        mockClient.from.mockReturnValue({
+          insert: jest.fn().mockResolvedValue({ error: null })
+        });
+
+        const logEntry = {
+          sessionId: 'session-1',
+          enemyTypeId: 'enemy-1',
+          eventType: 'combat_start',
+          generatedDialogue: 'Prepare to face my wrath!',
+          dialogueTone: 'aggressive',
+          generationTimeMs: 150,
+          wasAiGenerated: true,
+          playerMetadata: { level: 5 },
+          combatContext: { streak: 2 }
+        };
+
+        await repository.logChatterAttempt(logEntry);
+
+        expect(mockClient.from).toHaveBeenCalledWith('enemychatterlog');
+      });
+
+      it('should not throw on chatter logging failures', async () => {
+        mockClient.from.mockReturnValue({
+          insert: jest.fn().mockResolvedValue({
+            error: { message: 'Insert failed' }
+          })
+        });
+
+        const logEntry = {
+          sessionId: 'session-1',
+          enemyTypeId: 'enemy-1',
+          eventType: 'combat_start'
+        };
+
+        // Should not throw - logging failures are caught
+        await expect(repository.logChatterAttempt(logEntry))
+          .resolves.not.toThrow();
+      });
+
+      it('should get player combat context', async () => {
+        const mockContext = {
+          user_id: 'user-1',
+          location_id: 'location-1',
+          total_attempts: 5,
+          victories: 3,
+          defeats: 2,
+          current_streak: 1
+        };
+
+        mockClient.from.mockReturnValue({
+          select: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          single: jest.fn().mockResolvedValue({ data: mockContext, error: null })
+        });
+
+        const result = await repository.getPlayerCombatContext('user-1', 'location-1');
+
+        expect(result).toEqual({
+          attempts: 5,
+          victories: 3,
+          defeats: 2,
+          current_streak: 1
+        });
+      });
+
+      it('should return default context for new players', async () => {
+        mockClient.from.mockReturnValue({
+          select: jest.fn().mockReturnThis(),
+          eq: jest.fn().mockReturnThis(),
+          single: jest.fn().mockResolvedValue({
+            data: null,
+            error: { code: 'PGRST116' }
+          })
+        });
+
+        const result = await repository.getPlayerCombatContext('user-1', 'location-1');
+
+        expect(result).toEqual({
+          attempts: 0,
+          victories: 0,
+          defeats: 0,
+          current_streak: 0
         });
       });
     });

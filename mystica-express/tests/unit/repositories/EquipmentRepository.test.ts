@@ -259,6 +259,153 @@ describe('EquipmentRepository', () => {
   });
 
   // ============================================================================
+  // RPC Operations
+  // ============================================================================
+
+  describe('equipItemAtomic', () => {
+    it('should call RPC with correct parameters', async () => {
+      mockClient.rpc.mockResolvedValue({ data: { success: true }, error: null });
+
+      await repository.equipItemAtomic('user-123', 'item-456', 'weapon');
+
+      expect(mockClient.rpc).toHaveBeenCalledWith('equip_item', {
+        p_user_id: 'user-123',
+        p_item_id: 'item-456',
+        p_slot_name: 'weapon'
+      });
+    });
+
+    it('should handle RPC errors', async () => {
+      mockClient.rpc.mockResolvedValue({
+        data: null,
+        error: { message: 'RPC failed', code: 'RPC_ERROR' }
+      });
+
+      await expect(repository.equipItemAtomic('user-123', 'item-456', 'weapon'))
+        .rejects.toThrow('RPC failed');
+    });
+  });
+
+  describe('unequipItemAtomic', () => {
+    it('should call RPC with correct parameters', async () => {
+      mockClient.rpc.mockResolvedValue({ data: { success: true }, error: null });
+
+      await repository.unequipItemAtomic('user-123', 'weapon');
+
+      expect(mockClient.rpc).toHaveBeenCalledWith('unequip_item', {
+        p_user_id: 'user-123',
+        p_slot_name: 'weapon'
+      });
+    });
+  });
+
+  describe('getPlayerPowerLevel', () => {
+    const userId = 'user-123';
+
+    it('should return power level stats from view', async () => {
+      mockClient.from.mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            single: jest.fn().mockResolvedValue({
+              data: { atk: 25, def: 18, hp: 150, acc: 12 },
+              error: null
+            })
+          })
+        })
+      });
+
+      const result = await repository.getPlayerPowerLevel(userId);
+
+      expect(result).toEqual({
+        atk: 25,
+        def: 18,
+        hp: 150,
+        acc: 12
+      });
+      expect(mockClient.from).toHaveBeenCalledWith('v_player_powerlevel');
+    });
+
+    it('should return null when player not found', async () => {
+      mockClient.from.mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            single: jest.fn().mockResolvedValue({
+              data: null,
+              error: { code: 'PGRST116' }
+            })
+          })
+        })
+      });
+
+      const result = await repository.getPlayerPowerLevel(userId);
+      expect(result).toBeNull();
+    });
+
+    it('should handle database errors', async () => {
+      mockClient.from.mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            single: jest.fn().mockResolvedValue({
+              data: null,
+              error: { message: 'Connection failed', code: 'DB_ERROR' }
+            })
+          })
+        })
+      });
+
+      await expect(repository.getPlayerPowerLevel(userId)).rejects.toThrow(DatabaseError);
+    });
+  });
+
+  describe('getPlayerEquippedStats', () => {
+    const userId = 'user-123';
+
+    it('should return equipped stats from view', async () => {
+      mockClient.from.mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            single: jest.fn().mockResolvedValue({
+              data: { atk: 25, acc: 18, def: 15 },
+              error: null
+            })
+          })
+        })
+      });
+
+      const result = await repository.getPlayerEquippedStats(userId);
+
+      expect(result).toEqual({
+        atkPower: 25,
+        atkAccuracy: 18,
+        defPower: 15,
+        defAccuracy: 18 // Uses acc for both attack and defense accuracy
+      });
+    });
+
+    it('should return zero stats when no data found', async () => {
+      mockClient.from.mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            single: jest.fn().mockResolvedValue({
+              data: null,
+              error: { code: 'PGRST116' }
+            })
+          })
+        })
+      });
+
+      const result = await repository.getPlayerEquippedStats(userId);
+
+      expect(result).toEqual({
+        atkPower: 0,
+        atkAccuracy: 0,
+        defPower: 0,
+        defAccuracy: 0
+      });
+    });
+  });
+
+  // ============================================================================
   // Equip Operations
   // ============================================================================
 
@@ -304,6 +451,34 @@ describe('EquipmentRepository', () => {
 
       await expect(repository.equipItem(userId, itemId, slotName)).rejects.toThrow(ValidationError);
       await expect(repository.equipItem(userId, itemId, slotName)).rejects.toThrow('category incompatible');
+    });
+
+
+    it('should handle database error during upsert', async () => {
+      jest.spyOn(repository, 'validateSlotCompatibility').mockResolvedValue(true);
+
+      // Mock item ownership check to pass
+      mockClient.from
+        .mockReturnValueOnce({
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                single: jest.fn().mockResolvedValue({
+                  data: { id: itemId, user_id: userId },
+                  error: null
+                })
+              })
+            })
+          })
+        })
+        // Mock upsert to fail
+        .mockReturnValueOnce({
+          upsert: jest.fn().mockResolvedValue({
+            error: { message: 'Database constraint violation', code: 'DB_ERROR' }
+          })
+        });
+
+      await expect(repository.equipItem(userId, itemId, slotName)).rejects.toThrow(DatabaseError);
     });
 
     it('should throw NotFoundError for non-owned item', async () => {
@@ -587,6 +762,60 @@ describe('EquipmentRepository', () => {
             single: jest.fn().mockResolvedValue({
               data: null,
               error: { code: 'PGRST116' }
+            })
+          })
+        })
+      });
+
+      await expect(repository.validateSlotCompatibility(itemId, 'weapon')).rejects.toThrow(NotFoundError);
+    });
+
+    it('should validate shield in offhand slot', async () => {
+      mockClient.from.mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            single: jest.fn().mockResolvedValue({
+              data: {
+                itemtypes: { category: 'shield' }
+              },
+              error: null
+            })
+          })
+        })
+      });
+
+      const result = await repository.validateSlotCompatibility(itemId, 'offhand');
+      expect(result).toBe(true);
+    });
+
+    it('should validate accessory in both accessory slots', async () => {
+      mockClient.from.mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            single: jest.fn().mockResolvedValue({
+              data: {
+                itemtypes: { category: 'ring' }
+              },
+              error: null
+            })
+          })
+        })
+      });
+
+      const result1 = await repository.validateSlotCompatibility(itemId, 'accessory_1');
+      const result2 = await repository.validateSlotCompatibility(itemId, 'accessory_2');
+
+      expect(result1).toBe(true);
+      expect(result2).toBe(true);
+    });
+
+    it('should throw NotFoundError when item has no itemtype', async () => {
+      mockClient.from.mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            single: jest.fn().mockResolvedValue({
+              data: { itemtypes: null },
+              error: null
             })
           })
         })

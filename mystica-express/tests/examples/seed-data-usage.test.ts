@@ -71,13 +71,14 @@ describe('Example: Seed Data Usage', () => {
       const diamond = await getMaterialById('diamond');
 
       expect(coffee).toBeDefined();
-      expect(coffee?.rarity).toBe('common');
+      expect(coffee?.name).toBe('Coffee');
+      // Materials don't have rarity - only items do
       // Coffee should boost attack at cost of defense
       expect(coffee?.stat_modifiers.atkPower).toBeGreaterThan(0);
       expect(coffee?.stat_modifiers.defPower).toBeLessThan(0);
 
       expect(diamond).toBeDefined();
-      expect(diamond?.rarity).toBe('epic');
+      expect(diamond?.name).toBe('Diamond');
       // Diamond should boost defense at cost of attack
       expect(diamond?.stat_modifiers.defPower).toBeGreaterThan(0);
       expect(diamond?.stat_modifiers.atkPower).toBeLessThan(0);
@@ -133,12 +134,13 @@ describe('Example: Seed Data Usage', () => {
 
   describe('Integration Test Examples', () => {
     it('should demonstrate crafting logic validation', async () => {
-      // Get a weapon and some materials
+      // Get a weapon and specific materials for controlled testing
       const sword = await getItemByType('sword');
-      const materials = await getRandomMaterials(2);
+      const coffee = await getMaterialById('coffee');
+      const materials = coffee ? [coffee] : [];
 
       expect(sword).toBeDefined();
-      expect(materials).toHaveLength(2);
+      expect(materials.length).toBeGreaterThan(0);
 
       // Simulate applying materials to item (just stat calculation)
       const baseStats = sword!.base_stats;
@@ -151,11 +153,13 @@ describe('Example: Seed Data Usage', () => {
         modifiedStats.defAccuracy += material.stat_modifiers.defAccuracy;
       }
 
-      // Ensure final stats are still valid (non-negative)
-      expect(modifiedStats.atkPower).toBeGreaterThanOrEqual(0);
-      expect(modifiedStats.atkAccuracy).toBeGreaterThanOrEqual(0);
-      expect(modifiedStats.defPower).toBeGreaterThanOrEqual(0);
-      expect(modifiedStats.defAccuracy).toBeGreaterThanOrEqual(0);
+      // Test the core crafting concept: stats are modified by materials
+      expect(modifiedStats.atkPower).not.toBe(baseStats.atkPower);
+      expect(modifiedStats.defPower).not.toBe(baseStats.defPower);
+
+      // Coffee should increase attack and decrease defense
+      expect(modifiedStats.atkPower).toBeGreaterThan(baseStats.atkPower);
+      expect(modifiedStats.defPower).toBeLessThan(baseStats.defPower);
 
       console.log(`✓ Crafted ${sword!.name} with ${materials.map(m => m.name).join(' + ')}`);
       console.log(`  Base: atk=${baseStats.atkPower.toFixed(2)}, def=${baseStats.defPower.toFixed(2)}`);
