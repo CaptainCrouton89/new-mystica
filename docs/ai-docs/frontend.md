@@ -8,7 +8,7 @@
 - **Path sync requirement:** navigateTo() appends to navigationPath AND updates currentDestination, navigateBack() pops both
 - **History bug pattern:** Adding to history happens BEFORE navigation in navigateTo:65, not after
 - **Environment injection:** New_MysticaApp.swift:31-32 creates singleton, ContentView:13 consumes it
-- **Preview requirement:** ALL previews need `.modelContainer(for: Item.self, inMemory: true).environmentObject(NavigationManager())`
+- **Preview requirement:** ALL previews need `.modelContainer(for: Item.self, inMemory: true).environmentObject(NavigationManager())` - SwiftData container is for **preview environment only**, not for runtime persistence
 - **SimpleNavigableView helper:** Auto-adds back button, but requires NavigationManager in environment
 
 ## Design System Enforcement
@@ -17,7 +17,7 @@
 - **Font requirement:** Impact font used in all buttons (ButtonComponents.swift:72), system fonts for body text
 - **Component library:** TitleText, NormalText, IconButton, TextButton, PopupView - NEVER use raw Text/Button
 - **Icon system:** SF Symbols via `Image(systemName:)`, custom mystica-icon-* for game assets
-- **SwiftData ModelContainer:** Item model registered in ContentView:23, persistent storage automatic
+- **SwiftData (Previews Only):** SwiftData is NOT used for runtime persistence. New Mystica is online-only with no local caching. SwiftData `.modelContainer()` is used ONLY in SwiftUI previews to provide a test environment for components. See `frontend-state-management.md` for details on online-only architecture.
 
 ## External Dependencies
 
