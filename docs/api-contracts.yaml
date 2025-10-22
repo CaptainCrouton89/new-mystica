@@ -947,9 +947,15 @@ paths:
                 location_id:
                   type: string
                   format: uuid
+                selected_level:
+                  type: integer
+                  minimum: 1
+                  maximum: 20
+                  description: Player-chosen combat level (1-20 for MVP0, determines enemy difficulty)
+              required: [location_id, selected_level]
       responses:
         '200':
-          description: Combat session created
+          description: Combat session created with enemy at selected level
           content:
             application/json:
               schema:
@@ -1073,12 +1079,94 @@ paths:
                         items:
                           $ref: '#/components/schemas/MaterialStack'
 
+  /combat/session/{session_id}:
+    get:
+      summary: Get active combat session state (F-02)
+      description: Retrieve current combat state for session recovery when app is backgrounded or crashes
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: session_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Combat session state retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  session_id:
+                    type: string
+                    format: uuid
+                  player_hp:
+                    type: number
+                  enemy_hp:
+                    type: number
+                  turn_count:
+                    type: integer
+                  whose_turn:
+                    type: string
+                    enum: [player, enemy]
+                  enemy:
+                    $ref: '#/components/schemas/Enemy'
+                  expires_at:
+                    type: string
+                    format: date-time
+                    description: Session expires after 15 minutes
+        '404':
+          description: Session not found or expired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
   /inventory:
     get:
       summary: Get player inventory (all items) (F-09)
-      description: Returns both stacked items (base items only) and unique items (with materials applied)
+      description: Returns both stacked items (base items only) and unique items (with materials applied) with filtering and pagination
       security:
         - BearerAuth: []
+      parameters:
+        - name: slot_type
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [all, weapon, offhand, head, armor, feet, accessory, pet]
+            default: all
+          description: Filter by equipment slot type
+        - name: sort_by
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [level, rarity, newest, name]
+            default: level
+          description: Sort items by specified criteria
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Page number for pagination (50 items per page)
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+          description: Number of items per page
       responses:
         '200':
           description: Player inventory with base stacks and unique items
@@ -1107,6 +1195,17 @@ paths:
                         icon_url:
                           type: string
                     description: Stackable base items (no materials applied)
+                  pagination:
+                    type: object
+                    properties:
+                      current_page:
+                        type: integer
+                      total_pages:
+                        type: integer
+                      total_items:
+                        type: integer
+                      items_per_page:
+                        type: integer
 
   /equipment:
     get:
@@ -1532,6 +1631,73 @@ paths:
         '404':
           description: Item not found or not owned by player
 
+  /items/{item_id}/materials/{slot_index}:
+    delete:
+      summary: Remove material from item slot (F-04)
+      description: Deletes MaterialInstance, returns material to MaterialStacks, costs gold (100 × item level)
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: item_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: slot_index
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 2
+      responses:
+        '200':
+          description: Material removed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  item:
+                    $ref: '#/components/schemas/PlayerItem'
+                  stats:
+                    type: object
+                    description: Updated computed stats after removal
+                  image_url:
+                    type: string
+                    nullable: true
+                    description: Updated image URL (base or new combo)
+                  gold_spent:
+                    type: integer
+                    description: Gold cost for removal (100 × item level)
+                  returned_material:
+                    type: object
+                    properties:
+                      material_id:
+                        type: string
+                      style_id:
+                        type: string
+                      quantity:
+                        type: integer
+                    description: Material returned to MaterialStacks
+                  new_gold_balance:
+                    type: integer
+        '400':
+          description: Invalid request (insufficient gold, slot empty)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Item not found or not owned by player
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
   /items/{item_id}/materials/replace:
     post:
       summary: Replace existing material in slot (costs gold)
@@ -1655,6 +1821,48 @@ paths:
                 $ref: '#/components/schemas/PlayerItem'
         '404':
           description: Item not found or not owned by player
+    delete:
+      summary: Discard/sell item for gold (F-03)
+      description: Removes item from inventory, unequips if equipped, awards gold compensation based on level/rarity
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: item_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Item discarded successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  gold_earned:
+                    type: integer
+                    description: Gold compensation for discarded item
+                  new_gold_balance:
+                    type: integer
+                  item_name:
+                    type: string
+                    description: Name of discarded item for confirmation
+        '400':
+          description: Cannot discard protected items (tutorial items, quest items)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Item not found or not owned by player
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /items/{item_id}/upgrade:
     post:
@@ -1713,6 +1921,158 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserProfile'
+
+  /progression:
+    get:
+      summary: Get player progression status (F-08)
+      description: Returns PlayerProgression data including XP, level, and progression toward next level
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Player progression details retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user_id:
+                    type: string
+                    format: uuid
+                  xp:
+                    type: integer
+                    description: Total experience points earned (combat only)
+                  level:
+                    type: integer
+                    description: Current account level computed from XP
+                  xp_to_next_level:
+                    type: integer
+                    description: XP required to reach next level
+                  last_level_up_at:
+                    type: string
+                    format: date-time
+                    nullable: true
+                    description: When player last leveled up
+                  unclaimed_rewards:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        level:
+                          type: integer
+                        reward_gold:
+                          type: integer
+                    description: Level rewards available to claim
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /progression/rewards/claim:
+    post:
+      summary: Claim level-up reward (F-08)
+      description: Awards gold reward for reaching specific level milestone
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                level:
+                  type: integer
+                  minimum: 1
+                  description: Level milestone to claim reward for
+              required: [level]
+      responses:
+        '200':
+          description: Reward claimed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  level:
+                    type: integer
+                  reward_gold:
+                    type: integer
+                  new_gold_balance:
+                    type: integer
+        '400':
+          description: Invalid request (insufficient level, already claimed)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Reward already claimed for this level
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /currencies:
+    get:
+      summary: Get available currency types
+      description: Lists all currency types (GOLD active, GEMS reserved for future IAP)
+      responses:
+        '200':
+          description: List of available currencies
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  currencies:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        code:
+                          type: string
+                          enum: [GOLD, GEMS]
+                        display_name:
+                          type: string
+                        is_premium:
+                          type: boolean
+                        icon_url:
+                          type: string
+                          nullable: true
+
+  /currencies/balance:
+    get:
+      summary: Get player currency balances
+      description: Returns UserCurrencyBalances for all currencies (replaces deprecated Users.gold_balance)
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Currency balances retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  balances:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        currency_code:
+                          type: string
+                          enum: [GOLD, GEMS]
+                        balance:
+                          type: integer
+                          minimum: 0
+                        updated_at:
+                          type: string
+                          format: date-time
+        '401':
+          $ref: '#/components/responses/Unauthorized'
 
   /combat/pet-chatter:
     post:
