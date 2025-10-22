@@ -12,58 +12,55 @@ struct MainMenuView: View {
     @EnvironmentObject private var audioManager: AudioManager
     
     var body: some View {
-            ZStack {
-                // Background
-                Color.backgroundPrimary
-                    .ignoresSafeArea()
+        // Change background style: .aurora, .floatingOrbs, or .starfield
+        MysticaBackground(.starfield) {
+            VStack(spacing: 40) {
+                Spacer()
                 
-                VStack(spacing: 40) {
-                    Spacer()
-                    
-                    // Title
-                    VStack(spacing: 16) {
-                        Image("mystica_logo")
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(maxWidth: 400, maxHeight: 200)
-                            .popup(delay: 0.0)
-                    }
-                    
-                    Spacer()
-                    
-                    // Menu Options
-                    VStack(spacing: 24) {
-                        Button {
-                            audioManager.playMenuButtonClick()
-                            navigationManager.navigateTo(.map)
-                        } label: {
-                            MenuOptionView(
-                                title: "Map",
-                                icon: "map.fill",
-                                gradientColors: [Color.accent, Color.accentInteractive]
-                            )
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                        .fadeIn(delay: 0.0)
-                        
-                        Button {
-                            audioManager.playMenuButtonClick()
-                            navigationManager.navigateTo(.collection)
-                        } label: {
-                            MenuOptionView(
-                                title: "Collection",
-                                icon: "square.grid.3x3.fill",
-                                gradientColors: [Color.accentSecondary, Color.accent]
-                            )
-                        }
-                        .buttonStyle(PlainButtonStyle())
-                        .fadeIn(delay: 0.2)
-                    }
-                    .padding(.horizontal, 32)
-                    
-                    Spacer()
+                // Title
+                VStack(spacing: 16) {
+                    Image("mystica_logo")
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(maxWidth: 400, maxHeight: 200)
+                        .popup(delay: 0.0)
                 }
+                
+                Spacer()
+                
+                // Menu Options
+                VStack(spacing: 24) {
+                    Button {
+                        audioManager.playMenuButtonClick()
+                        navigationManager.navigateTo(.map)
+                    } label: {
+                        MenuOptionView(
+                            title: "Map",
+                            icon: "map.fill",
+                            gradientColors: [Color.accent, Color.accentInteractive]
+                        )
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    .fadeIn(delay: 0.0)
+                    
+                    Button {
+                        audioManager.playMenuButtonClick()
+                        navigationManager.navigateTo(.collection)
+                    } label: {
+                        MenuOptionView(
+                            title: "Collection",
+                            icon: "square.grid.3x3.fill",
+                            gradientColors: [Color.accentSecondary, Color.accent]
+                        )
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    .fadeIn(delay: 0.2)
+                }
+                .padding(.horizontal, 32)
+                
+                Spacer()
             }
+        }
     }
 }
 
