@@ -1,0 +1,173 @@
+title: Equipment Management User Flows
+template: ~/.claude/file-templates/init-project/user-flows/user-flow-title.yaml
+status: draft
+last_updated: 2025-10-21
+
+key_personas:
+  - "Optimizer - Min-maxer who frequently swaps equipment for optimal stats based on upcoming combat challenges"
+  - "Collector - Wants organized inventory to track collection progress across all 8 equipment slots and material combinations"
+  - "Casual Player - Needs simple equipment management without complexity, prefers automated suggestions over manual optimization"
+
+primary_flows:
+  - name: "Equip/Unequip Items Flow"
+    trigger: "Player wants to optimize equipment for upcoming combat or newly acquired items"
+    steps:
+      - "Player opens equipment screen via inventory tab or character screen"
+      - "System displays 8 equipment slots: weapon, offhand, head, armor, feet, accessory_1, accessory_2, pet"
+      - "Player identifies slot to modify (empty slot or replacement needed)"
+      - "Player taps equipment slot to view available items for that category"
+      - "System filters inventory to show only items matching slot type (weapon items for weapon slot, etc.)"
+      - "Player views item details: name, level, rarity, applied materials, stat preview"
+      - "Player compares stats: current equipped vs. candidate item with highlighted differences"
+      - "Player confirms equip action"
+      - "System validates item category matches slot type and item ownership"
+      - "If slot occupied: system shows replacement confirmation ('Replace equipped sword with axe?')"
+      - "System updates UserEquipment table and recalculates total stats"
+      - "Real-time stat updates displayed: total ATK/DEF/HP/ACC values refresh"
+      - "Previous equipped item (if any) returns to inventory automatically"
+    outcome: "Player has equipped optimal item for slot with updated total combat stats"
+    edge_cases: |
+      - Empty slot: no replacement confirmation needed, direct equip
+      - Item already equipped elsewhere: auto-unequip from current slot, equip to new slot
+      - Wrong slot type: error message prevents invalid equip (weapon to head slot)
+      - Item not owned: 404 error, no state change
+      - All 8 slots empty: total stats show base player values only
+      - Equipped item gets deleted: CASCADE trigger removes from equipment slot automatically
+
+  - name: "Compare Items Flow"
+    trigger: "Player considering equipment change wants to see stat differences between current and candidate items"
+    steps:
+      - "Player taps equipment slot or views item detail from inventory"
+      - "System displays current equipped item stats (if any) alongside candidate item"
+      - "Side-by-side comparison shows: name, level, rarity, applied materials"
+      - "Stat differences highlighted with color coding: green for increases, red for decreases"
+      - "Net change summary: 'Total ATK: +15, DEF: -5, HP: +30'"
+      - "Material application differences shown: current materials vs. candidate materials"
+      - "Player can view impact on total character stats"
+      - "Equip/Cancel buttons available with stat change preview"
+    outcome: "Player makes informed equipment decision based on clear stat comparison"
+    edge_cases: |
+      - Comparing to empty slot: shows candidate stats vs. no contribution
+      - Identical items: shows "No stat change" message
+      - Complex material combinations: tooltip shows individual material contributions
+      - Items with different material counts: clear indication of modification differences
+
+  - name: "Inventory Organization Flow"
+    trigger: "Player wants to find specific items or organize large inventory efficiently"
+    steps:
+      - "Player opens inventory screen from main navigation"
+      - "System displays all owned items (up to 100 MVP cap) with pagination"
+      - "Player applies slot type filter: All, Weapons, Offhand, Head, Armor, Feet, Accessories, Pets"
+      - "Filtered results update immediately showing only matching category items"
+      - "Player selects sort option: Level (High-Low), Rarity (Legendary-Common), Newest, Name A-Z"
+      - "Items re-order according to sort criteria"
+      - "Player scrolls through paginated results (50 items per page)"
+      - "Each item shows: icon, name, level, rarity, equipped status, applied materials indicator"
+      - "Equipped items display slot indicator and visual badge"
+      - "Player can tap any item for detailed view or quick equip option"
+      - "For accessories: first empty slot (accessory_1 or accessory_2) auto-selected when equipping"
+    outcome: "Player efficiently locates desired items using filters and sorting"
+    edge_cases: |
+      - Empty filter results: "No weapons found" message with suggestion to collect more
+      - Image generation pending: placeholder icon shown until AI generation completes
+      - Thousands of items (post-MVP): pagination prevents performance issues
+      - Search by name (future): text input filters item names in real-time
+
+  - name: "Discard/Sell Items Flow"
+    trigger: "Player wants to free inventory space or get gold compensation for unwanted items"
+    steps:
+      - "Player opens inventory and identifies items to remove"
+      - "Player taps item and selects 'Discard' or uses multi-select mode"
+      - "System shows gold compensation: 'Discard for X gold?' based on item level/rarity"
+      - "Player confirms discard action"
+      - "Item removed from inventory and all equipped slots (if equipped)"
+      - "Gold added to player currency balance"
+      - "Economy transaction logged for audit trail"
+      - "Inventory space freed for new items"
+    outcome: "Player gains inventory space and gold compensation for unwanted items"
+    edge_cases: |
+      - Discarding equipped item: auto-unequip and remove from slots
+      - Items with rare materials applied: higher gold compensation warned in confirmation
+      - Mass discard: bulk selection with total gold preview
+      - Cannot discard certain items: tutorial or quest items protected
+
+secondary_flows:
+  - name: "Loadout Switching Flow (Post-MVP)"
+    trigger: "Player wants to quickly switch between saved equipment configurations for different activities"
+    steps:
+      - "Player opens loadout manager from equipment screen"
+      - "System displays up to 5 saved loadouts with names and stat previews"
+      - "Player selects desired loadout ('Boss Build', 'Farming Build', etc.)"
+      - "System shows preview of equipment changes and stat differences"
+      - "Player confirms loadout activation"
+      - "System validates all items in loadout still exist and are owned"
+      - "Missing items skipped with warning notification"
+      - "UserEquipment table updated for all 8 slots simultaneously"
+      - "Real-time stat recalculation triggers for new total stats"
+      - "Equipment screen updates to show new configuration"
+      - "Previous loadout marked inactive, selected loadout marked active"
+    outcome: "Player quickly switches to optimized equipment configuration for specific activity"
+    edge_cases: |
+      - Items deleted since loadout saved: skip those slots, warn user of missing items
+      - Cannot delete active loadout: must switch to different loadout first
+      - All loadouts full (5 limit): require deletion before creating new one
+      - Loadout name conflicts: validation prevents duplicate names per user
+
+  - name: "Save Current Loadout Flow (Post-MVP)"
+    trigger: "Player has configured optimal equipment setup and wants to save for future use"
+    steps:
+      - "Player opens loadout manager from equipment screen"
+      - "Player taps 'Save Current' button"
+      - "System presents name input dialog with character limit (50 chars)"
+      - "Player enters descriptive name ('Dragon Boss', 'PvP Setup', 'Material Farming')"
+      - "System validates name uniqueness and length"
+      - "Player confirms save action"
+      - "System creates Loadouts record with current equipment snapshot"
+      - "Current UserEquipment state copied to LoadoutSlots for all 8 slots"
+      - "New loadout appears in loadout list as non-active"
+      - "Success confirmation with option to activate immediately"
+    outcome: "Player has saved equipment configuration for quick future access"
+    edge_cases: |
+      - Maximum 5 loadouts reached: error message, require deletion first
+      - Name already exists: validation error, suggest alternative
+      - Empty equipment slots: loadout saves null values for empty slots
+      - Name too long: character limit enforced with real-time feedback
+
+  - name: "Equipment Slot Optimization Flow"
+    trigger: "Player wants to maximize specific stats (ATK, DEF, HP) for upcoming challenge"
+    steps:
+      - "Player identifies target stat to optimize (high ATK for boss, high DEF for survival)"
+      - "Player opens equipment screen and reviews current total stats"
+      - "Player systematically reviews each of 8 slots for optimization potential"
+      - "For each slot: filter inventory to slot type, sort by desired stat contribution"
+      - "Player identifies items with higher target stat values"
+      - "Player compares stat trade-offs: gaining ATK vs. losing DEF"
+      - "Player equips items that maximize target stat within acceptable trade-offs"
+      - "Real-time total stat tracking shows optimization progress"
+      - "Player reviews final build and total stat distribution"
+    outcome: "Player achieves stat distribution optimized for specific gameplay objective"
+    edge_cases: |
+      - No items available for optimization: current setup is already optimal
+      - Severe stat trade-offs: player must balance competing priorities
+      - Material combinations affecting optimization: consider reapplying materials
+      - Accessory slots (accessory_1/accessory_2): flexible assignment for utility items
+
+  - name: "New Item Integration Flow"
+    trigger: "Player acquires new item from combat and wants to evaluate equipment impact"
+    steps:
+      - "Player receives new item notification from combat victory"
+      - "Player opens inventory to view newly acquired item"
+      - "System highlights new item with 'NEW' indicator"
+      - "Player taps new item to view detailed stats and materials"
+      - "Player compares new item to currently equipped item in same category"
+      - "Comparison shows stat differences and potential total stat impact"
+      - "If improvement available: player equips new item"
+      - "If marginal improvement: player may apply materials first to enhance"
+      - "Player decides to equip, enhance, or keep current setup"
+      - "NEW indicator removed after player interaction"
+    outcome: "Player integrates new acquisition into optimal equipment configuration"
+    edge_cases: |
+      - New item is strictly worse: player may discard for gold or save for material experimentation
+      - New item fills empty slot: automatic improvement, clear equip decision
+      - New item requires different build strategy: player may save as loadout option
+      - Inventory full when acquiring: forced decision on discard/equip/expand storage

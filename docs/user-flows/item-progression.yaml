@@ -1,0 +1,90 @@
+title: User Flows - Item Progression
+template: ~/.claude/file-templates/init-project/user-flows/user-flow-title.yaml
+status: draft
+last_updated: 2025-10-21
+
+key_personas:
+  - "Min-Maxer - Calculates optimal upgrade paths for stats"
+  - "Completionist - Wants all items at max level"
+  - "Strategic Upgrader - Upgrades only equipped items"
+  - "Casual Spender - Upgrades when gold accumulates"
+  - "Economy Manager - Balances gold spending across features"
+
+primary_flows:
+  - name: "Upgrade Item with Gold Flow"
+    trigger: "Player wants to improve a specific item's power level"
+    steps:
+      - "Player navigates to inventory and selects an item"
+      - "Player views item details showing current level and stats"
+      - "Player taps 'Upgrade' button to see upgrade preview"
+      - "System displays: next level stats, gold cost (100 × 1.5^level), player's current gold"
+      - "Player confirms upgrade if they have sufficient gold"
+      - "System deducts gold, increments item level, recalculates all stats proportionally"
+      - "System updates vanity level (sum of all equipped item levels / 6)"
+      - "Player sees upgrade success animation and improved stats"
+    outcome: "Item level increased by 1, stats scaled proportionally, gold spent, vanity level updated"
+    edge_cases:
+      - "Insufficient gold: Show cost vs available gold, suggest gold earning methods"
+      - "No maximum level: upgrades continue indefinitely with exponentially increasing costs"
+      - "Network failure during upgrade: Retry mechanism with idempotent transaction"
+      - "Item unequipped during upgrade: Still upgrades, vanity level recalculated correctly"
+
+
+  - name: "Compare Upgrade Cost vs Benefit Flow"
+    trigger: "Player wants to evaluate upgrade value before spending gold"
+    steps:
+      - "Player selects item and taps 'Upgrade Preview' option"
+      - "System displays side-by-side comparison: current stats vs next level stats"
+      - "System shows stat increases with materials applied (preview includes material bonuses)"
+      - "System displays gold cost and 'gold per stat point' efficiency ratio"
+      - "Player compares with other potential upgrades or gold expenditures"
+      - "Player either proceeds with upgrade or exits to compare other items"
+    outcome: "Player makes informed decision about upgrade value and resource allocation"
+    edge_cases:
+      - "Low efficiency upgrade: Show warning about high cost per stat point"
+      - "High level items: Highlight exponentially increasing costs"
+      - "Better alternatives available: Suggest other items with higher efficiency"
+      - "Materials affecting stats: Factor material bonuses into comparison calculations"
+
+
+secondary_flows:
+  - name: "Upgrade Item From Combat Victory Flow"
+    trigger: "Player defeats enemy, receives gold, and wants to immediately upgrade gear"
+    steps:
+      - "Player receives combat victory rewards including gold"
+      - "Player manually checks upgrade availability with newly earned gold"
+      - "Player navigates to inventory/upgrade interface"
+      - "Player selects item and confirms upgrade using newly earned gold"
+    outcome: "Immediate progression from combat victory to item improvement"
+    edge_cases:
+      - "Multiple upgrade options available: Prioritize equipped items"
+      - "Gold insufficient for desired upgrade: Show remaining gold needed"
+
+
+  - name: "Upgrade Cost Calculation and Validation Flow"
+    trigger: "System needs to calculate and validate upgrade costs for API requests"
+    steps:
+      - "Client requests upgrade cost via GET /items/:id/upgrade-cost"
+      - "Server calculates cost using formula: 100 × 1.5^(current_level)"
+      - "Server validates player's current gold balance"
+      - "Server responds with cost, affordability, and level progression data"
+      - "Client displays upgrade option with real-time cost information"
+    outcome: "Accurate upgrade costs displayed, prevents invalid upgrade attempts"
+    edge_cases:
+      - "Level calculation overflow: Handle extremely high levels gracefully"
+      - "Negative gold balance: Return error, suggest gold earning methods"
+      - "Concurrent upgrades: Use database transactions to prevent race conditions"
+
+  - name: "Strategic Equipment Upgrade Planning Flow"
+    trigger: "Player wants to optimize gold spending across their loadout"
+    steps:
+      - "Player accesses equipment overview showing all 8 equipped items"
+      - "System displays upgrade costs and stat improvements for each item"
+      - "Player analyzes which upgrades provide best stat gains per gold"
+      - "Player prioritizes upgrades based on their playstyle (attack vs defense)"
+      - "Player executes upgrades in optimal order based on available gold"
+    outcome: "Optimized stat distribution and efficient gold utilization"
+    edge_cases:
+      - "Equipment swap mid-planning: Recalculate vanity level and priorities"
+      - "Material changes affecting stats: Update calculations in real-time"
+      - "Insufficient gold for optimal plan: Suggest partial optimization path"

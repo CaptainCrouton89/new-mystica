@@ -1,0 +1,173 @@
+title: AI Image Generation & Caching Flows
+template: ~/.claude/file-templates/init-project/user-flows/user-flow-title.yaml
+status: draft
+last_updated: 2025-10-21
+
+key_personas:
+  - "Patient Crafter - Willing to wait for custom appearances, enjoys seeing unique material combinations"
+  - "Impatient Player - Frustrated by 20s blocking wait, wants instant gratification"
+  - "Experimenter - Tries many material combinations, benefits most from cache hits"
+  - "Social Discoverer - Motivated by craft count statistics and being first to create combos"
+
+primary_flows:
+  - name: "Synchronous Image Generation Flow (MVP0)"
+    trigger: "Player applies materials to item creating new unique combo"
+    steps:
+      - "Player selects item to enhance from inventory"
+      - "Player chooses 1-3 materials from MaterialStacks"
+      - "Player selects material slot positions (0-2)"
+      - "Player confirms material application"
+      - "System decrements MaterialStacks quantities"
+      - "System creates MaterialInstances and ItemMaterials rows"
+      - "System computes combo_hash from sorted material_ids + style_ids"
+      - "System checks ItemImageCache for existing combo (cache miss)"
+      - "Loading screen displays: 'Generating unique appearance... (0-20s)'"
+      - "Progress indicator shows AI generation status"
+      - "System calls generate-image.ts with R2 dependency chain"
+      - "AI generates composite image using material reference images"
+      - "System uploads final image to R2 at items-crafted/{item_type}/{combo_hash}.png"
+      - "System creates ItemImageCache row with craft_count=1"
+      - "System sets item.is_styled=true if any material has style_id != 'normal'"
+      - "Item preview updates with generated image"
+      - "Special notification: 'You are the first to craft this combo!'"
+      - "Player can equip enhanced item or continue crafting"
+    outcome: "Player successfully creates uniquely styled item with 20s generation time"
+    edge_cases: |
+      - Network timeout during generation: Retry option with exponential backoff
+      - R2 upload fails: Temporary local storage with retry mechanism
+      - Replicate API rate limit: Queue request and retry with delay
+      - AI generation produces inappropriate content: Fallback to base item + material overlay
+      - Player closes app during generation: Resume generation on app return
+      - Insufficient MaterialStack quantity: Prevent selection, show "Need X more materials"
+      - Item already has 3 materials: Show "Remove a material first" error
+
+  - name: "Image Cache Hit Flow"
+    trigger: "Player applies materials creating previously generated combo"
+    steps:
+      - "Player selects item to enhance from inventory"
+      - "Player chooses 1-3 materials from MaterialStacks"
+      - "Player confirms material application"
+      - "System decrements MaterialStacks quantities"
+      - "System creates MaterialInstances and ItemMaterials rows"
+      - "System computes combo_hash from sorted material_ids + style_ids"
+      - "System checks ItemImageCache for existing combo (cache hit!)"
+      - "System increments craft_count in ItemImageCache"
+      - "Item preview instantly updates with cached image URL"
+      - "Notification: 'X players have crafted this combo' (if craft_count > 1)"
+      - "Item stats update immediately with material modifiers"
+      - "Player can equip enhanced item or continue crafting"
+    outcome: "Player receives instant preview from cached combo image"
+    edge_cases: |
+      - Cached image URL returns 404: Regenerate image and update cache
+      - Cache corruption: Clear affected entry and trigger regeneration
+      - Race condition on craft_count increment: Use atomic database operations
+      - Style variants in cache: Different style_ids create separate cache entries
+
+  - name: "Generation Progress Indicator Flow"
+    trigger: "Player waits during 20s synchronous image generation"
+    steps:
+      - "Loading screen appears with animated generation status"
+      - "Progress bar shows estimated completion (0-100%)"
+      - "Status text updates: 'Preparing materials...', 'Generating image...', 'Finalizing...'"
+      - "Background shows preview of base item + material icons"
+      - "Timer display shows elapsed time (for transparency)"
+      - "Cancel option available (returns materials to stack)"
+      - "Generation completes or times out"
+      - "Success: Image appears with fade-in animation"
+      - "Timeout: Error message with retry option"
+    outcome: "Player receives clear feedback during generation wait time"
+    edge_cases: |
+      - Player backgrounds app: Pause generation, resume on foreground
+      - Device low memory: Clear unused cache, continue generation
+      - Generation takes >30s: Show extended wait message with retry option
+      - Multiple simultaneous generations: Queue requests, show position
+
+secondary_flows:
+  - name: "Generation Failure Recovery Flow"
+    trigger: "AI service fails or returns error during image generation"
+    steps:
+      - "System detects generation failure (API error, timeout, invalid response)"
+      - "Error message appears: 'Image generation failed. Trying again...'"
+      - "System attempts automatic retry (max 3 attempts)"
+      - "If all retries fail: Show manual retry option"
+      - "Player can choose: Retry generation, Use fallback appearance, Cancel application"
+      - "Retry: Restart full generation process"
+      - "Fallback: Use base item image with material overlay badges"
+      - "Cancel: Return materials to MaterialStacks, revert item"
+    outcome: "Player has options to recover from generation failures gracefully"
+    edge_cases: |
+      - Persistent API outage: Use fallback for all new generations
+      - Partial generation (some materials processed): Continue from checkpoint
+      - Invalid material reference images: Regenerate missing dependencies first
+
+  - name: "Async Generation Flow (Post-MVP)"
+    trigger: "Player applies materials after async system is implemented"
+    steps:
+      - "Player selects item and materials for application"
+      - "Player confirms crafting request"
+      - "System decrements MaterialStacks and creates MaterialInstances"
+      - "System adds request to crafting queue with estimated time"
+      - "Item immediately updates with 'Crafting...' status and stat changes"
+      - "Player continues normal gameplay while generation runs in background"
+      - "Push notification sent when generation completes"
+      - "Player returns to app and sees completed item with generated image"
+      - "Item status changes from 'Crafting...' to equipped/inventory"
+    outcome: "Player can continue playing while custom items generate asynchronously"
+    edge_cases: |
+      - Queue position display: Show estimated wait time based on queue length
+      - Generation fails in background: Retry automatically, notify on persistent failure
+      - Player logs out during generation: Resume on next login
+
+  - name: "Material Removal & Image Regeneration Flow"
+    trigger: "Player removes material from item, changing combo_hash"
+    steps:
+      - "Player selects item with applied materials"
+      - "Player taps 'Remove Material' on specific slot"
+      - "System shows gold cost (100 × item level)"
+      - "Player confirms removal and gold payment"
+      - "System validates sufficient gold balance"
+      - "System deletes ItemMaterials row and MaterialInstance"
+      - "System increments MaterialStacks quantity (returns material)"
+      - "System recomputes combo_hash with remaining materials"
+      - "If new combo_hash exists in cache: instant update"
+      - "If new combo_hash not cached: triggers 20s generation process"
+      - "Item appearance updates with new/cached image"
+      - "Item stats recalculated without removed material"
+    outcome: "Player successfully removes material and sees updated item appearance"
+    edge_cases: |
+      - Removing last material: Revert to base item image, no generation needed
+      - Insufficient gold: Show exact amount needed and earning suggestions
+      - Generation fails on removal: Use previous cached image as fallback
+
+  - name: "Style Variant Discovery Flow"
+    trigger: "Player applies styled material (style_id != 'normal') to item"
+    steps:
+      - "Player obtains styled material from combat (5% drop rate)"
+      - "Styled material appears in inventory with visual indicator (sparkles, etc.)"
+      - "Player applies styled material following normal application flow"
+      - "System includes style_id in combo_hash computation"
+      - "Styled combo creates separate cache entry from normal version"
+      - "AI generation incorporates style theme (pixel_art, watercolor, neon, holographic)"
+      - "Generated image shows style-specific visual effects"
+      - "Item marked as styled (is_styled=true) if ANY material is styled"
+      - "Special notification: 'Styled variant created!' with style badge"
+    outcome: "Player creates visually distinct styled variant with unique appearance"
+    edge_cases: |
+      - Multiple style types on one item: Blend styles in generation prompt
+      - Style conflicts: Use dominant style based on material order/strength
+      - Style generation fails: Fall back to normal variant appearance
+
+  - name: "Global Cache Statistics Flow"
+    trigger: "Player views item with materials applied or browses crafting interface"
+    steps:
+      - "System displays craft_count from ItemImageCache"
+      - "Player sees 'X players have crafted this combo' message"
+      - "Special badges for milestones: First crafter, 10th crafter, 100th crafter"
+      - "Rare combo indicators: 'Only 3 players have this combo'"
+      - "Popular combo indicators: '1,247 players love this combo'"
+      - "Player can share combo statistics or screenshots"
+    outcome: "Player feels connected to community through shared crafting statistics"
+    edge_cases: |
+      - craft_count = 1: Show "You are the only crafter!" special message
+      - Very high craft_count: Use abbreviated numbers (1.2K, 47K)
+      - Cache statistics lag: Update counts asynchronously, show approximate values

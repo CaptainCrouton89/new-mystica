@@ -1,0 +1,180 @@
+title: Material Management
+template: ~/.claude/file-templates/init-project/user-flows/user-flow-title.yaml
+status: draft
+last_updated: 2025-10-21
+
+key_personas:
+  - "Optimizer - Experiments with material combinations for best stats"
+  - "Collector - Seeks all styled material variants"
+  - "Casual Crafter - Applies materials for visual customization"
+
+primary_flows:
+  - name: "Apply Materials to Item Flow"
+    trigger: "Player has collected materials and wants to enhance an item"
+    steps:
+      - "Player opens inventory screen"
+      - "Player selects item to enhance from equipment or item list"
+      - "Player taps 'Apply Materials' button on item detail screen"
+      - "System displays material selection screen showing available MaterialStacks"
+      - "System filters out materials already applied to this item (no duplicates)"
+      - "Player selects material from stack (shows quantity available)"
+      - "System displays stat preview: current stats vs. enhanced stats"
+      - "System shows visual preview of material effect on item appearance"
+      - "Player confirms material application"
+      - "System decrements MaterialStack quantity by 1"
+      - "System creates MaterialInstance and links via ItemMaterials table"
+      - "System checks ItemImageCache for existing combo image (combo_hash lookup)"
+      - "If new combo: AI image generation starts (20s synchronous blocking for MVP0)"
+      - "System displays generation progress: 'Crafting your item... 15s remaining'"
+      - "Generated image uploaded to R2 and cached in ItemImageCache"
+      - "Item stats recalculated with new material modifiers"
+      - "Updated item displayed with new image, stats, and applied materials list"
+      - "System shows craft count: 'X players have crafted this combo' if > 1"
+    outcome: "Player successfully applies material to item, creating enhanced version with new stats and appearance"
+    edge_cases: |
+      - Item already has 3 materials: error message "Maximum 3 materials per item"
+      - Material quantity = 0: material greyed out, not selectable
+      - Same material already applied: filtered from selection list
+      - Image generation fails: retry option or fallback to base appearance
+      - Player exits during 20s generation: process continues, item updated on return
+      - Network error during generation: local retry with exponential backoff
+
+  - name: "Remove Materials Flow"
+    trigger: "Player wants to remove material from enhanced item"
+    steps:
+      - "Player opens inventory and selects enhanced item"
+      - "Player views item detail screen showing applied materials"
+      - "Player taps 'Remove Material' button on specific material slot"
+      - "System displays removal confirmation with gold cost (100 × item level)"
+      - "System shows current gold balance and cost breakdown"
+      - "Player confirms material removal"
+      - "System validates sufficient gold balance"
+      - "System deducts gold cost from player balance"
+      - "System deletes ItemMaterials junction record"
+      - "System deletes MaterialInstance record"
+      - "System increments MaterialStack quantity (returns material to inventory)"
+      - "System recomputes combo_hash for remaining materials"
+      - "System checks ItemImageCache for new combo or base item image"
+      - "If new combo needed: AI generation triggers (20s sync blocking)"
+      - "Item stats recalculated without removed material"
+      - "Updated item displayed with new image and stats"
+      - "System updates craft count for new combo if applicable"
+    outcome: "Player removes material from item, pays gold cost, material returns to stack"
+    edge_cases: |
+      - Insufficient gold: error message with current balance vs. required
+      - No materials applied: remove button disabled
+      - Last material removed: item reverts to base appearance and stats
+      - Network error during removal: transaction rollback, no changes applied
+      - Player cancels during generation: removal already processed, generation continues
+
+  - name: "Material Collection & Stacking Flow"
+    trigger: "Player defeats enemy and receives material drop"
+    steps:
+      - "Combat victory screen displays rewards: gold + material drop"
+      - "System determines material type and style variant (5% styled rate)"
+      - "Material notification appears: '[Material Name] collected!' with visual effect"
+      - "If styled material: special animation and '[Style] [Material] collected!' message"
+      - "System checks existing MaterialStack for (user_id, material_id, style_id)"
+      - "If stack exists: increment quantity by 1"
+      - "If new stack: create MaterialStack record with quantity = 1"
+      - "Player can tap material notification to view details"
+      - "Material automatically added to inventory without player action"
+      - "Inventory badge updates to show new material count"
+    outcome: "Player receives material drop that auto-stacks in inventory for future use"
+    edge_cases: |
+      - No material drop (40% chance): only gold and item rewards shown
+      - First time collecting styled material: tutorial tooltip explains rarity
+      - Player inventory at capacity: materials still stack (no inventory limit)
+      - Network error during collection: material added on next sync
+
+  - name: "Material Preview Flow"
+    trigger: "Player wants to preview material effects before applying"
+    steps:
+      - "Player opens material application screen"
+      - "Player hovers/long-presses on material in selection list"
+      - "System displays detailed material preview popup"
+      - "Preview shows material description and stat modifiers"
+      - "Preview shows before/after stat comparison for target item"
+      - "Preview displays visual effect mockup on item appearance"
+      - "If styled material: preview shows style variant difference"
+      - "Player can cycle through multiple materials for comparison"
+      - "Player can see combined effect preview when selecting multiple materials"
+      - "Player taps 'Apply' from preview or closes to continue browsing"
+    outcome: "Player makes informed decision about material application with full preview"
+    edge_cases: |
+      - Material would cause negative stats: warning indicator in preview
+      - Styled vs normal preview: side-by-side comparison available
+      - Multiple materials selected: shows cumulative stat changes
+      - Preview timeout: popup auto-closes after 30 seconds of inactivity
+
+secondary_flows:
+  - name: "Replace Materials Flow"
+    trigger: "Player wants to replace existing material with different one"
+    steps:
+      - "Player opens enhanced item detail screen"
+      - "Player taps 'Replace Material' on specific material slot"
+      - "System explains replacement process: remove old + apply new"
+      - "System displays removal cost (100 × item level) and confirms"
+      - "Player confirms removal and pays gold cost"
+      - "Material removal flow executes (returns to stack)"
+      - "System automatically opens material application screen"
+      - "Player selects new material from available stacks"
+      - "Material application flow executes (consumes from stack)"
+      - "Final result: item has new material, gold spent, two-step process complete"
+    outcome: "Player successfully replaces one material with another through two-step process"
+    edge_cases: |
+      - Insufficient gold for removal: replacement process blocked
+      - No replacement materials available: warning shown before removal
+      - Player cancels after removal: old material returned to stack, slot empty
+      - Generation fails on reapplication: item remains with removed material slot empty
+
+  - name: "Material Inventory Management Flow"
+    trigger: "Player wants to view and organize material collection"
+    steps:
+      - "Player opens inventory and navigates to materials tab"
+      - "System displays MaterialStacks grouped by material type"
+      - "Each stack shows material name, quantity, and style variant"
+      - "Player can filter by material theme (offensive, defensive, balanced, etc.)"
+      - "Player can filter by style type (normal, pixel_art, watercolor, neon, holographic)"
+      - "Player can sort by quantity, rarity tier, or recently collected"
+      - "Player taps material to view detailed stats and description"
+      - "Player can see which items currently use each material type"
+      - "Player can access quick-apply option to apply to recent items"
+    outcome: "Player efficiently manages material collection and understands inventory"
+    edge_cases: |
+      - Empty material inventory: tutorial prompt to engage in combat for drops
+      - Large collection: pagination or virtualized scrolling for performance
+      - Material search functionality for players with 50+ unique materials
+
+  - name: "Craft Count Discovery Flow"
+    trigger: "Player applies material combo that other players have crafted"
+    steps:
+      - "Player completes material application process"
+      - "System checks ItemImageCache craft_count for combo_hash"
+      - "If craft_count > 1: special notification appears"
+      - "System displays: 'X players have crafted this combo!' with celebration effect"
+      - "Player can tap notification to see craft popularity details"
+      - "Popular combo badge appears on item in inventory"
+      - "Player can share screenshot of popular combo creation"
+    outcome: "Player discovers community crafting patterns and feels connected to other players"
+    edge_cases: |
+      - First-ever craft (craft_count = 1): 'You're the first to craft this!' message
+      - Very popular combo (100+ crafts): special 'legendary combo' designation
+      - Player privacy settings: can opt out of craft count tracking
+
+  - name: "Material Recovery Tutorial Flow"
+    trigger: "First-time player removes material from item"
+    steps:
+      - "Player attempts first material removal"
+      - "System detects first-time removal action"
+      - "Tutorial popup explains removal process and gold cost"
+      - "Tutorial emphasizes material returns to stack for reuse"
+      - "Tutorial shows gold cost calculation (100 × item level)"
+      - "Player can choose to proceed or cancel tutorial removal"
+      - "If proceeding: tutorial highlights each step of removal process"
+      - "Tutorial concludes with tips about strategic material management"
+    outcome: "Player understands material removal mechanics and cost implications"
+    edge_cases: |
+      - Player skips tutorial: can access help section later
+      - Very expensive removal: additional warning for high-level items
+      - Player has insufficient gold: tutorial explains gold earning methods

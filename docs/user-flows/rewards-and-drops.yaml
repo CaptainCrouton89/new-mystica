@@ -1,0 +1,164 @@
+title: Rewards and Drops User Flows
+template: ~/.claude/file-templates/init-project/user-flows/user-flow-title.yaml
+status: draft
+last_updated: 2025-10-21
+
+key_personas:
+  - "Collector - Motivated by rare styled material drops and completion"
+  - "Farmer - Optimizes routes for efficient material collection and gold"
+  - "Casual Player - Appreciates clear reward feedback and progression"
+
+primary_flows:
+  - name: "Post-Combat Reward Screen Flow"
+    trigger: "Player wins combat encounter"
+    steps:
+      - "Combat victory animation plays (enemy defeated)"
+      - "Reward screen slides up from bottom"
+      - "Gold amount displays with coin animation (+350 Gold)"
+      - "Material drop displays with icon and name (Flame - Normal)"
+      - "Item drop displays with rarity and type (Basic Magic Wand)"
+      - "MVP0: All three rewards guaranteed (100% drop rate)"
+      - "Player taps 'Collect All' button"
+      - "Items auto-stack in inventory (materials combine with existing)"
+      - "Updated balance shown briefly (Gold: 1,850 total) - XP gained separately"
+      - "Reward screen dismisses, returns to map or inventory"
+    outcome: "Player receives and understands all combat rewards"
+    edge_cases: |
+      - Inventory full during collection: Shows overflow warning, prompts to manage space
+      - Network error during collection: Rewards cached locally, retry on reconnect
+      - Multiple of same material: Auto-stacks with existing quantity
+      - New material type: Creates new stack, shows "New!" badge
+      - Player dismisses screen early: Rewards still collected automatically
+
+  - name: "Material Drop Notification Flow"
+    trigger: "Material drops during combat victory (60% chance in MVP1+)"
+    steps:
+      - "Combat victory confirmed (enemy HP reaches 0)"
+      - "Drop calculation runs (tier-based weighting system)"
+      - "Material selected from location's loot pool"
+      - "Visual effect plays based on material tier (sparkle intensity)"
+      - "Material icon slides down from defeated enemy position"
+      - "Material name and quantity appear (+1 Coffee)"
+      - "Audio feedback plays (tier-specific sound effect)"
+      - "Material automatically added to MaterialStacks table"
+      - "Stack count updates if material already owned"
+    outcome: "Player receives clear feedback about material acquisition"
+    edge_cases: |
+      - No material drop (40% chance): Skip notification, only show gold/item
+      - Common tier drop: Basic sparkle effect, standard audio
+      - Epic tier drop: Enhanced visual effects, special audio
+      - Material inheritance: Drop inherits enemy's style (normal/styled)
+      - First time collecting material: Shows tooltip with stat modifiers
+
+  - name: "Styled Material Discovery Flow"
+    trigger: "Player defeats styled enemy (5% chance styled variant)"
+    steps:
+      - "Styled enemy displays unique visual appearance during combat"
+      - "Combat victory triggers special celebration sequence"
+      - "Screen flash with style-specific effect (pixel sparkles, watercolor splash)"
+      - "Styled material drop notification with enhanced animation"
+      - "Special audio cue plays (distinct from normal drops)"
+      - "Style badge prominently displayed (Pixel Art, Watercolor, Neon, Sketch)"
+      - "Popup notification: 'Pixel Art Flame collected!'"
+      - "Style variant badge visible in inventory with visual distinction"
+      - "Auto-stacks with other styled variants of same material"
+    outcome: "Player recognizes and celebrates rare styled material acquisition"
+    edge_cases: |
+      - Multiple styled variants: Each style maintains separate stack
+      - Style inheritance from enemy: Styled enemy always drops styled material
+      - Collection completion: Notification if this completes a style set
+      - Visual clarity: Style badges clearly distinguish from normal variants
+
+  - name: "Rare Drop Celebration Flow"
+    trigger: "Epic tier material drops (15% weight multiplier)"
+    steps:
+      - "Epic material selected from weighted loot pool"
+      - "Screen dims with spotlight effect on drop location"
+      - "Rainbow particle effects emanate from drop point"
+      - "Epic material icon appears with golden glow border"
+      - "Special fanfare audio plays (distinct epic sound)"
+      - "Large popup displays: 'EPIC MATERIAL!' with material name"
+      - "Stat preview shows powerful modifiers (+0.25 to +0.30 range)"
+      - "Material added to inventory with epic rarity indicator"
+    outcome: "Player feels rewarded and excited about rare acquisition"
+    edge_cases: |
+      - Consecutive epic drops: Each gets full celebration (no diminishing)"
+      - Epic styled material: Combines epic effects with style effects
+      - Social sharing: Option to share epic drop (post-MVP feature)
+      - Rarity classification: Auto-determined by stat modifier magnitude
+
+secondary_flows:
+  - name: "Inventory Full During Drop Flow"
+    trigger: "Player inventory at 100 item cap when drops occur"
+    steps:
+      - "Combat victory triggers normal reward calculation"
+      - "System detects inventory capacity exceeded"
+      - "Pause reward collection, show inventory warning"
+      - "Display: 'Inventory Full! Manage space to collect rewards'"
+      - "Show options: 'Manage Inventory' or 'Dismantle Items'"
+      - "Player navigates to inventory management screen"
+      - "Player dismantles unwanted items for gold (5-10g each)"
+      - "Player returns to reward screen"
+      - "Rewards automatically collected to newly available space"
+    outcome: "Player manages inventory and successfully collects combat rewards"
+    edge_cases: |
+      - Player force-quits during warning: Rewards saved to pending collection
+      - Network disconnection: Rewards cached locally until capacity available
+      - Auto-dismantle option: Quick-sell lowest value items automatically
+      - Material stacks: Don't count against inventory limit (stack with existing)
+      - Priority collection: Materials and gold collected first, items second
+
+  - name: "No Drop Failure Flow"
+    trigger: "Material drop fails (40% chance in MVP1+)"
+    steps:
+      - "Combat victory confirmed (enemy HP reaches 0)"
+      - "Drop calculation determines no material reward"
+      - "Reward screen shows only gold and item drops"
+      - "Subtle visual indicator for missing material slot"
+      - "Text displays: 'No materials found this time'"
+      - "Gold and item rewards proceed normally"
+      - "Player exits reward screen with partial rewards"
+    outcome: "Player understands drop variance while still receiving core rewards"
+    edge_cases: |
+      - Consecutive failures: No additional messaging about streak
+      - Low-level areas: Higher success rates to maintain engagement
+      - Tutorial areas: 100% drop rate during onboarding
+      - Streak bonuses: Future feature for guaranteed drops after failures
+      - Player level scaling: Drop rates may improve at higher levels
+
+  - name: "Level-Scaled Reward Flow"
+    trigger: "Player defeats enemy scaled to their average item level"
+    steps:
+      - "Combat system calculates enemy level = player average item level"
+      - "Gold reward scales: 100-200 × enemy_level formula"
+      - "Material tier distribution applies based on level thresholds"
+      - "Item drops match enemy level for appropriate power"
+      - "Reward screen displays level-appropriate values"
+      - "Higher level = higher gold amounts (level 10 = 1000-2000 gold)"
+      - "Material rarity chances improve at higher levels"
+      - "Experience points awarded based on enemy level"
+    outcome: "Player receives rewards appropriate to their progression level"
+    edge_cases: |
+      - Player level 1: Minimum reward floor to ensure progression
+      - Maximum level cap: Rewards plateau at soft cap levels
+      - Item level variance: Some items above/below average still functional
+      - Economy balance: Rewards scale with upgrade costs to maintain progression
+      - Prestige bonuses: Post-MVP prestige ranks provide gold multipliers
+
+  - name: "Combat Failure No Rewards Flow"
+    trigger: "Player loses combat (player HP reaches 0)"
+    steps:
+      - "Combat defeat animation plays (player character falls)"
+      - "Defeat screen appears with 'Combat Lost' message"
+      - "No reward calculation or drop processing occurs"
+      - "Screen shows: 'No rewards earned. Try again!'"
+      - "Options displayed: 'Retry Combat' or 'Return to Map'"
+      - "Player stats and inventory remain unchanged"
+      - "Location remains available for immediate retry"
+    outcome: "Player understands defeat consequences and can immediately retry"
+    edge_cases: |
+      - Tutorial defeat: Extra guidance and hints provided
+      - Consecutive defeats: Morale-boosting messages after multiple attempts
+      - Near victory: Show damage dealt to encourage retry
+      - Equipment suggestions: Hint at stat improvements needed
+      - Free retry: No cooldown or penalty for defeat in MVP

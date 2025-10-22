@@ -1,0 +1,190 @@
+title: Combat Mechanics User Flows
+template: ~/.claude/file-templates/init-project/user-flows/user-flow-title.yaml
+status: draft
+last_updated: 2025-10-21
+
+key_personas:
+  - "Skilled Player - Masters timing mechanics for optimal damage output and defensive timing"
+  - "Casual Player - Learns combat basics through forgiving mechanics and clear visual feedback"
+  - "Strategic Player - Analyzes enemy stats and weapon choices before engaging in combat"
+
+primary_flows:
+  - name: "Attack Dial Timing Flow"
+    trigger: "Player's turn in active combat - attack dial appears"
+    steps:
+      - "Combat UI displays single_arc dial pattern with 5 color-coded zones"
+      - "Dial rotates at constant speed (MVP0: no speed variation)"
+      - "Player sees zones: red (injure, -50%), gray (miss, 0%), yellow (graze, 60%), white (normal, 100%), green (crit, 160%+)"
+      - "Zone sizes adjusted based on player's atkAccuracy stat from equipped items"
+      - "Player taps screen when dial pointer is in desired zone"
+      - "System calculates tap_position_degrees (0-360) and determines hit zone"
+      - "If crit zone: system rolls 0-100% bonus multiplier on top of 160% base"
+      - "If injure zone: player takes damage instead of dealing damage"
+      - "Damage calculated: (player_atkPower × zone_multiplier) - enemy_defPower (minimum 1)"
+      - "Visual feedback: screen flash on crit, haptic feedback, damage numbers displayed"
+      - "Enemy HP updated, turn proceeds to enemy attack phase"
+    outcome: "Damage dealt to enemy based on timing accuracy and equipped weapon stats"
+    edge_cases: |
+      - Player doesn't tap: auto-miss after dial completes rotation
+      - Multiple rapid taps: only first tap registers, prevent spam
+      - High atkAccuracy stat: larger crit/normal zones, smaller injure/miss zones
+      - Low atkAccuracy stat: larger injure/miss zones, smaller crit zones
+      - Network lag during tap: server timestamp validates tap position
+
+  - name: "Defense Dial Flow"
+    trigger: "Enemy attacks after player's turn - defense dial appears"
+    steps:
+      - "Defense dial displays with 5 zones using same mechanics as attack dial"
+      - "Zone sizes based on player's defAccuracy stat (larger accuracy = bigger effective zones)"
+      - "Defense zones: red (fail, 0% reduction), gray (poor, 20% reduction), yellow (okay, 50% reduction), white (good, 75% reduction), green (perfect, 90% reduction)"
+      - "Player taps defense dial when pointer is in desired zone"
+      - "System calculates defense multiplier with RNG + zone bonus (same calculation as attack)"
+      - "Enemy attacks automatically with RNG damage (no dial mechanics for enemies)"
+      - "Damage reduction applied: (enemy_damage × (1 - defense_effectiveness)) minimum 1"
+      - "Player HP updated based on final damage calculation"
+      - "Visual feedback shows damage reduction effect based on defense success"
+      - "Turn returns to player attack phase after 1-3 second delay"
+    outcome: "Player reduces incoming damage through timing-based defense mechanics"
+    edge_cases: |
+      - Player doesn't tap: no defense bonus, takes full enemy damage
+      - Perfect defense timing: maximum damage reduction based on defPower + zone bonus
+      - Poor defense timing: minimal damage reduction
+      - Enemy attacks automatic with RNG variance (no player-controlled enemy mechanics)
+      - Turn pacing: 1-3 second delays between player and enemy actions
+
+  - name: "Multi-Turn Combat Flow"
+    trigger: "Combat initiated, both player and enemy have HP > 0"
+    steps:
+      - "Player turn: attack dial appears, player performs Attack Dial Timing Flow"
+      - "Damage applied to enemy, enemy HP decreases"
+      - "If enemy HP > 0: enemy turn begins with Defense Dial Flow for player"
+      - "Enemy damage applied to player after 1-3 second delay, player HP decreases"
+      - "If player HP > 0: return to player turn (attack dial) after 1-3 second delay"
+      - "Combat continues alternating turns with paced delays until one character reaches 0 HP"
+      - "Turn counter increments to track combat length"
+      - "HP bars update in real-time showing current health status"
+      - "Combat session maintained in memory with 15-minute timeout"
+      - "Final turn determines victory or defeat outcome"
+    outcome: "Combat resolved through turn-based mechanics until victory or defeat"
+    edge_cases: |
+      - Both characters reach 0 HP simultaneously: player loses (enemy wins ties)
+      - Combat session timeout (15min): combat expires, treated as defeat
+      - Player closes app during combat: session preserved for brief period, then expires
+      - Network disconnection: combat state cached locally, synced on reconnection
+      - Extended combat (20+ turns): no special mechanics, continues until resolution
+
+  - name: "View Enemy Stats Pre-Combat Flow"
+    trigger: "Player taps active location before confirming combat engagement"
+    steps:
+      - "Location tap displays enemy preview modal"
+      - "Enemy type shown: name, visual appearance, tier level"
+      - "Enemy stats displayed: attack power, defense power, HP"
+      - "Stats scaled to player's average equipped item level for appropriate challenge"
+      - "Enemy style_id shown if styled variant (affects reward material style)"
+      - "Player can see estimated combat difficulty based on stat comparison"
+      - "Combat engagement button: 'Fight [Enemy Name]' to proceed"
+      - "Cancel option returns to map without initiating combat"
+      - "Player makes informed decision whether to engage or seek different enemy"
+    outcome: "Player has full information to make strategic combat decisions"
+    edge_cases: |
+      - Enemy stats change if player equipment changes before combat starts
+      - Styled enemies clearly marked with visual style indicators
+      - Very high level enemies show warning about difficulty
+      - Player level much higher than enemy: shows 'easy' indicator
+      - Location cooldown active: shows time remaining until next spawn
+
+  - name: "Combat Defeat & Retry Flow"
+    trigger: "Player HP reaches 0 during combat"
+    steps:
+      - "Combat UI shows defeat screen with 'Defeat!' message"
+      - "Enemy remains at location, no rewards granted"
+      - "Player sees two options: 'Retry Combat' and 'Return to Map'"
+      - "Retry Combat: immediately restart fight with same enemy (full HP restored)"
+      - "Return to Map: exit to map view, enemy remains at location for future attempts"
+      - "No penalty for defeat: no gold lost, no equipment damaged"
+      - "Combat session cleared from memory"
+      - "Player can attempt same enemy multiple times until victory"
+      - "Player may choose to upgrade equipment before retry"
+    outcome: "Player can retry failed combat or return to map for preparation"
+    edge_cases: |
+      - Multiple consecutive defeats: no limit on retry attempts
+      - Player equipment changes between retries: enemy stats may adjust
+      - Location becomes inactive: enemy disappears, cannot retry
+      - Player closes app after defeat: can return to retry later if location still active
+      - Network issues during defeat: state preserved, can retry when connection restored
+
+secondary_flows:
+  - name: "Combat Victory & Rewards Flow"
+    trigger: "Enemy HP reaches 0 during combat"
+    steps:
+      - "Combat UI shows victory screen with 'Victory!' message"
+      - "Enemy defeated, combat session cleared"
+      - "Reward generation: gold (always) + material drop (60% chance MVP0: 100%)"
+      - "Material style matches enemy's style_id (styled enemies → styled materials)"
+      - "Rewards added to player inventory automatically"
+      - "Victory notification shows: gold amount, material name and style if applicable"
+      - "Location becomes inactive (enemy defeated)"
+      - "Player can return to map to find new enemies"
+      - "Combat statistics tracked: victories, defeats, damage dealt"
+    outcome: "Player receives rewards and location becomes available for new spawns"
+    edge_cases: |
+      - Inventory full: prompt to discard items or expand storage
+      - Styled material drop: special notification with style indicator
+      - Rare material drop: enhanced visual feedback and notification
+      - Network issues during victory: rewards cached and applied when connection restored
+      - Player closes app immediately after victory: rewards still granted
+
+  - name: "Weapon Pattern Switching Flow (Post-MVP)"
+    trigger: "Player has multiple weapons with different dial patterns equipped"
+    steps:
+      - "Player views equipped weapon in combat UI"
+      - "Different weapons show different dial patterns: dual_arcs, pulsing_arc, roulette, sawtooth"
+      - "Each pattern has unique timing challenges and zone layouts"
+      - "Player must adapt timing strategy to current weapon's pattern"
+      - "Zone multipliers remain consistent across patterns (injure/miss/graze/normal/crit)"
+      - "Player can switch weapons between combats to match preferred pattern"
+      - "Advanced patterns offer risk/reward tradeoffs: harder timing, better potential multipliers"
+    outcome: "Player adapts combat strategy to weapon-specific dial mechanics"
+    edge_cases: |
+      - MVP0 limitation: all weapons use single_arc pattern only
+      - Future patterns locked until player reaches certain level
+      - Some weapons may have faster/slower dial speeds
+      - Pattern complexity affects accessibility for different player skill levels
+
+  - name: "Combat Session Recovery Flow"
+    trigger: "Player returns to app with active combat session in memory"
+    steps:
+      - "App checks for active combat session on startup"
+      - "If session found and not expired (< 15min): restore combat UI"
+      - "Combat state restored: player HP, enemy HP, turn count, whose turn"
+      - "Player can continue combat from exact state when interrupted"
+      - "If session expired: treat as defeat, clear session, return to map"
+      - "Visual indicator shows combat was restored from previous session"
+      - "All combat mechanics function normally after restoration"
+    outcome: "Player can seamlessly continue interrupted combat sessions"
+    edge_cases: |
+      - Session corrupted: default to defeat, clear session
+      - Enemy location no longer active: treat as defeat
+      - Player equipment changed while away: use equipment from session start
+      - Multiple sessions (error state): use most recent, clear others
+      - App crashed during combat: session preserved in memory/cache for recovery
+
+  - name: "Combat Stats Calculation Flow"
+    trigger: "Combat begins - system calculates effective stats for both participants"
+    steps:
+      - "System queries player's equipped items from 8 slots: weapon, offhand, head, armor, feet, accessory_1, accessory_2, pet"
+      - "Base stats calculated from equipped items using v_player_equipped_stats view"
+      - "Material modifiers applied: each material adds/subtracts from base stats (max 3 per item)"
+      - "Final player stats: atkPower, atkAccuracy, defPower, defAccuracy normalized and summed"
+      - "Enemy stats loaded from EnemyTypes table with tier scaling applied"
+      - "Enemy final stats = base_stats + (tier_multiplier × tier_number)"
+      - "Combat multipliers prepared: zone bands adjusted based on player accuracy stats"
+      - "Stats displayed in combat UI for player reference"
+      - "All calculations performed server-side for security"
+    outcome: "Accurate combat stats calculated from current equipment and enemy scaling"
+    edge_cases: |
+      - Missing equipment slots: use default/zero values for empty slots
+      - Invalid material combinations: system validates and corrects
+      - Stat overflow: caps applied to prevent extreme values
+      - Enemy tier out of range: defaults to tier 1 (weakest)
+      - Player stat calculation error: uses cached safe defaults
