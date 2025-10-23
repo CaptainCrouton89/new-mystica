@@ -1,6 +1,13 @@
 import SpriteKit
 import Foundation
+#if canImport(UIKit)
+import UIKit
+#elseif canImport(AppKit)
 import AppKit
+#endif
+#if canImport(SwiftUI)
+import SwiftUI
+#endif
 
 /**
  * SpriteAnimationGenerator - Swift class for creating simple forward-looping sprite animations
@@ -38,12 +45,12 @@ class SpriteAnimationGenerator {
         var textures: [SKTexture] = []
         
         for imageFile in imageFiles {
-            guard let image = NSImage(contentsOfFile: imageFile) else {
+            guard let image = loadImage(from: imageFile) else {
                 print("⚠️ Failed to load image: \(imageFile)")
                 continue
             }
             
-            let texture = SKTexture(image: image)
+            let texture = createTexture(from: image)
             textures.append(texture)
         }
         
@@ -77,13 +84,17 @@ class SpriteAnimationGenerator {
     ) -> SKSpriteNode? {
         
         // Get first frame for initial texture
-        guard let imageFiles = getImageFiles(from: folderPath),
-              let firstImage = NSImage(contentsOfFile: imageFiles[0]) else {
+        guard let imageFiles = getImageFiles(from: folderPath) else {
             print("❌ Failed to load first frame from: \(folderPath)")
             return nil
         }
         
-        let spriteNode = SKSpriteNode(texture: SKTexture(image: firstImage))
+        guard let firstImage = loadImage(from: imageFiles[0]) else {
+            print("❌ Failed to load first frame from: \(folderPath)")
+            return nil
+        }
+        
+        let spriteNode = SKSpriteNode(texture: createTexture(from: firstImage))
         
         // Add looping animation
         guard let animation = createLoopingAnimation(from: folderPath, frameRate: frameRate) else {
@@ -150,12 +161,30 @@ class SpriteAnimationGenerator {
         }
     }
     
+    private static func loadImage(from path: String) -> Any? {
+        #if canImport(UIKit)
+        return UIImage(contentsOfFile: path)
+        #elseif canImport(AppKit)
+        return NSImage(contentsOfFile: path)
+        #else
+        return nil
+        #endif
+    }
+    
+    private static func createTexture(from image: Any) -> SKTexture {
+        #if canImport(UIKit)
+        return SKTexture(image: image as! UIImage)
+        #elseif canImport(AppKit)
+        return SKTexture(image: image as! NSImage)
+        #else
+        fatalError("Unsupported platform")
+        #endif
+    }
+}
 
 // MARK: - SwiftUI Integration
 
 #if canImport(SwiftUI)
-import SwiftUI
-
 struct AnimatedSpriteView: View {
     let folderPath: String
     let frameRate: Double
