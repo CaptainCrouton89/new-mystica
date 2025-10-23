@@ -33,12 +33,46 @@ final class DefaultCombatRepository: CombatRepository {
             selectedLevel: selectedLevel
         )
 
-        let session: CombatSession = try await apiClient.post(
+        let response: CombatStartResponse = try await apiClient.post(
             endpoint: "/combat/start",
             body: request
         )
 
-        return session
+        // Convert CombatStartResponse to CombatSession
+        // For now, create a basic session with the data we have
+        // TODO: Update CombatSession model or protocol to better match API responses
+        return CombatSession(
+            sessionId: response.sessionId,
+            playerId: "", // Not provided in start response
+            enemyId: response.enemy.id,
+            turnNumber: 0,
+            currentTurnOwner: "player",
+            status: .active,
+            enemy: Enemy(
+                id: response.enemy.id,
+                name: response.enemy.name,
+                level: response.enemy.level,
+                stats: ItemStats(
+                    atkPower: Double(response.enemy.atk),
+                    atkAccuracy: 0, // Not provided in combat enemy
+                    defPower: Double(response.enemy.def),
+                    defAccuracy: 0 // Not provided in combat enemy
+                ),
+                specialAbilities: [],
+                goldMin: 0,
+                goldMax: 0,
+                materialDropPool: []
+            ),
+            playerStats: ItemStats(
+                atkPower: response.playerStats.atkPower,
+                atkAccuracy: response.playerStats.atkAccuracy,
+                defPower: response.playerStats.defPower,
+                defAccuracy: response.playerStats.defAccuracy
+            ),
+            playerHp: response.playerStats.hp,
+            enemyHp: Double(response.enemy.hp),
+            expiresAt: nil
+        )
     }
 
     func performAttack(sessionId: String, timingScore: Double) async throws -> CombatAction {
