@@ -477,11 +477,13 @@ export class EquipmentRepository extends BaseRepository<UserEquipmentRow> {
         return { atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0 };
       }
 
+      // View returns: atk, def, hp, acc
+      // Map to API format: atkPower, atkAccuracy, defPower, defAccuracy
       return {
         atkPower: Number((data as any).atk) || 0,
         atkAccuracy: Number((data as any).acc) || 0,
         defPower: Number((data as any).def) || 0,
-        defAccuracy: Number((data as any).acc) || 0 // Using acc for both attack and defense accuracy
+        defAccuracy: Number((data as any).acc) || 0
       };
     } catch (error) {
       throw this.mapSupabaseError(error);
@@ -508,12 +510,13 @@ export class EquipmentRepository extends BaseRepository<UserEquipmentRow> {
         .single();
 
       if (!error && data) {
-        // Handle potential different column names in the view
+        // View returns: atk, def, hp, acc
+        // Map to API format: atkPower, atkAccuracy, defPower, defAccuracy
         return {
-          atkPower: (data as any).total_atk_power || (data as any).atk_power || 0,
-          atkAccuracy: (data as any).total_atk_accuracy || (data as any).atk_accuracy || 0,
-          defPower: (data as any).total_def_power || (data as any).def_power || 0,
-          defAccuracy: (data as any).total_def_accuracy || (data as any).def_accuracy || 0,
+          atkPower: Number((data as any).atk) || 0,
+          atkAccuracy: Number((data as any).acc) || 0,
+          defPower: Number((data as any).def) || 0,
+          defAccuracy: Number((data as any).acc) || 0,
         };
       }
     } catch (viewError) {

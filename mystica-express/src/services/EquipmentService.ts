@@ -283,6 +283,21 @@ export class EquipmentService {
     // Get applied materials if any
     const appliedMaterials = repositoryItem.materials || [];
 
+    // Get the base normalized stats
+    const baseStats = repositoryItem.item_type.base_stats_normalized || this.getNormalizedStatsForCategory(repositoryItem.item_type.category);
+
+    // Use current_stats only if it appears to be normalized (values between 0-1)
+    // Otherwise fall back to base_stats_normalized
+    let computedStats = baseStats;
+    if (repositoryItem.current_stats) {
+      const stats = repositoryItem.current_stats;
+      const isNormalized = stats.atkPower <= 1 && stats.atkAccuracy <= 1 &&
+                          stats.defPower <= 1 && stats.defAccuracy <= 1;
+      if (isNormalized) {
+        computedStats = stats;
+      }
+    }
+
     return {
       id: repositoryItem.id,
       item_type: {
@@ -290,7 +305,7 @@ export class EquipmentService {
         name: repositoryItem.item_type.name,
         category: repositoryItem.item_type.category,
         equipment_slot: this.mapCategoryToEquipmentSlot(repositoryItem.item_type.category),
-        base_stats: repositoryItem.item_type.base_stats_normalized || this.getNormalizedStatsForCategory(repositoryItem.item_type.category),
+        base_stats: baseStats,
         rarity: repositoryItem.item_type.rarity,
         description: repositoryItem.item_type.description || '',
         image_url: repositoryItem.item_type.image_url
@@ -299,7 +314,7 @@ export class EquipmentService {
       rarity: repositoryItem.item_type.rarity,
       applied_materials: appliedMaterials,
       is_styled: repositoryItem.is_styled || false,
-      computed_stats: repositoryItem.current_stats || repositoryItem.item_type.base_stats_normalized || { atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0 },
+      computed_stats: computedStats,
       is_equipped: isEquipped,
       generated_image_url: repositoryItem.generated_image_url || undefined
     };

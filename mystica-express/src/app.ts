@@ -4,6 +4,7 @@ import morgan from 'morgan';
 
 // Import API routes
 import apiRoutes from './routes/index';
+import { responseWrapper } from './middleware/responseWrapper.js';
 
 /**
  * Express Application Setup
@@ -32,6 +33,9 @@ app.use(cors({
 // Body parsing
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
+
+// Response wrapper (must be before routes)
+app.use(responseWrapper);
 
 // Health check (root endpoint)
 app.get('/', (req, res) => {
