@@ -84,6 +84,7 @@ struct ItemSelectionDrawerContent: View {
                 .padding(.horizontal, 20)
                 .padding(.bottom, 16)
             }
+        }
     }
 
     private func selectItem(_ item: EnhancedPlayerItem) {
