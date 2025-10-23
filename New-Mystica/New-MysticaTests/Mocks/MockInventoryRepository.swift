@@ -16,15 +16,19 @@ class MockInventoryRepository: InventoryRepository {
     var shouldFailApplyMaterial = false
     var shouldFailRemoveMaterial = false
     var shouldFailReplaceMaterial = false
+    var shouldFailSellItem = false
     var fetchInventoryDelayMs: Int = 0
     var fetchMaterialsDelayMs: Int = 0
     var applyMaterialDelayMs: Int = 0
     var removeMaterialDelayMs: Int = 0
     var replaceMaterialDelayMs: Int = 0
+    var sellItemDelayMs: Int = 0
 
     // MARK: - Mock Data
     var mockInventory: [EnhancedPlayerItem] = [EnhancedPlayerItem.testData()]
     var mockMaterials: [MaterialTemplate] = [MaterialTemplate.testData()]
+    var mockGoldEarned: Int = 50
+    var mockNewGoldBalance: Int = 500
 
     // MARK: - Call Tracking
     var fetchInventoryCallCount = 0
@@ -32,9 +36,11 @@ class MockInventoryRepository: InventoryRepository {
     var applyMaterialCallCount = 0
     var removeMaterialCallCount = 0
     var replaceMaterialCallCount = 0
+    var sellItemCallCount = 0
     var lastAppliedMaterialParams: (itemId: String, materialId: String, styleId: String, slotIndex: Int)?
     var lastRemovedMaterialParams: (itemId: String, slotIndex: Int)?
     var lastReplacedMaterialParams: (itemId: String, slotIndex: Int, newMaterialId: String)?
+    var lastSoldItemId: String?
 
     // MARK: - InventoryRepository Implementation
 
@@ -182,6 +188,26 @@ class MockInventoryRepository: InventoryRepository {
         return updatedItem
     }
 
+    func sellItem(itemId: String) async throws -> SellItemResponse {
+        sellItemCallCount += 1
+        lastSoldItemId = itemId
+
+        if sellItemDelayMs > 0 {
+            try await Task.sleep(nanoseconds: UInt64(sellItemDelayMs * 1_000_000))
+        }
+
+        if shouldFailSellItem {
+            throw AppError.serverError(400, "Cannot sell item")
+        }
+
+        return SellItemResponse(
+            success: true,
+            goldEarned: mockGoldEarned,
+            newGoldBalance: mockNewGoldBalance,
+            itemName: "Test Item"
+        )
+    }
+
     // MARK: - Test Helpers
 
     func reset() {
@@ -190,21 +216,27 @@ class MockInventoryRepository: InventoryRepository {
         shouldFailApplyMaterial = false
         shouldFailRemoveMaterial = false
         shouldFailReplaceMaterial = false
+        shouldFailSellItem = false
         fetchInventoryDelayMs = 0
         fetchMaterialsDelayMs = 0
         applyMaterialDelayMs = 0
         removeMaterialDelayMs = 0
         replaceMaterialDelayMs = 0
+        sellItemDelayMs = 0
         fetchInventoryCallCount = 0
         fetchMaterialsCallCount = 0
         applyMaterialCallCount = 0
         removeMaterialCallCount = 0
         replaceMaterialCallCount = 0
+        sellItemCallCount = 0
         lastAppliedMaterialParams = nil
         lastRemovedMaterialParams = nil
         lastReplacedMaterialParams = nil
+        lastSoldItemId = nil
         mockInventory = [EnhancedPlayerItem.testData()]
         mockMaterials = [MaterialTemplate.testData()]
+        mockGoldEarned = 50
+        mockNewGoldBalance = 500
     }
 }
 

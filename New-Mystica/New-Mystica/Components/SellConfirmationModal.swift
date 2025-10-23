@@ -207,8 +207,12 @@ struct SellConfirmationModal: View {
             item: EnhancedPlayerItem(
                 id: "550e8400-e29b-41d4-a716-446655440000",
                 baseType: "Magic Sword",
+                itemTypeId: "550e8400-e29b-41d4-a716-446655440001",
+                category: "weapon",
                 level: 5,
+                rarity: "rare",
                 appliedMaterials: [],
+                materials: [],
                 computedStats: ItemStats(
                     atkPower: 45.0,
                     atkAccuracy: 0.85,
