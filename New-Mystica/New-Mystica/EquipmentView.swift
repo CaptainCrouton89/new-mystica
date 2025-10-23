@@ -29,7 +29,7 @@ struct EquipmentSlotView: View {
                 if let item = item {
                     // Equipped item
                     VStack(spacing: 4) {
-                        AsyncImage(url: URL(string: item.imageUrl ?? "")) { phase in
+                        AsyncImage(url: URL(string: item.generatedImageUrl ?? "")) { phase in
                             switch phase {
                             case .empty:
                                 ProgressView()
@@ -118,12 +118,11 @@ struct EquipmentSlotView: View {
 
     /// Get rarity color for equipped items
     private func getRarityColor() -> Color {
-        guard let item = item,
-              let itemType = item.itemType else {
+        guard let item = item else {
             return Color.borderSubtle
         }
 
-        switch itemType.rarity.lowercased() {
+        switch item.rarity.lowercased() {
         case "common":
             return Color.borderSubtle
         case "rare", "legendary":
@@ -370,7 +369,7 @@ struct EquipmentView: View {
             VStack(spacing: 16) {
                 // Item name and level
                 VStack(spacing: 4) {
-                    TitleText(item.itemType?.name ?? "Unknown Item")
+                    TitleText(item.itemType.name)
                         .foregroundColor(Color.textPrimary)
 
                     NormalText("Level \(item.level)")
@@ -378,7 +377,7 @@ struct EquipmentView: View {
                 }
 
                 // Item image (if available)
-                AsyncImage(url: URL(string: item.imageUrl ?? "")) { phase in
+                AsyncImage(url: URL(string: item.generatedImageUrl ?? "")) { phase in
                     switch phase {
                     case .empty:
                         ProgressView()
@@ -408,7 +407,7 @@ struct EquipmentView: View {
                             NormalText("ATK Power:")
                                 .foregroundColor(Color.textSecondary)
                             Spacer()
-                            NormalText(String(format: "%.0f", item.currentStats.atkPower))
+                            NormalText(String(format: "%.0f", item.computedStats.atkPower * 100))
                                 .foregroundColor(Color.accent)
                                 .bold()
                         }
@@ -417,7 +416,7 @@ struct EquipmentView: View {
                             NormalText("ATK Accuracy:")
                                 .foregroundColor(Color.textSecondary)
                             Spacer()
-                            NormalText(String(format: "%.1f", item.currentStats.atkAccuracy))
+                            NormalText(String(format: "%.0f", item.computedStats.atkAccuracy * 100))
                                     .foregroundColor(Color.accent)
                                     .bold()
                             }
@@ -426,7 +425,7 @@ struct EquipmentView: View {
                             NormalText("DEF Power:")
                                 .foregroundColor(Color.textSecondary)
                             Spacer()
-                            NormalText(String(format: "%.0f", item.currentStats.defPower))
+                            NormalText(String(format: "%.0f", item.computedStats.defPower * 100))
                                 .foregroundColor(Color.accentSecondary)
                                 .bold()
                         }
@@ -435,7 +434,7 @@ struct EquipmentView: View {
                             NormalText("DEF Accuracy:")
                                 .foregroundColor(Color.textSecondary)
                             Spacer()
-                            NormalText(String(format: "%.1f", item.currentStats.defAccuracy))
+                            NormalText(String(format: "%.0f", item.computedStats.defAccuracy * 100))
                                 .foregroundColor(Color.accentSecondary)
                                 .bold()
                         }
@@ -444,7 +443,8 @@ struct EquipmentView: View {
                 }
 
                 // Item description (if available)
-                if let description = item.itemType?.description, !description.isEmpty {
+                if !item.itemType.description.isEmpty {
+                    let description = item.itemType.description
                     VStack(spacing: 4) {
                         TitleText("Description", size: 18)
                             .foregroundColor(Color.textPrimary)
@@ -517,24 +517,21 @@ struct EquipmentView: View {
 
 // MARK: - Mock Data for Preview
 private let mockPlayerItem = PlayerItem(
-    id: UUID(),
-    userId: UUID(),
-    itemTypeId: UUID(),
-    level: 5,
-    baseStats: ItemStats(atkPower: 10, atkAccuracy: 8, defPower: 5, defAccuracy: 6),
-    currentStats: ItemStats(atkPower: 50, atkAccuracy: 40, defPower: 25, defAccuracy: 30),
-    materialComboHash: "abc123",
-    imageUrl: "https://example.com/sword.png",
+    id: "550e8400-e29b-41d4-a716-446655440000",
     itemType: ItemType(
-        id: UUID(),
+        id: "550e8400-e29b-41d4-a716-446655440001",
         name: "Magic Sword",
         category: "weapon",
         equipmentSlot: "weapon",
-        baseStats: ItemStats(atkPower: 10, atkAccuracy: 8, defPower: 5, defAccuracy: 6),
+        baseStats: ItemStats(atkPower: 0.4, atkAccuracy: 0.25, defPower: 0.25, defAccuracy: 0.1),
         rarity: "epic",
-        imageUrl: "https://example.com/sword.png",
         description: "A magical sword that glows with power"
     ),
-    createdAt: "2024-01-01T00:00:00Z",
-    updatedAt: "2024-01-01T00:00:00Z"
+    level: 5,
+    rarity: "epic",
+    appliedMaterials: [],
+    isStyled: false,
+    computedStats: ItemStats(atkPower: 0.4, atkAccuracy: 0.25, defPower: 0.25, defAccuracy: 0.1),
+    isEquipped: true,
+    generatedImageUrl: nil
 )

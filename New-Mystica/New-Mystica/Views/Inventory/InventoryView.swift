@@ -199,7 +199,7 @@ struct InventoryView: View {
             }
         }
         .refreshable {
-            await viewModel.loadInventory()
+            await viewModel.refreshInventory()
         }
         .task {
             await viewModel.loadInventory()
@@ -293,6 +293,28 @@ struct InventoryView: View {
                             // Navigate to item detail or crafting view
                             // TODO: Implement navigation to item detail/crafting
                         }
+                }
+
+                // Load More button
+                if viewModel.canLoadMore {
+                    HStack {
+                        Spacer()
+                        if viewModel.isLoading {
+                            ProgressView()
+                                .scaleEffect(0.8)
+                                .padding()
+                        } else {
+                            TextButton("Load More") {
+                                audioManager.playMenuButtonClick()
+                                Task {
+                                    await viewModel.loadMoreItems()
+                                }
+                            }
+                            .frame(maxWidth: 200)
+                        }
+                        Spacer()
+                    }
+                    .padding(.top, 16)
                 }
             }
             .padding(.horizontal, 16)
