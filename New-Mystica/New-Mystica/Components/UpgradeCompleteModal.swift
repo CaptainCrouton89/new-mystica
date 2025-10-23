@@ -2,7 +2,7 @@
 //  UpgradeCompleteModal.swift
 //  New-Mystica
 //
-//  Modal view for displaying item upgrade completion with stat comparison
+//  Modal view for displaying item upgrade (confirmation or completion) with stat comparison
 //
 
 import SwiftUI
@@ -10,12 +10,13 @@ import SwiftData
 
 struct UpgradeCompleteModal: View {
     let item: EnhancedPlayerItem
-    let goldSpent: Int
+    let goldSpent: Int  // In confirmation mode, this is the cost; in completion mode, this is the amount spent
     let newGoldBalance: Int
-    let newVanityLevel: Int?
     let statsBefore: ItemStats
     let statsAfter: ItemStats
-    let onUpgradeAgain: () -> Void
+    let isConfirmation: Bool  // true = show confirm/cancel, false = show upgrade again/return
+    let onConfirm: (() -> Void)?  // Only used in confirmation mode
+    let onUpgradeAgain: (() -> Void)?  // Only used in completion mode
     let onReturnToInventory: () -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -51,11 +52,6 @@ struct UpgradeCompleteModal: View {
 
                 // Gold spent confirmation
                 goldSpentView
-
-                // Vanity level update (if applicable)
-                if let newVanityLevel = newVanityLevel {
-                    vanityLevelView(newVanityLevel)
-                }
 
                 // Action buttons
                 actionButtonsView
@@ -158,7 +154,7 @@ struct UpgradeCompleteModal: View {
 
             // Level progression badge
             HStack(spacing: 8) {
-                Text("Level \(item.level - 1)")
+                Text("Level \(isConfirmation ? item.level : item.level - 1)")
                     .font(FontManager.impact(size: 16))
                     .foregroundColor(Color.textSecondary)
 
@@ -166,7 +162,7 @@ struct UpgradeCompleteModal: View {
                     .font(.system(size: 16, weight: .bold))
                     .foregroundColor(Color.accent)
 
-                Text("Level \(item.level)")
+                Text("Level \(isConfirmation ? item.level + 1 : item.level)")
                     .font(FontManager.impact(size: 16))
                     .foregroundColor(Color.accent)
                     .bold()
@@ -188,8 +184,6 @@ struct UpgradeCompleteModal: View {
     // MARK: - Stat Comparison View
     private var statComparisonView: some View {
         VStack(spacing: 12) {
-            TitleText("Stat Improvements", size: 18)
-
             VStack(spacing: 8) {
                 StatComparisonRow(
                     iconUrl: "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/attack-power-crossed-swords.png",
@@ -253,7 +247,7 @@ struct UpgradeCompleteModal: View {
 
             Spacer()
 
-            Text("New Balance: \(newGoldBalance)")
+            Text("\(isConfirmation ? "Balance After:" : "New Balance:") \(newGoldBalance)")
                 .font(FontManager.body)
                 .foregroundColor(Color.textSecondary)
         }
@@ -271,90 +265,116 @@ struct UpgradeCompleteModal: View {
         .padding(.top, 16)
     }
 
-    // MARK: - Vanity Level View
-    private func vanityLevelView(_ newVanityLevel: Int) -> some View {
-        HStack {
-            Image(systemName: "star.fill")
-                .foregroundColor(Color.accent)
-
-            Text("Vanity Level: \(newVanityLevel)")
-                .font(FontManager.impact(size: 16))
-                .foregroundColor(Color.accent)
-
-            Spacer()
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color.accent.opacity(0.15))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color.accent, lineWidth: 1)
-                )
-        )
-        .padding(.horizontal, 20)
-        .padding(.top, 8)
-    }
-
     // MARK: - Action Buttons View
     private var actionButtonsView: some View {
         VStack(spacing: 12) {
-            // Upgrade Again button
-            Button {
-                audioManager.playMenuButtonClick()
-                dismissModal()
-                Task {
-                    try? await Task.sleep(for: .milliseconds(300))
-                    onUpgradeAgain()
+            if isConfirmation {
+                // Confirmation mode: Show "Confirm Upgrade" and "Cancel"
+                Button {
+                    audioManager.playMenuButtonClick()
+                    dismissModal()
+                    Task {
+                        try? await Task.sleep(for: .milliseconds(300))
+                        onConfirm?()
+                    }
+                } label: {
+                    HStack {
+                        Image(systemName: "checkmark.circle.fill")
+                        Text("Confirm Upgrade")
+                            .font(FontManager.impact(size: 16))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.success.opacity(0.15))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color.success, lineWidth: 2)
+                            )
+                    )
+                    .foregroundColor(Color.success)
                 }
-            } label: {
-                HStack {
-                    Image(systemName: "arrow.up.circle.fill")
-                    Text("Upgrade Again")
-                        .font(FontManager.impact(size: 16))
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(Color.accent.opacity(0.15))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(Color.accent, lineWidth: 2)
-                        )
-                )
-                .foregroundColor(Color.accent)
-            }
-            .buttonStyle(PlainButtonStyle())
+                .buttonStyle(PlainButtonStyle())
 
-            // Return to Inventory button
-            Button {
-                audioManager.playMenuButtonClick()
-                dismissModal()
-                Task {
-                    try? await Task.sleep(for: .milliseconds(300))
-                    onReturnToInventory()
+                Button {
+                    audioManager.playCancelClick()
+                    dismissModal()
+                } label: {
+                    HStack {
+                        Image(systemName: "xmark.circle.fill")
+                        Text("Cancel")
+                            .font(FontManager.impact(size: 16))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.textSecondary.opacity(0.15))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color.textSecondary, lineWidth: 2)
+                            )
+                    )
+                    .foregroundColor(Color.textSecondary)
                 }
-            } label: {
-                HStack {
-                    Image(systemName: "backpack.fill")
-                    Text("Return to Inventory")
-                        .font(FontManager.impact(size: 16))
+                .buttonStyle(PlainButtonStyle())
+            } else {
+                // Completion mode: Show "Upgrade Again" and "Return to Inventory"
+                Button {
+                    audioManager.playMenuButtonClick()
+                    dismissModal()
+                    Task {
+                        try? await Task.sleep(for: .milliseconds(300))
+                        onUpgradeAgain?()
+                    }
+                } label: {
+                    HStack {
+                        Image(systemName: "arrow.up.circle.fill")
+                        Text("Upgrade Again")
+                            .font(FontManager.impact(size: 16))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.accent.opacity(0.15))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color.accent, lineWidth: 2)
+                            )
+                    )
+                    .foregroundColor(Color.accent)
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(Color.accentSecondary.opacity(0.15))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(Color.accentSecondary, lineWidth: 2)
-                        )
-                )
-                .foregroundColor(Color.accentSecondary)
+                .buttonStyle(PlainButtonStyle())
+
+                Button {
+                    audioManager.playMenuButtonClick()
+                    dismissModal()
+                    Task {
+                        try? await Task.sleep(for: .milliseconds(300))
+                        onReturnToInventory()
+                    }
+                } label: {
+                    HStack {
+                        Image(systemName: "backpack.fill")
+                        Text("Return to Inventory")
+                            .font(FontManager.impact(size: 16))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.accentSecondary.opacity(0.15))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color.accentSecondary, lineWidth: 2)
+                            )
+                    )
+                    .foregroundColor(Color.accentSecondary)
+                }
+                .buttonStyle(PlainButtonStyle())
             }
-            .buttonStyle(PlainButtonStyle())
         }
         .padding(.horizontal, 20)
         .padding(.top, 24)
@@ -482,6 +502,58 @@ private struct StatComparisonRow: View {
 }
 
 // MARK: - Preview
+#Preview("Upgrade Confirmation Modal") {
+    UpgradeCompleteModal(
+        item: EnhancedPlayerItem(
+            id: "550e8400-e29b-41d4-a716-446655440000",
+            baseType: "Magic Sword",
+            itemTypeId: "550e8400-e29b-41d4-a716-446655440001",
+            category: "weapon",
+            level: 5,
+            rarity: "epic",
+            appliedMaterials: [],
+            materials: [],
+            computedStats: ItemStats(
+                atkPower: 0.25,
+                atkAccuracy: 0.15,
+                defPower: 0.10,
+                defAccuracy: 0.05
+            ),
+            materialComboHash: nil,
+            generatedImageUrl: nil,
+            imageGenerationStatus: nil,
+            craftCount: 0,
+            isStyled: true,
+            isEquipped: true,
+            equippedSlot: "weapon"
+        ),
+        goldSpent: 506,
+        newGoldBalance: 694,
+        statsBefore: ItemStats(
+            atkPower: 0.25,
+            atkAccuracy: 0.15,
+            defPower: 0.10,
+            defAccuracy: 0.05
+        ),
+        statsAfter: ItemStats(
+            atkPower: 0.30,
+            atkAccuracy: 0.18,
+            defPower: 0.12,
+            defAccuracy: 0.06
+        ),
+        isConfirmation: true,
+        onConfirm: {
+            print("Confirm Upgrade tapped")
+        },
+        onUpgradeAgain: nil,
+        onReturnToInventory: {
+            print("Cancel tapped")
+        }
+    )
+    .modelContainer(for: Item.self, inMemory: true)
+    .environmentObject(NavigationManager())
+}
+
 #Preview("Upgrade Complete Modal") {
     UpgradeCompleteModal(
         item: EnhancedPlayerItem(
@@ -509,7 +581,6 @@ private struct StatComparisonRow: View {
         ),
         goldSpent: 506,
         newGoldBalance: 694,
-        newVanityLevel: 42,
         statsBefore: ItemStats(
             atkPower: 0.25,
             atkAccuracy: 0.15,
@@ -522,6 +593,8 @@ private struct StatComparisonRow: View {
             defPower: 0.12,
             defAccuracy: 0.06
         ),
+        isConfirmation: false,
+        onConfirm: nil,
         onUpgradeAgain: {
             print("Upgrade Again tapped")
         },
