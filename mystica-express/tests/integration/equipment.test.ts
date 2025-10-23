@@ -9,6 +9,7 @@
  */
 
 import request from 'supertest';
+import { extractResponseData } from '../helpers/assertions.js';
 
 // Mock uuid BEFORE importing app to avoid ES module issues
 jest.mock('uuid', () => ({
@@ -139,33 +140,33 @@ describe('Equipment API Endpoints', () => {
         .expect(200);
 
       // Verify response structure
-      expect(response.body).toHaveProperty('slots');
-      expect(response.body).toHaveProperty('total_stats');
-      expect(response.body).toHaveProperty('equipment_count');
+      expect(extractResponseData(response.body)).toHaveProperty('slots');
+      expect(extractResponseData(response.body)).toHaveProperty('total_stats');
+      expect(extractResponseData(response.body)).toHaveProperty('equipment_count');
 
       // Verify weapon slot is populated
-      expect(response.body.slots.weapon).toBeDefined();
-      expect(response.body.slots.weapon.id).toBe('weapon-123');
-      expect(response.body.slots.weapon.level).toBe(5);
+      expect(extractResponseData(response.body).slots.weapon).toBeDefined();
+      expect(extractResponseData(response.body).slots.weapon.id).toBe('weapon-123');
+      expect(extractResponseData(response.body).slots.weapon.level).toBe(5);
 
       // Verify armor slot is populated
-      expect(response.body.slots.armor).toBeDefined();
-      expect(response.body.slots.armor.id).toBe('armor-456');
-      expect(response.body.slots.armor.level).toBe(3);
+      expect(extractResponseData(response.body).slots.armor).toBeDefined();
+      expect(extractResponseData(response.body).slots.armor.id).toBe('armor-456');
+      expect(extractResponseData(response.body).slots.armor.level).toBe(3);
 
       // Verify empty slots are undefined
-      expect(response.body.slots.offhand).toBeUndefined();
-      expect(response.body.slots.head).toBeUndefined();
-      expect(response.body.slots.feet).toBeUndefined();
-      expect(response.body.slots.accessory_1).toBeUndefined();
-      expect(response.body.slots.accessory_2).toBeUndefined();
-      expect(response.body.slots.pet).toBeUndefined();
+      expect(extractResponseData(response.body).slots.offhand).toBeUndefined();
+      expect(extractResponseData(response.body).slots.head).toBeUndefined();
+      expect(extractResponseData(response.body).slots.feet).toBeUndefined();
+      expect(extractResponseData(response.body).slots.accessory_1).toBeUndefined();
+      expect(extractResponseData(response.body).slots.accessory_2).toBeUndefined();
+      expect(extractResponseData(response.body).slots.pet).toBeUndefined();
 
       // Verify stats aggregation (weapon + armor stats)
-      expect(response.body.total_stats.atkPower).toBe(11); // 10 + 1
-      expect(response.body.total_stats.atkAccuracy).toBe(6); // 5 + 1
-      expect(response.body.total_stats.defPower).toBe(17); // 2 + 15
-      expect(response.body.total_stats.defAccuracy).toBe(11); // 3 + 8
+      expect(extractResponseData(response.body).total_stats.atkPower).toBe(11); // 10 + 1
+      expect(extractResponseData(response.body).total_stats.atkAccuracy).toBe(6); // 5 + 1
+      expect(extractResponseData(response.body).total_stats.defPower).toBe(17); // 2 + 15
+      expect(extractResponseData(response.body).total_stats.defAccuracy).toBe(11); // 3 + 8
 
       // Verify equipment count
       expect(response.body.equipment_count).toBe(2);
@@ -210,25 +211,25 @@ describe('Equipment API Endpoints', () => {
         .expect(200);
 
       // Verify response structure
-      expect(response.body).toHaveProperty('slots');
-      expect(response.body).toHaveProperty('total_stats');
-      expect(response.body).toHaveProperty('equipment_count');
+      expect(extractResponseData(response.body)).toHaveProperty('slots');
+      expect(extractResponseData(response.body)).toHaveProperty('total_stats');
+      expect(extractResponseData(response.body)).toHaveProperty('equipment_count');
 
       // Verify all slots are empty
-      expect(response.body.slots.weapon).toBeUndefined();
-      expect(response.body.slots.offhand).toBeUndefined();
-      expect(response.body.slots.head).toBeUndefined();
-      expect(response.body.slots.armor).toBeUndefined();
-      expect(response.body.slots.feet).toBeUndefined();
-      expect(response.body.slots.accessory_1).toBeUndefined();
-      expect(response.body.slots.accessory_2).toBeUndefined();
-      expect(response.body.slots.pet).toBeUndefined();
+      expect(extractResponseData(response.body).slots.weapon).toBeUndefined();
+      expect(extractResponseData(response.body).slots.offhand).toBeUndefined();
+      expect(extractResponseData(response.body).slots.head).toBeUndefined();
+      expect(extractResponseData(response.body).slots.armor).toBeUndefined();
+      expect(extractResponseData(response.body).slots.feet).toBeUndefined();
+      expect(extractResponseData(response.body).slots.accessory_1).toBeUndefined();
+      expect(extractResponseData(response.body).slots.accessory_2).toBeUndefined();
+      expect(extractResponseData(response.body).slots.pet).toBeUndefined();
 
       // Verify zero stats
-      expect(response.body.total_stats.atkPower).toBe(0);
-      expect(response.body.total_stats.atkAccuracy).toBe(0);
-      expect(response.body.total_stats.defPower).toBe(0);
-      expect(response.body.total_stats.defAccuracy).toBe(0);
+      expect(extractResponseData(response.body).total_stats.atkPower).toBe(0);
+      expect(extractResponseData(response.body).total_stats.atkAccuracy).toBe(0);
+      expect(extractResponseData(response.body).total_stats.defPower).toBe(0);
+      expect(extractResponseData(response.body).total_stats.defAccuracy).toBe(0);
 
       // Verify zero equipment count
       expect(response.body.equipment_count).toBe(0);
@@ -353,22 +354,22 @@ describe('Equipment API Endpoints', () => {
       expect(response.body.equipment_count).toBe(3);
 
       // Verify stats aggregation (weapon + armor + accessory)
-      expect(response.body.total_stats.atkPower).toBe(19); // 15 + 1 + 3
-      expect(response.body.total_stats.atkAccuracy).toBe(13); // 8 + 1 + 4
-      expect(response.body.total_stats.defPower).toBe(25); // 2 + 20 + 3
-      expect(response.body.total_stats.defAccuracy).toBe(22); // 2 + 15 + 5
+      expect(extractResponseData(response.body).total_stats.atkPower).toBe(19); // 15 + 1 + 3
+      expect(extractResponseData(response.body).total_stats.atkAccuracy).toBe(13); // 8 + 1 + 4
+      expect(extractResponseData(response.body).total_stats.defPower).toBe(25); // 2 + 20 + 3
+      expect(extractResponseData(response.body).total_stats.defAccuracy).toBe(22); // 2 + 15 + 5
 
       // Verify individual items are present
-      expect(response.body.slots.weapon.id).toBe('weapon-123');
-      expect(response.body.slots.armor.id).toBe('armor-456');
-      expect(response.body.slots.accessory_1.id).toBe('accessory-789');
+      expect(extractResponseData(response.body).slots.weapon.id).toBe('weapon-123');
+      expect(extractResponseData(response.body).slots.armor.id).toBe('armor-456');
+      expect(extractResponseData(response.body).slots.accessory_1.id).toBe('accessory-789');
 
       // Verify empty slots remain undefined
-      expect(response.body.slots.offhand).toBeUndefined();
-      expect(response.body.slots.head).toBeUndefined();
-      expect(response.body.slots.feet).toBeUndefined();
-      expect(response.body.slots.accessory_2).toBeUndefined();
-      expect(response.body.slots.pet).toBeUndefined();
+      expect(extractResponseData(response.body).slots.offhand).toBeUndefined();
+      expect(extractResponseData(response.body).slots.head).toBeUndefined();
+      expect(extractResponseData(response.body).slots.feet).toBeUndefined();
+      expect(extractResponseData(response.body).slots.accessory_2).toBeUndefined();
+      expect(extractResponseData(response.body).slots.pet).toBeUndefined();
     });
 
     it('should handle database errors gracefully', async () => {
@@ -457,7 +458,7 @@ describe('Equipment API Endpoints', () => {
         .expect(200);
 
       // Should skip the corrupted item and return empty slots
-      expect(response.body.slots.weapon).toBeUndefined();
+      expect(extractResponseData(response.body).slots.weapon).toBeUndefined();
       expect(response.body.equipment_count).toBe(0);
       expect(response.body.total_stats).toEqual({
         atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0

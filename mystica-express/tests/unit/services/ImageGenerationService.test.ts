@@ -189,7 +189,7 @@ describe('ImageGenerationService (TDD)', () => {
         })
       );
 
-      // Verify Replicate API was called with correct prompt
+      // Verify Replicate API was called with correct prompt (no image_input for Gemini)
       expect(mockReplicateRun).toHaveBeenCalledWith(
         'google/nano-banana',
         expect.objectContaining({
@@ -200,6 +200,10 @@ describe('ImageGenerationService (TDD)', () => {
           })
         })
       );
+
+      // Verify that image_input is NOT included for Gemini provider
+      const replicateCall = mockReplicateRun.mock.calls[0];
+      expect(replicateCall[1].input.image_input).toBeUndefined();
 
       // Verify R2 upload was attempted
       expect(mockSend).toHaveBeenCalledWith(
@@ -789,7 +793,7 @@ describe('ImageGenerationService (TDD)', () => {
    * Test Group 8: Reference Image Fetching
    */
   describe('Reference Image Fetching', () => {
-    it('should include base reference images in Replicate call', async () => {
+    it('should call Replicate API without image_input for Gemini provider', async () => {
       // Arrange: Cache miss scenario
       mockSend
         .mockRejectedValueOnce({ name: 'NotFound' })
@@ -813,22 +817,21 @@ describe('ImageGenerationService (TDD)', () => {
       // Act
       await imageGenerationService.generateComboImage(request);
 
-      // Assert: Verify Replicate called with reference images
+      // Assert: Verify Replicate called without image_input for Gemini provider
       expect(mockReplicateRun).toHaveBeenCalledWith(
         'google/nano-banana',
         expect.objectContaining({
           input: expect.objectContaining({
-            image_input: expect.arrayContaining([
-              expect.stringContaining('image-refs/fantasy-weapon-1.png')
-            ])
+            prompt: expect.any(String),
+            aspect_ratio: '1:1',
+            output_format: 'png'
           })
         })
       );
 
-      // Should have at least 10 base reference images
+      // Verify that image_input is NOT included for Gemini provider
       const replicateCall = mockReplicateRun.mock.calls[0];
-      const imageInput = replicateCall[1].input.image_input;
-      expect(imageInput.length).toBeGreaterThanOrEqual(10);
+      expect(replicateCall[1].input.image_input).toBeUndefined();
     });
 
     it('should attempt to find specific material reference images', async () => {

@@ -568,8 +568,32 @@ describe('MaterialRepository', () => {
           created_at: '2024-01-01T00:00:00.000Z'
         };
 
-        mockClient.rpc.mockResolvedValue({ data: rpcResult, error: null });
-        mockClient.from('materialinstances').select('*').eq('id', 'instance-123').single.mockResolvedValue({ data: mockInstance, error: null });
+        mockClient.rpc.mockResolvedValue({
+          data: {
+            success: true,
+            data: {
+              instance_id: 'instance-123',
+              is_styled: true
+            },
+            error_code: null,
+            message: null
+          },
+          error: null
+        });
+
+        // Mock the findStackByUser call to return updated stack quantity
+        const mockUpdatedStack = {
+          user_id: 'user-123',
+          material_id: 'material-789',
+          style_id: 'style-abc',
+          quantity: 4,
+          created_at: '2024-01-01T00:00:00.000Z',
+          updated_at: '2024-01-01T00:00:00.000Z'
+        };
+
+        // Set up mocks for the two separate queries that will be called
+        mockClient.from('materialinstances').select('*').eq('id', 'instance-123').single.mockResolvedValueOnce({ data: mockInstance, error: null });
+        mockClient.from('materialstacks').select('*').eq('user_id', 'user-123').eq('material_id', 'material-789').eq('style_id', 'style-abc').single.mockResolvedValueOnce({ data: mockUpdatedStack, error: null });
 
         const result = await repository.applyMaterialToItemAtomic(
           'user-123', 'item-456', 'material-789', 'style-abc', 1

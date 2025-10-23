@@ -5,6 +5,7 @@
  */
 
 import request from 'supertest';
+import { extractResponseData } from '../helpers/assertions.js';
 
 // Create mock functions BEFORE importing app
 const mockGetClaims = jest.fn();
@@ -91,7 +92,7 @@ describe('Location API Endpoints', () => {
         .set('Authorization', 'Bearer valid-token');
 
       expect(response.status).toBe(200);
-      expect(response.body).toEqual({
+      expect(extractResponseData(response.body)).toEqual({
         locations: mockNearbyLocations
       });
       expect(mockRpc).toHaveBeenCalledWith('get_nearby_locations', {
@@ -132,7 +133,7 @@ describe('Location API Endpoints', () => {
         .set('Authorization', 'Bearer valid-token');
 
       expect(response.status).toBe(200);
-      expect(response.body).toEqual({
+      expect(extractResponseData(response.body)).toEqual({
         locations: []
       });
     });
@@ -278,7 +279,7 @@ describe('Location API Endpoints', () => {
         .set('Authorization', 'Bearer valid-token');
 
       expect(response.status).toBe(200);
-      expect(response.body).toEqual(mockLocation);
+      expect(extractResponseData(response.body)).toEqual(mockLocation);
       expect(mockFrom).toHaveBeenCalledWith('locations');
     });
 

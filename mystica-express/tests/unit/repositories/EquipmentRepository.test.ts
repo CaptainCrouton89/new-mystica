@@ -365,7 +365,7 @@ describe('EquipmentRepository', () => {
         select: jest.fn().mockReturnValue({
           eq: jest.fn().mockReturnValue({
             single: jest.fn().mockResolvedValue({
-              data: { atk: 25, acc: 18, def: 15 },
+              data: { atk: 25, acc: 36, def: 15 },  // 36 / 2 = 18 each
               error: null
             })
           })
@@ -546,10 +546,9 @@ describe('EquipmentRepository', () => {
           eq: jest.fn().mockReturnValue({
             single: jest.fn().mockResolvedValue({
               data: {
-                total_atk_power: 25,
-                total_atk_accuracy: 18,
-                total_def_power: 15,
-                total_def_accuracy: 12
+                atk: 25,
+                def: 15,
+                acc: 30  // Combined accuracy (18 + 12)
               },
               error: null
             })
@@ -561,9 +560,9 @@ describe('EquipmentRepository', () => {
 
       expect(result).toEqual({
         atkPower: 25,
-        atkAccuracy: 18,
+        atkAccuracy: 15,  // 30 / 2 = 15
         defPower: 15,
-        defAccuracy: 12
+        defAccuracy: 15   // 30 / 2 = 15
       });
     });
 

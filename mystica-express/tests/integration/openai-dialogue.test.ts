@@ -6,6 +6,7 @@
  */
 
 import request from 'supertest';
+import { extractResponseData } from '../helpers/assertions.js';
 
 // Create mock functions BEFORE importing app
 const mockGetClaims = jest.fn();
@@ -138,9 +139,9 @@ describe('OpenAI Dialogue Generation Proof Test', () => {
       });
 
     expect(response.status).toBe(200);
-    expect(response.body).toHaveProperty('dialogue_response');
+    expect(extractResponseData(response.body)).toHaveProperty('dialogue_response');
 
-    const dialogueResponse = response.body.dialogue_response;
+    const dialogueResponse = extractResponseData(response.body).dialogue_response;
     expect(dialogueResponse).toHaveProperty('dialogue');
     expect(dialogueResponse).toHaveProperty('was_ai_generated');
 
@@ -195,7 +196,7 @@ describe('OpenAI Dialogue Generation Proof Test', () => {
         });
 
       expect(response.status).toBe(200);
-      const dialogue = response.body.dialogue_response.dialogue;
+      const dialogue = extractResponseData(response.body).dialogue_response.dialogue;
       dialogues.push(dialogue);
 
       // Verify word count for each
@@ -232,9 +233,10 @@ describe('OpenAI Dialogue Generation Proof Test', () => {
       });
 
     expect(response.status).toBe(200);
-    expect(response.body.dialogue_response).toHaveProperty('player_context_used');
+    const responseData = extractResponseData(response.body);
+    expect(responseData.dialogue_response).toHaveProperty('player_context_used');
 
-    const playerContext = response.body.dialogue_response.player_context_used;
+    const playerContext = responseData.dialogue_response.player_context_used;
     expect(playerContext).toHaveProperty('attempts');
     expect(playerContext).toHaveProperty('victories');
     expect(playerContext).toHaveProperty('defeats');

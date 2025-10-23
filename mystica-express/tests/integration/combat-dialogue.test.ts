@@ -5,6 +5,7 @@
  */
 
 import request from 'supertest';
+import { extractResponseData } from '../helpers/assertions.js';
 
 // Create mock functions BEFORE importing app
 const mockGetClaims = jest.fn();
@@ -133,7 +134,7 @@ describe('Combat API Endpoints', () => {
         .send(validRequest);
 
       expect(response.status).toBe(200);
-      expect(response.body).toMatchObject({
+      expect(extractResponseData(response.body)).toMatchObject({
         success: true,
         dialogue_response: expect.objectContaining({
           dialogue: expect.any(String),

@@ -433,15 +433,21 @@ describe('ImageGenerationService - Core Functionality', () => {
 
       expect(result).toContain('items-crafted/magic_wand/');
 
-      // Verify AI prompt includes both materials
+      // Verify AI prompt includes both materials and no image_input for Gemini
       expect(mockReplicateRun).toHaveBeenCalledWith(
         'google/nano-banana',
         expect.objectContaining({
           input: expect.objectContaining({
-            prompt: expect.stringContaining('Dense metallic ore, Shimmering reptilian scale (rendered in Shiny style)')
+            prompt: expect.stringContaining('Dense metallic ore, Shimmering reptilian scale (rendered in Shiny style)'),
+            aspect_ratio: '1:1',
+            output_format: 'png'
           })
         })
       );
+
+      // Verify that image_input is NOT included for Gemini provider
+      const replicateCall = mockReplicateRun.mock.calls[0];
+      expect(replicateCall[1].input.image_input).toBeUndefined();
     });
 
     it('should handle R2 upload failure gracefully', async () => {
@@ -560,7 +566,7 @@ describe('ImageGenerationService - Core Functionality', () => {
   });
 
   describe('fetchMaterialReferenceImages method', () => {
-    it('should include base references and specific material images', async () => {
+    it('should include base references and specific material images (for internal use)', async () => {
       const materialIds = ['iron', 'crystal'];
       const styleIds = ['normal', 'shiny'];
 
@@ -589,6 +595,7 @@ describe('ImageGenerationService - Core Functionality', () => {
       expect(referenceImages).toHaveLength(11); // 10 base + 1 material image (only iron normal found)
       // Verify one material reference exists (the actual URL depends on material name normalization)
       expect(referenceImages.some((url: string) => url.includes('/materials/'))).toBe(true);
+      // Note: These references are for internal prompt building, not passed to Gemini API
     });
   });
 
@@ -836,12 +843,13 @@ describe('ImageGenerationService - Core Functionality', () => {
 
       await service.generateComboImage(request);
 
-      // Verify reference images include base set
-      const referenceImages = mockReplicateRun.mock.calls[0][1].input.image_input;
-      expect(Array.isArray(referenceImages)).toBe(true);
-      expect(referenceImages.length).toBeGreaterThanOrEqual(10); // At least base references
-      expect(referenceImages.some((url: string) => url.includes('fantasy-weapon-1.png'))).toBe(true);
-      expect(referenceImages.some((url: string) => url.includes('magic-crystal-2.png'))).toBe(true);
+      // Verify that Replicate was called correctly for Gemini provider (no image_input)
+      const replicateCall = mockReplicateRun.mock.calls[0];
+      expect(replicateCall[0]).toBe('google/nano-banana');
+      expect(replicateCall[1].input.image_input).toBeUndefined();
+      expect(replicateCall[1].input.prompt).toContain('Enchanted Sword');
+      expect(replicateCall[1].input.aspect_ratio).toBe('1:1');
+      expect(replicateCall[1].input.output_format).toBe('png');
     });
 
     it('should handle concurrent generation requests without interference', async () => {

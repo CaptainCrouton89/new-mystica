@@ -83,6 +83,7 @@ describe('InventoryService', () => {
 
         const itemWithDetails: ItemWithDetails = {
           ...userItems[0],
+          current_stats: { atkPower: 1.0, atkAccuracy: 0.8, defPower: 0.5, defAccuracy: 0.3 },
           item_type: {
             id: 'sword',
             name: 'Iron Sword',
@@ -165,6 +166,7 @@ describe('InventoryService', () => {
 
         const itemWithDetails: ItemWithDetails = {
           ...item,
+          current_stats: { atkPower: 1.2, atkAccuracy: 0.9, defPower: 0.6, defAccuracy: 0.3 },
           item_type: {
             id: 'sword',
             name: 'Iron Sword',
@@ -227,6 +229,7 @@ describe('InventoryService', () => {
 
         const itemWithDetails: ItemWithDetails = {
           ...item,
+          current_stats: { atkPower: 1.5, atkAccuracy: 1.0, defPower: 0.7, defAccuracy: 0.4 },
           item_type: {
             id: 'sword',
             name: 'Iron Sword',
@@ -319,6 +322,7 @@ describe('InventoryService', () => {
 
         const itemsWithDetails: ItemWithDetails[] = userItems.map(item => ({
           ...item,
+          current_stats: item.current_stats, // Already present in userItems
           item_type: {
             id: 'sword',
             name: 'Iron Sword',
@@ -416,6 +420,7 @@ describe('InventoryService', () => {
 
         const itemWithDetails = {
           ...userItems[0],
+          current_stats: { atkPower: 1.0, atkAccuracy: 0.8, defPower: 0.5, defAccuracy: 0.3 },
           item_type: {
             id: 'sword',
             name: 'Iron Sword',
@@ -469,7 +474,7 @@ describe('InventoryService', () => {
             item_type_id: 'dagger',
             level: 2,
             is_styled: false,
-            current_stats: { atkPower: 0.8, atkAccuracy: 1.0, defPower: 0.3, defAccuracy: 0.2 },
+            computed_stats: { atkPower: 0.8, atkAccuracy: 1.0, defPower: 0.3, defAccuracy: 0.2 },
             material_combo_hash: null, // No materials = stackable
             generated_image_url: null,
             image_generation_status: null,
@@ -561,6 +566,7 @@ describe('InventoryService', () => {
 
         const itemWithDetails = {
           ...item,
+          current_stats: item.current_stats, // Already present in item
           item_type: {
             id: 'sword',
             name: 'Iron Sword',

@@ -5,6 +5,7 @@
  */
 
 import request from 'supertest';
+import { extractResponseData } from '../helpers/assertions.js';
 
 // Create mock functions BEFORE importing app
 const mockGetClaims = jest.fn();
@@ -123,7 +124,7 @@ describe('Enemy API Endpoints', () => {
         .get('/api/v1/enemies/types');
 
       expect(response.status).toBe(200);
-      expect(response.body).toEqual({
+      expect(extractResponseData(response.body)).toEqual({
         enemy_types: mockEnemyTypes
       });
 
@@ -201,7 +202,7 @@ describe('Enemy API Endpoints', () => {
         .get('/api/v1/enemies/types');
 
       expect(response.status).toBe(200);
-      expect(response.body).toEqual({
+      expect(extractResponseData(response.body)).toEqual({
         enemy_types: []
       });
     });
@@ -273,7 +274,7 @@ describe('Enemy API Endpoints', () => {
         .set('Authorization', 'Bearer valid-token');
 
       expect(response.status).toBe(200);
-      expect(response.body).toEqual({
+      expect(extractResponseData(response.body)).toEqual({
         location_id: validLocationId,
         attempts: 15,
         victories: 10,
@@ -311,7 +312,7 @@ describe('Enemy API Endpoints', () => {
         .set('Authorization', 'Bearer valid-token');
 
       expect(response.status).toBe(200);
-      expect(response.body).toEqual({
+      expect(extractResponseData(response.body)).toEqual({
         location_id: validLocationId,
         attempts: 0,
         victories: 0,

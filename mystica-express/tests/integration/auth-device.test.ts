@@ -10,6 +10,7 @@
 
 import request from 'supertest';
 import jwt from 'jsonwebtoken';
+import { extractResponseData } from '../helpers/assertions.js';
 
 // Mock uuid BEFORE importing app to avoid ES module issues
 jest.mock('uuid', () => ({
@@ -149,7 +150,7 @@ describe('Device-Based Anonymous Authentication (F-07)', () => {
         .send({ device_id: validDeviceId });
 
       expect(response.status).toBe(201);
-      expect(response.body).toMatchObject({
+      expect(extractResponseData(response.body)).toMatchObject({
         user: {
           id: 'test-device-id-1234-5678-9abc-def0', // Matches mocked UUID
           device_id: validDeviceId,
@@ -193,7 +194,7 @@ describe('Device-Based Anonymous Authentication (F-07)', () => {
 
       expect(response.status).toBe(409);
       // Controller returns successful response with 409 status for existing devices
-      expect(response.body).toMatchObject({
+      expect(extractResponseData(response.body)).toMatchObject({
         user: {
           id: 'existing-user-456',
           device_id: existingDeviceId,

@@ -5,6 +5,7 @@
  */
 
 import request from 'supertest';
+import { extractResponseData } from '../helpers/assertions.js';
 
 // Create mock functions BEFORE importing app
 const mockGetClaims = jest.fn();
@@ -87,7 +88,7 @@ describe('Auth API Endpoints', () => {
         });
 
       expect(response.status).toBe(201);
-      expect(response.body).toMatchObject({
+      expect(extractResponseData(response.body)).toMatchObject({
         user: {
           id: 'user-123',
           email: 'newuser@example.com'
@@ -166,7 +167,7 @@ describe('Auth API Endpoints', () => {
         });
 
       expect(response.status).toBe(200);
-      expect(response.body).toMatchObject({
+      expect(extractResponseData(response.body)).toMatchObject({
         user: expect.objectContaining({
           id: 'user-123',
           email: 'test@example.com'
@@ -226,7 +227,7 @@ describe('Auth API Endpoints', () => {
         });
 
       expect(response.status).toBe(200);
-      expect(response.body).toMatchObject({
+      expect(extractResponseData(response.body)).toMatchObject({
         session: expect.objectContaining({
           access_token: 'new-access-token',
           refresh_token: 'new-refresh-token'
@@ -265,7 +266,7 @@ describe('Auth API Endpoints', () => {
         });
 
       expect(response.status).toBe(200);
-      expect(response.body.message).toContain('password reset link has been sent');
+      expect(extractResponseData(response.body).message).toContain('password reset link has been sent');
     });
 
     it('should return success even for non-existent email', async () => {
@@ -281,7 +282,7 @@ describe('Auth API Endpoints', () => {
         });
 
       expect(response.status).toBe(200);
-      expect(response.body.message).toContain('password reset link has been sent');
+      expect(extractResponseData(response.body).message).toContain('password reset link has been sent');
     });
   });
 
@@ -299,7 +300,7 @@ describe('Auth API Endpoints', () => {
         });
 
       expect(response.status).toBe(200);
-      expect(response.body.message).toContain('verification link has been sent');
+      expect(extractResponseData(response.body).message).toContain('verification link has been sent');
     });
   });
 
@@ -322,7 +323,7 @@ describe('Auth API Endpoints', () => {
         .set('Authorization', 'Bearer valid-token');
 
       expect(response.status).toBe(200);
-      expect(response.body.user).toMatchObject({
+      expect(extractResponseData(response.body).user).toMatchObject({
         id: 'user-123',
         email: 'test@example.com',
         avg_item_level: 0
@@ -382,7 +383,7 @@ describe('Auth API Endpoints', () => {
         .set('Authorization', 'Bearer valid-token');
 
       expect(response.status).toBe(200);
-      expect(response.body.message).toContain('Logout successful');
+      expect(extractResponseData(response.body).message).toContain('Logout successful');
     });
 
     it('should reject logout without token', async () => {
