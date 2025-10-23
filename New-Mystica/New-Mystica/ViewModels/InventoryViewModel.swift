@@ -352,8 +352,9 @@ final class InventoryViewModel {
     }
 
     func handleCraftAction() async {
+        guard let item = selectedItemForDetail else { return }
         dismissItemDetailModal()
-        await handleCraftNavigation()
+        await handleCraftNavigation(with: item)
     }
 
     func handleUpgradeAction() async {
@@ -364,7 +365,7 @@ final class InventoryViewModel {
         await fetchUpgradeCostAndShowConfirmation(itemId: item.id)
     }
 
-    private func handleCraftNavigation() async {
+    private func handleCraftNavigation(with item: EnhancedPlayerItem) async {
         isNavigatingToCraft = true
 
         // Simulate navigation delay for loading state
@@ -372,7 +373,7 @@ final class InventoryViewModel {
 
         // Navigate to crafting screen with preselected item
         await MainActor.run {
-            navigationManager?.navigateTo(.crafting(preselectedItem: selectedItemForDetail, preselectedMaterial: nil))
+            navigationManager?.navigateTo(.crafting(preselectedItem: item, preselectedMaterial: nil))
         }
 
         isNavigatingToCraft = false
