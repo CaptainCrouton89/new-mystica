@@ -2,11 +2,11 @@
 //  Loadable.swift
 //  New-Mystica
 //
-//  Generic result type for async operations with loading states
 //
 
 import Foundation
 
+/// Generic async operation state container with loading, success, and error states.
 enum Loadable<T>: Sendable where T: Sendable {
     case idle
     case loading
@@ -35,7 +35,6 @@ enum Loadable<T>: Sendable where T: Sendable {
     }
 }
 
-// MARK: - Equatable Conformance
 extension Loadable: Equatable where T: Equatable {
     static func == (lhs: Loadable<T>, rhs: Loadable<T>) -> Bool {
         switch (lhs, rhs) {

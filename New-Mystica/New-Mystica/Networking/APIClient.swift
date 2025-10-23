@@ -2,21 +2,19 @@
 //  APIClient.swift
 //  New-Mystica
 //
-//  Unified HTTP client to consolidate network request logic
 //
 
 import Foundation
 
+/// Unified HTTP client with authentication and error handling.
 @MainActor
 class APIClient {
     static let shared = APIClient()
 
-    // Use configurable base URL (supports environment variable override)
     private let baseURL = APIConfig.baseURL
     private var authToken: String?
 
     private init() {
-        // Load auth token from keychain on initialization
         self.authToken = KeychainService.get(key: "mystica_access_token")
 
         print("🌐 APIClient DEBUG: baseURL = '\(baseURL)'")
@@ -38,8 +36,8 @@ class APIClient {
                 try KeychainService.delete(key: "mystica_access_token")
             }
         } catch {
-            // Log error but don't throw - auth token setting should be best-effort
-            print("Failed to update keychain: \(error)")
+            print("❌ [APIClient] Keychain error: \(error.localizedDescription)")
+            print("❌ [APIClient] Failed to update keychain: \(error.localizedDescription)")
         }
     }
 
@@ -63,13 +61,11 @@ class APIClient {
         return try await executeRequest(request)
     }
 
-    // For endpoints that don't require auth (like login)
     func postPublic<T: Decodable>(endpoint: String, body: Encodable? = nil) async throws -> T {
         let request = try buildRequest(method: "POST", path: endpoint, body: body, requiresAuth: false)
         return try await executeRequest(request)
     }
 
-    // MARK: - Private Helpers
 
     private func buildRequest(
         method: String,
@@ -125,7 +121,6 @@ class APIClient {
             decoder.dateDecodingStrategy = .iso8601
 
             do {
-                // First, try to decode as wrapped response
                 if let wrappedResponse = try? decoder.decode(ApiResponseWrapper<T>.self, from: data) {
                     if wrappedResponse.success, let responseData = wrappedResponse.data {
                         return responseData
@@ -134,7 +129,6 @@ class APIClient {
                     }
                 }
 
-                // Fallback: decode as direct type (for backward compatibility during migration)
                 return try decoder.decode(T.self, from: data)
             } catch {
                 if APIConfig.enableNetworkLogging {
@@ -157,7 +151,6 @@ class APIClient {
     }
 }
 
-// MARK: - Response Wrapper Types
 
 private struct ApiResponseWrapper<T: Decodable>: Decodable {
     let success: Bool

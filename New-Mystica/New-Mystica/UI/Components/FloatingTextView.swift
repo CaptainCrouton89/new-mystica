@@ -246,7 +246,8 @@ class FloatingTextView: ObservableObject {
             }
         }
         
-        DispatchQueue.main.asyncAfter(deadline: .now() + floatingText.duration) {
+        Task { @MainActor in
+            try await Task.sleep(for: .seconds(floatingText.duration))
             self.floatingTexts.removeAll { $0.id == floatingText.id }
         }
     }

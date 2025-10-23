@@ -2,7 +2,6 @@
 //  MapView.swift
 //  New-Mystica
 //
-//  Refactored to integrate with MapViewModel and proper location services
 //
 
 import SwiftUI
@@ -20,14 +19,13 @@ struct MapView: View, NavigableView {
 
     var navigationTitle: String { "Map" }
 
-    // MARK: - Location Handling Methods
 
     private func updatePositionToUserLocation() {
         guard let userLocation = viewModel.userLocation else { return }
         withAnimation(.easeInOut(duration: 1.0)) {
             position = .camera(MapCamera(
                 centerCoordinate: userLocation,
-                distance: 1000, // Meters - controls zoom level
+                distance: 1000,
                 heading: 0,
                 pitch: 0
             ))
@@ -52,17 +50,14 @@ struct MapView: View, NavigableView {
             }
         }
         .task {
-            // Start location services when view appears
-            requestLocationPermissionIfNeeded()
+                requestLocationPermissionIfNeeded()
             viewModel.startLocationUpdates()
         }
         .onDisappear {
-            // Stop location updates to save battery
-            viewModel.stopLocationUpdates()
+                viewModel.stopLocationUpdates()
         }
         .onChange(of: viewModel.userLocation?.latitude) { _, _ in
-            // Center map on user location when first received
-            if let userLoc = viewModel.userLocation {
+                if let userLoc = viewModel.userLocation {
                 withAnimation {
                     position = .camera(MapCamera(
                         centerCoordinate: userLoc,
@@ -74,7 +69,6 @@ struct MapView: View, NavigableView {
             }
         }
         .overlay(
-            // Location Detail Popup
             Group {
                 if showLocationPopup, let location = selectedLocation {
                     locationDetailPopup(location: location)
@@ -83,17 +77,14 @@ struct MapView: View, NavigableView {
         )
     }
 
-    // MARK: - Map Content View
 
     @ViewBuilder
     private var mapContentView: some View {
         LoadableView(viewModel.nearbyLocations) { locations in
             ZStack {
                 Map(position: $position, interactionModes: .all) {
-                    // Show user location indicator
                     UserAnnotation()
 
-                    // Show nearby location markers
                     ForEach(locations, id: \.id) { location in
                         Annotation("", coordinate: CLLocationCoordinate2D(latitude: location.lat, longitude: location.lng)) {
                             LocationMarkerView(
@@ -110,7 +101,6 @@ struct MapView: View, NavigableView {
                 }
                 .ignoresSafeArea()
 
-                // Location tracking button - top right corner
                 VStack(alignment: .trailing, spacing: 12) {
                     Button(action: {
                         audioManager.playMapIconClick()
@@ -136,7 +126,6 @@ struct MapView: View, NavigableView {
         }
     }
 
-    // MARK: - Location Permission Denied View
 
     private var locationPermissionDeniedView: some View {
         VStack(spacing: 20) {
@@ -165,11 +154,9 @@ struct MapView: View, NavigableView {
     }
 
 
-    // MARK: - Location Detail Popup
 
     private func locationDetailPopup(location: Location) -> some View {
         ZStack {
-            // Background overlay
             Color.black.opacity(0.6)
                 .edgesIgnoringSafeArea(.all)
                 .onTapGesture {
@@ -177,9 +164,7 @@ struct MapView: View, NavigableView {
                     selectedLocation = nil
                 }
 
-            // Popup content
             VStack(spacing: 16) {
-                // Location name and type
                 VStack(spacing: 4) {
                     TitleText(location.name)
                         .foregroundColor(Color.textPrimary)
@@ -188,7 +173,6 @@ struct MapView: View, NavigableView {
                         .foregroundColor(Color.textSecondary)
                 }
 
-                // Location info
                 VStack(spacing: 8) {
                     HStack {
                         NormalText("Enemy Level:")
@@ -233,14 +217,12 @@ struct MapView: View, NavigableView {
                 }
                 .padding(.horizontal, 16)
 
-                // Action buttons
                 VStack(spacing: 12) {
                     if viewModel.isWithinRange(location: location) {
                         TextButton("Start Battle") {
                             audioManager.playMenuButtonClick()
                             selectedLocation = nil
-                            // Navigate to combat with this location
-                            navigationManager.navigateToBattle(with: location.name)
+                            navigationManager.navigateToBattle(with: location.name, locationId: location.id)
                         }
                     } else {
                         NormalText("Move closer to battle")
@@ -269,7 +251,6 @@ struct MapView: View, NavigableView {
     }
 }
 
-// MARK: - Location Marker View Component
 struct LocationMarkerView: View {
     let location: Location
     let userLocation: CLLocationCoordinate2D?
@@ -282,38 +263,34 @@ struct LocationMarkerView: View {
         let locationCL = CLLocation(latitude: location.lat, longitude: location.lng)
         let distance = userCLLocation.distance(from: locationCL)
 
-        return distance <= 50.0 // Within 50 meters for interaction
+        return distance <= 50.0
     }
 
     private var markerColor: Color {
         if isWithinRange {
-            return Color.accent // Bright neon pink for reachable locations
+            return Color.accent
         } else {
-            return Color.accentSecondary // Neon blue for distant locations
+            return Color.accentSecondary
         }
     }
 
     var body: some View {
         Button(action: onTap) {
             ZStack {
-                // Outer glow effect
                 Circle()
                     .fill(markerColor.opacity(0.3))
                     .frame(width: 60, height: 60)
                     .blur(radius: 4)
 
-                // Main marker background
                 Circle()
                     .fill(markerColor)
                     .frame(width: 44, height: 44)
                     .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
 
-                // Location icon based on type
                 Image(systemName: getLocationIcon())
                     .font(.system(size: 20, weight: .medium))
                     .foregroundColor(.white)
 
-                // Level indicator
                 VStack {
                     Spacer()
                     Text("\(location.enemyLevel)")

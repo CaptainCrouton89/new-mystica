@@ -120,28 +120,16 @@ final class DefaultProfileRepository: ProfileRepository {
 
     func fetchCurrencyBalance() async throws -> [CurrencyBalance] {
         struct CurrencyBalanceResponse: Decodable {
-            let balances: [APIBalance]
+            let balances: [String: Int]
         }
 
-        struct APIBalance: Decodable {
-            let currencyCode: String
-            let balance: Int
-            let updatedAt: Date
+        let response: CurrencyBalanceResponse = try await apiClient.get(endpoint: "/economy/currencies/balance")
 
-            enum CodingKeys: String, CodingKey {
-                case currencyCode = "currency_code"
-                case balance
-                case updatedAt = "updated_at"
-            }
-        }
-
-        let response: CurrencyBalanceResponse = try await apiClient.get(endpoint: "/currencies/balance")
-
-        return response.balances.map { apiBalance in
+        return response.balances.map { (key, value) in
             CurrencyBalance(
-                currencyCode: CurrencyCode(rawValue: apiBalance.currencyCode) ?? .gold,
-                balance: apiBalance.balance,
-                updatedAt: apiBalance.updatedAt.formatted()
+                currencyCode: CurrencyCode(rawValue: key) ?? .gold,
+                balance: value,
+                updatedAt: Date().formatted()
             )
         }
     }

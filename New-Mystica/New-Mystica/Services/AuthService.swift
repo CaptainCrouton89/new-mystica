@@ -2,8 +2,6 @@
 //  AuthService.swift
 //  New-Mystica
 //
-//  Device-based anonymous authentication service
-//  Handles device registration, session management, and logout
 //
 
 import Foundation
@@ -44,7 +42,6 @@ class AuthService: ObservableObject {
 
     private init() {}
 
-    /// Register device with backend and establish session
     func registerDevice() async throws {
         print("🔐 [AUTH] Registering device...")
         guard let deviceId = UIDevice.current.identifierForVendor?.uuidString else {
@@ -91,7 +88,6 @@ class AuthService: ObservableObject {
         print("✅ [AUTH] Device registered successfully")
         print("🔑 [AUTH] Received token (first 30 chars):", String(response.session.access_token.prefix(30))+"...")
 
-        // Store tokens in keychain
         print("💾 [AUTH] Attempting to save token to keychain...")
         do {
             try KeychainService.save(key: "mystica_access_token", value: response.session.access_token)
@@ -115,7 +111,6 @@ class AuthService: ObservableObject {
         self.isAuthenticated = true
     }
 
-    /// Check keychain for existing session and restore authentication state
     func bootstrapSession() async throws {
         print("🔄 [AUTH] Bootstrapping session from keychain...")
         guard let token = KeychainService.get(key: "mystica_access_token") else {
@@ -125,14 +120,11 @@ class AuthService: ObservableObject {
 
         print("✅ [AUTH] Found existing token in keychain (first 30 chars):", String(token.prefix(30))+"...")
 
-        // For MVP0: Trust token existence = authenticated (no validation call)
         self.isAuthenticated = true
         print("✅ [AUTH] Session bootstrapped successfully")
     }
 
-    /// Logout user and clear all stored authentication data
     func logout() async throws {
-        // Best effort logout call to backend
         struct LogoutResponse: Decodable {
             let success: Bool
         }
@@ -144,7 +136,8 @@ class AuthService: ObservableObject {
                 requiresAuth: true
             )
         } catch {
-            // Ignore logout errors - clear local state anyway
+            print("⚠️ [AUTH] Server logout error: \(error.localizedDescription)")
+            print("⚠️ [AUTH] Server logout failed, but proceeding with local cleanup: \(error.localizedDescription)")
         }
 
         KeychainService.clearAll()
@@ -152,9 +145,7 @@ class AuthService: ObservableObject {
         self.currentUser = nil
     }
 
-    // MARK: - Private Methods
 
-    /// Generic HTTP request method with JSON encoding/decoding
     private func makeRequest<T: Decodable>(
         method: String,
         path: String,
@@ -206,8 +197,6 @@ class AuthService: ObservableObject {
             }
 
             let decoder = JSONDecoder()
-            // Don't use automatic snake_case conversion - our models handle it manually
-            // decoder.keyDecodingStrategy = .convertFromSnakeCase
             decoder.dateDecodingStrategy = .iso8601
 
             print("🔍 [AUTH-HTTP] Attempting to decode response as", String(describing: T.self))

@@ -2,12 +2,11 @@
 //  DefaultInventoryRepository.swift
 //  New-Mystica
 //
-//  Implementation of InventoryRepository using unified APIClient
-//  Handles player inventory, material application/removal, and material library
 //
 
 import Foundation
 
+/// HTTP-based InventoryRepository implementation using APIClient.
 final class DefaultInventoryRepository: InventoryRepository {
     private let apiClient: APIClient
 
@@ -15,12 +14,10 @@ final class DefaultInventoryRepository: InventoryRepository {
         self.apiClient = apiClient
     }
 
-    // MARK: - InventoryRepository Protocol
 
     func fetchInventory(page: Int, filter: InventoryFilter?, sortOption: InventorySortOption?) async throws -> InventoryResponse {
         var queryParams = ["page=\(page)", "limit=50"]
 
-        // Add filter parameter
         if let filter = filter {
             if filter.isSlotFilter {
                 queryParams.append("slot_type=\(filter.rawValue)")
@@ -29,10 +26,8 @@ final class DefaultInventoryRepository: InventoryRepository {
             } else if filter == .unstyled {
                 queryParams.append("styled=false")
             }
-            // .all filter doesn't add any parameters
         }
 
-        // Add sort parameter
         if let sortOption = sortOption {
             queryParams.append("sort=\(sortOption.rawValue)")
         }
@@ -74,7 +69,6 @@ final class DefaultInventoryRepository: InventoryRepository {
             init(from decoder: Decoder) throws {
                 let container = try decoder.container(keyedBy: CodingKeys.self)
                 self.item = try container.decode(EnhancedPlayerItem.self, forKey: .item)
-                // Ignore extra fields: success, stats, image_url, is_first_craft, total_crafts, materials_consumed
             }
         }
 
@@ -123,13 +117,11 @@ final class DefaultInventoryRepository: InventoryRepository {
             let item: EnhancedPlayerItem
         }
 
-        // Note: For simplicity, using "normal" style and calculating base cost
-        // In a real implementation, these might be parameters or calculated separately
         let request = ReplaceMaterialRequest(
             slotIndex: slotIndex,
             newMaterialId: newMaterialId,
             newStyleId: "normal",
-            goldCost: 100 // Base replacement cost - would be calculated based on item level
+            goldCost: 100
         )
 
         let response: ReplaceMaterialResponse = try await apiClient.post(
@@ -163,7 +155,6 @@ final class DefaultInventoryRepository: InventoryRepository {
     }
 }
 
-// MARK: - Empty Body for POST requests with no body
 private struct EmptyBody: Encodable {}
 
 struct SellItemResponse: Decodable {

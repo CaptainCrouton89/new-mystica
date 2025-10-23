@@ -2,24 +2,35 @@
 //  AppError.swift
 //  New-Mystica
 //
-//  Typed error enum for all app-level failures
 //
 
 import Foundation
 
+/// App-level error enum with user-friendly descriptions and recovery suggestions.
 enum AppError: LocalizedError, Equatable, Sendable {
     case networkError(Error)
     case serverError(Int, String?)
     case invalidResponse
     case decodingError(String)
-    case invalidURL(String)       // For malformed URLs in network operations
+    case invalidURL(String)
     case noDeviceId
     case noAuthToken
     case unauthorized
     case notFound
     case invalidData(String)
-    case invalidInput(String)      // For CraftingViewModel validation errors
-    case businessLogic(String)     // For business rule violations (max materials, etc.)
+    case invalidInput(String)
+    case businessLogic(String)
+
+    case keychainError(String)
+    case persistenceError(String)
+    case fileSystemError(String)
+
+    case imageLoadingError(String)
+    case assetNotFound(String)
+
+    case validationFailed(String)
+    case constraintViolation(String)
+
     case unknown(Error)
 
     var errorDescription: String? {
@@ -51,6 +62,20 @@ enum AppError: LocalizedError, Equatable, Sendable {
             return "Invalid input: \(message)"
         case .businessLogic(let message):
             return message
+        case .keychainError(let message):
+            return "Keychain error: \(message)"
+        case .persistenceError(let message):
+            return "Data persistence error: \(message)"
+        case .fileSystemError(let message):
+            return "File system error: \(message)"
+        case .imageLoadingError(let message):
+            return "Image loading error: \(message)"
+        case .assetNotFound(let message):
+            return "Asset not found: \(message)"
+        case .validationFailed(let message):
+            return "Validation failed: \(message)"
+        case .constraintViolation(let message):
+            return "Constraint violation: \(message)"
         case .unknown(let error):
             return "Unknown error: \(error.localizedDescription)"
         }
@@ -66,6 +91,20 @@ enum AppError: LocalizedError, Equatable, Sendable {
             return "Please log in again"
         case .notFound:
             return "The requested resource could not be found"
+        case .keychainError:
+            return "Check app permissions and try again"
+        case .persistenceError:
+            return "Try restarting the app or free up device storage"
+        case .fileSystemError:
+            return "Check available storage space and permissions"
+        case .imageLoadingError:
+            return "Check your internet connection and try again"
+        case .assetNotFound:
+            return "Try reinstalling the app if the problem persists"
+        case .validationFailed:
+            return "Please check your input and try again"
+        case .constraintViolation:
+            return "Please review the requirements and adjust your input"
         default:
             return nil
         }
@@ -110,6 +149,20 @@ extension AppError {
         case (.invalidInput(let lhsMessage), .invalidInput(let rhsMessage)):
             return lhsMessage == rhsMessage
         case (.businessLogic(let lhsMessage), .businessLogic(let rhsMessage)):
+            return lhsMessage == rhsMessage
+        case (.keychainError(let lhsMessage), .keychainError(let rhsMessage)):
+            return lhsMessage == rhsMessage
+        case (.persistenceError(let lhsMessage), .persistenceError(let rhsMessage)):
+            return lhsMessage == rhsMessage
+        case (.fileSystemError(let lhsMessage), .fileSystemError(let rhsMessage)):
+            return lhsMessage == rhsMessage
+        case (.imageLoadingError(let lhsMessage), .imageLoadingError(let rhsMessage)):
+            return lhsMessage == rhsMessage
+        case (.assetNotFound(let lhsMessage), .assetNotFound(let rhsMessage)):
+            return lhsMessage == rhsMessage
+        case (.validationFailed(let lhsMessage), .validationFailed(let rhsMessage)):
+            return lhsMessage == rhsMessage
+        case (.constraintViolation(let lhsMessage), .constraintViolation(let rhsMessage)):
             return lhsMessage == rhsMessage
         case (.unknown(let lhsError), .unknown(let rhsError)):
             return lhsError.localizedDescription == rhsError.localizedDescription

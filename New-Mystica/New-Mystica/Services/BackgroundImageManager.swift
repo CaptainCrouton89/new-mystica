@@ -28,22 +28,18 @@ class BackgroundImageManager: ObservableObject {
     ]
 
     init() {
-        // Select a random background image on initialization
         let randomURLString = backgroundImages.randomElement() ?? backgroundImages[0]
         guard let url = URL(string: randomURLString) else {
-            // Fallback to first background image if random selection fails
             self.currentBackgroundURL = URL(string: backgroundImages[0]) ?? URL(string: "https://via.placeholder.com/800x600")!
             return
         }
         self.currentBackgroundURL = url
 
-        // Start loading the image asynchronously
         Task { @MainActor in
             await self.loadImage()
         }
     }
 
-    /// Load the current background image
     func loadImage() async {
         isLoading = true
 
@@ -55,17 +51,19 @@ class BackgroundImageManager: ObservableObject {
                 isLoading = false
             } else {
                 isLoading = false
+                print("⚠️ [BackgroundImageManager] Image data corruption for URL: \(currentBackgroundURL)")
+                print("⚠️ [BackgroundImageManager] Failed to create UIImage from data for \(currentBackgroundURL)")
             }
         } catch {
             isLoading = false
+            print("❌ [BackgroundImageManager] Loading error: \(error.localizedDescription)")
+            print("⚠️ [BackgroundImageManager] Failed to load background image from \(currentBackgroundURL): \(error.localizedDescription)")
         }
     }
 
-    /// Manually refresh the background with a new random selection
     func randomizeBackground() {
         let randomURLString = backgroundImages.randomElement() ?? backgroundImages[0]
         guard let url = URL(string: randomURLString) else {
-            // Fallback to first background image if random selection fails
             self.currentBackgroundURL = URL(string: backgroundImages[0]) ?? URL(string: "https://via.placeholder.com/800x600")!
             return
         }

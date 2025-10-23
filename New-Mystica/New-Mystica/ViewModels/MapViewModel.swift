@@ -204,7 +204,7 @@ final class MapViewModel: NSObject, CLLocationManagerDelegate {
                 longitude: location.lng
             )
             let distance = userCLLocation.distance(from: locationCL)
-            return distance <= 50.0 ? location : nil // Within 50 meters for interaction
+            return distance <= 100.0 ? location : nil // Within 100 meters for interaction
         }
     }
 
@@ -225,7 +225,7 @@ final class MapViewModel: NSObject, CLLocationManagerDelegate {
     }
 
     // Check if a location is within interaction range
-    func isWithinRange(location: Location, range: Double = 50.0) -> Bool {
+    func isWithinRange(location: Location, range: Double = 100.0) -> Bool {
         guard let distance = distance(to: location) else { return false }
         return distance <= range
     }

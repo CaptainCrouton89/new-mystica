@@ -104,7 +104,7 @@ final class EquipmentViewModel {
 
     func getAvailableItemsForSlot(_ slot: EquipmentSlot) -> [EnhancedPlayerItem] {
         guard case .loaded(let items) = inventoryViewModel.items else {
-            print("⚠️ [EQUIPMENT] Inventory not loaded. State: \(inventoryViewModel.items)")
+            FileLogger.shared.log("⚠️ Inventory not loaded for equipment slot filtering. State: \(inventoryViewModel.items)", level: .warning, category: "Equipment")
             return []
         }
 
@@ -113,7 +113,7 @@ final class EquipmentViewModel {
             return matchesSlot && !item.isEquipped
         }
 
-        print("✅ [EQUIPMENT] Available items for \(slot.rawValue) slot: \(available.count) of \(items.count) total items")
+        FileLogger.shared.log("✅ Available items for \(slot.rawValue) slot: \(available.count) of \(items.count) total items", level: .debug, category: "Equipment")
         return available
     }
 
@@ -131,13 +131,13 @@ final class EquipmentViewModel {
             // Close the drawer
             dismissItemSelection()
 
-            print("✅ Successfully equipped \(item.baseType) to \(slot.rawValue) slot")
+            FileLogger.shared.log("✅ Successfully equipped \(item.baseType) to \(slot.rawValue) slot", level: .info, category: "Equipment")
         } catch let error as AppError {
             equipment = .error(error)
-            print("❌ Failed to equip item: \(error)")
+            FileLogger.shared.log("❌ Failed to equip item: \(error)", level: .error, category: "Equipment")
         } catch {
             equipment = .error(.unknown(error))
-            print("❌ Failed to equip item: \(error)")
+            FileLogger.shared.log("❌ Failed to equip item: \(error)", level: .error, category: "Equipment")
         }
     }
 
