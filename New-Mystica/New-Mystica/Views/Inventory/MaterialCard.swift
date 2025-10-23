@@ -55,36 +55,44 @@ struct MaterialCard: View {
 
     private var materialImageView: some View {
         ZStack {
-            // Background
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.backgroundSecondary)
-
             // Material Image from R2
             if let imageUrl = material.imageUrl, let url = URL(string: imageUrl) {
                 AsyncImage(url: url) { phase in
                     switch phase {
                     case .empty:
                         ProgressView()
+                            .frame(width: 60, height: 60)
                             .progressViewStyle(CircularProgressViewStyle(tint: getStyleBorderColor()))
                     case .success(let image):
                         image
                             .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(width: 48, height: 48)
+                            .aspectRatio(contentMode: .fill)
+                            .frame(width: 60, height: 60)
+                            .clipped()
                     case .failure:
                         // Fallback to SF Symbol icon on image load failure
-                        Image(systemName: getMaterialIcon())
-                            .font(.system(size: 28, weight: .medium))
-                            .foregroundColor(getStyleBorderColor())
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color.backgroundSecondary)
+                            Image(systemName: getMaterialIcon())
+                                .font(.system(size: 28, weight: .medium))
+                                .foregroundColor(getStyleBorderColor())
+                        }
+                        .frame(width: 60, height: 60)
                     @unknown default:
                         EmptyView()
                     }
                 }
             } else {
                 // Fallback to SF Symbol icon if no URL
-                Image(systemName: getMaterialIcon())
-                    .font(.system(size: 28, weight: .medium))
-                    .foregroundColor(getStyleBorderColor())
+                ZStack {
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.backgroundSecondary)
+                    Image(systemName: getMaterialIcon())
+                        .font(.system(size: 28, weight: .medium))
+                        .foregroundColor(getStyleBorderColor())
+                }
+                .frame(width: 60, height: 60)
             }
         }
     }

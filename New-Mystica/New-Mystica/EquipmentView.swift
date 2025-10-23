@@ -23,30 +23,33 @@ struct EquipmentSlotView: View {
                     .frame(width: 80, height: 80)
                     .overlay(
                         RoundedRectangle(cornerRadius: 12)
-                            .stroke(item != nil ? getRarityColor() : Color.borderSubtle, lineWidth: 2)
+                            .stroke(item != nil ? Color.accentSecondary : Color.borderSubtle, lineWidth: 2)
                     )
 
                 if let item = item {
                     // Equipped item
-                    VStack(spacing: 4) {
-                        AsyncImage(url: URL(string: item.generatedImageUrl ?? "")) { phase in
-                            switch phase {
-                            case .empty:
-                                ProgressView()
-                                    .frame(width: 48, height: 48)
-                            case .success(let image):
-                                image
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fit)
-                                    .frame(width: 48, height: 48)
-                            case .failure:
+                    AsyncImage(url: URL(string: item.generatedImageUrl ?? "")) { phase in
+                        switch phase {
+                        case .empty:
+                            ProgressView()
+                                .frame(width: 80, height: 80)
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .frame(width: 80, height: 80)
+                                .clipped()
+                        case .failure:
+                            ZStack {
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color.backgroundSecondary)
                                 Image(systemName: getSlotIcon())
                                     .font(.system(size: 24, weight: .medium))
                                     .foregroundColor(Color.textSecondary)
-                                    .frame(width: 48, height: 48)
-                            @unknown default:
-                                EmptyView()
                             }
+                            .frame(width: 80, height: 80)
+                        @unknown default:
+                            EmptyView()
                         }
                     }
                 } else {

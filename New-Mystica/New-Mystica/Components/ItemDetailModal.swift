@@ -85,7 +85,7 @@ struct ItemDetailModal: View {
                 .frame(height: 280)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
-                        .stroke(getRarityColor(), lineWidth: 3)
+                        .stroke(Color.accentSecondary, lineWidth: 3)
                 )
 
             if let imageUrl = item.generatedImageUrl, let url = URL(string: imageUrl) {
@@ -96,8 +96,9 @@ struct ItemDetailModal: View {
                     case .success(let image):
                         image
                             .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(height: 240)
+                            .aspectRatio(contentMode: .fill)
+                            .frame(height: 280)
+                            .clipped()
                     case .failure:
                         fallbackItemIcon
                     @unknown default:
@@ -108,6 +109,7 @@ struct ItemDetailModal: View {
                 fallbackItemIcon
             }
         }
+        .clipShape(RoundedRectangle(cornerRadius: 16))
     }
 
     private var fallbackItemIcon: some View {
