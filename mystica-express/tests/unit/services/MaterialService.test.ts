@@ -308,6 +308,7 @@ describe('MaterialService (TDD)', () => {
         image_url: 'https://example.com/generated-image.png'
       });
       mockItemRepository.updateImageData.mockResolvedValue(undefined);
+      mockMaterialRepository.findMaterialById.mockResolvedValue(IRON_MATERIAL);
       mockItemRepository.findWithMaterials.mockResolvedValue({
         ...item,
         materials: [{
@@ -349,6 +350,19 @@ describe('MaterialService (TDD)', () => {
         slot_index: 0
       });
 
+      // Assert: Verify materials_consumed field
+      expect(result.materials_consumed).toBeDefined();
+      expect(result.materials_consumed).toHaveLength(1);
+      expect(result.materials_consumed[0]).toMatchObject({
+        user_id: userId,
+        material_id: materialId,
+        style_id: 'normal',
+        quantity: 1
+      });
+      expect(result.materials_consumed[0].material).toBeDefined();
+      expect(result.materials_consumed[0].material.id).toBe(IRON_MATERIAL.id);
+      expect(result.materials_consumed[0].material.name).toBe(IRON_MATERIAL.name);
+
       // Validate item structure
       expectValidItem(result.updated_item);
       expectValidMaterialApplication(result.updated_item);
@@ -387,6 +401,7 @@ describe('MaterialService (TDD)', () => {
         image_url: 'https://example.com/generated-image.png'
       });
       mockItemRepository.updateImageData.mockResolvedValue(undefined);
+      mockMaterialRepository.findMaterialById.mockResolvedValue(IRON_MATERIAL);
       mockItemRepository.findWithMaterials.mockResolvedValue({
         ...item,
         materials: [{
@@ -448,6 +463,7 @@ describe('MaterialService (TDD)', () => {
         image_url: 'https://example.com/generated-image.png'
       });
       mockItemRepository.updateImageData.mockResolvedValue(undefined);
+      mockMaterialRepository.findMaterialById.mockResolvedValue(PIXEL_ART_MATERIAL);
       mockItemRepository.findWithMaterials.mockResolvedValue({
         ...item,
         is_styled: true, // Service should set this due to pixel_art style
@@ -855,6 +871,7 @@ describe('MaterialService (TDD)', () => {
         image_url: 'https://example.com/generated-image.png'
       });
       mockItemRepository.updateImageData.mockResolvedValue(undefined);
+      mockMaterialRepository.findMaterialById.mockResolvedValue(offensiveMaterial);
       mockItemRepository.findWithMaterials.mockResolvedValue({
         ...item,
         current_stats: {

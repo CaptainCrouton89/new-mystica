@@ -205,7 +205,8 @@ export class ItemController {
         stats: result.updated_item.current_stats,
         image_url: result.image_url,
         is_first_craft: result.is_first_craft,
-        total_crafts: result.craft_count
+        total_crafts: result.craft_count,
+        materials_consumed: result.materials_consumed
       });
     } catch (error) {
       next(error);

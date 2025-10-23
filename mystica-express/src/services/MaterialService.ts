@@ -193,6 +193,12 @@ export class MaterialService {
       throw new NotFoundError('Item', itemId);
     }
 
+    // Fetch full material data for materials_consumed response
+    const consumedMaterial = await this.materialRepository.findMaterialById(materialStack.material_id);
+    if (!consumedMaterial) {
+      throw new NotFoundError('Material', materialStack.material_id);
+    }
+
     return {
       success: true,
       updated_item: this.transformItemToApiFormat(updatedItem),
@@ -205,7 +211,7 @@ export class MaterialService {
         material_id: materialStack.material_id,
         style_id: styleId,
         quantity: 1,
-        material: {} as any // Will be populated by calling service if needed
+        material: consumedMaterial
       }],
       message: `Applied material to slot ${slotIndex}`
     };

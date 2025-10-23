@@ -94,32 +94,54 @@ components:
 
     PlayerItem:
       type: object
+      description: Player's equipped or inventory item with full details including nested item type and materials
       properties:
         id:
           type: string
           format: uuid
-        base_type:
-          type: string
-          enum: [sword, offhand, head, armor, boots, accessory, pet]
+        item_type:
+          type: object
+          description: Nested ItemType object with item details (used in /equipment endpoint)
+          properties:
+            id:
+              type: string
+              format: uuid
+            name:
+              type: string
+            category:
+              type: string
+              description: Item category (weapon, armor, feet, accessory)
+            equipment_slot:
+              type: string
+              description: Which equipment slot this item occupies (weapon, offhand, head, armor, feet, accessory_1, accessory_2, pet)
+            base_stats:
+              type: object
+              properties:
+                atkPower:
+                  type: number
+                atkAccuracy:
+                  type: number
+                defPower:
+                  type: number
+                defAccuracy:
+                  type: number
+            rarity:
+              type: string
+              enum: [common, uncommon, rare, epic, legendary]
+            description:
+              type: string
         level:
           type: integer
           minimum: 1
+        rarity:
+          type: string
+          enum: [common, uncommon, rare, epic, legendary]
+          description: Item rarity level (also available in item_type.rarity)
         applied_materials:
           type: array
           items:
-            type: object
-            properties:
-              material_id:
-                type: string
-              style_id:
-                type: string
-                description: Style ID referencing StyleDefinitions table (normal, pixel_art, watercolor, neon, etc.)
-              slot_index:
-                type: integer
-                minimum: 0
-                maximum: 2
-          maxItems: 3
-          description: Array of applied materials with style ID and slot positions (max 3)
+            type: string
+          description: Array of applied material IDs (simplified for /equipment endpoint)
         computed_stats:
           type: object
           properties:
@@ -132,25 +154,16 @@ components:
             defAccuracy:
               type: number
           description: Final stats after materials and level scaling
-        material_combo_hash:
-          type: string
-          nullable: true
-          description: Hash of applied materials for image caching
-        generated_image_url:
-          type: string
-          nullable: true
-          description: Generated image URL based on item + materials
-        image_generation_status:
-          type: string
-          enum: [pending, generating, complete, failed]
-          nullable: true
-          description: Status of AI image generation
-        craft_count:
-          type: integer
-          description: Number of times this item has been crafted (materials applied)
         is_styled:
           type: boolean
           description: True if ANY applied material has non-normal style
+        is_equipped:
+          type: boolean
+          description: Whether this item is currently equipped (in /equipment response)
+        generated_image_url:
+          type: string
+          nullable: true
+          description: Generated image URL based on item + materials. Not yet implemented (post-MVP0).
 
     Material:
       type: object
@@ -1251,10 +1264,13 @@ paths:
                         type: number
                       defAccuracy:
                         type: number
+                  equipment_count:
+                    type: integer
+                    description: Total number of equipped items across all 8 slots
                   generated_image_url:
                     type: string
                     nullable: true
-                    description: Crafted item image based on materials applied
+                    description: Crafted item image based on materials applied. Not yet implemented (post-MVP0).
 
   /equipment/equip:
     post:
@@ -1626,6 +1642,28 @@ paths:
                   total_crafts:
                     type: integer
                     description: Total number of times this exact combo has been crafted across all users (ItemImageCache.craft_count)
+                  materials_consumed:
+                    type: array
+                    description: Array of materials that were consumed in this operation
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          description: Composite ID (user_id:material_id:style_id)
+                        user_id:
+                          type: string
+                          format: uuid
+                        material_id:
+                          type: string
+                          format: uuid
+                        style_id:
+                          type: string
+                        quantity:
+                          type: integer
+                          description: Amount consumed (always 1 for MVP0)
+                        material:
+                          $ref: '#/components/schemas/Material'
         '400':
           description: Invalid request (slot occupied, insufficient materials, max 3 materials)
         '404':
