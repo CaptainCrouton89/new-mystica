@@ -8,7 +8,6 @@
 import SwiftUI
 import Combine
 
-// MARK: - Navigation Destination Enum
 enum NavigationDestination: Hashable {
     case mainMenu
     case map
@@ -25,7 +24,6 @@ enum NavigationDestination: Hashable {
     )
     case upgradePreview
 
-    // Custom Hashable implementation that ignores associated values for navigation purposes
     static func == (lhs: NavigationDestination, rhs: NavigationDestination) -> Bool {
         switch (lhs, rhs) {
         case (.mainMenu, .mainMenu),
@@ -100,96 +98,80 @@ enum NavigationDestination: Hashable {
     }
 }
 
-// MARK: - Global Navigation Manager
 @MainActor
 class NavigationManager: ObservableObject {
     @Published var navigationPath = NavigationPath()
     @Published var currentDestination: NavigationDestination = .mainMenu
-    @Published var viewHistory: [NavigationDestination] = [] // Fix: Start empty to sync with navigationPath
+    @Published var viewHistory: [NavigationDestination] = []
     @Published var currentBattleEnemy: String = "Shadow Wolf"
+    @Published var currentBattleLocation: String?
 
-    // Store preselection state separately for crafting
     @Published var craftingPreselectedItem: EnhancedPlayerItem?
     @Published var craftingPreselectedMaterial: MaterialInventoryStack?
     
     private let maxHistorySize = 10
     
-    // MARK: - Navigation Methods
     
-    /// Navigate to a specific destination
     func navigateTo(_ destination: NavigationDestination) {
-        print("NavigationManager: Attempting to navigate to \(destination.title)")
-        print("NavigationManager: Current destination: \(currentDestination.title)")
-        print("NavigationManager: Current path count: \(navigationPath.count)")
+        FileLogger.shared.log("🧭 Attempting to navigate to \(destination.title)", level: .info, category: "Navigation")
+        FileLogger.shared.log("🗂️ Current destination: \(currentDestination.title)", level: .debug, category: "Navigation")
+        FileLogger.shared.log("🗂️ Current path count: \(navigationPath.count)", level: .debug, category: "Navigation")
 
-        // Handle crafting preselection state
         if case let .crafting(preselectedItem, preselectedMaterial) = destination {
             craftingPreselectedItem = preselectedItem
             craftingPreselectedMaterial = preselectedMaterial
         }
 
-        // Add current destination to history if it's different and not already at top
         if currentDestination != destination {
-            // Fix: Only add to history if current destination is not already at top (prevents history pollution)
             if viewHistory.isEmpty || viewHistory.last != currentDestination {
                 addToHistory(currentDestination)
             }
             currentDestination = destination
 
-            // Update NavigationPath for SwiftUI navigation
             navigationPath.append(destination)
 
-            print("NavigationManager: Successfully navigated to \(destination.title)")
-            print("NavigationManager: New path count: \(navigationPath.count)")
-            print("NavigationManager: History: \(viewHistory.map { $0.title })")
+            FileLogger.shared.log("✅ Successfully navigated to \(destination.title)", level: .info, category: "Navigation")
+            FileLogger.shared.log("🗂️ New path count: \(navigationPath.count)", level: .debug, category: "Navigation")
+            FileLogger.shared.log("🗂️ History: \(viewHistory.map { $0.title })", level: .debug, category: "Navigation")
         } else {
-            print("NavigationManager: Already at \(destination.title), skipping navigation")
+            FileLogger.shared.log("ℹ️ Already at \(destination.title), skipping navigation", level: .debug, category: "Navigation")
         }
     }
     
-    /// Navigate to battle with specific enemy
-    func navigateToBattle(with enemyType: String) {
+    func navigateToBattle(with enemyType: String, locationId: String) {
         currentBattleEnemy = enemyType
+        currentBattleLocation = locationId
         navigateTo(.battle)
     }
     
-    /// Navigate back to the previous view
     func navigateBack() {
-        print("NavigationManager: Attempting to navigate back")
-        print("NavigationManager: History count: \(viewHistory.count)")
-        print("NavigationManager: Current path count: \(navigationPath.count)")
-        print("NavigationManager: History: \(viewHistory.map { $0.title })")
+        FileLogger.shared.log("🔙 Attempting to navigate back", level: .info, category: "Navigation")
+        FileLogger.shared.log("🗂️ History count: \(viewHistory.count)", level: .debug, category: "Navigation")
+        FileLogger.shared.log("🗂️ Current path count: \(navigationPath.count)", level: .debug, category: "Navigation")
+        FileLogger.shared.log("🗂️ History: \(viewHistory.map { $0.title })", level: .debug, category: "Navigation")
 
-        // Fix: Handle empty history case correctly (was checking > 1, should check > 0)
         guard !viewHistory.isEmpty else {
-            print("NavigationManager: Cannot navigate back - no previous view in history")
+            FileLogger.shared.log("⚠️ Cannot navigate back - no previous view in history", level: .warning, category: "Navigation")
             return
         }
 
-        // Get the previous destination and remove current from history
         let previousDestination = viewHistory.removeLast()
         currentDestination = previousDestination
 
-        // Update NavigationPath - remove the current destination
         if navigationPath.count > 0 {
             navigationPath.removeLast()
         }
 
-        print("NavigationManager: Successfully navigated back to \(previousDestination.title)")
-        print("NavigationManager: New path count: \(navigationPath.count)")
-        print("NavigationManager: New history: \(viewHistory.map { $0.title })")
+        FileLogger.shared.log("✅ Successfully navigated back to \(previousDestination.title)", level: .info, category: "Navigation")
+        FileLogger.shared.log("🗂️ New path count: \(navigationPath.count)", level: .debug, category: "Navigation")
+        FileLogger.shared.log("🗂️ New history: \(viewHistory.map { $0.title })", level: .debug, category: "Navigation")
     }
     
-    /// Navigate back to a specific destination
     func navigateToDestination(_ destination: NavigationDestination) {
-        // Find the destination in history
         if let index = viewHistory.firstIndex(of: destination) {
-            // Remove everything after this destination
             viewHistory = Array(viewHistory.prefix(index + 1))
             currentDestination = destination
 
-            // Fix: Calculate correct NavigationPath depth relative to viewHistory
-            // navigationPath.count should equal viewHistory.count (since both start at 0)
             let targetPathCount = index + 1
             let stepsToRemove = navigationPath.count - targetPathCount
             for _ in 0..<stepsToRemove {
@@ -198,42 +180,36 @@ class NavigationManager: ObservableObject {
                 }
             }
         } else {
-            // Destination not in history, navigate normally
             navigateTo(destination)
         }
     }
     
-    /// Reset navigation to main menu
     func resetToMainMenu() {
-        viewHistory = [] // Fix: Start empty to stay synchronized
+        viewHistory = []
         currentDestination = .mainMenu
         navigationPath = NavigationPath()
         craftingPreselectedItem = nil
         craftingPreselectedMaterial = nil
+        currentBattleLocation = nil
     }
     
-    /// Check if we can navigate back
     var canNavigateBack: Bool {
-        return !viewHistory.isEmpty // Fix: Check if we have any history, not > 1
+        return !viewHistory.isEmpty
     }
 
-    /// Get the previous destination
     var previousDestination: NavigationDestination? {
-        return viewHistory.last // Fix: Last item in history is the previous destination
+        return viewHistory.last
     }
     
-    // MARK: - Private Methods
     
     private func addToHistory(_ destination: NavigationDestination) {
-        // Add the destination to history (this is the current destination we're leaving)
         viewHistory.append(destination)
         
-        // Limit history size
         if viewHistory.count > maxHistorySize {
             viewHistory.removeFirst()
         }
         
-        print("NavigationManager: Added \(destination.title) to history")
+        FileLogger.shared.log("📝 Added \(destination.title) to history", level: .debug, category: "Navigation")
     }
 }
 

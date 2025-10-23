@@ -39,18 +39,19 @@ struct ContentView: View {
         case .profile:
             ProfileView()
         case .battle:
-            BattleView(locationId: "default-location")
+            if let locationId = navigationManager.currentBattleLocation {
+                BattleView(locationId: locationId)
+            } else {
+                    Text("Error: No location selected for battle")
+                    .foregroundColor(.red)
+            }
         case .victory:
             VictoryView()
         case .defeat:
             DefeatView()
-        case .crafting(let preselectedItem, let preselectedMaterial):
-            CraftingView(
-                preselectedItem: preselectedItem,
-                preselectedMaterial: preselectedMaterial
-            )
+        case .crafting:
+            CraftingView()
         case .upgradePreview:
-            // Upgrade preview screen - to be implemented
             EmptyView()
         }
     }
