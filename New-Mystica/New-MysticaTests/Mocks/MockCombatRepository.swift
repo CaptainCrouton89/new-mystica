@@ -17,6 +17,8 @@ class MockCombatRepository: CombatRepository {
     var shouldFailCompleteCombat = false
     var shouldFailFetchCombatSession = false
     var shouldFailRetreatCombat = false
+    var shouldFailGetUserActiveSession = false
+    var shouldFailAbandonCombat = false
     var initiateCombatDelayMs: Int = 0
     var performAttackDelayMs: Int = 0
     var performDefenseDelayMs: Int = 0
@@ -36,12 +38,16 @@ class MockCombatRepository: CombatRepository {
     var completeCombatCallCount = 0
     var fetchCombatSessionCallCount = 0
     var retreatCombatCallCount = 0
+    var getUserActiveSessionCallCount = 0
+    var abandonCombatCallCount = 0
     var lastInitiatedCombatParams: (locationId: String, selectedLevel: Int)?
     var lastAttackParams: (sessionId: String, timingScore: Double)?
     var lastDefenseParams: (sessionId: String, timingScore: Double)?
     var lastCompleteCombatParams: (sessionId: String, won: Bool)?
     var lastFetchedSessionId: String?
     var lastRetreatSessionId: String?
+    var lastAbandonSessionId: String?
+    var mockActiveSession: CombatSession?
 
     // MARK: - Combat State Simulation
     var playerHp: Double = 100.0
@@ -215,6 +221,28 @@ class MockCombatRepository: CombatRepository {
         return (rewards: partialRewards, message: "You retreated from combat safely.")
     }
 
+    func getUserActiveSession() async throws -> CombatSession? {
+        getUserActiveSessionCallCount += 1
+
+        if shouldFailGetUserActiveSession {
+            throw AppError.serverError(500, "Failed to get active session")
+        }
+
+        return mockActiveSession
+    }
+
+    func abandonCombat(sessionId: String) async throws {
+        abandonCombatCallCount += 1
+        lastAbandonSessionId = sessionId
+
+        if shouldFailAbandonCombat {
+            throw AppError.serverError(400, "Cannot abandon combat")
+        }
+
+        // Clear the mock active session
+        mockActiveSession = nil
+    }
+
     // MARK: - Test Helpers
 
     func reset() {
@@ -224,6 +252,8 @@ class MockCombatRepository: CombatRepository {
         shouldFailCompleteCombat = false
         shouldFailFetchCombatSession = false
         shouldFailRetreatCombat = false
+        shouldFailGetUserActiveSession = false
+        shouldFailAbandonCombat = false
         initiateCombatDelayMs = 0
         performAttackDelayMs = 0
         performDefenseDelayMs = 0
@@ -236,12 +266,16 @@ class MockCombatRepository: CombatRepository {
         completeCombatCallCount = 0
         fetchCombatSessionCallCount = 0
         retreatCombatCallCount = 0
+        getUserActiveSessionCallCount = 0
+        abandonCombatCallCount = 0
         lastInitiatedCombatParams = nil
         lastAttackParams = nil
         lastDefenseParams = nil
         lastCompleteCombatParams = nil
         lastFetchedSessionId = nil
         lastRetreatSessionId = nil
+        lastAbandonSessionId = nil
+        mockActiveSession = nil
         playerHp = 100.0
         enemyHp = 80.0
         turnNumber = 1
