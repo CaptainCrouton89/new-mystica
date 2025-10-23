@@ -14,22 +14,18 @@ struct MaterialSlotSelector: View {
     let onTap: () -> Void
 
     var body: some View {
-        Button(action: onTap) {
+        SelectionSlotButton(isFilled: selectedMaterial != nil, onTap: onTap) {
             if let material = selectedMaterial {
-                // Filled state with selected material
-                filledState(material: material)
+                filledStateContent(material: material)
             } else {
-                // Empty state
-                emptyState
+                emptyStateContent
             }
         }
-        .buttonStyle(PlainButtonStyle())
-        .contentShape(Rectangle()) // Ensure entire area is tappable
     }
 
     // MARK: - Empty State View
 
-    private var emptyState: some View {
+    private var emptyStateContent: some View {
         VStack(spacing: 12) {
             // Plus icon
             Image(systemName: "plus")
@@ -41,21 +37,11 @@ struct MaterialSlotSelector: View {
                 .multilineTextAlignment(.center)
                 .foregroundColor(Color.textSecondary)
         }
-        .frame(width: 120, height: 160)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color.backgroundSecondary)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.borderSubtle, lineWidth: 2)
-                        .strokeBorder(style: StrokeStyle(lineWidth: 2, dash: [8, 4]))
-                )
-        )
     }
 
     // MARK: - Filled State View
 
-    private func filledState(material: MaterialInventoryStack) -> some View {
+    private func filledStateContent(material: MaterialInventoryStack) -> some View {
         VStack(spacing: 12) {
             // Material Image with Quantity Badge
             ZStack(alignment: .topTrailing) {
@@ -77,16 +63,6 @@ struct MaterialSlotSelector: View {
                 .lineLimit(2)
                 .frame(minHeight: 32) // Consistent height for alignment
         }
-        .frame(width: 120, height: 160)
-        .padding(12)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color.backgroundCard)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(styleBorderColor(material.styleId), lineWidth: 3)
-                )
-        )
     }
 
     // MARK: - Material Image View

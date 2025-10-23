@@ -14,19 +14,18 @@ struct ItemSlotSelector: View {
     let onTap: () -> Void
 
     var body: some View {
-        Button(action: onTap) {
+        SelectionSlotButton(isFilled: selectedItem != nil, onTap: onTap) {
             if let item = selectedItem {
-                filledStateView(item: item)
+                filledStateContent(item: item)
             } else {
-                emptyStateView
+                emptyStateContent
             }
         }
-        .buttonStyle(PlainButtonStyle())
     }
 
     // MARK: - Empty State
 
-    private var emptyStateView: some View {
+    private var emptyStateContent: some View {
         VStack(spacing: 12) {
             // Plus icon placeholder
             ZStack {
@@ -54,21 +53,11 @@ struct ItemSlotSelector: View {
                     .foregroundColor(Color.textSecondary.opacity(0.7))
             }
         }
-        .frame(width: 120, height: 160)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color.backgroundCard)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.borderSubtle, lineWidth: 1)
-                        .opacity(0.5)
-                )
-        )
     }
 
     // MARK: - Filled State
 
-    private func filledStateView(item: EnhancedPlayerItem) -> some View {
+    private func filledStateContent(item: EnhancedPlayerItem) -> some View {
         VStack(spacing: 8) {
             // Item Image
             Group {
@@ -115,16 +104,6 @@ struct ItemSlotSelector: View {
                     .foregroundColor(Color.textSecondary)
             }
         }
-        .frame(width: 120, height: 160)
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color.backgroundCard)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(rarityBorderColor(for: item), lineWidth: 2)
-                        .opacity(0.3)
-                )
-        )
     }
 
     // MARK: - Helper Views
