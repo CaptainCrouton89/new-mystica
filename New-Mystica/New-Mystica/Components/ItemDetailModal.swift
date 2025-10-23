@@ -13,9 +13,12 @@ struct ItemDetailModal: View {
     let slot: EquipmentSlot
     let onUnequip: () async -> Void
     let onEquipDifferent: () -> Void
+    let onUpgrade: () -> Void
+    let onCraft: () -> Void
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.audioManager) private var audioManager
+    @Environment(\.navigationManager) private var navigationManager
     @State private var showUnequipConfirmation = false
 
     var body: some View {
@@ -248,6 +251,61 @@ struct ItemDetailModal: View {
     // MARK: - Action Buttons View
     private var actionButtonsView: some View {
         VStack(spacing: 12) {
+            // Primary actions row (Upgrade & Craft)
+            HStack(spacing: 12) {
+                // Upgrade button
+                Button {
+                    audioManager.playMenuButtonClick()
+                    dismiss()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        onUpgrade()
+                    }
+                } label: {
+                    HStack {
+                        Image(systemName: "arrow.up.circle.fill")
+                        NormalText("Upgrade")
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.accent.opacity(0.15))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color.accent, lineWidth: 2)
+                            )
+                    )
+                    .foregroundColor(Color.accent)
+                }
+                .buttonStyle(PlainButtonStyle())
+
+                // Craft button
+                Button {
+                    audioManager.playMenuButtonClick()
+                    dismiss()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                        onCraft()
+                    }
+                } label: {
+                    HStack {
+                        Image(systemName: "hammer.fill")
+                        NormalText("Craft")
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.accentSecondary.opacity(0.15))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color.accentSecondary, lineWidth: 2)
+                            )
+                    )
+                    .foregroundColor(Color.accentSecondary)
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
+
             // Equip Different button
             TextButton("Equip Different Item") {
                 audioManager.playMenuButtonClick()
@@ -406,6 +464,12 @@ private struct StatDetailRow: View {
         },
         onEquipDifferent: {
             print("Equip different tapped")
+        },
+        onUpgrade: {
+            print("Upgrade tapped")
+        },
+        onCraft: {
+            print("Craft tapped")
         }
     )
     .modelContainer(for: Item.self, inMemory: true)

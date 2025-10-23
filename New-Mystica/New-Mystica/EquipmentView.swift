@@ -222,9 +222,9 @@ struct EquipmentView: View {
     @State private var viewModel: EquipmentViewModel
 
     init() {
-        let inventory = InventoryViewModel()
-        _inventoryViewModel = State(initialValue: inventory)
-        _viewModel = State(initialValue: EquipmentViewModel(inventoryViewModel: inventory))
+        let inventoryVM = InventoryViewModel()
+        _inventoryViewModel = State(initialValue: inventoryVM)
+        _viewModel = State(initialValue: EquipmentViewModel(inventoryViewModel: inventoryVM))
     }
 
     var body: some View {
@@ -260,14 +260,24 @@ struct EquipmentView: View {
                     },
                     onEquipDifferent: {
                         viewModel.showItemSelection(for: slot)
+                    },
+                    onUpgrade: {
+                        // TODO: Navigate to upgrade view when available
+                        print("Upgrade tapped for item: \(item.baseType)")
+                    },
+                    onCraft: {
+                        audioManager.playMenuButtonClick()
+                        navigationManager.navigateTo(.crafting())
                     }
                 )
             }
         }
         .task {
             // Load both equipment and inventory data when view appears
+            print("📱 [EQUIPMENT VIEW] Starting to load equipment and inventory...")
             await viewModel.fetchEquipment()
             await inventoryViewModel.loadInventory()
+            print("📱 [EQUIPMENT VIEW] Loading complete. Inventory state: \(inventoryViewModel.items)")
         }
     }
 

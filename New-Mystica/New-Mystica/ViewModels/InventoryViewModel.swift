@@ -73,6 +73,8 @@ final class InventoryViewModel {
             )
             items = .loaded(response.items)
 
+            print("✅ [INVENTORY] Loaded \(response.items.count) items from inventory API")
+
             // Load material inventory alongside items
             await loadMaterialInventory()
 
@@ -83,12 +85,12 @@ final class InventoryViewModel {
         } catch let error as AppError {
             items = .error(error)
             materialInventory = .error(error)
-print("❌ Error: \(error)")
+            print("❌ [INVENTORY] Failed to load inventory: \(error)")
         } catch {
             let appError = AppError.unknown(error)
             items = .error(appError)
             materialInventory = .error(appError)
-print("❌ Error: \(appError)")
+            print("❌ [INVENTORY] Failed to load inventory: \(appError)")
         }
 
         isLoading = false

@@ -103,12 +103,18 @@ final class EquipmentViewModel {
     }
 
     func getAvailableItemsForSlot(_ slot: EquipmentSlot) -> [EnhancedPlayerItem] {
-        guard case .loaded(let items) = inventoryViewModel.items else { return [] }
+        guard case .loaded(let items) = inventoryViewModel.items else {
+            print("⚠️ [EQUIPMENT] Inventory not loaded. State: \(inventoryViewModel.items)")
+            return []
+        }
 
-        return items.filter { item in
+        let available = items.filter { item in
             let itemSlot = getSlotForItemType(item.baseType)
             return itemSlot == slot && !item.isEquipped
         }
+
+        print("✅ [EQUIPMENT] Available items for \(slot.rawValue) slot: \(available.count) of \(items.count) total items")
+        return available
     }
 
     func equipItemFromInventory(_ item: EnhancedPlayerItem) async {
