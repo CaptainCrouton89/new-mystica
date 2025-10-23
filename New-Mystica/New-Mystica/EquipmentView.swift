@@ -12,10 +12,10 @@ import SwiftData
 struct EquipmentSlotView: View {
     let slot: String
     let item: PlayerItem?
-    let onTap: () -> Void
+    let onTap: (PlayerItem?) -> Void
 
     var body: some View {
-        Button(action: onTap) {
+        Button(action: { onTap(item) }) {
             ZStack {
                 // Slot background
                 RoundedRectangle(cornerRadius: 12)
@@ -249,6 +249,21 @@ struct EquipmentView: View {
         ) {
             drawerContent
         }
+        .sheet(isPresented: $viewModel.showingItemDetailModal) {
+            if let item = viewModel.selectedItemForDetail,
+               let slot = viewModel.selectedSlotForDetail {
+                ItemDetailModal(
+                    item: item,
+                    slot: slot,
+                    onUnequip: {
+                        await viewModel.unequipCurrentItem()
+                    },
+                    onEquipDifferent: {
+                        viewModel.showItemSelection(for: slot)
+                    }
+                )
+            }
+        }
         .task {
             // Load both equipment and inventory data when view appears
             await viewModel.fetchEquipment()
@@ -292,23 +307,23 @@ struct EquipmentView: View {
     private func equipmentSlotsLayout(equipment: Equipment?) -> some View {
         VStack(spacing: 20) {
             // Head slot (top)
-            EquipmentSlotView(slot: "head", item: equipment?.slots.head) {
+            EquipmentSlotView(slot: "head", item: equipment?.slots.head) { item in
                 audioManager.playMenuButtonClick()
-                viewModel.showItemSelection(for: .head)
+                handleSlotTap(item: item, slot: .head)
             }
 
             // Middle row: weapon, character silhouette, offhand
             HStack(spacing: 40) {
                 // Left side slots
                 VStack(spacing: 16) {
-                    EquipmentSlotView(slot: "weapon", item: equipment?.slots.weapon) {
+                    EquipmentSlotView(slot: "weapon", item: equipment?.slots.weapon) { item in
                         audioManager.playMenuButtonClick()
-                        viewModel.showItemSelection(for: .weapon)
+                        handleSlotTap(item: item, slot: .weapon)
                     }
 
-                    EquipmentSlotView(slot: "accessory_1", item: equipment?.slots.accessory1) {
+                    EquipmentSlotView(slot: "accessory_1", item: equipment?.slots.accessory1) { item in
                         audioManager.playMenuButtonClick()
-                        viewModel.showItemSelection(for: .accessory_1)
+                        handleSlotTap(item: item, slot: .accessory_1)
                     }
                 }
 
@@ -317,39 +332,50 @@ struct EquipmentView: View {
 
                 // Right side slots
                 VStack(spacing: 16) {
-                    EquipmentSlotView(slot: "offhand", item: equipment?.slots.offhand) {
+                    EquipmentSlotView(slot: "offhand", item: equipment?.slots.offhand) { item in
                         audioManager.playMenuButtonClick()
-                        viewModel.showItemSelection(for: .offhand)
+                        handleSlotTap(item: item, slot: .offhand)
                     }
 
-                    EquipmentSlotView(slot: "accessory_2", item: equipment?.slots.accessory2) {
+                    EquipmentSlotView(slot: "accessory_2", item: equipment?.slots.accessory2) { item in
                         audioManager.playMenuButtonClick()
-                        viewModel.showItemSelection(for: .accessory_2)
+                        handleSlotTap(item: item, slot: .accessory_2)
                     }
                 }
             }
 
             // Bottom row: armor, feet
             HStack(spacing: 40) {
-                EquipmentSlotView(slot: "armor", item: equipment?.slots.armor) {
+                EquipmentSlotView(slot: "armor", item: equipment?.slots.armor) { item in
                     audioManager.playMenuButtonClick()
-                    viewModel.showItemSelection(for: .armor)
+                    handleSlotTap(item: item, slot: .armor)
                 }
 
-                EquipmentSlotView(slot: "feet", item: equipment?.slots.feet) {
+                EquipmentSlotView(slot: "feet", item: equipment?.slots.feet) { item in
                     audioManager.playMenuButtonClick()
-                    viewModel.showItemSelection(for: .feet)
+                    handleSlotTap(item: item, slot: .feet)
                 }
             }
 
             // Pet slot (bottom)
             HStack {
-                EquipmentSlotView(slot: "pet", item: equipment?.slots.pet) {
+                EquipmentSlotView(slot: "pet", item: equipment?.slots.pet) { item in
                     audioManager.playMenuButtonClick()
-                    viewModel.showItemSelection(for: .pet)
+                    handleSlotTap(item: item, slot: .pet)
                 }
                 Spacer()
             }
+        }
+    }
+
+    // MARK: - Slot Tap Handler
+    private func handleSlotTap(item: PlayerItem?, slot: EquipmentSlot) {
+        if let item = item {
+            // Item is equipped: show detail modal
+            viewModel.showItemDetail(for: item, slot: slot)
+        } else {
+            // Slot is empty: show item selection drawer
+            viewModel.showItemSelection(for: slot)
         }
     }
 
@@ -387,13 +413,13 @@ struct EquipmentView: View {
 #Preview("Individual Components") {
     VStack(spacing: 20) {
         // Empty slot example
-        EquipmentSlotView(slot: "weapon", item: nil) {
+        EquipmentSlotView(slot: "weapon", item: nil) { item in
             print("Tapped empty weapon slot")
         }
 
         // Equipped item example (mock data)
-        EquipmentSlotView(slot: "weapon", item: mockPlayerItem) {
-            print("Tapped equipped weapon")
+        EquipmentSlotView(slot: "weapon", item: mockPlayerItem) { item in
+            print("Tapped equipped weapon: \(item?.baseType ?? "nil")")
         }
 
         // Stats display example

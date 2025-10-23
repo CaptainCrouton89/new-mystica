@@ -19,6 +19,11 @@ final class EquipmentViewModel {
     var showingItemSelectionDrawer: Bool = false
     var selectedSlotForEquipping: EquipmentSlot?
 
+    // MARK: - Modal State
+    var showingItemDetailModal: Bool = false
+    var selectedItemForDetail: PlayerItem?
+    var selectedSlotForDetail: EquipmentSlot?
+
     init(
         repository: EquipmentRepository = DefaultEquipmentRepository(),
         inventoryViewModel: InventoryViewModel
@@ -62,6 +67,27 @@ final class EquipmentViewModel {
         } catch {
             equipment = .error(.unknown(error))
         }
+    }
+
+    // MARK: - Modal Methods
+
+    func showItemDetail(for item: PlayerItem, slot: EquipmentSlot) {
+        selectedItemForDetail = item
+        selectedSlotForDetail = slot
+        showingItemDetailModal = true
+    }
+
+    func dismissItemDetail() {
+        showingItemDetailModal = false
+        selectedItemForDetail = nil
+        selectedSlotForDetail = nil
+    }
+
+    func unequipCurrentItem() async {
+        guard let slot = selectedSlotForDetail else { return }
+
+        await unequipItem(slotName: slot.rawValue)
+        dismissItemDetail()
     }
 
     // MARK: - Drawer Methods
