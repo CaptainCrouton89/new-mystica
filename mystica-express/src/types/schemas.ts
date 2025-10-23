@@ -106,6 +106,10 @@ export const CompleteCombatSchema = z.object({
   result: z.enum(['victory', 'defeat'])
 });
 
+export const AbandonCombatSchema = z.object({
+  session_id: UUIDSchema
+});
+
 // Combat result and zone schemas
 export const HitZoneSchema = z.enum(['injure', 'miss', 'graze', 'normal', 'crit']);
 export const CombatStatusSchema = z.enum(['ongoing', 'victory', 'defeat']);
@@ -196,6 +200,7 @@ export type StartCombatRequest = z.infer<typeof StartCombatSchema>;
 export type AttackRequest = z.infer<typeof AttackSchema>;
 export type DefenseRequest = z.infer<typeof DefenseSchema>;
 export type CompleteCombatRequest = z.infer<typeof CompleteCombatSchema>;
+export type AbandonCombatRequest = z.infer<typeof AbandonCombatSchema>;
 export type CreateLoadoutRequest = z.infer<typeof CreateLoadoutSchema>;
 export type UpdateLoadoutRequest = z.infer<typeof UpdateLoadoutSchema>;
 export type UpdateLoadoutSlotsRequest = z.infer<typeof UpdateLoadoutSlotsSchema>;

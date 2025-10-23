@@ -487,6 +487,26 @@ export class CombatService {
   }
 
   /**
+   * Abandon active combat session
+   *
+   * @param sessionId - Combat session UUID
+   * @throws NotFoundError if session not found
+   */
+  async abandonCombat(sessionId: string): Promise<void> {
+    await this.combatRepository.deleteSession(sessionId);
+  }
+
+  /**
+   * Get user's active combat session for auto-resume
+   *
+   * @param userId - User UUID
+   * @returns Active session or null if none exists
+   */
+  async getUserActiveSession(userId: string): Promise<CombatSessionData | null> {
+    return await this.combatRepository.getUserActiveSession(userId);
+  }
+
+  /**
    * Get active combat session data
    * Used by EnemyChatterService and other services that need session info
    *

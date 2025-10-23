@@ -3,7 +3,7 @@ import { combatService } from '../services/CombatService.js';
 import { enemyChatterService } from '../services/EnemyChatterService.js';
 import { chatterService } from '../services/ChatterService.js';
 import { ValidationError, NotFoundError, ExternalAPIError, NotImplementedError } from '../utils/errors.js';
-import type { EnemyChatterRequest, StartCombatRequest, AttackRequest, CompleteCombatRequest, DefenseRequest, PetChatterRequest } from '../types/schemas.js';
+import type { EnemyChatterRequest, StartCombatRequest, AttackRequest, CompleteCombatRequest, DefenseRequest, PetChatterRequest, AbandonCombatRequest } from '../types/schemas.js';
 import type { CombatEventDetails } from '../types/combat.types.js';
 
 /**
@@ -62,6 +62,40 @@ export class CombatController {
       const combatRewards = await combatService.completeCombat(session_id, result);
 
       res.json(combatRewards);
+
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * POST /combat/abandon
+   * Abandon active combat session
+   */
+  abandonCombat = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { session_id } = req.body as AbandonCombatRequest;
+
+      await combatService.abandonCombat(session_id);
+
+      res.json({ message: 'Combat session abandoned' });
+
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * GET /combat/active-session
+   * Get user's active combat session for auto-resume
+   */
+  getActiveSession = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const userId = req.user!.id;
+
+      const session = await combatService.getUserActiveSession(userId);
+
+      res.json({ session });
 
     } catch (error) {
       next(error);

@@ -8,7 +8,8 @@ import {
   StartCombatSchema,
   AttackSchema,
   DefenseSchema,
-  CompleteCombatSchema
+  CompleteCombatSchema,
+  AbandonCombatSchema
 } from '../types/schemas.js';
 
 const router = Router();
@@ -20,6 +21,8 @@ const router = Router();
  * POST /combat/attack - Execute attack action in combat
  * POST /combat/defend - Execute defense action in combat
  * POST /combat/complete - Complete combat and award loot
+ * POST /combat/abandon - Abandon active combat session
+ * GET /combat/active-session - Get user's active combat session for auto-resume
  * GET /combat/session/:session_id - Get active combat session state for recovery
  * POST /combat/pet-chatter - Generate AI-powered pet dialogue for combat events
  * POST /combat/enemy-chatter - Generate AI-powered enemy dialogue for combat events
@@ -55,6 +58,21 @@ router.post(
   authenticate,
   validate({ body: CompleteCombatSchema }),
   combatController.completeCombat
+);
+
+// Abandon combat session
+router.post(
+  '/abandon',
+  authenticate,
+  validate({ body: AbandonCombatSchema }),
+  combatController.abandonCombat
+);
+
+// Get user's active combat session
+router.get(
+  '/active-session',
+  authenticate,
+  combatController.getActiveSession
 );
 
 // Get combat session for recovery
