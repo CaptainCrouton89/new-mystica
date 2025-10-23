@@ -10,6 +10,7 @@ import SwiftUI
 import Combine
 
 // MARK: - Audio Manager
+@MainActor
 class AudioManager: ObservableObject {
     static let shared = AudioManager()
     
