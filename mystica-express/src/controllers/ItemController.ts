@@ -200,7 +200,6 @@ export class ItemController {
       });
 
       res.json({
-        success: result.success,
         item: result.updated_item,
         stats: result.updated_item.current_stats,
         image_url: result.image_url,
@@ -233,7 +232,6 @@ export class ItemController {
       });
 
       res.json({
-        success: result.success,
         item: result.updated_item,
         stats: result.updated_item.current_stats,
         image_url: result.updated_item.image_url,
@@ -270,7 +268,6 @@ export class ItemController {
       const result = await itemService.removeMaterial(item_id, slotIndex, userId);
 
       res.json({
-        success: result.success,
         item: result.item,
         stats: result.stats,
         image_url: result.image_url,
