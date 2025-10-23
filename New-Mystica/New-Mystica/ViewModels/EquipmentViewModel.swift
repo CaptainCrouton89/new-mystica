@@ -11,7 +11,7 @@ import Observation
 @Observable
 final class EquipmentViewModel {
     let repository: EquipmentRepository
-    let inventoryViewModel: InventoryViewModel
+    var inventoryViewModel: InventoryViewModel
 
     var equipment: Loadable<[Equipment]> = .idle
 
