@@ -218,36 +218,57 @@ struct EquipmentView: View {
     @Environment(\.navigationManager) private var navigationManager
     @Environment(\.audioManager) private var audioManager
     @Environment(AppState.self) private var appState
-    @State private var viewModel = EquipmentViewModel()
-    @State private var selectedItem: PlayerItem?
+    @State private var inventoryViewModel = InventoryViewModel()
+    @State private var viewModel: EquipmentViewModel
+
+    init() {
+        let inventory = InventoryViewModel()
+        _inventoryViewModel = State(initialValue: inventory)
+        _viewModel = State(initialValue: EquipmentViewModel(inventoryViewModel: inventory))
+    }
 
     var body: some View {
         BaseView(title: "Equipment") {
-            ZStack {
-                // Main content
-                LoadableView(viewModel.equipment) { equipment in
-                    ScrollView {
-                        VStack(spacing: 24) {
-                            equipmentContentView(equipment: equipment)
-                        }
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 16)
+            LoadableView(viewModel.equipment) { equipment in
+                ScrollView {
+                    VStack(spacing: 24) {
+                        equipmentContentView(equipment: equipment)
                     }
-                } retry: {
-                    Task {
-                        await viewModel.fetchEquipment()
-                    }
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 16)
                 }
-
-                // Item Detail Popup Overlay
-                if let item = selectedItem {
-                    itemDetailPopup(item: item)
+            } retry: {
+                Task {
+                    await viewModel.fetchEquipment()
                 }
             }
         }
+        .bottomDrawer(
+            title: "Select Equipment",
+            isPresented: $viewModel.showingItemSelectionDrawer
+        ) {
+            drawerContent
+        }
         .task {
-            // Load equipment data when view appears
+            // Load both equipment and inventory data when view appears
             await viewModel.fetchEquipment()
+            await inventoryViewModel.loadInventory()
+        }
+    }
+
+    // MARK: - Drawer Content
+    @ViewBuilder
+    private var drawerContent: some View {
+        if let slot = viewModel.selectedSlotForEquipping {
+            ItemSelectionDrawerContent(
+                targetSlot: slot,
+                availableItems: viewModel.getAvailableItemsForSlot(slot),
+                onItemSelected: { selectedItem in
+                    Task {
+                        await viewModel.equipItemFromInventory(selectedItem)
+                    }
+                }
+            )
         }
     }
 
@@ -273,7 +294,7 @@ struct EquipmentView: View {
             // Head slot (top)
             EquipmentSlotView(slot: "head", item: equipment?.slots.head) {
                 audioManager.playMenuButtonClick()
-                selectedItem = equipment?.slots.head
+                viewModel.showItemSelection(for: .head)
             }
 
             // Middle row: weapon, character silhouette, offhand
@@ -282,12 +303,12 @@ struct EquipmentView: View {
                 VStack(spacing: 16) {
                     EquipmentSlotView(slot: "weapon", item: equipment?.slots.weapon) {
                         audioManager.playMenuButtonClick()
-                        selectedItem = equipment?.slots.weapon
+                        viewModel.showItemSelection(for: .weapon)
                     }
 
                     EquipmentSlotView(slot: "accessory_1", item: equipment?.slots.accessory1) {
                         audioManager.playMenuButtonClick()
-                        selectedItem = equipment?.slots.accessory1
+                        viewModel.showItemSelection(for: .accessory_1)
                     }
                 }
 
@@ -298,12 +319,12 @@ struct EquipmentView: View {
                 VStack(spacing: 16) {
                     EquipmentSlotView(slot: "offhand", item: equipment?.slots.offhand) {
                         audioManager.playMenuButtonClick()
-                        selectedItem = equipment?.slots.offhand
+                        viewModel.showItemSelection(for: .offhand)
                     }
 
                     EquipmentSlotView(slot: "accessory_2", item: equipment?.slots.accessory2) {
                         audioManager.playMenuButtonClick()
-                        selectedItem = equipment?.slots.accessory2
+                        viewModel.showItemSelection(for: .accessory_2)
                     }
                 }
             }
@@ -312,12 +333,12 @@ struct EquipmentView: View {
             HStack(spacing: 40) {
                 EquipmentSlotView(slot: "armor", item: equipment?.slots.armor) {
                     audioManager.playMenuButtonClick()
-                    selectedItem = equipment?.slots.armor
+                    viewModel.showItemSelection(for: .armor)
                 }
 
                 EquipmentSlotView(slot: "feet", item: equipment?.slots.feet) {
                     audioManager.playMenuButtonClick()
-                    selectedItem = equipment?.slots.feet
+                    viewModel.showItemSelection(for: .feet)
                 }
             }
 
@@ -325,7 +346,7 @@ struct EquipmentView: View {
             HStack {
                 EquipmentSlotView(slot: "pet", item: equipment?.slots.pet) {
                     audioManager.playMenuButtonClick()
-                    selectedItem = equipment?.slots.pet
+                    viewModel.showItemSelection(for: .pet)
                 }
                 Spacer()
             }
@@ -351,117 +372,6 @@ struct EquipmentView: View {
                 SmallText("Character")
                     .foregroundColor(Color.borderSubtle)
             }
-        }
-    }
-
-    // MARK: - Item Detail Popup
-    private func itemDetailPopup(item: PlayerItem) -> some View {
-        ZStack {
-            // Background overlay
-            Color.black.opacity(0.6)
-                .edgesIgnoringSafeArea(.all)
-                .onTapGesture {
-                    audioManager.playMenuButtonClick()
-                    selectedItem = nil
-                }
-
-            // Popup content
-            VStack(spacing: 16) {
-                // Item name and level
-                VStack(spacing: 4) {
-                    TitleText(item.baseType)
-                        .foregroundColor(Color.textPrimary)
-
-                    NormalText("Level \(item.level)")
-                        .foregroundColor(Color.textSecondary)
-                }
-
-                // Item image (if available)
-                AsyncImage(url: URL(string: item.generatedImageUrl ?? "")) { phase in
-                    switch phase {
-                    case .empty:
-                        ProgressView()
-                            .frame(width: 80, height: 80)
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(width: 80, height: 80)
-                    case .failure:
-                        Image(systemName: "photo.fill")
-                            .font(.system(size: 40))
-                            .foregroundColor(Color.textSecondary)
-                            .frame(width: 80, height: 80)
-                    @unknown default:
-                        EmptyView()
-                    }
-                }
-
-                // Item stats
-                VStack(spacing: 8) {
-                    TitleText("Stats", size: 18)
-                        .foregroundColor(Color.textPrimary)
-
-                    VStack(spacing: 4) {
-                        HStack {
-                            NormalText("ATK Power:")
-                                .foregroundColor(Color.textSecondary)
-                            Spacer()
-                            NormalText(String(format: "%.0f", item.computedStats.atkPower * 100))
-                                .foregroundColor(Color.accent)
-                                .bold()
-                        }
-
-                        HStack {
-                            NormalText("ATK Accuracy:")
-                                .foregroundColor(Color.textSecondary)
-                            Spacer()
-                            NormalText(String(format: "%.0f", item.computedStats.atkAccuracy * 100))
-                                    .foregroundColor(Color.accent)
-                                    .bold()
-                            }
-
-                        HStack {
-                            NormalText("DEF Power:")
-                                .foregroundColor(Color.textSecondary)
-                            Spacer()
-                            NormalText(String(format: "%.0f", item.computedStats.defPower * 100))
-                                .foregroundColor(Color.accentSecondary)
-                                .bold()
-                        }
-
-                        HStack {
-                            NormalText("DEF Accuracy:")
-                                .foregroundColor(Color.textSecondary)
-                            Spacer()
-                            NormalText(String(format: "%.0f", item.computedStats.defAccuracy * 100))
-                                .foregroundColor(Color.accentSecondary)
-                                .bold()
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                }
-
-                // Item description removed (not available in flattened API structure)
-
-                // Close button
-                TextButton("Close") {
-                    audioManager.playMenuButtonClick()
-                    selectedItem = nil
-                }
-                .padding(.top, 8)
-            }
-            .padding(24)
-            .background(
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(Color.backgroundCard)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16)
-                            .stroke(Color.borderSubtle, lineWidth: 1)
-                    )
-            )
-            .shadow(color: Color.black.opacity(0.3), radius: 20, x: 0, y: 10)
-            .padding(.horizontal, 40)
         }
     }
 }
