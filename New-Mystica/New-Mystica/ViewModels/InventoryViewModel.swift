@@ -48,9 +48,11 @@ final class InventoryViewModel {
     // MARK: - Upgrade State
     var upgradeCostData: Loadable<UpgradeCostInfo> = .idle
     var upgradeInProgress: Bool = false
-    var showingUpgradeCompleteModal: Bool = false
+    var showingUpgradeConfirmationModal: Bool = false  // Shows modal in confirmation mode
+    var showingUpgradeCompleteModal: Bool = false  // Shows modal in completion mode
     var lastUpgradeResult: UpgradeResult?
     var lastUpgradeStatsBefore: ItemStats?
+    var pendingUpgradeCostInfo: UpgradeCostInfo?  // Stores cost info for confirmation modal
 
     // MARK: - Error State
     var currentError: AppError?
@@ -355,8 +357,11 @@ final class InventoryViewModel {
     }
 
     func handleUpgradeAction() async {
+        guard let item = selectedItemForDetail else { return }
         dismissItemDetailModal()
-        await handleUpgradeNavigation()
+
+        // Fetch upgrade cost and show confirmation modal
+        await fetchUpgradeCostAndShowConfirmation(itemId: item.id)
     }
 
     private func handleCraftNavigation() async {
@@ -534,14 +539,47 @@ final class InventoryViewModel {
         }
     }
 
+    private func fetchUpgradeCostAndShowConfirmation(itemId: String) async {
+        upgradeCostData = .loading
+
+        do {
+            let costInfo = try await repository.fetchUpgradeCost(itemId: itemId)
+            upgradeCostData = .loaded(costInfo)
+
+            // Store cost info and current stats for the confirmation modal
+            await MainActor.run {
+                pendingUpgradeCostInfo = costInfo
+                if let item = selectedItemForDetail {
+                    lastUpgradeStatsBefore = item.computedStats
+                }
+                showingUpgradeConfirmationModal = true
+            }
+
+            FileLogger.shared.log("✅ Fetched upgrade cost: \(costInfo.goldCost) gold for level \(costInfo.currentLevel) -> \(costInfo.nextLevel)", level: .info, category: "Inventory")
+        } catch let error as AppError {
+            upgradeCostData = .error(error)
+            handleError(error)
+            FileLogger.shared.log("❌ Failed to fetch upgrade cost: \(error)", level: .error, category: "Inventory")
+        } catch {
+            let appError = AppError.unknown(error)
+            upgradeCostData = .error(appError)
+            handleError(appError)
+            FileLogger.shared.log("❌ Failed to fetch upgrade cost: \(appError)", level: .error, category: "Inventory")
+        }
+    }
+
     func performUpgrade(itemId: String) async {
         upgradeInProgress = true
+
+        // Close confirmation modal first
+        await MainActor.run {
+            showingUpgradeConfirmationModal = false
+        }
+
         defer { upgradeInProgress = false }
 
-        // Cache the current stats before upgrade for comparison
-        if let currentItem = selectedItemForDetail {
-            lastUpgradeStatsBefore = currentItem.computedStats
-        }
+        // Stats before upgrade are already cached when showing confirmation modal
+        // No need to cache again here
 
         do {
             let upgradeResult = try await repository.upgradeItem(itemId: itemId)
@@ -571,6 +609,11 @@ final class InventoryViewModel {
                             updatedAt: ISO8601DateFormatter().string(from: Date())
                         )
                     ])
+                }
+
+                // Update selectedItemForDetail with the upgraded item so modal shows current state
+                if let upgradedItem = (items.value?.first { $0.id == itemId }) {
+                    selectedItemForDetail = upgradedItem
                 }
 
                 // Store the upgrade result and show the completion modal

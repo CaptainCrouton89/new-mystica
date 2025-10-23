@@ -265,9 +265,10 @@ struct EquipmentView: View {
                         viewModel.showItemSelection(for: slot)
                     },
                     onUpgrade: {
-                        // Perform upgrade via inventory view model
+                        // Show upgrade confirmation via inventory view model
+                        viewModel.showingItemDetailModal = false
                         Task {
-                            await viewModel.inventoryViewModel.performUpgrade(itemId: item.id)
+                            await viewModel.inventoryViewModel.handleUpgradeAction()
                         }
                     },
                     onCraft: {
@@ -277,20 +278,57 @@ struct EquipmentView: View {
                 )
             }
         }
+        .sheet(isPresented: $viewModel.inventoryViewModel.showingUpgradeConfirmationModal) {
+            Group {
+                if let item = viewModel.inventoryViewModel.selectedItemForDetail,
+                   let costInfo = viewModel.inventoryViewModel.pendingUpgradeCostInfo,
+                   let statsBefore = viewModel.inventoryViewModel.lastUpgradeStatsBefore {
+
+                    let projectedStats = calculateProjectedStats(from: statsBefore)
+
+                    UpgradeCompleteModal(
+                        item: item,
+                        goldSpent: costInfo.goldCost,
+                        newGoldBalance: costInfo.playerGold - costInfo.goldCost,
+                        statsBefore: statsBefore,
+                        statsAfter: projectedStats,
+                        isConfirmation: true,
+                        onConfirm: {
+                            Task {
+                                await viewModel.inventoryViewModel.performUpgrade(itemId: item.id)
+                            }
+                        },
+                        onUpgradeAgain: nil,
+                        onReturnToInventory: {
+                            viewModel.inventoryViewModel.showingUpgradeConfirmationModal = false
+                        }
+                    )
+                } else {
+                    VStack {
+                        ProgressView()
+                        Text("Loading upgrade details...")
+                            .font(FontManager.body)
+                            .foregroundColor(Color.textSecondary)
+                            .padding(.top, 8)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color.backgroundPrimary)
+                }
+            }
+        }
         .sheet(isPresented: $viewModel.inventoryViewModel.showingUpgradeCompleteModal) {
             if let upgradeResult = viewModel.inventoryViewModel.lastUpgradeResult {
                 UpgradeCompleteModal(
                     item: upgradeResult.item,
                     goldSpent: upgradeResult.goldSpent,
                     newGoldBalance: upgradeResult.newGoldBalance,
-                    newVanityLevel: upgradeResult.newVanityLevel,
                     statsBefore: viewModel.inventoryViewModel.lastUpgradeStatsBefore ?? ItemStats(atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0),
                     statsAfter: upgradeResult.item.computedStats,
+                    isConfirmation: false,
+                    onConfirm: nil,
                     onUpgradeAgain: {
-                        if let itemId = viewModel.inventoryViewModel.selectedItemForDetail?.id {
-                            Task {
-                                await viewModel.inventoryViewModel.performUpgrade(itemId: itemId)
-                            }
+                        Task {
+                            await viewModel.inventoryViewModel.handleUpgradeAction()
                         }
                     },
                     onReturnToInventory: {
@@ -437,6 +475,19 @@ struct EquipmentView: View {
                     .foregroundColor(Color.borderSubtle)
             }
         }
+    }
+
+    private func calculateProjectedStats(from currentStats: ItemStats) -> ItemStats {
+        // Estimate a ~20% increase in stats per level upgrade
+        // This is a rough approximation - ideally the backend would provide exact projected stats
+        let statIncrease: Double = 1.20
+
+        return ItemStats(
+            atkPower: currentStats.atkPower * statIncrease,
+            atkAccuracy: currentStats.atkAccuracy * statIncrease,
+            defPower: currentStats.defPower * statIncrease,
+            defAccuracy: currentStats.defAccuracy * statIncrease
+        )
     }
 }
 
