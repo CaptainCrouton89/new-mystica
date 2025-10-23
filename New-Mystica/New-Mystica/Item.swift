@@ -1,10 +1,3 @@
-//
-//  Item.swift
-//  New-Mystica
-//
-//  Created by Silas Rhyneer on 10/19/25.
-//
-
 import Foundation
 import SwiftData
 

@@ -22,10 +22,8 @@ final class AuthViewModel {
     func registerDevice() async {
         appState.setAuthenticating()
 
-        guard let deviceId = UIDevice.current.identifierForVendor?.uuidString else {
-            appState.setAuthError(.noDeviceId)
-            return
-        }
+        // Use persistent device ID instead of identifierForVendor
+        let deviceId = DeviceIdentifier.getDeviceId()
 
         do {
             let (user, token) = try await repository.registerDevice(deviceId: deviceId)
@@ -34,7 +32,6 @@ final class AuthViewModel {
             try KeychainService.save(key: "mystica_access_token", value: token)
             try KeychainService.save(key: "mystica_device_id", value: deviceId)
 
-            // Update AppState
             appState.setAuthenticated(user, token: token)
         } catch let error as AppError {
             appState.setAuthError(error)

@@ -1,10 +1,3 @@
-//
-//  NavigationManager.swift
-//  New-Mystica
-//
-//  Created by AI Assistant on 10/19/25.
-//
-
 import SwiftUI
 import Combine
 

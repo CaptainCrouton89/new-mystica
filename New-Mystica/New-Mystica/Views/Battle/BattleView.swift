@@ -1,10 +1,3 @@
-//
-//  BattleView.swift
-//  New-Mystica
-//
-//  Refactored to integrate with CombatViewModel for turn-based combat
-//
-
 import SwiftUI
 import SpriteKit
 
@@ -53,6 +46,11 @@ struct BattleView: View {
             } else {
                 // Start new combat session
                 await viewModel.startCombat(locationId: locationId)
+
+                // Update AppState with the new session
+                if case .loaded(let session) = viewModel.combatState {
+                    appState.activeCombatSession = .loaded(session)
+                }
             }
         }
     }
@@ -108,6 +106,8 @@ struct BattleView: View {
                     TextButton("Continue") {
                         Task {
                             await viewModel.claimRewards()
+                            // Clear the active session from AppState
+                            appState.activeCombatSession = .loaded(nil)
                             navigationManager.navigateBack()
                         }
                     }

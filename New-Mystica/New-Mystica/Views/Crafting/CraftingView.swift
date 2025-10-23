@@ -1,9 +1,3 @@
-//
-//  CraftingView.swift
-//  New-Mystica
-//
-//
-
 import SwiftUI
 import SwiftData
 

@@ -97,6 +97,15 @@ struct SplashScreenView: View {
 
                                         await equipmentViewModel?.fetchEquipment()
 
+                                        // Check if we need to auto-resume combat
+                                        if case .loaded(let session) = appState.activeCombatSession,
+                                           let activeSession = session {
+                                            print("⚔️ [SPLASH] Active combat session found, navigating to battle...")
+                                            navigationManager.navigateTo(.battle)
+                                        } else {
+                                            print("✅ [SPLASH] No active combat, transitioning to main menu")
+                                        }
+
                                         withAnimation(.easeInOut(duration: 0.5)) {
                                             isActive = true
                                         }
@@ -133,6 +142,9 @@ struct SplashScreenView: View {
                 }
             }
             .task {
+                // Get device ID outside do block so it's in scope for catch
+                let deviceId = DeviceIdentifier.getDeviceId()
+
                 do {
                     // Initialize viewModels with navigationManager
                     let inventory = InventoryViewModel(navigationManager: navigationManager)
@@ -140,12 +152,12 @@ struct SplashScreenView: View {
                     inventoryViewModel = inventory
                     equipmentViewModel = equipment
 
-                    print("🚀 [SPLASH] Starting app initialization...")
+                    print("🚀 [SPLASH] Starting app initialization... [deviceId: \(deviceId)]")
                     let hasToken = KeychainService.get(key: "mystica_access_token") != nil
 
                     // Auth phase
                     loadingText = "Authenticating..."
-                    print("🔐 [SPLASH] Has existing token:", hasToken)
+                    print("🔐 [SPLASH] Has existing token:", hasToken, "[deviceId: \(deviceId)]")
                     if !hasToken {
                         print("📱 [SPLASH] No token found, registering new device...")
                         await authViewModel.registerDevice()
@@ -157,23 +169,27 @@ struct SplashScreenView: View {
                     // Check if auth succeeded
                     guard appState.isAuthenticated else {
                         if case .error(let error) = appState.authSession {
+                            print("❌ [SPLASH] Authentication failed [deviceId: \(deviceId), userId: \(appState.currentUser?.id.uuidString ?? "nil")]: \(error.localizedDescription)")
                             errorMessage = error.localizedDescription
                         } else {
+                            print("❌ [SPLASH] Authentication failed [deviceId: \(deviceId), userId: \(appState.currentUser?.id.uuidString ?? "nil")]")
                             errorMessage = "Authentication failed"
                         }
                         return
                     }
 
+                    print("✅ [SPLASH] Authentication successful [deviceId: \(deviceId), userId: \(appState.currentUser?.id.uuidString ?? "nil")]")
+
                     // Data loading phase
                     loadingText = "Loading player data..."
-                    print("⚔️ [SPLASH] Loading equipment data...")
+                    print("⚔️ [SPLASH] Loading equipment data... [deviceId: \(deviceId), userId: \(appState.currentUser?.id.uuidString ?? "nil")]")
 
                     // Load profile and currencies (required for gold balance display)
-                    print("💰 [SPLASH] Loading profile and currencies...")
+                    print("💰 [SPLASH] Loading profile and currencies... [deviceId: \(deviceId), userId: \(appState.currentUser?.id.uuidString ?? "nil")]")
                     await profileController.loadProfileAndCurrencies()
 
                     // Check for active combat session (auto-resume flow)
-                    print("🎮 [SPLASH] Checking for active combat session...")
+                    print("🎮 [SPLASH] Checking for active combat session... [deviceId: \(deviceId), userId: \(appState.currentUser?.id.uuidString ?? "nil")]")
                     await appState.checkActiveCombatSession(repository: DefaultCombatRepository())
 
                     // Attempt to load equipment, but don't fail splash if it errors
@@ -184,14 +200,21 @@ struct SplashScreenView: View {
                         print("⚠️  [SPLASH] Equipment loading failed (continuing anyway):", error.localizedDescription)
                     }
 
-                    // Navigation (FIXED - no .map navigation)
-                    // Let ContentView start at MainMenuView naturally
-                    print("✅ [SPLASH] Initialization complete, transitioning to main menu")
+                    // Check if we need to auto-resume combat
+                    if case .loaded(let session) = appState.activeCombatSession,
+                       let activeSession = session {
+                        print("⚔️ [SPLASH] Active combat session found, navigating to battle... [deviceId: \(deviceId), userId: \(appState.currentUser?.id.uuidString ?? "nil"), sessionId: \(activeSession.sessionId)]")
+                        navigationManager.navigateTo(.battle)
+                    } else {
+                        print("✅ [SPLASH] No active combat, transitioning to main menu [deviceId: \(deviceId), userId: \(appState.currentUser?.id.uuidString ?? "nil")]")
+                    }
+
+                    // Transition to ContentView
                     withAnimation(.easeInOut(duration: 0.5)) {
                         isActive = true
                     }
                 } catch {
-                    print("❌ [SPLASH] Initialization failed:", error.localizedDescription)
+                    print("❌ [SPLASH] Initialization failed [deviceId: \(deviceId), userId: \(appState.currentUser?.id.uuidString ?? "nil")]: \(error.localizedDescription)")
                     errorMessage = "Unable to load player data. Please check your connection."
                 }
             }

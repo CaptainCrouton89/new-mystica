@@ -1,10 +1,3 @@
-//
-//  MainMenuView.swift
-//  New-Mystica
-//
-//  Created by Silas Rhyneer on 10/19/25.
-//
-
 import SwiftUI
 
 struct MainMenuView: View {
@@ -18,7 +11,6 @@ struct MainMenuView: View {
             VStack(spacing: 40) {
                 Spacer()
                 
-                // Title
                 VStack(spacing: 16) {
                     Image("mystica_logo")
                         .resizable()
@@ -29,13 +21,10 @@ struct MainMenuView: View {
                 
                 Spacer()
                 
-                // Menu Options
                 VStack(spacing: 24) {
                     Button {
-                        print("DEBUG: Map button tapped")
                         audioManager.playMenuButtonClick()
                         navigationManager.navigateTo(.map)
-                        print("DEBUG: NavigationManager path after tap: \(navigationManager.navigationPath.count)")
                     } label: {
                         MenuOptionView(
                             title: "Map",

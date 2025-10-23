@@ -1,9 +1,3 @@
-//
-//  InventoryView.swift
-//  New-Mystica
-//
-//
-
 import SwiftUI
 
 

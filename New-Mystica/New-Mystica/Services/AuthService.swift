@@ -44,10 +44,10 @@ class AuthService: ObservableObject {
 
     func registerDevice() async throws {
         print("🔐 [AUTH] Registering device...")
-        guard let deviceId = UIDevice.current.identifierForVendor?.uuidString else {
-            print("❌ [AUTH] Could not get device ID")
-            throw AuthError.noDeviceId
-        }
+
+        // Use persistent device ID instead of identifierForVendor
+        // This ensures the same device ID across app launches and simulator resets
+        let deviceId = DeviceIdentifier.getDeviceId()
 
         print("📱 [AUTH] Device ID:", deviceId)
 

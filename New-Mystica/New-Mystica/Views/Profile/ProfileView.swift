@@ -1,10 +1,3 @@
-//
-//  ProfileView.swift
-//  New-Mystica
-//
-//  Profile and progression display with ProfileViewModel integration
-//
-
 import SwiftUI
 import SwiftData
 

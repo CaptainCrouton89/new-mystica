@@ -1,18 +1,3 @@
-//
-//  SettingsView.swift
-//  New-Mystica
-//
-//  Settings page with logout functionality
-//  Uses SimpleNavigableView pattern with confirmation alert
-//
-//  DESIGN DECISION: No ViewModel Pattern
-//  Rationale:
-//  - Simple UI with only logout functionality and minimal state
-//  - No complex business logic or data transformation required
-//  - Direct service injection is appropriate for this straightforward use case
-//  - MVVM pattern would add unnecessary complexity without benefits
-//
-
 import SwiftUI
 import SwiftData
 

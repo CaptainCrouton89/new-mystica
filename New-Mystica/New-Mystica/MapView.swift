@@ -1,9 +1,3 @@
-//
-//  MapView.swift
-//  New-Mystica
-//
-//
-
 import SwiftUI
 import MapKit
 import CoreLocation

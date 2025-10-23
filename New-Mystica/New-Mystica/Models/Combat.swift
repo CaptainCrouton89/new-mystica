@@ -113,12 +113,12 @@ struct WeaponConfig: APIModel {
 
 // MARK: - Adjusted Bands
 struct AdjustedBands: APIModel {
-    let degInjure: Int
-    let degMiss: Int
-    let degGraze: Int
-    let degNormal: Int
-    let degCrit: Int
-    let totalDegrees: Int
+    let degInjure: Double
+    let degMiss: Double
+    let degGraze: Double
+    let degNormal: Double
+    let degCrit: Double
+    let totalDegrees: Double
 
     enum CodingKeys: String, CodingKey {
         case degInjure = "deg_injure"

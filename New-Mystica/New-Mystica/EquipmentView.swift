@@ -1,10 +1,3 @@
-//
-//  EquipmentView.swift
-//  New-Mystica
-//
-//  Created by Claude Code
-//
-
 import SwiftUI
 import SwiftData
 
