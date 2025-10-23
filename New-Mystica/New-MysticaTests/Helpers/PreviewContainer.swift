@@ -259,16 +259,16 @@ extension PreviewContainer {
 extension PlayerItem {
     func toEnhanced() -> EnhancedPlayerItem {
         return EnhancedPlayerItem(
-            id: self.id.uuidString,
-            baseType: self.itemType?.category.lowercased() ?? "item",
+            id: self.id,
+            baseType: self.itemType.category.lowercased(),
             level: self.level,
             appliedMaterials: [],
-            computedStats: self.currentStats,
-            materialComboHash: self.materialComboHash,
-            generatedImageUrl: self.imageUrl,
+            computedStats: self.computedStats,
+            materialComboHash: nil,
+            generatedImageUrl: self.generatedImageUrl,
             imageGenerationStatus: .complete,
             craftCount: 0,
-            isStyled: false
+            isStyled: self.isStyled
         )
     }
 }

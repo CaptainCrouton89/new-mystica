@@ -9,29 +9,22 @@ import Foundation
 @testable import New_Mystica
 
 class PlayerItemBuilder {
-    private var id = UUID()
-    private var userId = UUID()
-    private var itemTypeId = UUID()
-    private var level = 1
-    private var baseStats = ItemStats.testData()
-    private var currentStats = ItemStats.testData()
-    private var materialComboHash: String? = nil
-    private var imageUrl: String? = nil
+    private var id = "550e8400-e29b-41d4-a716-446655440000"
     private var itemType: ItemType? = nil
-    private var createdAt = "2024-01-01T00:00:00Z"
-    private var updatedAt = "2024-01-01T00:00:00Z"
+    private var level = 1
+    private var rarity = "common"
+    private var appliedMaterials: [String] = []
+    private var isStyled = false
+    private var computedStats = ItemStats.testData()
+    private var isEquipped = false
+    private var generatedImageUrl: String? = nil
 
     init() {}
 
     // MARK: - Builder Methods
 
-    func withId(_ id: UUID) -> PlayerItemBuilder {
+    func withId(_ id: String) -> PlayerItemBuilder {
         self.id = id
-        return self
-    }
-
-    func withUserId(_ userId: UUID) -> PlayerItemBuilder {
-        self.userId = userId
         return self
     }
 
@@ -40,23 +33,33 @@ class PlayerItemBuilder {
         return self
     }
 
-    func withBaseStats(_ stats: ItemStats) -> PlayerItemBuilder {
-        self.baseStats = stats
+    func withRarity(_ rarity: String) -> PlayerItemBuilder {
+        self.rarity = rarity
         return self
     }
 
-    func withCurrentStats(_ stats: ItemStats) -> PlayerItemBuilder {
-        self.currentStats = stats
+    func withAppliedMaterials(_ materials: [String]) -> PlayerItemBuilder {
+        self.appliedMaterials = materials
         return self
     }
 
-    func withMaterialComboHash(_ hash: String?) -> PlayerItemBuilder {
-        self.materialComboHash = hash
+    func withComputedStats(_ stats: ItemStats) -> PlayerItemBuilder {
+        self.computedStats = stats
         return self
     }
 
-    func withImageUrl(_ url: String?) -> PlayerItemBuilder {
-        self.imageUrl = url
+    func withIsStyled(_ styled: Bool) -> PlayerItemBuilder {
+        self.isStyled = styled
+        return self
+    }
+
+    func withIsEquipped(_ equipped: Bool) -> PlayerItemBuilder {
+        self.isEquipped = equipped
+        return self
+    }
+
+    func withGeneratedImageUrl(_ url: String?) -> PlayerItemBuilder {
+        self.generatedImageUrl = url
         return self
     }
 
@@ -103,30 +106,18 @@ class PlayerItemBuilder {
     }
 
     func withPowerfulStats() -> PlayerItemBuilder {
-        self.baseStats = ItemStats(atkPower: 25.0, atkAccuracy: 90.0, defPower: 20.0, defAccuracy: 85.0)
-        self.currentStats = ItemStats(atkPower: 30.0, atkAccuracy: 95.0, defPower: 25.0, defAccuracy: 90.0)
+        self.computedStats = ItemStats(atkPower: 0.4, atkAccuracy: 0.95, defPower: 0.25, defAccuracy: 0.90)
         return self
     }
 
     func withWeakStats() -> PlayerItemBuilder {
-        self.baseStats = ItemStats(atkPower: 5.0, atkAccuracy: 60.0, defPower: 3.0, defAccuracy: 55.0)
-        self.currentStats = ItemStats(atkPower: 6.0, atkAccuracy: 65.0, defPower: 4.0, defAccuracy: 60.0)
+        self.computedStats = ItemStats(atkPower: 0.1, atkAccuracy: 0.60, defPower: 0.05, defAccuracy: 0.55)
         return self
     }
 
     func withMaterials() -> PlayerItemBuilder {
-        self.materialComboHash = "enhanced_weapon_123"
-        self.imageUrl = "https://example.com/enhanced_weapon.png"
-        return self
-    }
-
-    func withCreatedAt(_ timestamp: String) -> PlayerItemBuilder {
-        self.createdAt = timestamp
-        return self
-    }
-
-    func withUpdatedAt(_ timestamp: String) -> PlayerItemBuilder {
-        self.updatedAt = timestamp
+        self.appliedMaterials = ["material_1"]
+        self.isStyled = true
         return self
     }
 
@@ -137,16 +128,14 @@ class PlayerItemBuilder {
 
         return PlayerItem(
             id: id,
-            userId: userId,
-            itemTypeId: itemTypeId,
-            level: level,
-            baseStats: baseStats,
-            currentStats: currentStats,
-            materialComboHash: materialComboHash,
-            imageUrl: imageUrl,
             itemType: finalItemType,
-            createdAt: createdAt,
-            updatedAt: updatedAt
+            level: level,
+            rarity: rarity,
+            appliedMaterials: appliedMaterials,
+            isStyled: isStyled,
+            computedStats: computedStats,
+            isEquipped: isEquipped,
+            generatedImageUrl: generatedImageUrl
         )
     }
 
@@ -189,18 +178,17 @@ class PlayerItemBuilder {
 // MARK: - ItemTypeBuilder
 
 class ItemTypeBuilder {
-    private var id = UUID()
+    private var id = "550e8400-e29b-41d4-a716-446655440001"
     private var name = "Test Item"
     private var category = "Weapon"
     private var equipmentSlot = "weapon"
     private var baseStats = ItemStats.testData()
     private var rarity = "common"
-    private var imageUrl: String? = "https://example.com/item.png"
-    private var description: String? = "A test item"
+    private var description = "A test item"
 
     init() {}
 
-    func withId(_ id: UUID) -> ItemTypeBuilder {
+    func withId(_ id: String) -> ItemTypeBuilder {
         self.id = id
         return self
     }
@@ -230,12 +218,7 @@ class ItemTypeBuilder {
         return self
     }
 
-    func withImageUrl(_ url: String?) -> ItemTypeBuilder {
-        self.imageUrl = url
-        return self
-    }
-
-    func withDescription(_ description: String?) -> ItemTypeBuilder {
+    func withDescription(_ description: String) -> ItemTypeBuilder {
         self.description = description
         return self
     }
@@ -248,7 +231,6 @@ class ItemTypeBuilder {
             equipmentSlot: equipmentSlot,
             baseStats: baseStats,
             rarity: rarity,
-            imageUrl: imageUrl,
             description: description
         )
     }

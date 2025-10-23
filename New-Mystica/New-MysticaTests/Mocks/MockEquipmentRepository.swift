@@ -151,46 +151,41 @@ extension ItemStats {
 
 extension PlayerItem {
     static func testData(
-        id: UUID = UUID(),
-        userId: UUID = UUID(),
-        itemTypeId: UUID = UUID(),
+        id: String = "550e8400-e29b-41d4-a716-446655440000",
         level: Int = 5,
-        baseStats: ItemStats = ItemStats.testData(),
-        currentStats: ItemStats = ItemStats.testData(),
-        materialComboHash: String? = "hash123",
-        imageUrl: String? = "https://example.com/item.png",
+        rarity: String = "common",
+        appliedMaterials: [String] = [],
+        isStyled: Bool = false,
+        computedStats: ItemStats = ItemStats.testData(),
+        isEquipped: Bool = true,
+        generatedImageUrl: String? = "https://example.com/item.png",
         equipmentSlot: String = "weapon",
-        itemType: ItemType? = nil,
-        createdAt: String = "2024-01-01T00:00:00Z",
-        updatedAt: String = "2024-01-01T00:00:00Z"
+        itemType: ItemType? = nil
     ) -> PlayerItem {
         let testItemType = itemType ?? ItemType.testData(equipmentSlot: equipmentSlot)
         return PlayerItem(
             id: id,
-            userId: userId,
-            itemTypeId: itemTypeId,
-            level: level,
-            baseStats: baseStats,
-            currentStats: currentStats,
-            materialComboHash: materialComboHash,
-            imageUrl: imageUrl,
             itemType: testItemType,
-            createdAt: createdAt,
-            updatedAt: updatedAt
+            level: level,
+            rarity: rarity,
+            appliedMaterials: appliedMaterials,
+            isStyled: isStyled,
+            computedStats: computedStats,
+            isEquipped: isEquipped,
+            generatedImageUrl: generatedImageUrl
         )
     }
 }
 
 extension ItemType {
     static func testData(
-        id: UUID = UUID(),
+        id: String = "550e8400-e29b-41d4-a716-446655440001",
         name: String = "Iron Sword",
         category: String = "Weapon",
         equipmentSlot: String = "weapon",
         baseStats: ItemStats = ItemStats.testData(),
         rarity: String = "common",
-        imageUrl: String? = "https://example.com/iron_sword.png",
-        description: String? = "A sturdy iron sword"
+        description: String = "A sturdy iron sword"
     ) -> ItemType {
         return ItemType(
             id: id,
@@ -199,7 +194,6 @@ extension ItemType {
             equipmentSlot: equipmentSlot,
             baseStats: baseStats,
             rarity: rarity,
-            imageUrl: imageUrl,
             description: description
         )
     }
