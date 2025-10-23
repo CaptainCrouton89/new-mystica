@@ -106,9 +106,6 @@ class NavigationManager: ObservableObject {
     @Published var currentBattleEnemy: String = "Shadow Wolf"
     @Published var currentBattleLocation: String?
 
-    @Published var craftingPreselectedItem: EnhancedPlayerItem?
-    @Published var craftingPreselectedMaterial: MaterialInventoryStack?
-    
     private let maxHistorySize = 10
     
     
@@ -117,9 +114,9 @@ class NavigationManager: ObservableObject {
         FileLogger.shared.log("🗂️ Current destination: \(currentDestination.title)", level: .debug, category: "Navigation")
         FileLogger.shared.log("🗂️ Current path count: \(navigationPath.count)", level: .debug, category: "Navigation")
 
-        if case let .crafting(preselectedItem, preselectedMaterial) = destination {
-            craftingPreselectedItem = preselectedItem
-            craftingPreselectedMaterial = preselectedMaterial
+        // Log crafting destination details
+        if case let .crafting(item, material) = destination {
+            FileLogger.shared.log("🧭 Crafting destination with item: \(item?.baseType ?? "nil"), material: \(material?.name ?? "nil")", level: .info, category: "Navigation")
         }
 
         if currentDestination != destination {
@@ -188,8 +185,6 @@ class NavigationManager: ObservableObject {
         viewHistory = []
         currentDestination = .mainMenu
         navigationPath = NavigationPath()
-        craftingPreselectedItem = nil
-        craftingPreselectedMaterial = nil
         currentBattleLocation = nil
     }
     

@@ -19,6 +19,16 @@ struct CraftingView: View {
     @State private var showErrorAlert = false
     @State private var errorMessage = ""
 
+    let preselectedItem: EnhancedPlayerItem?
+    let preselectedMaterial: MaterialInventoryStack?
+
+    init(preselectedItem: EnhancedPlayerItem? = nil, preselectedMaterial: MaterialInventoryStack? = nil) {
+        self.preselectedItem = preselectedItem
+        self.preselectedMaterial = preselectedMaterial
+
+        FileLogger.shared.log("🎨 CraftingView init with item: \(preselectedItem?.baseType ?? "nil"), material: \(preselectedMaterial?.name ?? "nil")", level: .info, category: "Crafting")
+    }
+
     var body: some View {
         ZStack {
             Color.backgroundPrimary
@@ -70,14 +80,22 @@ struct CraftingView: View {
         .navigationBarBackButtonHidden(false)
         .task {
             await loadData()
+        }
+        .onAppear {
+            FileLogger.shared.log("🎨 CraftingView onAppear - item: \(preselectedItem?.baseType ?? "nil"), material: \(preselectedMaterial?.name ?? "nil")", level: .info, category: "Crafting")
 
-            if let item = navigationManager.craftingPreselectedItem {
+            if let item = preselectedItem {
+                FileLogger.shared.log("🎨 Selecting preselected item: \(item.baseType) (id: \(item.id))", level: .info, category: "Crafting")
                 viewModel.selectItem(item)
-                navigationManager.craftingPreselectedItem = nil
+            } else {
+                FileLogger.shared.log("⚠️ No preselected item to select", level: .warning, category: "Crafting")
             }
-            if let material = navigationManager.craftingPreselectedMaterial {
+
+            if let material = preselectedMaterial {
+                FileLogger.shared.log("🎨 Selecting preselected material: \(material.name) (id: \(material.materialId))", level: .info, category: "Crafting")
                 viewModel.selectMaterial(material)
-                navigationManager.craftingPreselectedMaterial = nil
+            } else {
+                FileLogger.shared.log("⚠️ No preselected material to select", level: .warning, category: "Crafting")
             }
         }
         .alert("Crafting Error", isPresented: $showErrorAlert) {
@@ -450,7 +468,7 @@ struct CraftingView: View {
 
 #Preview {
     NavigationStack {
-        CraftingView()
+        CraftingView(preselectedItem: nil, preselectedMaterial: nil)
             .environmentObject(NavigationManager())
             .environmentObject(AudioManager.shared)
     }

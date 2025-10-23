@@ -49,8 +49,11 @@ struct ContentView: View {
             VictoryView()
         case .defeat:
             DefeatView()
-        case .crafting:
-            CraftingView()
+        case .crafting(let preselectedItem, let preselectedMaterial):
+            CraftingView(preselectedItem: preselectedItem, preselectedMaterial: preselectedMaterial)
+                .onAppear {
+                    FileLogger.shared.log("🎨 ContentView rendering CraftingView with item: \(preselectedItem?.baseType ?? "nil"), material: \(preselectedMaterial?.name ?? "nil")", level: .info, category: "Navigation")
+                }
         case .upgradePreview:
             EmptyView()
         }

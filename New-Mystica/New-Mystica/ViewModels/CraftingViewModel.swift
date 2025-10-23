@@ -80,8 +80,11 @@ final class CraftingViewModel {
     }
 
     func selectItem(_ item: EnhancedPlayerItem) {
+        FileLogger.shared.log("🎨 CraftingViewModel.selectItem called with: \(item.baseType) (id: \(item.id))", level: .info, category: "Crafting")
         self.selectedItem = item
         self.baseStats = item.computedStats
+
+        FileLogger.shared.log("🎨 Selected item stored: \(self.selectedItem?.baseType ?? "nil")", level: .info, category: "Crafting")
 
         if selectedMaterial != nil {
             calculatePreviewStats()
@@ -91,7 +94,10 @@ final class CraftingViewModel {
     }
 
     func selectMaterial(_ material: MaterialInventoryStack) {
+        FileLogger.shared.log("🎨 CraftingViewModel.selectMaterial called with: \(material.name) (id: \(material.materialId))", level: .info, category: "Crafting")
         self.selectedMaterial = material
+
+        FileLogger.shared.log("🎨 Selected material stored: \(self.selectedMaterial?.name ?? "nil")", level: .info, category: "Crafting")
 
         if selectedItem != nil {
             calculatePreviewStats()
