@@ -12,6 +12,7 @@ enum AppError: LocalizedError, Equatable, Sendable {
     case serverError(Int, String?)
     case invalidResponse
     case decodingError(String)
+    case invalidURL(String)       // For malformed URLs in network operations
     case noDeviceId
     case noAuthToken
     case unauthorized
@@ -34,6 +35,8 @@ enum AppError: LocalizedError, Equatable, Sendable {
             return "Invalid server response"
         case .decodingError(let message):
             return "Failed to decode response: \(message)"
+        case .invalidURL(let url):
+            return "Invalid URL: \(url)"
         case .noDeviceId:
             return "Could not get device ID"
         case .noAuthToken:
@@ -92,6 +95,8 @@ extension AppError {
             return true
         case (.decodingError(let lhsMessage), .decodingError(let rhsMessage)):
             return lhsMessage == rhsMessage
+        case (.invalidURL(let lhsURL), .invalidURL(let rhsURL)):
+            return lhsURL == rhsURL
         case (.noDeviceId, .noDeviceId):
             return true
         case (.noAuthToken, .noAuthToken):

@@ -8,7 +8,7 @@
 import Foundation
 
 // MARK: - Image Generation Status
-enum ImageGenerationStatus: String, Codable, CaseIterable {
+enum ImageGenerationStatus: String, Codable, CaseIterable, Sendable {
     case pending = "pending"
     case generating = "generating"
     case complete = "complete"
@@ -17,7 +17,7 @@ enum ImageGenerationStatus: String, Codable, CaseIterable {
 
 // MARK: - Enhanced Player Item Model
 /// Enhanced player item model with materials and computed stats
-struct EnhancedPlayerItem: APIModel, Hashable {
+struct EnhancedPlayerItem: APIModel, Hashable, Sendable {
     let id: String
     let baseType: String
     let itemTypeId: String
@@ -66,8 +66,8 @@ struct EnhancedPlayerItem: APIModel, Hashable {
 
 // MARK: - Applied Material Model
 /// Material applied to a specific item slot
-struct ItemMaterialApplication: APIModel, Hashable {
-    struct MaterialDetail: Codable, Hashable {
+struct ItemMaterialApplication: APIModel, Hashable, Sendable {
+    struct MaterialDetail: Codable, Hashable, Sendable {
         let id: String
         let name: String
         let description: String?
@@ -160,7 +160,7 @@ struct ItemMaterialApplication: APIModel, Hashable {
 
 // MARK: - Material Template Model
 /// Material template from seed data
-struct MaterialTemplate: APIModel {
+struct MaterialTemplate: APIModel, Sendable {
     let id: String
     let name: String
     let description: String?
@@ -180,7 +180,7 @@ struct MaterialTemplate: APIModel {
 
 // MARK: - Material Stack Model
 /// Player's material inventory with stacking
-struct MaterialInventoryStack: APIModel, Hashable {
+struct MaterialInventoryStack: APIModel, Hashable, Sendable {
     let materialId: String
     let name: String
     let styleId: String
@@ -190,7 +190,7 @@ struct MaterialInventoryStack: APIModel, Hashable {
     let imageUrl: String?
 
     // Nested material object from backend API
-    struct MaterialDetail: Codable, Hashable {
+    struct MaterialDetail: Codable, Hashable, Sendable {
         let id: String
         let name: String
         let statModifiers: StatModifier
@@ -263,7 +263,7 @@ struct MaterialInventoryStack: APIModel, Hashable {
 
 // MARK: - Base Item Type Model
 /// Template for item types (not per-player)
-struct BaseItem: APIModel {
+struct BaseItem: APIModel, Sendable {
     let type: String
     let slot: String
     let baseStats: ItemStats
@@ -282,7 +282,7 @@ struct BaseItem: APIModel {
 // MARK: - Filtering and Sorting Enums
 
 /// Filter options for inventory items
-enum InventoryFilter: String, CaseIterable {
+enum InventoryFilter: String, CaseIterable, Sendable {
     case all = "all"
     case styled = "styled"
     case unstyled = "unstyled"
@@ -320,7 +320,7 @@ enum InventoryFilter: String, CaseIterable {
 }
 
 /// Sort options for inventory items
-enum InventorySortOption: String, CaseIterable {
+enum InventorySortOption: String, CaseIterable, Sendable {
     case levelDesc = "level_desc"
     case levelAsc = "level_asc"
     case nameAsc = "name_asc"

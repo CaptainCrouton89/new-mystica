@@ -8,7 +8,7 @@
 import Foundation
 
 // MARK: - Slot Name Enum
-enum SlotName: String, Codable, CaseIterable {
+enum SlotName: String, Codable, CaseIterable, Sendable {
     case weapon = "weapon"
     case offhand = "offhand"
     case head = "head"
@@ -20,7 +20,7 @@ enum SlotName: String, Codable, CaseIterable {
 }
 
 // MARK: - Equipment Slot Model
-struct EquipmentSlotState: APIModel {
+struct EquipmentSlotState: APIModel, Sendable {
     let itemId: String?
     let slot: SlotName
     let statsBonus: ItemStats?
@@ -33,7 +33,7 @@ struct EquipmentSlotState: APIModel {
 }
 
 // MARK: - Equipment State Model
-struct EquipmentState: APIModel {
+struct EquipmentState: APIModel, Sendable {
     let slots: [SlotName: EquipmentSlotState]
     let totalStats: ItemStats
     let generatedImageUrl: String?
@@ -51,7 +51,7 @@ struct EquipmentState: APIModel {
 }
 
 // MARK: - Loadout Model
-struct Loadout: APIModel {
+struct Loadout: APIModel, Sendable {
     let id: String
     let userId: String
     let name: String
@@ -72,7 +72,7 @@ struct Loadout: APIModel {
 }
 
 // MARK: - Legacy Equipment Models (for backward compatibility)
-struct EquipmentSlots: APIModel {
+struct EquipmentSlots: APIModel, Sendable {
     let weapon: PlayerItem?
     let offhand: PlayerItem?
     let head: PlayerItem?
@@ -101,7 +101,7 @@ struct EquipmentSlots: APIModel {
     }
 }
 
-struct Equipment: APIModel {
+struct Equipment: APIModel, Sendable {
     let slots: EquipmentSlots
     let totalStats: ItemStats
     let equipmentCount: Int

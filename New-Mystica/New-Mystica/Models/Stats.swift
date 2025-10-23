@@ -14,7 +14,7 @@ typealias BaseStats = ItemStats
 
 // MARK: - Player Stats Models
 /// Player base stats including level and experience
-struct PlayerStats: APIModel {
+struct PlayerStats: APIModel, Sendable {
     let baseHealth: Int
     let baseAttack: Int
     let baseDefense: Int
@@ -31,7 +31,7 @@ struct PlayerStats: APIModel {
 }
 
 /// Enemy stats for combat encounters
-struct EnemyStats: APIModel {
+struct EnemyStats: APIModel, Sendable {
     let level: Int
     let stats: ItemStats
     let goldMin: Int
@@ -48,7 +48,7 @@ struct EnemyStats: APIModel {
 }
 
 /// Material-applied stat bonuses/penalties
-struct StatModifier: APIModel, Hashable {
+struct StatModifier: APIModel, Hashable, Sendable {
     let atkPower: Double
     let atkAccuracy: Double
     let defPower: Double
@@ -60,7 +60,7 @@ struct StatModifier: APIModel, Hashable {
 }
 
 /// Equipment aggregate stats (all equipped items combined)
-struct EquipmentStats: APIModel {
+struct EquipmentStats: APIModel, Sendable {
     let totalStats: ItemStats
     let itemContributions: [String: ItemStats]
     let equippedItemsCount: Int

@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct PlayerItem: Codable {
+struct PlayerItem: Codable, Sendable {
     let id: String
     let baseType: String
     let itemTypeId: String
@@ -35,7 +35,7 @@ struct PlayerItem: Codable {
     }
 }
 
-struct ItemType: Codable {
+struct ItemType: Codable, Sendable {
     let id: String
     let name: String
     let category: String
@@ -55,7 +55,7 @@ struct ItemType: Codable {
     }
 }
 
-struct ItemStats: Codable, Hashable {
+struct ItemStats: Codable, Hashable, Sendable {
     let atkPower: Double
     let atkAccuracy: Double
     let defPower: Double

@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct Material: Codable {
+struct Material: Codable, Sendable {
     let id: UUID
     let name: String
     let rarity: String
@@ -27,7 +27,7 @@ struct Material: Codable {
     }
 }
 
-struct AppliedMaterial: Codable {
+struct AppliedMaterial: Codable, Sendable {
     let id: UUID
     let materialId: UUID
     let styleId: String
@@ -43,7 +43,7 @@ struct AppliedMaterial: Codable {
     }
 }
 
-struct MaterialStack: Codable {
+struct MaterialStack: Codable, Sendable {
     let id: UUID
     let userId: UUID
     let materialId: UUID

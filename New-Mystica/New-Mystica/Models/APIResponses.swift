@@ -84,7 +84,7 @@ struct UpgradeCostInfo: Codable {
 // MARK: - Item Upgrade Result
 struct UpgradeResult: Codable {
     let success: Bool
-    let item: PlayerItem
+    let item: EnhancedPlayerItem
     let goldSpent: Int
     let newGoldBalance: Int
     let newVanityLevel: Int
