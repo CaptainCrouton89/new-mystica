@@ -26,6 +26,43 @@ components:
     # - PlayerItem schema no longer tracks equipment state directly
     # - 8 equipment slots: weapon, offhand, head, armor, feet, accessory_1, accessory_2, pet
 
+    # Standard API Response Wrapper
+    ApiResponse:
+      type: object
+      description: Standard wrapper for all successful API responses
+      properties:
+        success:
+          type: boolean
+          description: Whether the request was successful
+          example: true
+        data:
+          description: The actual response data (only present on success)
+        timestamp:
+          type: string
+          format: date-time
+          description: ISO timestamp of response
+          example: "2025-01-27T12:00:00.000Z"
+      required: [success, timestamp]
+
+    ErrorResponse:
+      type: object
+      description: Standard error response format
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              description: Machine-readable error code
+              example: "VALIDATION_ERROR"
+            message:
+              type: string
+              description: Human-readable error message
+              example: "Item not found"
+            details:
+              description: Additional error context (optional)
+      required: [error]
+
     Location:
       type: object
       properties:

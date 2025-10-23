@@ -69,8 +69,9 @@ detailed_design:
         - "slot_type: VARCHAR (optional filter: weapon, offhand, head, armor, feet, accessory, pet)"
         - "sort_by: VARCHAR (level, rarity, created_at, name)"
         - "sort_order: VARCHAR (asc, desc)"
+        - "page: INT (page-based pagination, default 1)"
         - "limit: INT (pagination, default 50)"
-        - "offset: INT (pagination, default 0)"
+        # Note: Pagination uses page-based model (not offset-based). See api-contracts.yaml for authoritative endpoint definitions.
       response: "{sections: {all_items: [{id, name, item_type_id, category, level, rarity, applied_materials: [], is_styled, current_stats, is_equipped, equipped_slot, generated_image_url}], all_materials: [{material_id, name, style_id, quantity, stack_info}]}, total_count, has_more}"
       errors:
         - "401: Unauthorized"
