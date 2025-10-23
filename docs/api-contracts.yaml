@@ -131,14 +131,33 @@ components:
 
     PlayerItem:
       type: object
-      description: Player's equipped or inventory item with full details including nested item type and materials
+      description: Player's item with full details including item type, applied materials, and computed stats. Returned from /items endpoints.
       properties:
         id:
           type: string
           format: uuid
+          description: Unique item ID
+        base_type:
+          type: string
+          description: Item type name (e.g., "Sword", "Shield")
+        item_type_id:
+          type: string
+          format: uuid
+          description: Reference to ItemType definition
+        category:
+          type: string
+          description: Item category (weapon, armor, head, feet, offhand, accessory, pet)
+        level:
+          type: integer
+          minimum: 1
+          description: Current item level
+        rarity:
+          type: string
+          enum: [common, uncommon, rare, epic, legendary]
+          description: Item rarity level
         item_type:
           type: object
-          description: Nested ItemType object with item details (used in /equipment endpoint)
+          description: Nested ItemType object with item template details (used in /equipment endpoint)
           properties:
             id:
               type: string
@@ -167,18 +186,86 @@ components:
               enum: [common, uncommon, rare, epic, legendary]
             description:
               type: string
-        level:
-          type: integer
-          minimum: 1
-        rarity:
-          type: string
-          enum: [common, uncommon, rare, epic, legendary]
-          description: Item rarity level (also available in item_type.rarity)
         applied_materials:
           type: array
           items:
-            type: string
-          description: Array of applied material IDs (simplified for /equipment endpoint)
+            type: object
+            properties:
+              material_id:
+                type: string
+                format: uuid
+              style_id:
+                type: string
+                format: uuid
+              slot_index:
+                type: integer
+                minimum: 0
+                maximum: 2
+              material:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  name:
+                    type: string
+                  description:
+                    type: string
+                  style_id:
+                    type: string
+                    format: uuid
+                  stat_modifiers:
+                    type: object
+                    properties:
+                      atkPower:
+                        type: number
+                      atkAccuracy:
+                        type: number
+                      defPower:
+                        type: number
+                      defAccuracy:
+                        type: number
+          description: Array of applied materials with full details
+        materials:
+          type: array
+          items:
+            type: object
+            properties:
+              material_id:
+                type: string
+                format: uuid
+              style_id:
+                type: string
+                format: uuid
+              slot_index:
+                type: integer
+                minimum: 0
+                maximum: 2
+              material:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  name:
+                    type: string
+                  description:
+                    type: string
+                  style_id:
+                    type: string
+                    format: uuid
+                  stat_modifiers:
+                    type: object
+                    properties:
+                      atkPower:
+                        type: number
+                      atkAccuracy:
+                        type: number
+                      defPower:
+                        type: number
+                      defAccuracy:
+                        type: number
+          description: Alias for applied_materials (contains same detailed material objects)
         computed_stats:
           type: object
           properties:
@@ -191,16 +278,31 @@ components:
             defAccuracy:
               type: number
           description: Final stats after materials and level scaling
+        material_combo_hash:
+          type: string
+          nullable: true
+          description: Deterministic hash of applied materials (sorted material + style IDs)
+        generated_image_url:
+          type: string
+          nullable: true
+          description: Generated image URL based on item + materials combo
+        image_generation_status:
+          type: string
+          enum: [pending, generating, complete, failed]
+          description: Status of image generation for this item
+        craft_count:
+          type: integer
+          description: Number of times this material combo has been crafted
         is_styled:
           type: boolean
           description: True if ANY applied material has non-normal style
         is_equipped:
           type: boolean
-          description: Whether this item is currently equipped (in /equipment response)
-        generated_image_url:
+          description: Whether this item is currently equipped
+        equipped_slot:
           type: string
           nullable: true
-          description: Generated image URL based on item + materials. Not yet implemented (post-MVP0).
+          description: Equipment slot if equipped (weapon, offhand, head, armor, feet, accessory_1, accessory_2, pet)
 
     Material:
       type: object
