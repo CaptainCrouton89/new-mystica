@@ -75,25 +75,19 @@ struct MaterialSlotSelector: View {
 
             // Material Image from R2
             if let imageUrl = material.imageUrl, let url = URL(string: imageUrl) {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .empty:
-                        ProgressView()
-                            .progressViewStyle(CircularProgressViewStyle(tint: styleBorderColor(material.styleId)))
-                    case .success(let image):
+                CachedAsyncImage(
+                    url: url,
+                    content: { image in
                         image
                             .resizable()
                             .aspectRatio(contentMode: .fit)
                             .frame(width: 64, height: 64)
-                    case .failure:
-                        // Fallback to SF Symbol icon on image load failure
-                        Image(systemName: getMaterialIcon(material: material))
-                            .font(.system(size: 32, weight: .medium))
-                            .foregroundColor(styleBorderColor(material.styleId))
-                    @unknown default:
-                        EmptyView()
+                    },
+                    placeholder: {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: styleBorderColor(material.styleId)))
                     }
-                }
+                )
             } else {
                 // Fallback to SF Symbol icon if no URL
                 Image(systemName: getMaterialIcon(material: material))

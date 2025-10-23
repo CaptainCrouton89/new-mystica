@@ -28,29 +28,31 @@ struct EquipmentSlotView: View {
 
                 if let item = item {
                     // Equipped item
-                    AsyncImage(url: URL(string: item.generatedImageUrl ?? "")) { phase in
-                        switch phase {
-                        case .empty:
-                            ProgressView()
-                                .frame(width: 80, height: 80)
-                        case .success(let image):
-                            image
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                                .frame(width: 80, height: 80)
-                                .clipped()
-                        case .failure:
-                            ZStack {
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.backgroundSecondary)
-                                Image(systemName: getSlotIcon())
-                                    .font(.system(size: 24, weight: .medium))
-                                    .foregroundColor(Color.textSecondary)
+                    if let imageUrl = item.generatedImageUrl, !imageUrl.isEmpty {
+                        CachedAsyncImage(
+                            url: URL(string: imageUrl),
+                            content: { image in
+                                image
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fill)
+                                    .frame(width: 80, height: 80)
+                                    .clipped()
+                            },
+                            placeholder: {
+                                ProgressView()
+                                    .frame(width: 80, height: 80)
                             }
-                            .frame(width: 80, height: 80)
-                        @unknown default:
-                            EmptyView()
+                        )
+                    } else {
+                        // Fallback for missing image
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color.backgroundSecondary)
+                            Image(systemName: getSlotIcon())
+                                .font(.system(size: 24, weight: .medium))
+                                .foregroundColor(Color.textSecondary)
                         }
+                        .frame(width: 80, height: 80)
                     }
                 } else {
                     // Empty slot placeholder

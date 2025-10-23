@@ -62,22 +62,19 @@ struct ItemSlotSelector: View {
             // Item Image
             Group {
                 if let imageUrl = item.generatedImageUrl, let url = URL(string: imageUrl) {
-                    AsyncImage(url: url) { phase in
-                        switch phase {
-                        case .empty:
-                            ProgressView()
-                                .frame(width: 80, height: 80)
-                        case .success(let image):
+                    CachedAsyncImage(
+                        url: url,
+                        content: { image in
                             image
                                 .resizable()
                                 .aspectRatio(contentMode: .fit)
                                 .frame(width: 80, height: 80)
-                        case .failure:
-                            fallbackIcon(for: item)
-                        @unknown default:
-                            fallbackIcon(for: item)
+                        },
+                        placeholder: {
+                            ProgressView()
+                                .frame(width: 80, height: 80)
                         }
-                    }
+                    )
                 } else {
                     fallbackIcon(for: item)
                 }

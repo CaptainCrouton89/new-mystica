@@ -257,22 +257,27 @@ struct CraftingSuccessView: View {
             // Item result
             VStack(spacing: 12) {
                 // Generated image
-                AsyncImage(url: URL(string: item.generatedImageUrl ?? "")) { phase in
-                    switch phase {
-                    case .empty:
-                        ProgressView()
-                            .frame(width: 120, height: 120)
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fit)
-                            .frame(width: 120, height: 120)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color.accent, lineWidth: 2)
-                            )
-                    case .failure:
+                Group {
+                    if let imageUrl = item.generatedImageUrl, !imageUrl.isEmpty {
+                        CachedAsyncImage(
+                            url: URL(string: imageUrl),
+                            content: { image in
+                                image
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fit)
+                                    .frame(width: 120, height: 120)
+                                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .stroke(Color.accent, lineWidth: 2)
+                                    )
+                            },
+                            placeholder: {
+                                ProgressView()
+                                    .frame(width: 120, height: 120)
+                            }
+                        )
+                    } else {
                         ZStack {
                             RoundedRectangle(cornerRadius: 12)
                                 .fill(Color.backgroundSecondary)
@@ -282,8 +287,6 @@ struct CraftingSuccessView: View {
                                 .font(.system(size: 40))
                                 .foregroundColor(Color.textSecondary)
                         }
-                    @unknown default:
-                        EmptyView()
                     }
                 }
 
@@ -491,18 +494,23 @@ struct CraftingSheet: View {
     private var itemDisplayView: some View {
         VStack(spacing: 12) {
             // Item image
-            AsyncImage(url: URL(string: viewModel.selectedItem?.generatedImageUrl ?? "")) { phase in
-                switch phase {
-                case .empty:
-                    ProgressView()
-                        .frame(width: 100, height: 100)
-                case .success(let image):
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: 100, height: 100)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                case .failure:
+            Group {
+                if let imageUrl = viewModel.selectedItem?.generatedImageUrl, !imageUrl.isEmpty {
+                    CachedAsyncImage(
+                        url: URL(string: imageUrl),
+                        content: { image in
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(width: 100, height: 100)
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                        },
+                        placeholder: {
+                            ProgressView()
+                                .frame(width: 100, height: 100)
+                        }
+                    )
+                } else {
                     ZStack {
                         RoundedRectangle(cornerRadius: 12)
                             .fill(Color.backgroundSecondary)
@@ -512,8 +520,6 @@ struct CraftingSheet: View {
                             .font(.system(size: 40))
                             .foregroundColor(Color.textSecondary)
                     }
-                @unknown default:
-                    EmptyView()
                 }
             }
 

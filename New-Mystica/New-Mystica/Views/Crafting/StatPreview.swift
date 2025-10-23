@@ -128,15 +128,19 @@ private struct StatRow: View {
     var body: some View {
         HStack(spacing: 12) {
             // Stat Icon
-            AsyncImage(url: URL(string: statIconData.iconUrl)) { image in
-                image
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: 32, height: 32)
-            } placeholder: {
-                Image(systemName: statIconData.fallbackIcon)
-                    .font(.system(size: 20, weight: .medium))
-            }
+            CachedAsyncImage(
+                url: URL(string: statIconData.iconUrl),
+                content: { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 32, height: 32)
+                },
+                placeholder: {
+                    Image(systemName: statIconData.fallbackIcon)
+                        .font(.system(size: 20, weight: .medium))
+                }
+            )
             .foregroundColor(statIconData.color)
             .frame(width: 32)
 

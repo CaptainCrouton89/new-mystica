@@ -17,31 +17,20 @@ struct ItemRow: View {
             // Item Image
             Group {
                 if let imageUrl = item.generatedImageUrl, let url = URL(string: imageUrl) {
-                    AsyncImage(url: url) { phase in
-                        switch phase {
-                        case .empty:
-                            ProgressView()
-                                .frame(width: 50, height: 50)
-                        case .success(let image):
+                    CachedAsyncImage(
+                        url: url,
+                        content: { image in
                             image
                                 .resizable()
                                 .aspectRatio(contentMode: .fill)
                                 .frame(width: 50, height: 50)
                                 .clipped()
-                        case .failure:
-                            ZStack {
-                                RoundedRectangle(cornerRadius: 8)
-                                    .fill(Color.backgroundSecondary)
-                                    .frame(width: 50, height: 50)
-
-                                Image(systemName: getItemIcon())
-                                    .font(.system(size: 24, weight: .medium))
-                                    .foregroundColor(Color.textSecondary)
-                            }
-                        @unknown default:
-                            EmptyView()
+                        },
+                        placeholder: {
+                            ProgressView()
+                                .frame(width: 50, height: 50)
                         }
-                    }
+                    )
                 } else {
                     ZStack {
                         RoundedRectangle(cornerRadius: 8)

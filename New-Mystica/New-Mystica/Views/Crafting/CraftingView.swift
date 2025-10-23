@@ -359,23 +359,20 @@ struct CraftingView: View {
                 // Item preview
                 VStack(spacing: 12) {
                     if let imageUrl = item.generatedImageUrl, let url = URL(string: imageUrl) {
-                        AsyncImage(url: url) { phase in
-                            switch phase {
-                            case .empty:
-                                ProgressView()
-                                    .frame(width: 120, height: 120)
-                            case .success(let image):
+                        CachedAsyncImage(
+                            url: url,
+                            content: { image in
                                 image
                                     .resizable()
                                     .aspectRatio(contentMode: .fit)
                                     .frame(width: 120, height: 120)
                                     .clipShape(RoundedRectangle(cornerRadius: 12))
-                            case .failure:
-                                placeholderImage
-                            @unknown default:
-                                placeholderImage
+                            },
+                            placeholder: {
+                                ProgressView()
+                                    .frame(width: 120, height: 120)
                             }
-                        }
+                        )
                     } else {
                         placeholderImage
                     }

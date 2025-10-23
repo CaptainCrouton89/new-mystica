@@ -15,6 +15,7 @@ struct New_MysticaApp: App {
     @State private var audioManager = AudioManager.shared
     @State private var backgroundImageManager = BackgroundImageManager()
     @State private var appState = AppState.shared
+    @State private var imageCacheManager = ImageCacheManager.shared
 
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
