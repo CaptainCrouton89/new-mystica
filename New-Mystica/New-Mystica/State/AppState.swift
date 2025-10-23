@@ -22,6 +22,9 @@ final class AppState {
     // MARK: - Currency Balances
     var currencies: Loadable<[CurrencyBalance]> = .idle
 
+    // MARK: - Combat Session State
+    var activeCombatSession: Loadable<CombatSession?> = .idle
+
     init() {}
 
     // MARK: - Computed Properties
@@ -65,6 +68,7 @@ final class AppState {
         self.authSession = .idle
         self.userProfile = .idle
         self.currencies = .idle
+        self.activeCombatSession = .idle
     }
 
     // MARK: - Profile Methods
@@ -103,6 +107,24 @@ final class AppState {
         return 0
     }
 
+    // MARK: - Combat Session Methods
+
+    func setCombatSession(_ session: CombatSession?) {
+        self.activeCombatSession = .loaded(session)
+    }
+
+    func setCombatSessionError(_ error: AppError) {
+        self.activeCombatSession = .error(error)
+    }
+
+    func setCombatSessionLoading() {
+        self.activeCombatSession = .loading
+    }
+
+    func clearCombatSession() {
+        self.activeCombatSession = .idle
+    }
+
     // MARK: - Session Restoration
 
     /// Restore authentication session from stored token on app launch
@@ -132,6 +154,31 @@ final class AppState {
             // If decoding fails, clear the stored token and start fresh
             try? KeychainService.deleteAccessToken()
             self.authSession = .idle
+        }
+    }
+
+    /// Check for active combat session and restore state
+    func checkActiveCombatSession(repository: CombatRepository) async {
+        self.activeCombatSession = .loading
+
+        do {
+            let session = try await repository.getUserActiveSession()
+            self.activeCombatSession = .loaded(session)
+        } catch {
+            let appError = AppError.fromError(error)
+
+            // Handle session not found or expired as normal case (nil session)
+            // Only propagate actual errors (network issues, server errors, etc.)
+            if case .notFound = appError {
+                // No active session is a normal state - just mark as loaded with nil
+                self.activeCombatSession = .loaded(nil)
+            } else if case .serverError(404, _) = appError {
+                // 404 from server also means no active session
+                self.activeCombatSession = .loaded(nil)
+            } else {
+                // Real errors (network, server 500, etc.) should be propagated
+                self.activeCombatSession = .error(appError)
+            }
         }
     }
 }
