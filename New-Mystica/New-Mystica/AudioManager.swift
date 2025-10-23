@@ -30,7 +30,7 @@ class AudioManager: ObservableObject {
             try audioSession.setCategory(.playback, mode: .default, options: [.mixWithOthers])
             try audioSession.setActive(true)
         } catch {
-            print("AudioManager: Failed to setup audio session: \(error)")
+            print("❌ [AUDIO] Failed to setup audio session: \(error)")
         }
     }
     
@@ -62,42 +62,27 @@ class AudioManager: ObservableObject {
             fileName, // Direct file name
             "Assets.xcassets/Audio/\(fileName)" // In Assets.xcassets/Audio
         ]
-        
+
         var audioURL: URL?
         for path in possiblePaths {
             if let url = Bundle.main.url(forResource: path, withExtension: "mp3") {
                 audioURL = url
-                print("AudioManager: Found audio file at: \(path).mp3")
                 break
             }
         }
-        
+
         guard let url = audioURL else {
-            print("AudioManager: Could not find audio file: \(fileName).mp3 in any of the expected locations")
-            // List all available resources for debugging
-            if let resourcePath = Bundle.main.resourcePath {
-                print("AudioManager: Available resources in bundle:")
-                let fileManager = FileManager.default
-                do {
-                    let contents = try fileManager.contentsOfDirectory(atPath: resourcePath)
-                    for file in contents.filter({ $0.hasSuffix(".mp3") }) {
-                        print("AudioManager: Found MP3 file: \(file)")
-                    }
-                } catch {
-                    print("AudioManager: Error listing bundle contents: \(error)")
-                }
-            }
+            print("❌ [AUDIO] Could not find audio file: \(fileName).mp3")
             return
         }
-        
+
         do {
             let player = try AVAudioPlayer(contentsOf: url)
             player.prepareToPlay()
-            player.volume = 0.8 // Set a reasonable default volume
+            player.volume = 0.8
             audioPlayers[key] = player
-            print("AudioManager: Successfully loaded audio file: \(fileName).mp3")
         } catch {
-            print("AudioManager: Failed to load audio file \(fileName): \(error)")
+            print("❌ [AUDIO] Failed to load audio file \(fileName): \(error)")
         }
     }
     
@@ -156,30 +141,17 @@ class AudioManager: ObservableObject {
     // MARK: - Generic Audio Playback
     
     private func playAudio(key: String) {
-        print("AudioManager: Attempting to play audio for key: \(key)")
-        print("AudioManager: Audio enabled: \(isEnabled)")
-        print("AudioManager: Available audio players: \(audioPlayers.keys)")
-        
-        guard isEnabled else { 
-            print("AudioManager: Audio is disabled, skipping playback")
-            return 
-        }
-        
+        guard isEnabled else { return }
+
         guard let player = audioPlayers[key] else {
-            print("AudioManager: No audio player found for key: \(key)")
+            print("⚠️ [AUDIO] No audio player found for key: \(key)")
             return
         }
-        
+
         // Stop any current playback and reset to beginning
         player.stop()
         player.currentTime = 0
-        
-        // Play the audio
-        if player.play() {
-            print("AudioManager: Successfully playing audio for key: \(key)")
-        } else {
-            print("AudioManager: Failed to play audio for key: \(key)")
-        }
+        player.play()
     }
     
     // MARK: - Audio Control
