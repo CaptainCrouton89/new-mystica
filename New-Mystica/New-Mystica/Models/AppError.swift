@@ -121,6 +121,13 @@ enum AppError: LocalizedError, Equatable, Sendable {
 
         return .unknown(error)
     }
+
+    static func fromError(_ error: Error) -> AppError {
+        if let appError = error as? AppError {
+            return appError
+        }
+        return from(error)
+    }
 }
 
 extension AppError {
