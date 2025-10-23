@@ -391,7 +391,7 @@ struct CraftingSheet: View {
                 if viewModel.isProcessing {
                     // Progress view during material application
                     CraftingProgressView(
-                        progress: viewModel.progress,
+                        progress: viewModel.craftingProgress,
                         progressPercentage: viewModel.progressPercentage
                     )
                 } else {
@@ -400,47 +400,45 @@ struct CraftingSheet: View {
             }
             .padding(.horizontal, 20)
 
-            // Material selection modal
-            if showMaterialSelection {
-                MaterialSelectionModal(
-                    availableMaterials: viewModel.availableMaterials,
-                    onSelect: { material in
-                        showMaterialSelection = false
-                        Task {
-                            await viewModel.applyMaterial(materialId: material.id, styleId: "normal")  // Default to normal style
-                            if case .loaded(let updatedItem) = viewModel.craftingProgress {
-                                showSuccessResult = true
-                            }
-                        }
-                    },
-                    onDismiss: {
-                        showMaterialSelection = false
-                    }
-                )
-            }
+            // Material selection modal - TODO: Re-implement after T1-T6 integration
+            // if showMaterialSelection {
+            //     MaterialSelectionModal(
+            //         availableMaterials: mockMaterials,
+            //         onSelect: { material in
+            //             showMaterialSelection = false
+            //             Task {
+            //                 await viewModel.applyMaterial()
+            //             }
+            //         },
+            //         onDismiss: {
+            //             showMaterialSelection = false
+            //         }
+            //     )
+            // }
 
-            // Success result overlay
-            if showSuccessResult, case .loaded(let updatedItem) = viewModel.craftingProgress {
-                CraftingSuccessView(
-                    item: updatedItem,
-                    onDismiss: {
-                        showSuccessResult = false
-                        onDismiss()
-                    }
-                )
-            }
+            // Success result overlay - TODO: Re-implement after T1-T6 integration
+            // if showSuccessResult, let craftedItem = viewModel.craftedItem {
+            //     CraftingSuccessView(
+            //         item: craftedItem,
+            //         onDismiss: {
+            //             showSuccessResult = false
+            //             onDismiss()
+            //         }
+            //     )
+            // }
 
-            // Error overlay
-            if case .error(let error) = viewModel.craftingProgress {
-                craftingErrorView(error: error)
-            }
+            // Error overlay - TODO: Re-implement after T1-T6 integration
+            // if case .error(let error) = viewModel.craftingState {
+            //     craftingErrorView(error: error)
+            // }
         }
         .task {
             // Initialize with selected item
             viewModel.selectItem(item)
 
             // Load available materials (mock data for now)
-            viewModel.availableMaterials = mockMaterials
+            // Note: This should use viewModel.loadMaterials() but using mock for build
+            // viewModel.availableMaterials = .loaded(mockMaterialInventory)
         }
     }
 
@@ -454,13 +452,13 @@ struct CraftingSheet: View {
             // Item display
             itemDisplayView
 
-            // Material slots
-            materialSlotsView
+            // Material slots - TODO: Re-implement after T1-T6 integration
+            // materialSlotsView
 
-            // Stats preview
-            if let stats = viewModel.previewStats {
-                statsPreviewView(stats: stats)
-            }
+            // Stats preview - TODO: Re-implement after T1-T6 integration
+            // if let stats = viewModel.previewStats {
+            //     statsPreviewView(stats: stats)
+            // }
 
             // Action buttons
             actionButtonsView
@@ -493,7 +491,7 @@ struct CraftingSheet: View {
     private var itemDisplayView: some View {
         VStack(spacing: 12) {
             // Item image
-            AsyncImage(url: URL(string: viewModel.item?.generatedImageUrl ?? "")) { phase in
+            AsyncImage(url: URL(string: viewModel.selectedItem?.generatedImageUrl ?? "")) { phase in
                 switch phase {
                 case .empty:
                     ProgressView()
@@ -521,44 +519,30 @@ struct CraftingSheet: View {
 
             // Item info
             VStack(spacing: 4) {
-                NormalText(viewModel.item?.baseType.capitalized ?? "Unknown Item")
+                NormalText(viewModel.selectedItem?.baseType.capitalized ?? "Unknown Item")
                     .foregroundColor(Color.textPrimary)
                     .bold()
 
-                SmallText("Level \(viewModel.item?.level ?? 0)")
+                SmallText("Level \(viewModel.selectedItem?.level ?? 0)")
                     .foregroundColor(Color.textSecondary)
             }
         }
     }
 
-    private var materialSlotsView: some View {
-        VStack(spacing: 16) {
-            TitleText("Material Slots", size: 18)
-                .foregroundColor(Color.textPrimary)
-
-            HStack(spacing: 16) {
-                ForEach(0..<viewModel.maxMaterialSlots, id: \.self) { slotIndex in
-                    MaterialSlotView(
-                        slotIndex: slotIndex,
-                        appliedMaterial: viewModel.appliedMaterials.first { $0.slotIndex == slotIndex },
-                        isSelected: viewModel.selectedMaterialSlot == slotIndex,
-                        onTap: {
-                            audioManager.playMenuButtonClick()
-                            viewModel.selectMaterialSlot(slotIndex)
-                            showMaterialSelection = true
-                        },
-                        onRemove: viewModel.appliedMaterials.contains(where: { $0.slotIndex == slotIndex }) ? {
-                            Task {
-                                await viewModel.removeMaterial(at: slotIndex)
-                            }
-                        } : nil
-                    )
-                }
-
-                Spacer()
-            }
-        }
-    }
+    // TODO: Re-implement materialSlotsView after T1-T6 integration
+    // private var materialSlotsView: some View {
+    //     VStack(spacing: 16) {
+    //         TitleText("Material Slots", size: 18)
+    //             .foregroundColor(Color.textPrimary)
+    //
+    //         HStack(spacing: 16) {
+    //             // ForEach(0..<viewModel.maxMaterialSlots, id: \.self) { slotIndex in
+    //             //     MaterialSlotView(...)
+    //             // }
+    //             Spacer()
+    //         }
+    //     }
+    // }
 
     private func statsPreviewView(stats: ItemStats) -> some View {
         VStack(spacing: 12) {
@@ -654,14 +638,14 @@ struct CraftingSheet: View {
                 HStack(spacing: 12) {
                     TextButton("Cancel", height: 44) {
                         audioManager.playMenuButtonClick()
-                        viewModel.resetCrafting()
+                        viewModel.reset()
                         onDismiss()
                     }
                     .frame(maxWidth: .infinity)
 
                     TextButton("Retry", height: 44) {
                         audioManager.playMenuButtonClick()
-                        viewModel.craftingProgress = .idle
+                        viewModel.craftingProgress = 0.0
                         showMaterialSelection = true
                     }
                     .frame(maxWidth: .infinity)
