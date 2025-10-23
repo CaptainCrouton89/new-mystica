@@ -132,6 +132,19 @@ final class CombatViewModel {
         await endCombat(won: false)
     }
 
+    func abandonCombat() async {
+        guard case .loaded(let session) = combatState else { return }
+
+        do {
+            try await repository.abandonCombat(sessionId: session.sessionId)
+            resetCombat()
+        } catch let error as AppError {
+            combatState = .error(error)
+        } catch {
+            combatState = .error(.unknown(error))
+        }
+    }
+
     func claimRewards() async {
         // Mark rewards as claimed and reset combat state
         rewards = .idle
