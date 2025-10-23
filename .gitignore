@@ -23,7 +23,7 @@ scripts/output/
 
 # Wrangler/Cloudflare local state
 .wrangler/
-.mcp.json
+.mcp.json*
 
 # TypeScript
 dist/

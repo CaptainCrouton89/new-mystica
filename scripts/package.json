@@ -9,7 +9,8 @@
     "generate-raw-monster": "tsx generate-raw-monster.ts",
     "generate-arbitrary": "tsx generate-arbitrary-image.ts",
     "generate-landscape": "tsx generate-landscape.ts",
-    "analyze-image": "tsx analyze-image.ts"
+    "analyze-image": "tsx analyze-image.ts",
+    "query-db": "NODE_OPTIONS='--dns-result-order=ipv4first' tsx query-db.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^2.0.53",
@@ -17,8 +18,10 @@
     "@aws-sdk/s3-request-presigner": "^3.913.0",
     "@google/generative-ai": "^0.24.1",
     "@supabase/supabase-js": "^2.76.1",
+    "@types/pg": "^8.15.5",
     "ai": "^5.0.76",
     "dotenv": "^16.4.7",
+    "pg": "^8.16.3",
     "replicate": "^1.0.4",
     "sharp": "^0.34.4",
     "zod": "^4.1.12"
