@@ -3,22 +3,21 @@
 # Usage: ./build.sh [simulator-name]
 # Default simulator: iPhone 17 Pro
 
+# Get the directory where this script lives and cd to it
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$SCRIPT_DIR"
+
 SIMULATOR_NAME="${1:-iPhone 17 Pro}"
 
-echo "🔨 Building New-Mystica for iOS Simulator: $SIMULATOR_NAME"
-echo ""
+xcodebuild -scheme New-Mystica -configuration Debug -destination "platform=iOS Simulator,name=$SIMULATOR_NAME" > build.log 2>&1
 
-xcodebuild -scheme New-Mystica -configuration Debug -destination "platform=iOS Simulator,name=$SIMULATOR_NAME" 2>&1 | tee build.log
+BUILD_STATUS=$?
 
-BUILD_STATUS=${PIPESTATUS[0]}
-
-echo ""
 if [ $BUILD_STATUS -eq 0 ]; then
     echo "✅ Build succeeded"
 else
     echo "❌ Build failed"
     echo ""
-    echo "Errors:"
     grep "error:" build.log
 fi
 

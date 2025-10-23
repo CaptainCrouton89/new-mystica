@@ -37,29 +37,7 @@ struct New_MysticaApp: App {
                 .environment(\.audioManager, audioManager)
                 .environment(\.backgroundImageManager, backgroundImageManager)
                 .environment(appState)
-                .onAppear {
-                    // Restore auth session on app launch, then check for active combat
-                    Task {
-                        await appState.restoreAuthSession()
-                        if appState.isAuthenticated {
-                            await checkAndResumeActiveCombat()
-                        }
-                    }
-                }
         }
         .modelContainer(sharedModelContainer)
-    }
-
-    // MARK: - Private Methods
-
-    private func checkAndResumeActiveCombat() async {
-        let repository = DefaultCombatRepository()
-        await appState.checkActiveCombatSession(repository: repository)
-
-        // Navigate to battle if active session found
-        if case .loaded(let session) = appState.activeCombatSession,
-           let activeSession = session {
-            navigationManager.navigateTo(.battle)
-        }
     }
 }

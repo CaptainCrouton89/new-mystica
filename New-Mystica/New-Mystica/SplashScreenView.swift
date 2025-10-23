@@ -90,6 +90,11 @@ struct SplashScreenView: View {
 
                                         loadingText = "Loading player data..."
                                         await profileController.loadProfileAndCurrencies()
+
+                                        // Check for active combat session (auto-resume flow)
+                                        print("🎮 [SPLASH] Checking for active combat session...")
+                                        await appState.checkActiveCombatSession(repository: DefaultCombatRepository())
+
                                         await equipmentViewModel?.fetchEquipment()
 
                                         withAnimation(.easeInOut(duration: 0.5)) {
@@ -166,6 +171,10 @@ struct SplashScreenView: View {
                     // Load profile and currencies (required for gold balance display)
                     print("💰 [SPLASH] Loading profile and currencies...")
                     await profileController.loadProfileAndCurrencies()
+
+                    // Check for active combat session (auto-resume flow)
+                    print("🎮 [SPLASH] Checking for active combat session...")
+                    await appState.checkActiveCombatSession(repository: DefaultCombatRepository())
 
                     // Attempt to load equipment, but don't fail splash if it errors
                     do {

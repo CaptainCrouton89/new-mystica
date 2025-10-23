@@ -42,6 +42,13 @@ final class CombatViewModel {
         }
     }
 
+    func resumeCombat(session: CombatSession) async {
+        // Resume existing combat session (no API call needed, just load state)
+        combatState = .loaded(session)
+        rewards = .idle
+        turnHistory = [] // Could load action history from server in future
+    }
+
     func attack(timingScore: Double) async {
         guard case .loaded(let session) = combatState else { return }
         guard !isLoading else { return }

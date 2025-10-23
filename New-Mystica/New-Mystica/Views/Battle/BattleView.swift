@@ -45,8 +45,15 @@ struct BattleView: View {
             }
         }
         .task {
-            // Start combat when view appears
-            await viewModel.startCombat(locationId: locationId)
+            // Check if there's an active session from AppState first (auto-resume flow)
+            if case .loaded(let session) = appState.activeCombatSession,
+               let activeSession = session {
+                // Resume existing session
+                await viewModel.resumeCombat(session: activeSession)
+            } else {
+                // Start new combat session
+                await viewModel.startCombat(locationId: locationId)
+            }
         }
     }
 

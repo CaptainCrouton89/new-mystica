@@ -1,0 +1,3 @@
+#!/bin/bash
+# Wrapper script to run New-Mystica build from anywhere
+exec "$(dirname "${BASH_SOURCE[0]}")/New-Mystica/build.sh" "$@"
