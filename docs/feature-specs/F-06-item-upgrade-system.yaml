@@ -1,8 +1,8 @@
 title: Technical Specification - Item Upgrade System
 template: ~/.claude/file-templates/init-project/feature-spec/feature-title.yaml
 feature_id: F-06
-status: planned
-last_updated: 2025-10-20
+status: in-progress
+last_updated: 2025-10-23
 
 summary: "Spend gold to increase item level. Each level increases all item stats proportionally while maintaining normalized ratios. Gold cost increases exponentially with level and scales by item rarity. Upgrading contributes to vanity level progression."
 
@@ -77,8 +77,15 @@ detailed_design:
     13. Server recalculates item stats: base_stats × rarity_multiplier × new_level × base_value + material_mods
     14. Server recalculates vanity_level: sum(all_item_levels) / 6 if item is equipped
     15. Server returns updated item, gold, vanity_level
-    16. Client displays success animation and updated stats
-    17. Options: 'Upgrade Again' or 'Return to Inventory'
+    16. Client displays upgrade-complete modal with:
+        - Item image (medium, centered)
+        - Level progression badge (e.g., "Level 5 → 6")
+        - Stat comparison table with old/new values and delta indicators
+        - Gold spent confirmation (e.g., "- 506 Gold")
+        - Updated vanity level (if item is equipped)
+        - "Upgrade Again" button (navigates back to upgrade preview)
+        - "Return to Inventory" button (closes modal, returns to inventory)
+    17. Modal presentation: Blur background, 300ms slide-up animation, semi-transparent dark overlay
 
     Gold Cost Formula:
     Formula: cost = base_cost × level_multiplier^(target_level - 1)
@@ -140,7 +147,7 @@ dependencies:
   data_sources: "player_items table, users.gold, users.vanity_level"
 
 implementation_status:
-  progress: 95  # Backend fully implemented
+  progress: 95  # Backend fully implemented, frontend components 50%
   completed_components:
     - "ItemService with upgrade cost calculation and formula"
     - "Atomic upgrade transactions with gold validation"
@@ -148,12 +155,14 @@ implementation_status:
     - "Vanity level calculation and updates"
     - "GET /items/:id/upgrade-cost, POST /items/:id/upgrade endpoints"
     - "Item discard endpoint (POST /items/:id/dismantle) with gold compensation"
-  in_progress_components: []
+  in_progress_components:
+    - "SwiftUI upgrade-complete modal with stat comparison display"
+    - "Upgrade modal animations (300ms slide-up, blur background)"
   blocked_items:
-    - "SwiftUI upgrade UI screen"
-    - "Upgrade preview animations"
+    - "SwiftUI upgrade preview screen (awaiting modal completion)"
   notes:
-    - "Backend 95% complete. Upgrade cost calculation, atomic transactions, and stat scaling all implemented and tested. Frontend upgrade UI screens are remaining work."
+    - "Backend 95% complete. Upgrade cost calculation, atomic transactions, and stat scaling all implemented and tested."
+    - "Frontend: Upgrade preview screen partially complete. Upgrade-complete modal newly specified with stat comparison table design."
     - "Gold cost formula implemented: 100 × 1.5^(level-1) with correct level progression"
     - "Vanity level calculation: sum(item_levels) / 6 working with equipped item updates"
 
