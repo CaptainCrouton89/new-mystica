@@ -64,7 +64,7 @@ function buildR2Key(name: string, type: 'item' | 'material' | 'monster', noBackg
   } else if (type === 'material') {
     directory = 'materials';
   } else {
-    directory = 'monsters';
+    directory = 'monsters/cuphead';
   }
 
   if (noBackground) {

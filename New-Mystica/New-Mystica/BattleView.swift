@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import SpriteKit
 
 struct BattleView: View {
     @Environment(\.navigationManager) private var navigationManager
@@ -245,30 +246,43 @@ struct BattleView: View {
                 )
                 .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 4)
 
-            // Enemy Icon (based on name or type)
-            Image(systemName: getEnemyIcon(enemy))
-                .font(.system(size: 48, weight: .medium))
-                .foregroundColor(Color.accent)
+            // Enemy Animation (based on name or type)
+            enemyAnimationView(enemy: enemy)
+                .frame(width: 80, height: 80)
         }
         .scaleEffect(scale)
     }
 
-    private func getEnemyIcon(_ enemy: Enemy) -> String {
-        guard let name = enemy.name?.lowercased() else { return "exclamationmark.triangle.fill" }
+    private func enemyAnimationView(enemy: Enemy) -> some View {
+        let animationPath = getEnemyAnimationPath(enemy)
+        
+        return AnimatedSpriteView(
+            folderPath: animationPath,
+            frameRate: 12.0,
+            size: CGSize(width: 80, height: 80)
+        )
+    }
+    
+    private func getEnemyAnimationPath(_ enemy: Enemy) -> String {
+        guard let name = enemy.name?.lowercased() else { 
+            return "sprites/enemies/bird man/attack"
+        }
 
         switch name {
+        case let n where n.contains("bird") || n.contains("birdman"):
+            return "sprites/enemies/bird man/attack"
         case let n where n.contains("wolf"):
-            return "pawprint.fill"
+            return "sprites/enemies/bird man/attack" // Fallback for now
         case let n where n.contains("golem"):
-            return "cube.fill"
+            return "sprites/enemies/bird man/attack" // Fallback for now
         case let n where n.contains("dragon"):
-            return "flame.fill"
+            return "sprites/enemies/bird man/attack" // Fallback for now
         case let n where n.contains("warrior"):
-            return "figure.warfare"
+            return "sprites/enemies/bird man/attack" // Fallback for now
         case let n where n.contains("spirit"):
-            return "leaf.fill"
+            return "sprites/enemies/bird man/attack" // Fallback for now
         default:
-            return "exclamationmark.triangle.fill"
+            return "sprites/enemies/bird man/attack"
         }
     }
     
