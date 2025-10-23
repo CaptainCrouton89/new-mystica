@@ -35,6 +35,7 @@ dist/
 test-*.js
 test-*.sh
 *_Report.md
+*.bak
 
 # Additional Environment
 logs/
