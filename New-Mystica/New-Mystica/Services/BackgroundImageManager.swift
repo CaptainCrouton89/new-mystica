@@ -30,7 +30,12 @@ class BackgroundImageManager: ObservableObject {
     init() {
         // Select a random background image on initialization
         let randomURLString = backgroundImages.randomElement() ?? backgroundImages[0]
-        self.currentBackgroundURL = URL(string: randomURLString)!
+        guard let url = URL(string: randomURLString) else {
+            // Fallback to first background image if random selection fails
+            self.currentBackgroundURL = URL(string: backgroundImages[0]) ?? URL(string: "https://via.placeholder.com/800x600")!
+            return
+        }
+        self.currentBackgroundURL = url
 
         // Start loading the image asynchronously
         Task { @MainActor in
@@ -59,7 +64,12 @@ class BackgroundImageManager: ObservableObject {
     /// Manually refresh the background with a new random selection
     func randomizeBackground() {
         let randomURLString = backgroundImages.randomElement() ?? backgroundImages[0]
-        self.currentBackgroundURL = URL(string: randomURLString)!
+        guard let url = URL(string: randomURLString) else {
+            // Fallback to first background image if random selection fails
+            self.currentBackgroundURL = URL(string: backgroundImages[0]) ?? URL(string: "https://via.placeholder.com/800x600")!
+            return
+        }
+        self.currentBackgroundURL = url
 
         Task {
             await loadImage()

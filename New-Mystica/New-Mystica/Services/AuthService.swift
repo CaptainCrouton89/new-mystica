@@ -15,6 +15,7 @@ enum AuthError: LocalizedError {
     case serverError(Int)
     case networkError(Error)
     case noDeviceId
+    case invalidURL(String)
 
     var errorDescription: String? {
         switch self {
@@ -26,6 +27,8 @@ enum AuthError: LocalizedError {
             return "Network error: \(error.localizedDescription)"
         case .noDeviceId:
             return "Could not get device ID"
+        case .invalidURL(let url):
+            return "Invalid URL: \(url)"
         }
     }
 }
@@ -158,7 +161,9 @@ class AuthService: ObservableObject {
         body: Encodable? = nil,
         requiresAuth: Bool = false
     ) async throws -> T {
-        let url = URL(string: "\(baseURL)\(path)")!
+        guard let url = URL(string: "\(baseURL)\(path)") else {
+            throw AuthError.invalidURL("\(baseURL)\(path)")
+        }
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")

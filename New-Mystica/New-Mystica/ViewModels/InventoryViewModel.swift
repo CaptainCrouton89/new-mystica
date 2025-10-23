@@ -60,6 +60,7 @@ final class InventoryViewModel {
     var showingSuccessToast: Bool = false
     var successMessage: String = ""
     var successIcon: String = "checkmark.circle.fill"
+    var currentToastId: UUID?
 
     // MARK: - Gold Shower Animation State
     var showingGoldShower: Bool = false
@@ -545,14 +546,16 @@ print("❌ Error: \(appError)")
     }
 
     private func showSuccessToast(message: String, icon: String = "checkmark.circle.fill") {
+        let toastId = UUID()
+        currentToastId = toastId
         successMessage = message
         successIcon = icon
         showingSuccessToast = true
 
         // Auto-dismiss after 3 seconds
-        Task {
-            try? await Task.sleep(nanoseconds: 3_000_000_000)
-            if successMessage == message { // Only dismiss if it's still the same message
+        Task { @MainActor in
+            try await Task.sleep(for: .seconds(3))
+            if currentToastId == toastId {
                 showingSuccessToast = false
             }
         }
@@ -560,6 +563,7 @@ print("❌ Error: \(appError)")
 
     func dismissSuccessToast() {
         showingSuccessToast = false
+        currentToastId = nil
     }
 
     func dismissErrorAlert() {
