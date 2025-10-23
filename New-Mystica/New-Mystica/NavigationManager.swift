@@ -19,6 +19,10 @@ enum NavigationDestination: Hashable {
     case battle
     case victory
     case defeat
+    case crafting(
+        preselectedItem: EnhancedPlayerItem? = nil,
+        preselectedMaterial: MaterialInventoryStack? = nil
+    )
     
     var title: String {
         switch self {
@@ -40,6 +44,8 @@ enum NavigationDestination: Hashable {
             return "Victory"
         case .defeat:
             return "Defeat"
+        case .crafting:
+            return "Crafting"
         }
     }
 }

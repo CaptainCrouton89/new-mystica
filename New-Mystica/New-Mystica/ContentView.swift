@@ -44,6 +44,8 @@ struct ContentView: View {
             VictoryView()
         case .defeat:
             DefeatView()
+        case .crafting:
+            CraftingView()
         }
     }
 }

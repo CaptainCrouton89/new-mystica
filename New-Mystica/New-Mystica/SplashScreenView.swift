@@ -14,12 +14,19 @@ struct SplashScreenView: View {
     @State private var loadingText: String = ""
     @State private var errorMessage: String?
     @State private var authViewModel = AuthViewModel(appState: AppState.shared)
-    @State private var equipmentViewModel = EquipmentViewModel()
+    @State private var inventoryViewModel = InventoryViewModel()
+    @State private var equipmentViewModel: EquipmentViewModel
     @Environment(\.navigationManager) private var navigationManager
     @Environment(\.audioManager) private var audioManager
     @Environment(\.backgroundImageManager) private var backgroundImageManager
     @Environment(AppState.self) private var appState
-    
+
+    init() {
+        let inventory = InventoryViewModel()
+        _inventoryViewModel = State(initialValue: inventory)
+        _equipmentViewModel = State(initialValue: EquipmentViewModel(inventoryViewModel: inventory))
+    }
+
     var body: some View {
         if isActive {
             ContentView()
