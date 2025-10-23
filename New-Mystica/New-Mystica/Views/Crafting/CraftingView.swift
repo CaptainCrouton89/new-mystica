@@ -21,10 +21,6 @@ struct CraftingView: View {
     @State private var showErrorAlert = false
     @State private var errorMessage = ""
 
-    // Navigation parameters (if navigated from inventory with preselection)
-    var preselectedItem: EnhancedPlayerItem?
-    var preselectedMaterial: MaterialInventoryStack?
-
     var body: some View {
         ZStack {
             // Background
@@ -85,12 +81,14 @@ struct CraftingView: View {
             // Load initial data
             await loadData()
 
-            // Pre-select if navigated from inventory
-            if let item = preselectedItem {
+            // Pre-select if navigated from inventory (read from NavigationManager)
+            if let item = navigationManager.craftingPreselectedItem {
                 viewModel.selectItem(item)
+                navigationManager.craftingPreselectedItem = nil // Clear after use
             }
-            if let material = preselectedMaterial {
+            if let material = navigationManager.craftingPreselectedMaterial {
                 viewModel.selectMaterial(material)
+                navigationManager.craftingPreselectedMaterial = nil // Clear after use
             }
         }
         .alert("Crafting Error", isPresented: $showErrorAlert) {

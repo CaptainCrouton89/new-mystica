@@ -9,7 +9,14 @@
 import Foundation
 import Observation
 
-/// State enum for the crafting workflow with 5 distinct phases
+/// State machine for the crafting workflow with 5 distinct phases.
+///
+/// The crafting state drives UI presentation and determines which operations are available:
+/// - **selecting**: Initial state where item or material slots may be empty
+/// - **previewing**: Both item and material selected, preview stats calculated
+/// - **crafting**: 20-second material application process in progress
+/// - **results**: Successfully crafted item with before/after comparison
+/// - **error**: Error state with specific AppError for retry handling
 enum CraftingState {
     case selecting           // Empty or partial slots
     case previewing          // Both slots filled, showing preview
@@ -18,6 +25,33 @@ enum CraftingState {
     case error(AppError)     // Error with retry
 }
 
+/// Manages the item crafting workflow with material application and 20-second generation process.
+///
+/// This ViewModel implements a state machine-driven crafting system that guides users through:
+/// 1. **Selection Phase**: Choose item and material from loaded inventories
+/// 2. **Preview Phase**: Calculate and display stat modifications before crafting
+/// 3. **Crafting Phase**: 20-second progress simulation with backend material application
+/// 4. **Results Phase**: Display crafted item with before/after stat comparison
+///
+/// ## State Machine Architecture
+/// The `CraftingState` enum drives all UI transitions and determines available operations.
+/// State transitions are automatic based on selection status and API responses.
+///
+/// ## Data Management
+/// Uses `Loadable<T>` pattern for async operations:
+/// - `availableItems`: Paginated inventory items from InventoryRepository
+/// - `availableMaterials`: Material stacks from MaterialsRepository
+/// - Preview calculations are computed locally using stat modifiers
+///
+/// ## Business Logic
+/// - Validates material slot availability (max 3 materials per item)
+/// - Checks material ownership before crafting
+/// - Handles concurrent progress simulation and API calls during crafting
+/// - Maintains crafting statistics (count, first-time crafting flags)
+///
+/// - Important: The 20-second progress simulation runs independently of the API call
+///   to provide immediate user feedback while the backend processes the request.
+/// - Note: Preview stats are calculated client-side but final results come from backend
 @Observable
 final class CraftingViewModel {
     private let inventoryRepository: InventoryRepository
@@ -56,7 +90,13 @@ final class CraftingViewModel {
 
     // MARK: - Public Methods
 
-    /// Load available items from InventoryRepository with pagination support
+    /// Loads available items from InventoryRepository for crafting selection.
+    ///
+    /// Fetches the first page of inventory items for material application.
+    /// Only items that can accept materials (< 3 materials applied) should be shown in UI.
+    ///
+    /// - Note: Currently loads page 1 only. Future enhancement could add pagination
+    ///   support for large inventories or filtering for craftable items only.
     func loadItems() async {
         availableItems = .loading
 
@@ -88,7 +128,17 @@ final class CraftingViewModel {
         }
     }
 
-    /// Update selectedItem and calculate preview if material also selected
+    /// Selects an item for crafting and triggers state machine update.
+    ///
+    /// Updates the crafting workflow by:
+    /// 1. Setting the selected item and caching its base stats
+    /// 2. Auto-calculating preview stats if material is already selected
+    /// 3. Triggering state machine transition (selecting → previewing if both slots filled)
+    ///
+    /// - Parameter item: The item to select for material application
+    ///
+    /// - Important: Automatically recalculates preview stats when both item and material
+    ///   are selected. Base stats are cached for before/after comparisons.
     func selectItem(_ item: EnhancedPlayerItem) {
         self.selectedItem = item
         self.baseStats = item.computedStats
@@ -140,7 +190,26 @@ final class CraftingViewModel {
         previewStats = ItemStats.fromDictionary(previewStatDict)
     }
 
-    /// Apply material to item via API - called from CraftButton
+    /// Executes the material application workflow with progress tracking and validation.
+    ///
+    /// Implements the core crafting operation by:
+    /// 1. **Validation**: Checks item/material selection, slot availability, and ownership
+    /// 2. **Progress Simulation**: Starts 20-second visual progress for user feedback
+    /// 3. **API Call**: Applies material via repository with automatic slot assignment
+    /// 4. **Results Processing**: Updates crafting statistics and transitions to results state
+    ///
+    /// ## State Transitions
+    /// - Success: `previewing` → `crafting` → `results`
+    /// - Failure: `previewing` → `crafting` → `error(AppError)`
+    ///
+    /// ## Validation Rules
+    /// - Item must have < 3 materials applied (enforced twice: here and backend)
+    /// - Material quantity must be > 0 (player ownership check)
+    /// - Both item and material must be selected
+    ///
+    /// - Important: Progress simulation runs concurrently with API call to provide
+    ///   immediate user feedback. The backend determines final slot assignment.
+    /// - Throws: Business logic errors are captured and converted to error state
     func applyMaterial() async {
         guard let item = selectedItem,
               let material = selectedMaterial else {
