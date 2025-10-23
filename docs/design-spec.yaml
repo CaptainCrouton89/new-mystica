@@ -2,7 +2,7 @@
 # UI/UX design details, components, and interaction patterns.
 
 status: in-progress
-last_updated: 2025-10-21
+last_updated: 2025-10-23
 
 overview:
   design_goals: "Create a cyberpunk-inspired dark RPG experience with neon accents, clean typography, and smooth animations. Dark gray backgrounds with neon pink/blue accents provide high contrast and modern aesthetic. Prioritize readability and visual impact."
@@ -172,6 +172,26 @@ layouts_components:
       - "Apply Materials button (primary CTA)"
       - "Reset materials button (secondary)"
     notes: "Up to 3 materials can be applied to any item. Preview shows stat bonuses from materials. Gold cost increases with item level (F-06). Instant application, no timers."
+
+  - screen: "Upgrade Complete Modal (F-06)"
+    description: "Post-upgrade confirmation modal showing stat changes and level progression"
+    components:
+      - "Blur background overlay (semi-transparent dark)"
+      - "Modal card (centered, 90% width max 360pt)"
+      - "Item image (medium, 120x120pt, centered, with rarity border)"
+      - "Level progression badge (e.g., 'Level 5 → 6', neon pink accent)"
+      - "Stat comparison table (4 rows: atkPower, atkAccuracy, defPower, defAccuracy)"
+        - "Column 1: Stat name (label, left-aligned)"
+        - "Column 2: Old value (gray text, 11pt)"
+        - "Column 3: Arrow indicator (→, neon pink)"
+        - "Column 4: New value (white text, bold, 13pt)"
+        - "Column 5: Delta (e.g., '+5', neon blue, 11pt)"
+      - "Gold spent display (e.g., '- 506 Gold', neon pink, 13pt)"
+      - "Vanity level update (if item equipped: 'Vanity Level 42', 11pt secondary text)"
+      - "Upgrade Again button (primary CTA, full-width)"
+      - "Return to Inventory button (secondary text button)"
+      - "Close button (X, top-right, semi-transparent)"
+    notes: "Modal presentation with 300ms slide-up animation, blur background (#1A1A1A 50% opacity). Stats use monospace font for alignment. Stat deltas color-coded: positive changes in neon blue, gold spent in neon pink. Haptic feedback on button press."
 
   - screen: "Victory Screen"
     description: "Combat completion with reward display"
