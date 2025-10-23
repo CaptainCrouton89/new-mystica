@@ -283,11 +283,33 @@ struct InventoryView: View {
                         },
                         onUpgrade: {
                             Task {
-                                await viewModel.handleUpgradeAction()
+                                await viewModel.performUpgrade(itemId: item.id)
                             }
                         },
                         onSell: {
                             viewModel.handleSellAction()
+                        }
+                    )
+                }
+            }
+            .sheet(isPresented: $viewModel.showingUpgradeCompleteModal) {
+                if let upgradeResult = viewModel.lastUpgradeResult {
+                    UpgradeCompleteModal(
+                        item: upgradeResult.item,
+                        goldSpent: upgradeResult.goldSpent,
+                        newGoldBalance: upgradeResult.newGoldBalance,
+                        newVanityLevel: upgradeResult.newVanityLevel,
+                        statsBefore: ItemStats(atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0), // Placeholder - would need to calculate from response
+                        statsAfter: upgradeResult.item.computedStats,
+                        onUpgradeAgain: {
+                            if let itemId = viewModel.selectedItemForDetail?.id {
+                                Task {
+                                    await viewModel.performUpgrade(itemId: itemId)
+                                }
+                            }
+                        },
+                        onReturnToInventory: {
+                            viewModel.showingUpgradeCompleteModal = false
                         }
                     )
                 }

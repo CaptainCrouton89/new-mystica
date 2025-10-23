@@ -471,9 +471,7 @@ print("❌ Error: \(appError)")
         upgradeCostData = .loading
 
         do {
-            let url = URL(string: "http://localhost:3000/api/v1/items/\(itemId)/upgrade-cost")!
-            let (data, _) = try await URLSession.shared.data(from: url)
-            let costInfo = try JSONDecoder().decode(UpgradeCostInfo.self, from: data)
+            let costInfo = try await repository.fetchUpgradeCost(itemId: itemId)
             upgradeCostData = .loaded(costInfo)
         } catch let error as AppError {
             upgradeCostData = .error(error)
@@ -487,28 +485,9 @@ print("❌ Error: \(appError)")
         defer { upgradeInProgress = false }
 
         do {
-            var request = URLRequest(url: URL(string: "http://localhost:3000/api/v1/items/\(itemId)/upgrade")!)
-            request.httpMethod = "POST"
-            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            let upgradeResult = try await repository.upgradeItem(itemId: itemId)
 
-            let (data, response) = try await URLSession.shared.data(for: request)
-
-            guard let httpResponse = response as? HTTPURLResponse else {
-                throw AppError.invalidResponse
-            }
-
-            if httpResponse.statusCode == 400 {
-                throw AppError.businessLogic("Not enough gold to upgrade this item")
-            }
-
-            guard httpResponse.statusCode == 200 else {
-                throw AppError.serverError(httpResponse.statusCode, nil)
-            }
-
-            let upgradeResult = try JSONDecoder().decode(UpgradeResult.self, from: data)
-
-            // Update the item in local state - note: UpgradeResult.item is PlayerItem, need to convert to EnhancedPlayerItem
-            // For now, just refresh inventory to get authoritative state
+            // Refresh inventory to get authoritative state
             await refreshInventory()
 
             // Update gold balance in AppState

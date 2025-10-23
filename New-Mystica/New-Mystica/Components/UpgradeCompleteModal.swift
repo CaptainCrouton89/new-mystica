@@ -18,7 +18,7 @@ struct UpgradeCompleteModal: View {
     let onUpgradeAgain: () -> Void
     let onReturnToInventory: () -> Void
 
-    @Binding var isPresented: Bool
+    @Environment(\.dismiss) private var dismiss
     @State private var isAnimating = false
     @Environment(\.audioManager) private var audioManager
 
@@ -370,7 +370,7 @@ struct UpgradeCompleteModal: View {
         }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            isPresented = false
+            dismiss()
         }
     }
 
@@ -518,8 +518,7 @@ private struct StatComparisonRow: View {
         },
         onReturnToInventory: {
             print("Return to Inventory tapped")
-        },
-        isPresented: .constant(true)
+        }
     )
     .modelContainer(for: Item.self, inMemory: true)
     .environmentObject(NavigationManager())

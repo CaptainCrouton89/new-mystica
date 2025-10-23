@@ -296,8 +296,7 @@ struct EquipmentView: View {
                     onReturnToInventory: {
                         inventoryViewModel.showingUpgradeCompleteModal = false
                         viewModel.showingItemDetailModal = false
-                    },
-                    isPresented: $inventoryViewModel.showingUpgradeCompleteModal
+                    }
                 )
             }
         }

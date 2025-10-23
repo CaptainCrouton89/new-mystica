@@ -19,11 +19,12 @@ struct GoldCoin: Identifiable {
 // MARK: - Single Coin Animation View
 struct AnimatedGoldCoin: View {
     let coin: GoldCoin
-    @State private var yOffset: CGFloat = -100
+    let viewHeight: CGFloat
+
+    @State private var yOffset: CGFloat = 0
     @State private var opacity: Double = 1.0
     @State private var rotation: Double = 0
 
-    private let fallDistance: CGFloat = 800
     private let fadeStartPercent: Double = 0.6
 
     var body: some View {
@@ -31,7 +32,7 @@ struct AnimatedGoldCoin: View {
             .font(.system(size: 24, weight: .bold))
             .foregroundColor(Color.warning)
             .rotationEffect(.degrees(rotation))
-            .offset(x: coin.xOffset, y: yOffset)
+            .position(x: coin.xOffset, y: yOffset)
             .opacity(opacity)
             .onAppear {
                 startAnimation()
@@ -39,11 +40,17 @@ struct AnimatedGoldCoin: View {
     }
 
     private func startAnimation() {
+        // Start above the visible area
+        let startY: CGFloat = -50
+        let endY: CGFloat = viewHeight + 50
+
+        yOffset = startY
+
         // Delay the start of this coin's animation
         DispatchQueue.main.asyncAfter(deadline: .now() + coin.delay) {
             // Animate the fall (linear motion down)
             withAnimation(.linear(duration: coin.duration)) {
-                yOffset = fallDistance
+                yOffset = endY
             }
 
             // Animate the spin separately (rotation in place)
@@ -74,11 +81,15 @@ struct GoldShowerAnimation: View {
     private let animationDuration: Double = 1.5
 
     var body: some View {
-        ZStack {
-            ForEach(coins) { coin in
-                AnimatedGoldCoin(coin: coin)
+        GeometryReader { geometry in
+            ZStack {
+                ForEach(coins) { coin in
+                    AnimatedGoldCoin(coin: coin, viewHeight: geometry.size.height)
+                }
             }
+            .frame(width: geometry.size.width, height: geometry.size.height)
         }
+        .ignoresSafeArea()
         .onAppear {
             setupCoins()
             scheduleCompletion()
@@ -90,10 +101,11 @@ struct GoldShowerAnimation: View {
     private func setupCoins() {
         // Use a reasonable default width for coin spread (works for most devices)
         let screenWidth: CGFloat = 400
+        let centerX = screenWidth / 2
 
         coins = (0..<totalCoins).map { index in
             GoldCoin(
-                xOffset: CGFloat.random(in: -screenWidth/2...screenWidth/2),
+                xOffset: centerX + CGFloat.random(in: -screenWidth/2...screenWidth/2),
                 delay: Double(index) * 0.05, // Stagger coin drops
                 duration: animationDuration + Double.random(in: -0.2...0.2),
                 rotation: Double.random(in: -360...360)

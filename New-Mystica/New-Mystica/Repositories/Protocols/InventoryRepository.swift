@@ -49,4 +49,16 @@ protocol InventoryRepository {
     ///   - itemId: Player item ID to sell
     /// - Returns: Sell response with gold earned and new balance
     func sellItem(itemId: String) async throws -> SellItemResponse
+
+    /// Fetch upgrade cost for an item
+    /// - Parameters:
+    ///   - itemId: Player item ID to check upgrade cost
+    /// - Returns: Upgrade cost information including gold cost and current/next level
+    func fetchUpgradeCost(itemId: String) async throws -> UpgradeCostInfo
+
+    /// Upgrade item to next level
+    /// - Parameters:
+    ///   - itemId: Player item ID to upgrade
+    /// - Returns: Upgrade result with updated item and new balances
+    func upgradeItem(itemId: String) async throws -> UpgradeResult
 }

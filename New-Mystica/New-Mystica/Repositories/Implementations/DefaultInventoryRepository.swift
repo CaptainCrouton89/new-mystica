@@ -146,7 +146,25 @@ final class DefaultInventoryRepository: InventoryRepository {
         )
         return response
     }
+
+    func fetchUpgradeCost(itemId: String) async throws -> UpgradeCostInfo {
+        let response: UpgradeCostInfo = try await apiClient.get(
+            endpoint: "/items/\(itemId)/upgrade-cost"
+        )
+        return response
+    }
+
+    func upgradeItem(itemId: String) async throws -> UpgradeResult {
+        let response: UpgradeResult = try await apiClient.post(
+            endpoint: "/items/\(itemId)/upgrade",
+            body: EmptyBody()
+        )
+        return response
+    }
 }
+
+// MARK: - Empty Body for POST requests with no body
+private struct EmptyBody: Encodable {}
 
 struct SellItemResponse: Decodable {
     let success: Bool
