@@ -50,6 +50,7 @@ final class InventoryViewModel {
     var upgradeInProgress: Bool = false
     var showingUpgradeCompleteModal: Bool = false
     var lastUpgradeResult: UpgradeResult?
+    var lastUpgradeStatsBefore: ItemStats?
 
     // MARK: - Error State
     var currentError: AppError?
@@ -377,12 +378,6 @@ print("❌ Error: \(appError)")
                 // Trigger gold shower animation
                 goldShowerAmount = response.goldEarned
                 showingGoldShower = true
-
-                // Show success toast after animation
-                Task {
-                    try? await Task.sleep(nanoseconds: 1_600_000_000) // Wait for animation (1.6s)
-                    showSuccessToast(message: "Sold for \(response.goldEarned) gold", icon: "dollarsign.circle.fill")
-                }
             }
 
             print("✅ Item sold successfully: \(response.itemName) for \(response.goldEarned) gold")
@@ -483,6 +478,11 @@ print("❌ Error: \(appError)")
     func performUpgrade(itemId: String) async {
         upgradeInProgress = true
         defer { upgradeInProgress = false }
+
+        // Cache the current stats before upgrade for comparison
+        if let currentItem = selectedItemForDetail {
+            lastUpgradeStatsBefore = currentItem.computedStats
+        }
 
         do {
             let upgradeResult = try await repository.upgradeItem(itemId: itemId)

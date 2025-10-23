@@ -52,15 +52,27 @@ final class AuthViewModel {
         // For MVP0: Trust token existence = authenticated
         // Create a stub user since we only have token in keychain
         // Note: In production, we'd fetch the user profile with the token
-        let stubData = """
+        let stubJSON = """
         {
             "id": "00000000-0000-0000-0000-000000000000",
             "account_type": "anonymous",
             "created_at": "\(ISO8601DateFormatter().string(from: Date()))"
         }
-        """.data(using: .utf8)!
+        """
 
-        let stubUser = try! JSONDecoder().decode(User.self, from: stubData)
+        guard let stubData = stubJSON.data(using: .utf8) else {
+            appState.setAuthError(AppError.invalidData("Failed to encode stub user JSON"))
+            return
+        }
+
+        let stubUser: User
+        do {
+            stubUser = try JSONDecoder().decode(User.self, from: stubData)
+        } catch {
+            appState.setAuthError(AppError.decodingError("Failed to decode stub user: \(error.localizedDescription)"))
+            return
+        }
+
         appState.setAuthenticated(stubUser, token: token)
     }
 

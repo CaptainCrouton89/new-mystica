@@ -174,7 +174,8 @@ class AuthService: ObservableObject {
             let encoder = JSONEncoder()
             encoder.keyEncodingStrategy = .convertToSnakeCase
             request.httpBody = try encoder.encode(body)
-            if let bodyString = String(data: request.httpBody!, encoding: .utf8) {
+            if let httpBody = request.httpBody,
+               let bodyString = String(data: httpBody, encoding: .utf8) {
                 print("📤 [AUTH-HTTP] Request body:", bodyString)
             }
         }
