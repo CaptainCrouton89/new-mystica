@@ -186,7 +186,8 @@ export class ItemRepository extends BaseRepository<ItemRow> {
         itemmaterials (
           slot_index,
           applied_at,
-          materialinstances (
+          material_instance_id,
+          materialinstances:material_instance_id (
             id,
             material_id,
             style_id,
@@ -494,7 +495,8 @@ export class ItemRepository extends BaseRepository<ItemRow> {
         itemmaterials (
           slot_index,
           applied_at,
-          materialinstances (
+          material_instance_id,
+          materialinstances:material_instance_id (
             id,
             material_id,
             style_id,
@@ -558,13 +560,23 @@ export class ItemRepository extends BaseRepository<ItemRow> {
    * @returns Transformed ItemWithDetails object
    */
   private transformToItemWithDetails(data: any, includeMaterials: boolean = true): ItemWithDetails {
+    // Parse current_stats if it's a string, otherwise use as-is (it's already an object from Supabase)
+    let parsedStats = data.current_stats;
+    if (data.current_stats && typeof data.current_stats === 'string') {
+      try {
+        parsedStats = JSON.parse(data.current_stats);
+      } catch {
+        parsedStats = data.current_stats; // If parsing fails, use the value as-is
+      }
+    }
+
     const item: ItemWithDetails = {
       id: data.id,
       user_id: data.user_id,
       item_type_id: data.item_type_id,
       level: data.level,
       is_styled: data.is_styled,
-      current_stats: data.current_stats ? JSON.parse(data.current_stats) : null,
+      current_stats: parsedStats,
       material_combo_hash: data.material_combo_hash,
       generated_image_url: data.generated_image_url,
       image_generation_status: data.image_generation_status,

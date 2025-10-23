@@ -10,18 +10,21 @@ import { statsService } from './StatsService.js';
  */
 export interface PlayerItem {
   id: string;
-  name: string;
+  base_type: string;
   item_type_id: string;
   category: 'weapon' | 'offhand' | 'head' | 'armor' | 'feet' | 'accessory' | 'pet';
   level: number;
   rarity: Rarity;
   applied_materials: AppliedMaterial[];
   materials?: AppliedMaterial[]; // For compatibility with tests
+  computed_stats: Stats;
+  material_combo_hash: string | null;
+  generated_image_url: string;
+  image_generation_status: string | null;
+  craft_count: number;
   is_styled: boolean;
-  current_stats: Stats;
   is_equipped: boolean;
   equipped_slot: string | null;
-  generated_image_url: string;
 }
 
 /**
@@ -133,18 +136,21 @@ export class InventoryService {
         try {
           return {
             id: item.id,
-            name: item.item_type.name,
+            base_type: item.item_type.name,
             item_type_id: item.item_type_id,
             category: item.item_type.category as any,
             level: item.level,
             rarity: item.item_type.rarity,
             applied_materials: item.materials || [],
             materials: item.materials || [], // For compatibility with tests
+            computed_stats: this.calculateItemStatsWithMaterials(item),
+            material_combo_hash: item.material_combo_hash || null,
+            generated_image_url: item.generated_image_url || this.getDefaultImage(item),
+            image_generation_status: item.image_generation_status || null,
+            craft_count: 0, // TODO: Implement craft count tracking when image cache is queried
             is_styled: item.is_styled,
-            current_stats: this.calculateItemStatsWithMaterials(item),
             is_equipped: equippedItemIds.has(item.id),
-            equipped_slot: equippedSlotMap.get(item.id) || null,
-            generated_image_url: item.generated_image_url || this.getDefaultImage(item)
+            equipped_slot: equippedSlotMap.get(item.id) || null
           };
         } catch (error) {
           throw new DatabaseError(`Failed to process unique item ${item.id}`, error as Record<string, any>);
@@ -310,7 +316,7 @@ export class InventoryService {
           // Use item ID as proxy for creation time (newer UUIDs are lexicographically greater)
           return b.id.localeCompare(a.id);
         case 'name':
-          return a.name.localeCompare(b.name); // Ascending alphabetical
+          return a.base_type.localeCompare(b.base_type); // Ascending alphabetical
         default:
           return b.level - a.level;
       }

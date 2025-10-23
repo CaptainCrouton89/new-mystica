@@ -29,7 +29,7 @@ export interface GenerateComboImageRequest {
 interface ReplicateGenerationOptions {
   prompt: string;
   referenceImages: string[];
-  provider: 'gemini' | 'seedream-4';
+  provider: 'gemini';
   aspectRatio: '1:1';
   outputFormat: 'png';
 }
@@ -361,29 +361,14 @@ Composition & Background
   private async generateWithReplicate(options: ReplicateGenerationOptions): Promise<string> {
     const replicate = new Replicate({ auth: this.REPLICATE_API_TOKEN });
 
-    let modelName: string;
-    let input: Record<string, unknown>;
-
-    if (options.provider === 'gemini') {
-      modelName = 'google/nano-banana';
-      input = {
-        prompt: options.prompt,
-        aspect_ratio: options.aspectRatio,
-        output_format: options.outputFormat
-        // TODO: Add image_input when R2 reference images are uploaded
-        // image_input: options.referenceImages
-      };
-    } else {
-      modelName = 'bytedance/seedream-4';
-      input = {
-        prompt: options.prompt,
-        width: 1024,
-        height: 1024,
-        max_images: 1,
-        sequential_image_generation: 'disabled',
-        image_input: options.referenceImages
-      };
-    }
+    const modelName = 'google/nano-banana';
+    const input = {
+      prompt: options.prompt,
+      aspect_ratio: options.aspectRatio,
+      output_format: options.outputFormat
+      // Note: image_input not implemented for Gemini provider
+      // Reference images are used internally for prompt building only
+    };
 
     const output = await replicate.run(modelName as `${string}/${string}`, { input }) as any;
 

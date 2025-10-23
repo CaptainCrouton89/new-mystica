@@ -477,13 +477,17 @@ export class EquipmentRepository extends BaseRepository<UserEquipmentRow> {
         return { atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0 };
       }
 
-      // View returns: atk, def, hp, acc
+      // View returns: atk, def, hp, acc (combined accuracy)
       // Map to API format: atkPower, atkAccuracy, defPower, defAccuracy
+      // Split combined accuracy 50/50 between attack and defense
+      const combinedAccuracy = Number((data as any).acc) || 0;
+      const splitAccuracy = combinedAccuracy / 2;
+
       return {
         atkPower: Number((data as any).atk) || 0,
-        atkAccuracy: Number((data as any).acc) || 0,
+        atkAccuracy: splitAccuracy,
         defPower: Number((data as any).def) || 0,
-        defAccuracy: Number((data as any).acc) || 0
+        defAccuracy: splitAccuracy
       };
     } catch (error) {
       throw this.mapSupabaseError(error);
@@ -510,13 +514,17 @@ export class EquipmentRepository extends BaseRepository<UserEquipmentRow> {
         .single();
 
       if (!error && data) {
-        // View returns: atk, def, hp, acc
+        // View returns: atk, def, hp, acc (combined accuracy)
         // Map to API format: atkPower, atkAccuracy, defPower, defAccuracy
+        // Split combined accuracy 50/50 between attack and defense
+        const combinedAccuracy = Number((data as any).acc) || 0;
+        const splitAccuracy = combinedAccuracy / 2;
+
         return {
           atkPower: Number((data as any).atk) || 0,
-          atkAccuracy: Number((data as any).acc) || 0,
+          atkAccuracy: splitAccuracy,
           defPower: Number((data as any).def) || 0,
-          defAccuracy: Number((data as any).acc) || 0,
+          defAccuracy: splitAccuracy,
         };
       }
     } catch (viewError) {

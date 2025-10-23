@@ -74,7 +74,7 @@ export interface PlayerTotalStats {
 }
 
 export interface ItemWithStats extends Item {
-  computed_stats: Stats;
+  current_stats: Stats;
 }
 
 export interface ChatterMessage {
@@ -610,7 +610,7 @@ export class ItemService {
         if (slotName) {
           slots[slotName] = {
             ...item,
-            computed_stats: itemStats
+            current_stats: itemStats
           };
         }
       }
@@ -1143,10 +1143,10 @@ export class ItemService {
       itemData.base_stats ||
       itemData.item_type?.base_stats_normalized ||
       itemData.current_stats ||
-      itemData.computed_stats ||
+      itemData.current_stats ||
       defaultStats;
 
-    const currentStats: Stats = itemData.current_stats || itemData.computed_stats || baseStats;
+    const currentStats: Stats = itemData.current_stats || itemData.current_stats || baseStats;
     const materials = itemData.materials || [];
     const itemType = itemData.item_type
       ? {

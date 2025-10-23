@@ -58,14 +58,21 @@ export interface Item {
  */
 export interface PlayerItem {
   id: string;
-  item_type: ItemType;
+  base_type: string;
+  item_type_id: string;
+  category: 'weapon' | 'offhand' | 'head' | 'armor' | 'feet' | 'accessory' | 'pet';
   level: number;
-  rarity: string;
+  rarity: Rarity;
   applied_materials: AppliedMaterial[];
-  is_styled: boolean;
+  materials?: AppliedMaterial[]; // For compatibility with tests
   computed_stats: Stats;
+  material_combo_hash: string | null;
+  generated_image_url: string;
+  image_generation_status: string | null;
+  craft_count: number;
+  is_styled: boolean;
   is_equipped: boolean;
-  generated_image_url?: string;
+  equipped_slot: string | null;
 }
 
 /**
@@ -92,6 +99,7 @@ export interface Material {
   base_drop_weight: number;
   description?: string;
   rarity?: Rarity;
+  image_url?: string; // R2 URL for material icon
 }
 
 /**

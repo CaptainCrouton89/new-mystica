@@ -32,11 +32,16 @@ export class MaterialService {
   /**
    * Get all material templates (no auth required)
    * - Returns complete material library for client display
-   * - Includes: id, name, description, stat_modifiers, theme
+   * - Includes: id, name, description, stat_modifiers, theme, image_url
    * - Ordered by name alphabetically
    */
   async getAllMaterials(): Promise<Material[]> {
-    return await this.materialRepository.findAllMaterials();
+    const materials = await this.materialRepository.findAllMaterials();
+    // Add computed R2 image URLs
+    return materials.map(m => ({
+      ...m,
+      image_url: this.getMaterialImageUrl(m.name)
+    }));
   }
   /**
    * Get user's material inventory
@@ -73,7 +78,8 @@ export class MaterialService {
           name: material.name,
           stat_modifiers: material.stat_modifiers,
           description: material.description || undefined,
-          base_drop_weight: material.base_drop_weight
+          base_drop_weight: material.base_drop_weight,
+          image_url: this.getMaterialImageUrl(material.name)
         }
       });
     }
@@ -378,6 +384,16 @@ export class MaterialService {
       },
       message: `Replaced material in slot ${slotIndex} (cost: ${goldCost} gold)`
     };
+  }
+
+  /**
+   * Compute R2 image URL for a material based on its name
+   * Materials are stored at: materials/{lowercase_name_with_underscores}.png
+   */
+  private getMaterialImageUrl(materialName: string): string {
+    const R2_PUBLIC_URL = 'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev';
+    const normalizedName = materialName.toLowerCase().replace(/\s+/g, '_');
+    return `${R2_PUBLIC_URL}/materials/${normalizedName}.png`;
   }
 
   /**

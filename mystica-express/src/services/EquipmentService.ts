@@ -300,23 +300,20 @@ export class EquipmentService {
 
     return {
       id: repositoryItem.id,
-      item_type: {
-        id: repositoryItem.item_type.id,
-        name: repositoryItem.item_type.name,
-        category: repositoryItem.item_type.category,
-        equipment_slot: this.mapCategoryToEquipmentSlot(repositoryItem.item_type.category),
-        base_stats: baseStats,
-        rarity: repositoryItem.item_type.rarity,
-        description: repositoryItem.item_type.description || '',
-        image_url: repositoryItem.item_type.image_url
-      } as ItemType,
+      base_type: repositoryItem.item_type.name,
+      item_type_id: repositoryItem.item_type.id,
+      category: repositoryItem.item_type.category,
       level: repositoryItem.level,
       rarity: repositoryItem.item_type.rarity,
       applied_materials: appliedMaterials,
-      is_styled: repositoryItem.is_styled || false,
       computed_stats: computedStats,
+      material_combo_hash: repositoryItem.material_combo_hash || null,
+      generated_image_url: repositoryItem.generated_image_url || '',
+      image_generation_status: repositoryItem.image_generation_status || null,
+      craft_count: 0, // TODO: Query from ItemImageCache
+      is_styled: repositoryItem.is_styled || false,
       is_equipped: isEquipped,
-      generated_image_url: repositoryItem.generated_image_url || undefined
+      equipped_slot: null // TODO: Get from current equipment state
     };
   }
 }
