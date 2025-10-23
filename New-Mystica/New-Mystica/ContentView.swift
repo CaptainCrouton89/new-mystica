@@ -45,7 +45,10 @@ struct ContentView: View {
         case .defeat:
             DefeatView()
         case .crafting(let preselectedItem, let preselectedMaterial):
-            CraftingView()
+            CraftingView(
+                preselectedItem: preselectedItem,
+                preselectedMaterial: preselectedMaterial
+            )
         }
     }
 }

@@ -15,11 +15,17 @@ struct CraftButton: View {
         if isProcessing {
             return Color.accent.opacity(0.8)
         }
-        return isEnabled ? Color.accent : Color.gray.opacity(0.5)
+        if !isEnabled {
+            return Color.backgroundSecondary
+        }
+        return isPressed ? Color.accentInteractive : Color.accent
     }
 
     var foregroundColor: Color {
-        isEnabled ? Color.white : Color.gray
+        if !isEnabled {
+            return Color.textSecondary
+        }
+        return Color.textPrimary
     }
 
     var buttonTitle: String {
@@ -42,23 +48,19 @@ struct CraftButton: View {
             HStack(spacing: 12) {
                 if isProcessing {
                     ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: Color.white))
+                        .progressViewStyle(CircularProgressViewStyle(tint: Color.textPrimary))
                         .scaleEffect(0.8)
                 }
 
                 Text(buttonTitle)
-                    .font(.system(size: 17, weight: .bold))
+                    .font(FontManager.body)
                     .foregroundColor(foregroundColor)
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 50)
+            .frame(height: 48)
             .background(
                 RoundedRectangle(cornerRadius: 12)
                     .fill(backgroundColor)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 12)
-                    .stroke(isEnabled ? Color.accent.opacity(0.3) : Color.gray.opacity(0.3), lineWidth: 1)
             )
         }
         .buttonStyle(PlainButtonStyle())

@@ -708,8 +708,12 @@ private let mockMaterials: [MaterialTemplate] = [
 private let mockEnhancedPlayerItem = EnhancedPlayerItem(
     id: "mock-item-1",
     baseType: "iron_sword",
+    itemTypeId: "type-1",
+    category: "weapon",
     level: 5,
+    rarity: "rare",
     appliedMaterials: [],
+    materials: [],
     computedStats: ItemStats(atkPower: 25, atkAccuracy: 15, defPower: 5, defAccuracy: 8),
     materialComboHash: nil,
     generatedImageUrl: nil,

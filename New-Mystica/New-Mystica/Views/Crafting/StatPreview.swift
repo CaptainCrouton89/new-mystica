@@ -94,42 +94,90 @@ private struct StatRow: View {
         }
     }
 
+    private var statIconData: (iconUrl: String, fallbackIcon: String, color: Color) {
+        switch name {
+        case "ATK Power":
+            return (
+                "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/attack-power-crossed-swords.png",
+                "sword.fill",
+                Color.alert
+            )
+        case "ATK Accuracy":
+            return (
+                "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/attack-accuracy-crosshair.png",
+                "target",
+                Color.warning
+            )
+        case "DEF Power":
+            return (
+                "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/defense-power-round-shield.png",
+                "shield.fill",
+                Color.accentSecondary
+            )
+        case "DEF Accuracy":
+            return (
+                "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/defense-accuracy-force-field.png",
+                "checkmark.shield.fill",
+                Color.success
+            )
+        default:
+            return ("", "questionmark.circle", Color.textSecondary)
+        }
+    }
+
     var body: some View {
-        VStack(spacing: 4) {
-            // Stat Name
-            Text(name)
-                .font(FontManager.body)
-                .foregroundColor(.textSecondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
+        HStack(spacing: 12) {
+            // Stat Icon
+            AsyncImage(url: URL(string: statIconData.iconUrl)) { image in
+                image
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 32, height: 32)
+            } placeholder: {
+                Image(systemName: statIconData.fallbackIcon)
+                    .font(.system(size: 20, weight: .medium))
+            }
+            .foregroundColor(statIconData.color)
+            .frame(width: 32)
 
-            HStack {
-                // Current Value
-                Text(String(format: "%.2f", currentValue))
-                    .font(FontManager.body)
-                    .foregroundColor(.textPrimary)
-                    .frame(maxWidth: .infinity)
+            VStack(spacing: 4) {
+                // Stat Name
+                Text(name)
+                    .font(FontManager.caption)
+                    .foregroundColor(.textSecondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
-                // Vertical Divider
-                Rectangle()
-                    .fill(Color.borderSubtle)
-                    .frame(width: 1, height: 20)
-
-                // Preview Value
-                HStack(spacing: 8) {
-                    Text(String(format: "%.2f", previewValue))
+                HStack {
+                    // Current Value
+                    Text(String(format: "%.1f", currentValue * 100))
                         .font(FontManager.body)
-                        .foregroundColor(showComparison ? colorForDifference : .textPrimary)
+                        .foregroundColor(.textPrimary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
 
-                    if showComparison && abs(difference) >= 0.01 {
-                        Text("(\(difference >= 0 ? "+" : "")\(String(format: "%.2f", difference)))")
-                            .font(FontManager.caption)
-                            .foregroundColor(colorForDifference)
+                    // Arrow
+                    Image(systemName: "arrow.right")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.textSecondary)
+
+                    // Preview Value
+                    HStack(spacing: 4) {
+                        Text(String(format: "%.1f", previewValue * 100))
+                            .font(FontManager.body)
+                            .foregroundColor(showComparison ? colorForDifference : .textPrimary)
+                            .bold()
+
+                        if showComparison && abs(difference) >= 0.001 {
+                            Text("(\(difference >= 0 ? "+" : "")\(String(format: "%.1f", difference * 100)))")
+                                .font(FontManager.caption)
+                                .foregroundColor(colorForDifference)
+                        }
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .frame(maxWidth: .infinity)
             }
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
     }
 }
 
