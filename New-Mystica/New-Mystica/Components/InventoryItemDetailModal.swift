@@ -72,22 +72,19 @@ struct InventoryItemDetailModal: View {
                 )
 
             if let imageUrl = item.generatedImageUrl, let url = URL(string: imageUrl) {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .empty:
-                        ProgressView()
-                    case .success(let image):
+                CachedAsyncImage(
+                    url: url,
+                    content: { image in
                         image
                             .resizable()
                             .aspectRatio(contentMode: .fill)
                             .frame(height: 280)
                             .clipped()
-                    case .failure:
-                        fallbackItemIcon
-                    @unknown default:
-                        EmptyView()
+                    },
+                    placeholder: {
+                        ProgressView()
                     }
-                }
+                )
             } else {
                 fallbackItemIcon
             }
@@ -426,15 +423,19 @@ private struct StatDetailRow: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            AsyncImage(url: URL(string: iconUrl)) { image in
-                image
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: 48, height: 48)
-            } placeholder: {
-                Image(systemName: fallbackIcon)
-                    .font(.system(size: 48, weight: .medium))
-            }
+            CachedAsyncImage(
+                url: URL(string: iconUrl),
+                content: { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 48, height: 48)
+                },
+                placeholder: {
+                    Image(systemName: fallbackIcon)
+                        .font(.system(size: 48, weight: .medium))
+                }
+            )
             .foregroundColor(color)
             .frame(width: 56)
 

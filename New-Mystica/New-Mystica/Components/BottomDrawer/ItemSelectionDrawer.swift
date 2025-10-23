@@ -157,30 +157,19 @@ private struct ItemSelectionCard: View {
                 // Item image
                 Group {
                     if let imageUrl = item.generatedImageUrl, let url = URL(string: imageUrl) {
-                        AsyncImage(url: url) { phase in
-                            switch phase {
-                            case .empty:
-                                ProgressView()
-                                    .frame(width: 48, height: 48)
-                            case .success(let image):
+                        CachedAsyncImage(
+                            url: url,
+                            content: { image in
                                 image
                                     .resizable()
                                     .aspectRatio(contentMode: .fit)
                                     .frame(width: 48, height: 48)
-                            case .failure:
-                                ZStack {
-                                    RoundedRectangle(cornerRadius: 8)
-                                        .fill(getRarityColor())
-                                        .frame(width: 48, height: 48)
-
-                                    Image(systemName: getIconForItemType(item.baseType))
-                                        .font(.system(size: 20, weight: .medium))
-                                        .foregroundColor(Color.textPrimary)
-                                }
-                            @unknown default:
-                                EmptyView()
+                            },
+                            placeholder: {
+                                ProgressView()
+                                    .frame(width: 48, height: 48)
                             }
-                        }
+                        )
                     } else {
                         ZStack {
                             RoundedRectangle(cornerRadius: 8)
@@ -330,15 +319,19 @@ private struct StatBadge: View {
 
     var body: some View {
         HStack(spacing: 2) {
-            AsyncImage(url: URL(string: iconUrl)) { image in
-                image
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: 30, height: 30)
-            } placeholder: {
-                Image(systemName: fallbackIcon)
-                    .font(.system(size: 30))
-            }
+            CachedAsyncImage(
+                url: URL(string: iconUrl),
+                content: { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 30, height: 30)
+                },
+                placeholder: {
+                    Image(systemName: fallbackIcon)
+                        .font(.system(size: 30))
+                }
+            )
             Text(value)
                 .font(FontManager.caption)
         }

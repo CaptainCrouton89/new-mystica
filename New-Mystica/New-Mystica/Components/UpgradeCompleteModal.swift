@@ -9,7 +9,7 @@ import SwiftUI
 import SwiftData
 
 struct UpgradeCompleteModal: View {
-    let item: PlayerItem
+    let item: EnhancedPlayerItem
     let goldSpent: Int
     let newGoldBalance: Int
     let newVanityLevel: Int?
@@ -119,22 +119,19 @@ struct UpgradeCompleteModal: View {
                 )
 
             if let imageUrl = item.generatedImageUrl, let url = URL(string: imageUrl) {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .empty:
-                        ProgressView()
-                    case .success(let image):
+                CachedAsyncImage(
+                    url: url,
+                    content: { image in
                         image
                             .resizable()
                             .aspectRatio(contentMode: .fill)
                             .frame(width: 160, height: 160)
                             .clipped()
-                    case .failure:
-                        fallbackItemIcon
-                    @unknown default:
-                        EmptyView()
+                    },
+                    placeholder: {
+                        ProgressView()
                     }
-                }
+                )
             } else {
                 fallbackItemIcon
             }
@@ -428,15 +425,19 @@ private struct StatComparisonRow: View {
     var body: some View {
         HStack(spacing: 12) {
             // Stat icon
-            AsyncImage(url: URL(string: iconUrl)) { image in
-                image
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(width: 32, height: 32)
-            } placeholder: {
-                Image(systemName: fallbackIcon)
-                    .font(.system(size: 32, weight: .medium))
-            }
+            CachedAsyncImage(
+                url: URL(string: iconUrl),
+                content: { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 32, height: 32)
+                },
+                placeholder: {
+                    Image(systemName: fallbackIcon)
+                        .font(.system(size: 32, weight: .medium))
+                }
+            )
             .foregroundColor(color)
             .frame(width: 40)
 
@@ -483,23 +484,28 @@ private struct StatComparisonRow: View {
 // MARK: - Preview
 #Preview("Upgrade Complete Modal") {
     UpgradeCompleteModal(
-        item: PlayerItem(
+        item: EnhancedPlayerItem(
             id: "550e8400-e29b-41d4-a716-446655440000",
             baseType: "Magic Sword",
             itemTypeId: "550e8400-e29b-41d4-a716-446655440001",
             category: "weapon",
             level: 6,
             rarity: "epic",
-            appliedMaterials: ["steel", "crystal"],
-            isStyled: true,
+            appliedMaterials: [],
+            materials: [],
             computedStats: ItemStats(
                 atkPower: 0.30,
                 atkAccuracy: 0.18,
                 defPower: 0.12,
                 defAccuracy: 0.06
             ),
+            materialComboHash: nil,
+            generatedImageUrl: nil,
+            imageGenerationStatus: nil,
+            craftCount: 0,
+            isStyled: true,
             isEquipped: true,
-            generatedImageUrl: nil
+            equippedSlot: "weapon"
         ),
         goldSpent: 506,
         newGoldBalance: 694,
