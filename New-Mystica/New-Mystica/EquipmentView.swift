@@ -221,12 +221,10 @@ struct EquipmentView: View {
     @Environment(\.navigationManager) private var navigationManager
     @Environment(\.audioManager) private var audioManager
     @Environment(AppState.self) private var appState
-    @State private var inventoryViewModel = InventoryViewModel()
     @State private var viewModel: EquipmentViewModel
 
     init() {
         let inventoryVM = InventoryViewModel()
-        _inventoryViewModel = State(initialValue: inventoryVM)
         _viewModel = State(initialValue: EquipmentViewModel(inventoryViewModel: inventoryVM))
     }
 
@@ -267,7 +265,7 @@ struct EquipmentView: View {
                     onUpgrade: {
                         // Perform upgrade via inventory view model
                         Task {
-                            await inventoryViewModel.performUpgrade(itemId: item.id)
+                            await viewModel.inventoryViewModel.performUpgrade(itemId: item.id)
                         }
                     },
                     onCraft: {
@@ -277,24 +275,24 @@ struct EquipmentView: View {
                 )
             }
         }
-        .sheet(isPresented: $inventoryViewModel.showingUpgradeCompleteModal) {
-            if let upgradeResult = inventoryViewModel.lastUpgradeResult {
+        .sheet(isPresented: $viewModel.inventoryViewModel.showingUpgradeCompleteModal) {
+            if let upgradeResult = viewModel.inventoryViewModel.lastUpgradeResult {
                 UpgradeCompleteModal(
                     item: upgradeResult.item,
                     goldSpent: upgradeResult.goldSpent,
                     newGoldBalance: upgradeResult.newGoldBalance,
                     newVanityLevel: upgradeResult.newVanityLevel,
-                    statsBefore: ItemStats(atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0), // Placeholder - would need to calculate from response
+                    statsBefore: viewModel.inventoryViewModel.lastUpgradeStatsBefore ?? ItemStats(atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0),
                     statsAfter: upgradeResult.item.computedStats,
                     onUpgradeAgain: {
-                        if let itemId = inventoryViewModel.selectedItemForDetail?.id {
+                        if let itemId = viewModel.inventoryViewModel.selectedItemForDetail?.id {
                             Task {
-                                await inventoryViewModel.performUpgrade(itemId: itemId)
+                                await viewModel.inventoryViewModel.performUpgrade(itemId: itemId)
                             }
                         }
                     },
                     onReturnToInventory: {
-                        inventoryViewModel.showingUpgradeCompleteModal = false
+                        viewModel.inventoryViewModel.showingUpgradeCompleteModal = false
                         viewModel.showingItemDetailModal = false
                     }
                 )
@@ -304,8 +302,8 @@ struct EquipmentView: View {
             // Load both equipment and inventory data when view appears
             print("📱 [EQUIPMENT VIEW] Starting to load equipment and inventory...")
             await viewModel.fetchEquipment()
-            await inventoryViewModel.loadInventory()
-            print("📱 [EQUIPMENT VIEW] Loading complete. Inventory state: \(inventoryViewModel.items)")
+            await viewModel.inventoryViewModel.loadInventory()
+            print("📱 [EQUIPMENT VIEW] Loading complete. Inventory state: \(viewModel.inventoryViewModel.items)")
         }
     }
 

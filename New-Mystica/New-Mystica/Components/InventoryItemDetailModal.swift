@@ -212,7 +212,7 @@ struct InventoryItemDetailModal: View {
                             .font(.system(size: 6))
                             .foregroundColor(Color.accent)
 
-                        NormalText(material.material!.name)
+                        NormalText(material.material?.name ?? "Unknown Material")
                             .foregroundColor(Color.textPrimary)
 
                         Spacer()
@@ -246,7 +246,8 @@ struct InventoryItemDetailModal: View {
                 Button {
                     audioManager.playMenuButtonClick()
                     dismiss()
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    Task {
+                        try? await Task.sleep(for: .milliseconds(300))
                         onUpgrade()
                     }
                 } label: {
@@ -272,7 +273,8 @@ struct InventoryItemDetailModal: View {
                 Button {
                     audioManager.playMenuButtonClick()
                     dismiss()
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    Task {
+                        try? await Task.sleep(for: .milliseconds(300))
                         onCraft()
                     }
                 } label: {
@@ -299,10 +301,9 @@ struct InventoryItemDetailModal: View {
             Button {
                 audioManager.playMenuButtonClick()
                 dismiss()
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                    Task {
-                        await onEquip()
-                    }
+                Task {
+                    try? await Task.sleep(for: .milliseconds(300))
+                    await onEquip()
                 }
             } label: {
                 HStack {

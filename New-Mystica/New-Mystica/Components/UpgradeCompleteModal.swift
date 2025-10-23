@@ -307,7 +307,8 @@ struct UpgradeCompleteModal: View {
             Button {
                 audioManager.playMenuButtonClick()
                 dismissModal()
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                Task {
+                    try? await Task.sleep(for: .milliseconds(300))
                     onUpgradeAgain()
                 }
             } label: {
@@ -334,7 +335,8 @@ struct UpgradeCompleteModal: View {
             Button {
                 audioManager.playMenuButtonClick()
                 dismissModal()
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                Task {
+                    try? await Task.sleep(for: .milliseconds(300))
                     onReturnToInventory()
                 }
             } label: {
@@ -369,7 +371,8 @@ struct UpgradeCompleteModal: View {
             isAnimating = false
         }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+        Task {
+            try? await Task.sleep(for: .milliseconds(300))
             dismiss()
         }
     }

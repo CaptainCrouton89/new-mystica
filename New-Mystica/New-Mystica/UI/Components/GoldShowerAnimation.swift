@@ -75,6 +75,7 @@ struct GoldShowerAnimation: View {
     let onComplete: () -> Void
 
     @State private var coins: [GoldCoin] = []
+    @State private var screenWidth: CGFloat = 0
 
     // Animation constants
     private let totalCoins = 20
@@ -88,19 +89,20 @@ struct GoldShowerAnimation: View {
                 }
             }
             .frame(width: geometry.size.width, height: geometry.size.height)
+            .onAppear {
+                if screenWidth != geometry.size.width {
+                    screenWidth = geometry.size.width
+                    setupCoins(screenWidth: screenWidth)
+                    scheduleCompletion()
+                }
+            }
         }
         .ignoresSafeArea()
-        .onAppear {
-            setupCoins()
-            scheduleCompletion()
-        }
     }
 
     // MARK: - Setup & Animation
 
-    private func setupCoins() {
-        // Use a reasonable default width for coin spread (works for most devices)
-        let screenWidth: CGFloat = 400
+    private func setupCoins(screenWidth: CGFloat) {
         let centerX = screenWidth / 2
 
         coins = (0..<totalCoins).map { index in

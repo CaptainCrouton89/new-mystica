@@ -299,7 +299,7 @@ struct InventoryView: View {
                         goldSpent: upgradeResult.goldSpent,
                         newGoldBalance: upgradeResult.newGoldBalance,
                         newVanityLevel: upgradeResult.newVanityLevel,
-                        statsBefore: ItemStats(atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0), // Placeholder - would need to calculate from response
+                        statsBefore: viewModel.lastUpgradeStatsBefore ?? ItemStats(atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0),
                         statsAfter: upgradeResult.item.computedStats,
                         onUpgradeAgain: {
                             if let itemId = viewModel.selectedItemForDetail?.id {

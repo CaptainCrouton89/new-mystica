@@ -263,7 +263,8 @@ struct ItemDetailModal: View {
                 Button {
                     audioManager.playMenuButtonClick()
                     dismiss()
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    Task {
+                        try? await Task.sleep(for: .milliseconds(300))
                         onUpgrade()
                     }
                 } label: {
@@ -289,7 +290,8 @@ struct ItemDetailModal: View {
                 Button {
                     audioManager.playMenuButtonClick()
                     dismiss()
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    Task {
+                        try? await Task.sleep(for: .milliseconds(300))
                         onCraft()
                     }
                 } label: {
@@ -317,7 +319,8 @@ struct ItemDetailModal: View {
                 audioManager.playMenuButtonClick()
                 dismiss()
                 // Delay to let modal dismiss before opening drawer
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                Task {
+                    try? await Task.sleep(for: .milliseconds(300))
                     onEquipDifferent()
                 }
             }
