@@ -624,8 +624,12 @@ extension InventoryView {
             EnhancedPlayerItem(
                 id: "1",
                 baseType: "iron_sword",
+                itemTypeId: "type-1",
+                category: "weapon",
                 level: 3,
+                rarity: "rare",
                 appliedMaterials: [],
+                materials: [],
                 computedStats: ItemStats(atkPower: 25, atkAccuracy: 15, defPower: 5, defAccuracy: 8),
                 materialComboHash: nil,
                 generatedImageUrl: nil,
@@ -638,11 +642,41 @@ extension InventoryView {
             EnhancedPlayerItem(
                 id: "2",
                 baseType: "steel_armor",
+                itemTypeId: "type-2",
+                category: "armor",
                 level: 5,
+                rarity: "epic",
                 appliedMaterials: [
-                    ItemMaterialApplication(materialId: "wood", styleId: "rustic", slotIndex: 0),
-                    ItemMaterialApplication(materialId: "crystal", styleId: "ethereal", slotIndex: 1)
+                    ItemMaterialApplication(
+                        materialId: "wood",
+                        styleId: "rustic",
+                        slotIndex: 0,
+                        appliedAt: "2025-10-23T06:00:00Z",
+                        material: ItemMaterialApplication.MaterialDetail(
+                            id: "wood",
+                            name: "Wood",
+                            description: nil,
+                            styleId: "rustic",
+                            statModifiers: StatModifier(atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0),
+                            imageUrl: nil
+                        )
+                    ),
+                    ItemMaterialApplication(
+                        materialId: "crystal",
+                        styleId: "ethereal",
+                        slotIndex: 1,
+                        appliedAt: "2025-10-23T06:00:00Z",
+                        material: ItemMaterialApplication.MaterialDetail(
+                            id: "crystal",
+                            name: "Crystal",
+                            description: nil,
+                            styleId: "ethereal",
+                            statModifiers: StatModifier(atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0),
+                            imageUrl: nil
+                        )
+                    )
                 ],
+                materials: [],
                 computedStats: ItemStats(atkPower: 10, atkAccuracy: 20, defPower: 45, defAccuracy: 25),
                 materialComboHash: "abc123",
                 generatedImageUrl: "https://example.com/styled_armor.png",
