@@ -1,25 +1,23 @@
 //
-//  ItemDetailModal.swift
+//  InventoryItemDetailModal.swift
 //  New-Mystica
 //
-//  Modal view for displaying detailed item information with unequip/equip actions
+//  Modal view for displaying detailed inventory item information
+//  Adapted from ItemDetailModal to work with EnhancedPlayerItem
 //
 
 import SwiftUI
 import SwiftData
 
-struct ItemDetailModal: View {
-    let item: PlayerItem
-    let slot: EquipmentSlot
-    let onUnequip: () async -> Void
-    let onEquipDifferent: () -> Void
-    let onUpgrade: () -> Void
+struct InventoryItemDetailModal: View {
+    let item: EnhancedPlayerItem
+    let onEquip: () async -> Void
     let onCraft: () -> Void
+    let onUpgrade: () -> Void
+    let onSell: () -> Void
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.audioManager) private var audioManager
-    @Environment(\.navigationManager) private var navigationManager
-    @State private var showUnequipConfirmation = false
 
     var body: some View {
         NavigationView {
@@ -46,7 +44,7 @@ struct ItemDetailModal: View {
                 .padding(.vertical, 16)
             }
             .background(Color.backgroundPrimary)
-            .navigationTitle(slot.displayName)
+            .navigationTitle("Item Details")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -59,21 +57,6 @@ struct ItemDetailModal: View {
                     }
                 }
             }
-        }
-        .confirmationDialog(
-            "Unequip Item",
-            isPresented: $showUnequipConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button("Unequip", role: .destructive) {
-                Task {
-                    await onUnequip()
-                    dismiss()
-                }
-            }
-            Button("Cancel", role: .cancel) { }
-        } message: {
-            Text("Remove \(item.baseType) from \(slot.displayName) slot?")
         }
     }
 
@@ -112,7 +95,7 @@ struct ItemDetailModal: View {
 
     private var fallbackItemIcon: some View {
         VStack(spacing: 12) {
-            Image(systemName: getSlotIcon())
+            Image(systemName: getItemIcon())
                 .font(.system(size: 72, weight: .medium))
                 .foregroundColor(getRarityColor())
 
@@ -130,11 +113,11 @@ struct ItemDetailModal: View {
                 // Level badge
                 Badge(label: "Level", value: "\(item.level)", color: Color.accentSecondary)
 
-                // Rarity badge
-                Badge(label: "Rarity", value: item.rarity.capitalized, color: getRarityColor())
+                // Rarity badge (placeholder - not available on EnhancedPlayerItem)
+                Badge(label: "Status", value: item.isEquipped ? "Equipped" : "Inventory", color: item.isEquipped ? Color.accent : Color.textSecondary)
 
-                // Category badge
-                Badge(label: "Type", value: item.category.capitalized, color: Color.textSecondary)
+                // Craft count badge
+                Badge(label: "Crafted", value: "\(item.craftCount)x", color: Color.warning)
             }
 
             // Styled indicator
@@ -227,7 +210,7 @@ struct ItemDetailModal: View {
                             .font(.system(size: 6))
                             .foregroundColor(Color.accent)
 
-                        NormalText(material.capitalized)
+                        NormalText(material.materialId.capitalized)
                             .foregroundColor(Color.textPrimary)
 
                         Spacer()
@@ -310,24 +293,45 @@ struct ItemDetailModal: View {
                 .buttonStyle(PlainButtonStyle())
             }
 
-            // Equip Different button
-            TextButton("Equip Different Item") {
-                audioManager.playMenuButtonClick()
-                dismiss()
-                // Delay to let modal dismiss before opening drawer
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-                    onEquipDifferent()
-                }
-            }
-
-            // Unequip button
+            // Equip button
             Button {
                 audioManager.playMenuButtonClick()
-                showUnequipConfirmation = true
+                dismiss()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    Task {
+                        await onEquip()
+                    }
+                }
             } label: {
                 HStack {
-                    Image(systemName: "minus.circle")
-                    NormalText("Unequip Item")
+                    Image(systemName: "checkmark.shield.fill")
+                    NormalText("Equip Item")
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.success.opacity(0.15))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color.success, lineWidth: 2)
+                        )
+                )
+                .foregroundColor(Color.success)
+            }
+            .buttonStyle(PlainButtonStyle())
+            .disabled(item.isEquipped)
+            .opacity(item.isEquipped ? 0.5 : 1.0)
+
+            // Sell button
+            Button {
+                audioManager.playMenuButtonClick()
+                dismiss()
+                onSell()
+            } label: {
+                HStack {
+                    Image(systemName: "dollarsign.circle.fill")
+                    NormalText("Sell Item")
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
@@ -349,36 +353,38 @@ struct ItemDetailModal: View {
     // MARK: - Helper Methods
 
     private func getRarityColor() -> Color {
-        switch item.rarity.lowercased() {
-        case "common":
-            return Color.borderSubtle
-        case "rare":
-            return Color.success
-        case "epic":
+        // Based on level and styling status since rarity isn't available
+        if item.isEquipped {
             return Color.accent
-        case "legendary":
-            return Color.warning
-        default:
+        } else if item.isStyled {
+            return Color.accentSecondary
+        } else if item.level >= 10 {
+            return Color.orange
+        } else if item.level >= 5 {
+            return Color.blue
+        } else {
             return Color.borderSubtle
         }
     }
 
-    private func getSlotIcon() -> String {
-        switch slot {
-        case .weapon:
+    private func getItemIcon() -> String {
+        let lowercased = item.baseType.lowercased()
+        if lowercased.contains("sword") || lowercased.contains("weapon") {
             return "sword.fill"
-        case .offhand:
+        } else if lowercased.contains("shield") {
             return "shield.fill"
-        case .head:
-            return "crown.fill"
-        case .armor:
+        } else if lowercased.contains("armor") || lowercased.contains("chest") {
             return "tshirt.fill"
-        case .feet:
+        } else if lowercased.contains("head") || lowercased.contains("helmet") {
+            return "crown.fill"
+        } else if lowercased.contains("feet") || lowercased.contains("boot") {
             return "shoe.2.fill"
-        case .accessory_1, .accessory_2:
+        } else if lowercased.contains("ring") || lowercased.contains("accessory") {
             return "ring.circle.fill"
-        case .pet:
+        } else if lowercased.contains("pet") {
             return "pawprint.fill"
+        } else {
+            return "cube.fill"
         }
     }
 }
@@ -450,38 +456,41 @@ private struct StatDetailRow: View {
 }
 
 // MARK: - Preview
-#Preview("Item Detail Modal") {
-    ItemDetailModal(
-        item: PlayerItem(
+#Preview("Inventory Item Detail Modal") {
+    InventoryItemDetailModal(
+        item: EnhancedPlayerItem(
             id: "550e8400-e29b-41d4-a716-446655440000",
             baseType: "Magic Sword",
-            itemTypeId: "550e8400-e29b-41d4-a716-446655440001",
-            category: "weapon",
             level: 5,
-            rarity: "epic",
-            appliedMaterials: ["steel", "crystal", "moonstone"],
-            isStyled: true,
+            appliedMaterials: [
+                ItemMaterialApplication(materialId: "steel", styleId: "rustic", slotIndex: 0),
+                ItemMaterialApplication(materialId: "crystal", styleId: "ethereal", slotIndex: 1)
+            ],
             computedStats: ItemStats(
                 atkPower: 45.0,
                 atkAccuracy: 0.85,
                 defPower: 12.0,
                 defAccuracy: 0.60
             ),
-            isEquipped: true,
-            generatedImageUrl: nil
+            materialComboHash: "abc123",
+            generatedImageUrl: nil,
+            imageGenerationStatus: .complete,
+            craftCount: 2,
+            isStyled: true,
+            isEquipped: false,
+            equippedSlot: nil
         ),
-        slot: .weapon,
-        onUnequip: {
-            print("Unequip tapped")
+        onEquip: {
+            print("Equip tapped")
         },
-        onEquipDifferent: {
-            print("Equip different tapped")
+        onCraft: {
+            print("Craft tapped")
         },
         onUpgrade: {
             print("Upgrade tapped")
         },
-        onCraft: {
-            print("Craft tapped")
+        onSell: {
+            print("Sell tapped")
         }
     )
     .modelContainer(for: Item.self, inMemory: true)

@@ -14,17 +14,15 @@ struct SplashScreenView: View {
     @State private var loadingText: String = ""
     @State private var errorMessage: String?
     @State private var authViewModel = AuthViewModel(appState: AppState.shared)
-    @State private var inventoryViewModel = InventoryViewModel()
-    @State private var equipmentViewModel: EquipmentViewModel
+    @State private var inventoryViewModel: InventoryViewModel?
+    @State private var equipmentViewModel: EquipmentViewModel?
     @Environment(\.navigationManager) private var navigationManager
     @Environment(\.audioManager) private var audioManager
     @Environment(\.backgroundImageManager) private var backgroundImageManager
     @Environment(AppState.self) private var appState
 
     init() {
-        let inventory = InventoryViewModel()
-        _inventoryViewModel = State(initialValue: inventory)
-        _equipmentViewModel = State(initialValue: EquipmentViewModel(inventoryViewModel: inventory))
+        // Initialize will be deferred until navigationManager is available from environment
     }
 
     var body: some View {
@@ -90,7 +88,7 @@ struct SplashScreenView: View {
                                         }
 
                                         loadingText = "Loading player data..."
-                                        await equipmentViewModel.fetchEquipment()
+                                        await equipmentViewModel?.fetchEquipment()
 
                                         withAnimation(.easeInOut(duration: 0.5)) {
                                             isActive = true
@@ -129,6 +127,12 @@ struct SplashScreenView: View {
             }
             .task {
                 do {
+                    // Initialize viewModels with navigationManager
+                    let inventory = InventoryViewModel(navigationManager: navigationManager)
+                    let equipment = EquipmentViewModel(inventoryViewModel: inventory)
+                    inventoryViewModel = inventory
+                    equipmentViewModel = equipment
+
                     print("🚀 [SPLASH] Starting app initialization...")
                     let hasToken = KeychainService.get(key: "mystica_access_token") != nil
 
@@ -159,7 +163,7 @@ struct SplashScreenView: View {
 
                     // Attempt to load equipment, but don't fail splash if it errors
                     do {
-                        await equipmentViewModel.fetchEquipment()
+                        await equipment.fetchEquipment()
                     } catch {
                         // Log equipment loading error but continue
                         print("⚠️  [SPLASH] Equipment loading failed (continuing anyway):", error.localizedDescription)

@@ -12,6 +12,7 @@ import Observation
 final class InventoryViewModel {
     let repository: InventoryRepository
     let materialsRepository: MaterialsRepository
+    weak var navigationManager: NavigationManager?
 
     // MARK: - State
     var items: Loadable<[EnhancedPlayerItem]> = .idle
@@ -31,10 +32,11 @@ final class InventoryViewModel {
     var applyingMaterial: Bool = false
 
 
-    // MARK: - Action Menu State
-    var showingItemActionMenu: Bool = false
-    var actionMenuItem: EnhancedPlayerItem?
-    var showingEquipmentDrawer: Bool = false
+    // MARK: - Item Detail Modal State
+    var showingItemDetailModal: Bool = false
+    var selectedItemForDetail: EnhancedPlayerItem?
+
+    // MARK: - Sell Confirmation State
     var showingSellConfirmation: Bool = false
 
     // MARK: - Loading States
@@ -52,9 +54,10 @@ final class InventoryViewModel {
     var successMessage: String = ""
     var successIcon: String = "checkmark.circle.fill"
 
-    init(repository: InventoryRepository = DefaultInventoryRepository(), materialsRepository: MaterialsRepository = DefaultMaterialsRepository()) {
+    init(repository: InventoryRepository = DefaultInventoryRepository(), materialsRepository: MaterialsRepository = DefaultMaterialsRepository(), navigationManager: NavigationManager? = nil) {
         self.repository = repository
         self.materialsRepository = materialsRepository
+        self.navigationManager = navigationManager
     }
 
     // MARK: - Public Methods
@@ -255,33 +258,33 @@ print("❌ Error: \(appError)")
         }
     }
 
-    // MARK: - Action Menu Methods
+    // MARK: - Item Detail Modal Methods
 
-    func showActionMenu(for item: EnhancedPlayerItem) {
-        actionMenuItem = item
-        showingItemActionMenu = true
+    func showItemDetail(for item: EnhancedPlayerItem) {
+        selectedItemForDetail = item
+        showingItemDetailModal = true
     }
 
-    func dismissActionMenu() {
-        showingItemActionMenu = false
-        actionMenuItem = nil
+    func dismissItemDetailModal() {
+        showingItemDetailModal = false
+        selectedItemForDetail = nil
     }
 
     func handleEquipAction() async {
-        guard let item = actionMenuItem else { return }
-        dismissActionMenu()
+        guard let item = selectedItemForDetail else { return }
+        dismissItemDetailModal()
 
         // Directly equip the item
         await equipItem(item)
     }
 
     func handleCraftAction() async {
-        dismissActionMenu()
+        dismissItemDetailModal()
         await handleCraftNavigation()
     }
 
     func handleUpgradeAction() async {
-        dismissActionMenu()
+        dismissItemDetailModal()
         await handleUpgradeNavigation()
     }
 
@@ -291,10 +294,11 @@ print("❌ Error: \(appError)")
         // Simulate navigation delay for loading state
         try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
 
-        // TODO: Navigate to crafting screen when F-04 integration is complete
-        print("🔨 Navigate to crafting screen")
+        // Navigate to crafting screen with preselected item
+        await MainActor.run {
+            navigationManager?.navigateTo(.crafting(preselectedItem: selectedItemForDetail, preselectedMaterial: nil))
+        }
 
-        showSuccessToast(message: "Opening crafting screen", icon: "hammer.fill")
         isNavigatingToCraft = false
     }
 
@@ -312,45 +316,39 @@ print("❌ Error: \(appError)")
     }
 
     func handleSellAction() {
-        dismissActionMenu()
+        showingItemDetailModal = false  // Dismiss the detail modal without clearing the selected item
         showingSellConfirmation = true
     }
 
     func confirmSellItem() async {
-        guard let item = actionMenuItem else { return }
+        guard let item = selectedItemForDetail else { return }
 
         isSelling = true
 
-        do {
-            // Calculate sell value for success message
-            let sellValue = calculateSellValue(for: item)
+        // Calculate sell value for success message
+        let sellValue = calculateSellValue(for: item)
 
-            // Simulate API call delay
-            try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+        // Simulate API call delay
+        try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
 
-            // TODO: Implement sell API call when backend supports it
-            // For now, just remove from local state
-            if case .loaded(var currentItems) = items {
-                currentItems.removeAll { $0.id == item.id }
-                items = .loaded(currentItems)
-            }
-
-            // Show success feedback
-            showSuccessToast(message: "Sold for \(sellValue) gold", icon: "dollarsign.circle.fill")
-
-            showingSellConfirmation = false
-            actionMenuItem = nil
-        } catch {
-            // Handle sell error
-print("❌ Error: \(error)")
+        // TODO: Implement sell API call when backend supports it
+        // For now, just remove from local state
+        if case .loaded(var currentItems) = items {
+            currentItems.removeAll { $0.id == item.id }
+            items = .loaded(currentItems)
         }
 
+        // Show success feedback
+        showSuccessToast(message: "Sold for \(sellValue) gold", icon: "dollarsign.circle.fill")
+
+        showingSellConfirmation = false
+        selectedItemForDetail = nil  // Clear after selling
         isSelling = false
     }
 
     func cancelSell() {
         showingSellConfirmation = false
-        actionMenuItem = nil
+        selectedItemForDetail = nil  // Clear when canceling
     }
 
     // MARK: - Equipment Methods

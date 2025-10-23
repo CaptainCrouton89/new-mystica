@@ -252,7 +252,13 @@ struct InventoryView: View {
     @Environment(\.navigationManager) private var navigationManager
     @Environment(\.audioManager) private var audioManager
     @Environment(AppState.self) private var appState
-    @State private var viewModel = InventoryViewModel()
+    @State private var viewModel: InventoryViewModel
+
+    init() {
+        // Create viewModel with navigationManager from environment is not possible in init
+        // So we create with nil and set it in onAppear
+        _viewModel = State(initialValue: InventoryViewModel())
+    }
 
     var body: some View {
         mainContentView
@@ -262,7 +268,29 @@ struct InventoryView: View {
             .task {
                 await viewModel.loadInventory()
             }
-            .overlay(actionMenuOverlay)
+            .sheet(isPresented: $viewModel.showingItemDetailModal) {
+                if let item = viewModel.selectedItemForDetail {
+                    InventoryItemDetailModal(
+                        item: item,
+                        onEquip: {
+                            await viewModel.handleEquipAction()
+                        },
+                        onCraft: {
+                            Task {
+                                await viewModel.handleCraftAction()
+                            }
+                        },
+                        onUpgrade: {
+                            Task {
+                                await viewModel.handleUpgradeAction()
+                            }
+                        },
+                        onSell: {
+                            viewModel.handleSellAction()
+                        }
+                    )
+                }
+            }
             .overlay(sellConfirmationOverlay)
             .overlay(successToastOverlay)
             .alert("Error", isPresented: $viewModel.showingErrorAlert) {
@@ -273,6 +301,10 @@ struct InventoryView: View {
                 Text("An error occurred. Please try again.")
             }
             .overlay(loadingOverlay)
+            .onAppear {
+                // Set navigationManager after initialization
+                viewModel.navigationManager = navigationManager
+            }
     }
 
     // MARK: - Main Content
@@ -317,59 +349,9 @@ struct InventoryView: View {
     // MARK: - Overlay Views
 
     @ViewBuilder
-    private var actionMenuOverlay: some View {
-        Group {
-            if viewModel.showingItemActionMenu, let item = viewModel.actionMenuItem {
-                ZStack {
-                    Color.black.opacity(0.4)
-                        .edgesIgnoringSafeArea(.all)
-                        .onTapGesture {
-                            audioManager.playCancelClick()
-                            viewModel.dismissActionMenu()
-                        }
-
-                    VStack {
-                        Spacer()
-                        ItemActionMenu(
-                            item: item,
-                            onEquip: {
-                                Task {
-                                    await viewModel.handleEquipAction()
-                                }
-                            },
-                            onCraft: {
-                                Task {
-                                    await viewModel.handleCraftAction()
-                                }
-                            },
-                            onUpgrade: {
-                                Task {
-                                    await viewModel.handleUpgradeAction()
-                                }
-                            },
-                            onSell: {
-                                viewModel.handleSellAction()
-                            },
-                            onDismiss: {
-                                viewModel.dismissActionMenu()
-                            },
-                            isNavigatingToCraft: viewModel.isNavigatingToCraft,
-                            isNavigatingToUpgrade: viewModel.isNavigatingToUpgrade
-                        )
-                        .padding(.horizontal, 20)
-                        .padding(.bottom, 50)
-                    }
-                }
-                .transition(.opacity.combined(with: .move(edge: .bottom)))
-                .animation(.easeInOut(duration: 0.3), value: viewModel.showingItemActionMenu)
-            }
-        }
-    }
-
-    @ViewBuilder
     private var sellConfirmationOverlay: some View {
         Group {
-            if viewModel.showingSellConfirmation, let item = viewModel.actionMenuItem {
+            if viewModel.showingSellConfirmation, let item = viewModel.selectedItemForDetail {
                 SellConfirmationModal(
                     item: item,
                     sellValue: calculateSellValue(for: item),
@@ -509,7 +491,7 @@ struct InventoryView: View {
                 ItemRow(item: item)
                     .onTapGesture {
                         audioManager.playMenuButtonClick()
-                        viewModel.showActionMenu(for: item)
+                        viewModel.showItemDetail(for: item)
                     }
             }
 
@@ -613,22 +595,6 @@ struct InventoryView: View {
     }
 
     // MARK: - Helper Methods
-
-    // MARK: - Navigation Methods
-
-    private func handleCraftNavigation(for item: EnhancedPlayerItem) {
-        viewModel.dismissActionMenu()
-        // TODO: Navigate to crafting screen when F-04 integration is complete
-        print("🔨 Navigate to crafting with item: \(item.baseType) (ID: \(item.id))")
-        // navigationManager.navigateTo(.crafting) // Will be enabled when crafting destination exists
-    }
-
-    private func handleUpgradeNavigation(for item: EnhancedPlayerItem) {
-        viewModel.dismissActionMenu()
-        // TODO: Navigate to upgrade screen when F-06 integration is complete
-        print("⬆️ Navigate to upgrade with item: \(item.baseType) (ID: \(item.id))")
-        // navigationManager.navigateTo(.upgrade) // Will be enabled when upgrade destination exists
-    }
 
     private func calculateSellValue(for item: EnhancedPlayerItem) -> Int {
         // Basic sell value calculation based on level and styling

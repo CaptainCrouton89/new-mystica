@@ -223,7 +223,7 @@ private struct ItemSelectionCard: View {
                             StatBadge(
                                 iconUrl: "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/attack-power-crossed-swords.png",
                                 fallbackIcon: "sword.fill",
-                                value: String(format: "%.1f", item.computedStats.atkPower),
+                                value: String(format: "%.0f", item.computedStats.atkPower * 100),
                                 color: Color.alert
                             )
                         }
@@ -231,7 +231,7 @@ private struct ItemSelectionCard: View {
                             StatBadge(
                                 iconUrl: "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/defense-power-round-shield.png",
                                 fallbackIcon: "shield.fill",
-                                value: String(format: "%.1f", item.computedStats.defPower),
+                                value: String(format: "%.0f", item.computedStats.defPower * 100),
                                 color: Color.accentSecondary
                             )
                         }
@@ -334,10 +334,10 @@ private struct StatBadge: View {
                 image
                     .resizable()
                     .aspectRatio(contentMode: .fit)
-                    .frame(width: 10, height: 10)
+                    .frame(width: 30, height: 30)
             } placeholder: {
                 Image(systemName: fallbackIcon)
-                    .font(.system(size: 10))
+                    .font(.system(size: 30))
             }
             Text(value)
                 .font(FontManager.caption)
