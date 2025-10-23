@@ -325,21 +325,44 @@ print("❌ Error: \(appError)")
 
         isSelling = true
 
-        // Calculate sell value for success message
-        let sellValue = calculateSellValue(for: item)
+        do {
+            // Call sell API
+            let response = try await repository.sellItem(itemId: item.id)
 
-        // Simulate API call delay
-        try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+            // Remove from local state
+            if case .loaded(var currentItems) = items {
+                currentItems.removeAll { $0.id == item.id }
+                items = .loaded(currentItems)
+            }
 
-        // TODO: Implement sell API call when backend supports it
-        // For now, just remove from local state
-        if case .loaded(var currentItems) = items {
-            currentItems.removeAll { $0.id == item.id }
-            items = .loaded(currentItems)
+            // Update app state with new gold balance from backend
+            await MainActor.run {
+                // Update currency balance for gold
+                if case .loaded(let balances) = AppState.shared.currencies {
+                    let updatedBalances = balances.map { balance in
+                        if balance.currencyCode == .gold {
+                            return CurrencyBalance(
+                                currencyCode: balance.currencyCode,
+                                balance: response.newGoldBalance,
+                                updatedAt: balance.updatedAt
+                            )
+                        }
+                        return balance
+                    }
+                    AppState.shared.setCurrencies(updatedBalances)
+                }
+
+                showSuccessToast(message: "Sold for \(response.goldEarned) gold", icon: "dollarsign.circle.fill")
+            }
+
+            print("✅ Item sold successfully: \(response.itemName) for \(response.goldEarned) gold")
+        } catch let error as AppError {
+            handleError(error)
+            print("❌ Failed to sell item: \(error)")
+        } catch {
+            handleError(.unknown(error))
+            print("❌ Failed to sell item: \(error)")
         }
-
-        // Show success feedback
-        showSuccessToast(message: "Sold for \(sellValue) gold", icon: "dollarsign.circle.fill")
 
         showingSellConfirmation = false
         selectedItemForDetail = nil  // Clear after selling

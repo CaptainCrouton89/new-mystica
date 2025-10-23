@@ -180,7 +180,7 @@ final class CraftingViewModel {
             // Update results state
             craftedItem = response
             craftCount = response.appliedMaterials.count  // Use materials count as proxy
-            isFirstCraft = response.appliedMaterials.contains { $0.materialId == material.materialId && $0.styleId == material.styleId }
+            isFirstCraft = response.appliedMaterials.contains { $0.material?.id == material.materialId && $0.material?.styleId == material.styleId }
 
             craftingState = .results
 
