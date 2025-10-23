@@ -239,4 +239,37 @@ final class DefaultCombatRepository: CombatRepository {
 
         return (rewards: response.rewards, message: response.message)
     }
+
+    func getUserActiveSession() async throws -> CombatSession? {
+        struct ActiveSessionResponse: Decodable {
+            let session: CombatSession?
+        }
+
+        let response: ActiveSessionResponse = try await apiClient.get(
+            endpoint: "/combat/active-session"
+        )
+
+        return response.session
+    }
+
+    func abandonCombat(sessionId: String) async throws {
+        struct AbandonRequest: Encodable {
+            let sessionId: String
+
+            enum CodingKeys: String, CodingKey {
+                case sessionId = "session_id"
+            }
+        }
+
+        struct AbandonResponse: Decodable {
+            let message: String
+        }
+
+        let request = AbandonRequest(sessionId: sessionId)
+
+        let _: AbandonResponse = try await apiClient.post(
+            endpoint: "/combat/abandon",
+            body: request
+        )
+    }
 }

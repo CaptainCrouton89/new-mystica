@@ -46,4 +46,12 @@ protocol CombatRepository {
     /// - Parameter sessionId: Combat session ID to retreat from
     /// - Returns: Partial rewards and retreat message
     func retreatCombat(sessionId: String) async throws -> (rewards: CombatRewards?, message: String)
+
+    /// Get user's active combat session if one exists
+    /// - Returns: Active combat session or nil if none exists
+    func getUserActiveSession() async throws -> CombatSession?
+
+    /// Abandon combat session without rewards
+    /// - Parameter sessionId: Combat session ID to abandon
+    func abandonCombat(sessionId: String) async throws
 }
