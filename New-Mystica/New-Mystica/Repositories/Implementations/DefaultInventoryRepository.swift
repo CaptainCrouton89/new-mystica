@@ -65,12 +65,16 @@ final class DefaultInventoryRepository: InventoryRepository {
         }
 
         struct ApplyMaterialResponse: Decodable {
-            let success: Bool
             let item: EnhancedPlayerItem
 
             enum CodingKeys: String, CodingKey {
-                case success
                 case item
+            }
+
+            init(from decoder: Decoder) throws {
+                let container = try decoder.container(keyedBy: CodingKeys.self)
+                self.item = try container.decode(EnhancedPlayerItem.self, forKey: .item)
+                // Ignore extra fields: success, stats, image_url, is_first_craft, total_crafts, materials_consumed
             }
         }
 
@@ -90,7 +94,6 @@ final class DefaultInventoryRepository: InventoryRepository {
 
     func removeMaterial(itemId: String, slotIndex: Int) async throws -> EnhancedPlayerItem {
         struct RemoveMaterialResponse: Decodable {
-            let success: Bool
             let item: EnhancedPlayerItem
         }
 
@@ -117,7 +120,6 @@ final class DefaultInventoryRepository: InventoryRepository {
         }
 
         struct ReplaceMaterialResponse: Decodable {
-            let success: Bool
             let item: EnhancedPlayerItem
         }
 
