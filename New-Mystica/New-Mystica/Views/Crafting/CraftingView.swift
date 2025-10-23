@@ -164,8 +164,11 @@ struct CraftingView: View {
         Group {
             switch viewModel.availableItems {
             case .idle, .loading:
-                ProgressView("Loading items...")
-                    .frame(maxHeight: 400)
+                VStack {
+                    Spacer()
+                    ProgressView("Loading items...")
+                    Spacer()
+                }
 
             case .loaded(let items):
                 if items.isEmpty {
@@ -182,6 +185,8 @@ struct CraftingView: View {
 
     private var emptyItemsView: some View {
         VStack(spacing: 16) {
+            Spacer()
+
             Image(systemName: "tray")
                 .font(.system(size: 48, weight: .light))
                 .foregroundColor(Color.textSecondary)
@@ -189,8 +194,9 @@ struct CraftingView: View {
             NormalText("No items available for crafting")
                 .multilineTextAlignment(.center)
                 .foregroundColor(Color.textSecondary)
+
+            Spacer()
         }
-        .frame(maxHeight: 400)
     }
 
     private func itemsGridView(items: [EnhancedPlayerItem]) -> some View {
@@ -214,7 +220,6 @@ struct CraftingView: View {
             }
             .padding(.horizontal, 20)
         }
-        .frame(maxHeight: 400)
     }
 
     // MARK: - Material Selection Drawer Content
@@ -223,8 +228,11 @@ struct CraftingView: View {
         Group {
             switch viewModel.availableMaterials {
             case .idle, .loading:
-                ProgressView("Loading materials...")
-                    .frame(maxHeight: 400)
+                VStack {
+                    Spacer()
+                    ProgressView("Loading materials...")
+                    Spacer()
+                }
 
             case .loaded(let materials):
                 if materials.isEmpty {
@@ -241,6 +249,8 @@ struct CraftingView: View {
 
     private var emptyMaterialsView: some View {
         VStack(spacing: 16) {
+            Spacer()
+
             Image(systemName: "cube")
                 .font(.system(size: 48, weight: .light))
                 .foregroundColor(Color.textSecondary)
@@ -248,8 +258,9 @@ struct CraftingView: View {
             NormalText("No materials available")
                 .multilineTextAlignment(.center)
                 .foregroundColor(Color.textSecondary)
+
+            Spacer()
         }
-        .frame(maxHeight: 400)
     }
 
     private func materialsGridView(materials: [MaterialInventoryStack]) -> some View {
@@ -273,11 +284,12 @@ struct CraftingView: View {
             }
             .padding(.horizontal, 20)
         }
-        .frame(maxHeight: 400)
     }
 
     private func errorView(message: String) -> some View {
         VStack(spacing: 16) {
+            Spacer()
+
             Image(systemName: "exclamationmark.triangle")
                 .font(.system(size: 48, weight: .light))
                 .foregroundColor(Color.red)
@@ -285,8 +297,9 @@ struct CraftingView: View {
             NormalText(message)
                 .multilineTextAlignment(.center)
                 .foregroundColor(Color.textSecondary)
+
+            Spacer()
         }
-        .frame(maxHeight: 400)
     }
 
     // MARK: - Crafting Progress Overlay
