@@ -14,11 +14,7 @@ struct MapView: View, NavigableView {
     @Environment(\.navigationManager) private var navigationManager
     @Environment(\.audioManager) private var audioManager
     @State private var viewModel = MapViewModel()
-    @State private var region = MKCoordinateRegion(
-        center: CLLocationCoordinate2D(latitude: 37.7749, longitude: -122.4194), // San Francisco
-        span: MKCoordinateSpan(latitudeDelta: 0.1, longitudeDelta: 0.1)
-    )
-    @State private var userTrackingMode: MapUserTrackingMode = .none
+    @State private var position: MapCameraPosition = .automatic
     @State private var showLocationPopup = false
     @State private var selectedLocation: Location?
 
@@ -26,13 +22,15 @@ struct MapView: View, NavigableView {
 
     // MARK: - Location Handling Methods
 
-    private func updateRegionToUserLocation() {
+    private func updatePositionToUserLocation() {
         guard let userLocation = viewModel.userLocation else { return }
         withAnimation(.easeInOut(duration: 1.0)) {
-            region = MKCoordinateRegion(
-                center: userLocation,
-                span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01)
-            )
+            position = .camera(MapCamera(
+                centerCoordinate: userLocation,
+                distance: 1000, // Meters - controls zoom level
+                heading: 0,
+                pitch: 0
+            ))
         }
     }
 
@@ -66,10 +64,12 @@ struct MapView: View, NavigableView {
             // Center map on user location when first received
             if let userLoc = viewModel.userLocation {
                 withAnimation {
-                    region = MKCoordinateRegion(
-                        center: userLoc,
-                        span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
-                    )
+                    position = .camera(MapCamera(
+                        centerCoordinate: userLoc,
+                        distance: 1200,
+                        heading: 0,
+                        pitch: 0
+                    ))
                 }
             }
         }
@@ -89,17 +89,23 @@ struct MapView: View, NavigableView {
     private var mapContentView: some View {
         LoadableView(viewModel.nearbyLocations) { locations in
             ZStack {
-                Map(coordinateRegion: $region, interactionModes: .all, userTrackingMode: $userTrackingMode, annotationItems: locations) { location in
-                    MapAnnotation(coordinate: CLLocationCoordinate2D(latitude: location.lat, longitude: location.lng)) {
-                        LocationMarkerView(
-                            location: location,
-                            userLocation: viewModel.userLocation,
-                            onTap: {
-                                audioManager.playMapIconClick()
-                                selectedLocation = location
-                                showLocationPopup = true
-                            }
-                        )
+                Map(position: $position, interactionModes: .all) {
+                    // Show user location indicator
+                    UserAnnotation()
+
+                    // Show nearby location markers
+                    ForEach(locations, id: \.id) { location in
+                        Annotation("", coordinate: CLLocationCoordinate2D(latitude: location.lat, longitude: location.lng)) {
+                            LocationMarkerView(
+                                location: location,
+                                userLocation: viewModel.userLocation,
+                                onTap: {
+                                    audioManager.playMapIconClick()
+                                    selectedLocation = location
+                                    showLocationPopup = true
+                                }
+                            )
+                        }
                     }
                 }
                 .ignoresSafeArea()
@@ -108,10 +114,7 @@ struct MapView: View, NavigableView {
                 VStack(alignment: .trailing, spacing: 12) {
                     Button(action: {
                         audioManager.playMapIconClick()
-                        withAnimation {
-                            userTrackingMode = .follow
-                            updateRegionToUserLocation()
-                        }
+                        updatePositionToUserLocation()
                     }) {
                         Image(systemName: "location.fill")
                             .font(.system(size: 16, weight: .semibold))
