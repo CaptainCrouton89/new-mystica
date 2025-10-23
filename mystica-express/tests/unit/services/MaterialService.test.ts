@@ -68,7 +68,8 @@ jest.mock('../../../src/repositories/ItemRepository.js', () => ({
   ItemRepository: jest.fn().mockImplementation(() => ({
     findById: jest.fn(),
     updateImageData: jest.fn(),
-    findWithMaterials: jest.fn()
+    findWithMaterials: jest.fn(),
+    updateStats: jest.fn()
   }))
 }));
 
@@ -308,6 +309,7 @@ describe('MaterialService (TDD)', () => {
         image_url: 'https://example.com/generated-image.png'
       });
       mockItemRepository.updateImageData.mockResolvedValue(undefined);
+      mockItemRepository.updateStats.mockResolvedValue(undefined);
       mockMaterialRepository.findMaterialById.mockResolvedValue(IRON_MATERIAL);
       mockItemRepository.findWithMaterials.mockResolvedValue({
         ...item,
@@ -401,6 +403,7 @@ describe('MaterialService (TDD)', () => {
         image_url: 'https://example.com/generated-image.png'
       });
       mockItemRepository.updateImageData.mockResolvedValue(undefined);
+      mockItemRepository.updateStats.mockResolvedValue(undefined);
       mockMaterialRepository.findMaterialById.mockResolvedValue(IRON_MATERIAL);
       mockItemRepository.findWithMaterials.mockResolvedValue({
         ...item,
@@ -463,6 +466,7 @@ describe('MaterialService (TDD)', () => {
         image_url: 'https://example.com/generated-image.png'
       });
       mockItemRepository.updateImageData.mockResolvedValue(undefined);
+      mockItemRepository.updateStats.mockResolvedValue(undefined);
       mockMaterialRepository.findMaterialById.mockResolvedValue(PIXEL_ART_MATERIAL);
       mockItemRepository.findWithMaterials.mockResolvedValue({
         ...item,
@@ -676,6 +680,7 @@ describe('MaterialService (TDD)', () => {
         image_url: 'https://example.com/generated-image.png'
       });
       mockItemRepository.updateImageData.mockResolvedValue(undefined);
+      mockItemRepository.updateStats.mockResolvedValue(undefined);
       mockMaterialRepository.findMaterialById.mockResolvedValue({
         id: oldMaterialId,
         name: 'Iron',
@@ -871,6 +876,7 @@ describe('MaterialService (TDD)', () => {
         image_url: 'https://example.com/generated-image.png'
       });
       mockItemRepository.updateImageData.mockResolvedValue(undefined);
+      mockItemRepository.updateStats.mockResolvedValue(undefined);
       mockMaterialRepository.findMaterialById.mockResolvedValue(offensiveMaterial);
       mockItemRepository.findWithMaterials.mockResolvedValue({
         ...item,
