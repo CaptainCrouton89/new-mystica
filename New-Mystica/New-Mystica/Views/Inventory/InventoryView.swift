@@ -228,109 +228,6 @@ struct ItemRow: View {
     }
 }
 
-// MARK: - Stack Row Component
-struct StackRow: View {
-    let stack: ItemStack
-
-    var body: some View {
-        HStack(spacing: 12) {
-            // Stack Icon
-            AsyncImage(url: URL(string: stack.iconUrl)) { phase in
-                switch phase {
-                case .empty:
-                    ProgressView()
-                        .frame(width: 50, height: 50)
-                case .success(let image):
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: 50, height: 50)
-                case .failure:
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(Color.backgroundSecondary)
-                            .frame(width: 50, height: 50)
-
-                        Image(systemName: "cube.fill")
-                            .font(.system(size: 24, weight: .medium))
-                            .foregroundColor(Color.textSecondary)
-                    }
-                @unknown default:
-                    EmptyView()
-                }
-            }
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color.borderSubtle, lineWidth: 2)
-            )
-            .overlay(
-                // Quantity badge
-                VStack {
-                    HStack {
-                        Spacer()
-                        Text("\(stack.quantity)")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(Color.accent)
-                            .clipShape(RoundedRectangle(cornerRadius: 8))
-                    }
-                    Spacer()
-                }
-                .padding(4)
-            )
-
-            // Stack Details
-            VStack(alignment: .leading, spacing: 4) {
-                // Level
-                HStack {
-                    NormalText("Level \(stack.level) Items", size: 16)
-                        .foregroundColor(Color.textPrimary)
-                        .bold()
-
-                    Spacer()
-                }
-
-                // Stats
-                HStack(spacing: 16) {
-                    StatValueView(
-                        label: "ATK",
-                        value: String(format: "%.0f", stack.baseStats.atkPower),
-                        color: Color.accent
-                    )
-
-                    StatValueView(
-                        label: "DEF",
-                        value: String(format: "%.0f", stack.baseStats.defPower),
-                        color: Color.accentSecondary
-                    )
-
-                    Spacer()
-                }
-
-                SmallText("\(stack.quantity) items")
-                    .foregroundColor(Color.textSecondary)
-            }
-
-            // Chevron
-            Image(systemName: "chevron.right")
-                .font(.system(size: 14, weight: .medium))
-                .foregroundColor(Color.borderSubtle)
-        }
-        .padding(.vertical, 8)
-        .padding(.horizontal, 16)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.backgroundCard)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.borderSubtle, lineWidth: 1)
-                )
-        )
-    }
-}
 
 // MARK: - Stat Value Component
 struct StatValueView: View {
@@ -408,10 +305,6 @@ struct InventoryView: View {
                             Task { await viewModel.loadInventory() }
                         }
 
-                        // Stacks Section (unstyled base items, grouped by type+level)
-                        if !viewModel.stacks.isEmpty {
-                            stacksSection(stacks: viewModel.stacks)
-                        }
 
                         // Materials Section
                         LoadableView(viewModel.materialInventory) { materials in
@@ -601,8 +494,8 @@ struct InventoryView: View {
 
     private func itemsSection(items: [EnhancedPlayerItem]) -> some View {
         Group {
-            // Show empty state only if BOTH items and stacks are empty
-            if items.isEmpty && viewModel.stacks.isEmpty {
+            // Show empty state if no items
+            if items.isEmpty {
                 emptyStateView
             } else {
                 itemListView(items: items)
@@ -667,40 +560,6 @@ struct InventoryView: View {
         }
     }
 
-    // MARK: - Stacks Section
-
-    private func stacksSection(stacks: [ItemStack]) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Section Header
-            HStack {
-                TitleText("Base Items", size: 20)
-                    .foregroundColor(Color.textPrimary)
-
-                Spacer()
-
-                // Stack count
-                SmallText("\(stacks.count) stacks")
-                    .foregroundColor(Color.textSecondary)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color.backgroundSecondary)
-                    )
-            }
-
-            LazyVStack(spacing: 12) {
-                ForEach(stacks, id: \.itemTypeId) { stack in
-                    StackRow(stack: stack)
-                        .onTapGesture {
-                            audioManager.playMenuButtonClick()
-                            // TODO: Handle stack selection - maybe expand to show individual items or craft options
-                            print("📦 Tapped stack: \(stack.quantity)x level \(stack.level) items")
-                        }
-                }
-            }
-        }
-    }
 
     // MARK: - Materials Section
 

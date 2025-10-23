@@ -126,6 +126,18 @@ export interface MaterialStack {
   is_styled: boolean;
 }
 
+/**
+ * Detailed material stack with full material data (used internally by MaterialService)
+ */
+export interface MaterialStackDetailed {
+  id: string;
+  user_id: string;
+  material_id: string;
+  style_id: string;
+  quantity: number;
+  material: Material;
+}
+
 
 // ============================================================================
 // Stats and Equipment

@@ -101,12 +101,10 @@ struct StorageCapacity: Codable {
 // MARK: - Inventory Response
 struct InventoryResponse: Codable {
     let items: [EnhancedPlayerItem]
-    let stacks: [ItemStack]
     let pagination: PaginationInfo
 
     enum CodingKeys: String, CodingKey {
         case items
-        case stacks
         case pagination
     }
 }

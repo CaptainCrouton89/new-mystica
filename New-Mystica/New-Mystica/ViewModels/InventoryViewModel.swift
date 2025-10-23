@@ -15,7 +15,6 @@ final class InventoryViewModel {
 
     // MARK: - State
     var items: Loadable<[EnhancedPlayerItem]> = .idle
-    var stacks: [ItemStack] = []
     var materials: Loadable<[MaterialTemplate]> = .idle
     var materialInventory: Loadable<[MaterialInventoryStack]> = .idle
 
@@ -75,7 +74,6 @@ final class InventoryViewModel {
                 sortOption: nil
             )
             items = .loaded(response.items)
-            stacks = response.stacks
 
             // Load material inventory alongside items
             await loadMaterialInventory()
@@ -130,9 +128,6 @@ print("❌ Error: \(appError)")
                 items = .loaded(response.items)
             }
 
-            // Replace stacks (they're not paginated)
-            stacks = response.stacks
-
             currentPage = response.pagination.currentPage
             totalPages = response.pagination.totalPages
             canLoadMore = currentPage < totalPages
@@ -149,7 +144,6 @@ print("❌ Error: \(appError)")
 
     func refreshInventory() async {
         currentPage = 1
-        stacks = []
         await loadInventory()
     }
 

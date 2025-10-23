@@ -1,35 +1,33 @@
+import { ImageCacheRepository } from '../repositories/ImageCacheRepository.js';
+import { ItemRepository } from '../repositories/ItemRepository.js';
+import { ItemTypeRepository } from '../repositories/ItemTypeRepository.js';
+import { MaterialRepository } from '../repositories/MaterialRepository.js';
+import { PetRepository } from '../repositories/PetRepository.js';
+import { ProfileRepository } from '../repositories/ProfileRepository.js';
+import { WeaponRepository } from '../repositories/WeaponRepository.js';
 import {
-  Item,
-  UpgradeResult,
-  Stats,
   InventoryResponse,
+  Item,
+  MaterialStack,
   PaginationParams,
-  ItemType,
   Rarity,
-  MaterialStack
+  Stats,
+  UpgradeResult
 } from '../types/api.types';
+import { Database } from '../types/database.types.js';
 import {
-  NotImplementedError,
-  NotFoundError,
+  CreateItemData,
+  ItemWithDetails
+} from '../types/repository.types.js';
+import {
   BusinessLogicError,
+  NotFoundError,
   ValidationError,
   mapSupabaseError
 } from '../utils/errors';
-import { statsService } from './StatsService';
-import { profileService } from './ProfileService';
-import { ItemRepository } from '../repositories/ItemRepository.js';
-import { ItemTypeRepository } from '../repositories/ItemTypeRepository.js';
-import { ProfileRepository } from '../repositories/ProfileRepository.js';
-import { WeaponRepository } from '../repositories/WeaponRepository.js';
-import { PetRepository } from '../repositories/PetRepository.js';
-import { MaterialRepository } from '../repositories/MaterialRepository.js';
-import { ImageCacheRepository } from '../repositories/ImageCacheRepository.js';
-import {
-  ItemWithDetails,
-  CreateItemData
-} from '../types/repository.types.js';
 import { computeComboHash } from '../utils/hash.js';
-import { Database } from '../types/database.types.js';
+import { profileService } from './ProfileService';
+import { statsService } from './StatsService';
 
 // Repository return types
 type ItemRow = Database['public']['Tables']['items']['Row'];
@@ -456,7 +454,6 @@ export class ItemService {
 
       return {
         items: transformedItems,
-        material_stacks: materialStacks,
         total_items: totalItems,
         total_materials: totalMaterials,
         storage_capacity: {
