@@ -369,7 +369,7 @@ struct EquipmentView: View {
             VStack(spacing: 16) {
                 // Item name and level
                 VStack(spacing: 4) {
-                    TitleText(item.itemType.name)
+                    TitleText(item.baseType)
                         .foregroundColor(Color.textPrimary)
 
                     NormalText("Level \(item.level)")
@@ -442,19 +442,7 @@ struct EquipmentView: View {
                     .padding(.horizontal, 16)
                 }
 
-                // Item description (if available)
-                if !item.itemType.description.isEmpty {
-                    let description = item.itemType.description
-                    VStack(spacing: 4) {
-                        TitleText("Description", size: 18)
-                            .foregroundColor(Color.textPrimary)
-
-                        NormalText(description)
-                            .foregroundColor(Color.textSecondary)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 16)
-                    }
-                }
+                // Item description removed (not available in flattened API structure)
 
                 // Close button
                 TextButton("Close") {
@@ -518,15 +506,9 @@ struct EquipmentView: View {
 // MARK: - Mock Data for Preview
 private let mockPlayerItem = PlayerItem(
     id: "550e8400-e29b-41d4-a716-446655440000",
-    itemType: ItemType(
-        id: "550e8400-e29b-41d4-a716-446655440001",
-        name: "Magic Sword",
-        category: "weapon",
-        equipmentSlot: "weapon",
-        baseStats: ItemStats(atkPower: 0.4, atkAccuracy: 0.25, defPower: 0.25, defAccuracy: 0.1),
-        rarity: "epic",
-        description: "A magical sword that glows with power"
-    ),
+    baseType: "Magic Sword",
+    itemTypeId: "550e8400-e29b-41d4-a716-446655440001",
+    category: "weapon",
     level: 5,
     rarity: "epic",
     appliedMaterials: [],

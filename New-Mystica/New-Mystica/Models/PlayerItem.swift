@@ -9,7 +9,9 @@ import Foundation
 
 struct PlayerItem: Codable {
     let id: String
-    let itemType: ItemType
+    let baseType: String
+    let itemTypeId: String
+    let category: String
     let level: Int
     let rarity: String
     let appliedMaterials: [String]
@@ -20,7 +22,9 @@ struct PlayerItem: Codable {
 
     enum CodingKeys: String, CodingKey {
         case id
-        case itemType = "item_type"
+        case baseType = "base_type"
+        case itemTypeId = "item_type_id"
+        case category
         case level
         case rarity
         case appliedMaterials = "applied_materials"
