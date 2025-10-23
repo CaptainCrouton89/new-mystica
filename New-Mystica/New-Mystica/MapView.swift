@@ -62,6 +62,17 @@ struct MapView: View, NavigableView {
             // Stop location updates to save battery
             viewModel.stopLocationUpdates()
         }
+        .onChange(of: viewModel.userLocation?.latitude) { _, _ in
+            // Center map on user location when first received
+            if let userLoc = viewModel.userLocation {
+                withAnimation {
+                    region = MKCoordinateRegion(
+                        center: userLoc,
+                        span: MKCoordinateSpan(latitudeDelta: 0.05, longitudeDelta: 0.05)
+                    )
+                }
+            }
+        }
         .overlay(
             // Location Detail Popup
             Group {

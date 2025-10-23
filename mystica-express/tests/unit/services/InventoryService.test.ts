@@ -278,9 +278,9 @@ describe('InventoryService', () => {
     });
 
 
-    describe('Stackable Items Grouping', () => {
-      it('should group stackable items by type and level', async () => {
-        // Arrange: Multiple items of same type and level (no materials)
+    describe('Multiple Items Handling', () => {
+      it('should return all items individually regardless of type and level', async () => {
+        // Arrange: Multiple items of same type and level - now treated as individual items
         const userItems = [
           {
             id: 'item-1',
@@ -322,7 +322,7 @@ describe('InventoryService', () => {
 
         const itemsWithDetails: ItemWithDetails[] = userItems.map(item => ({
           ...item,
-          current_stats: item.current_stats, // Already present in userItems
+          current_stats: item.current_stats,
           item_type: {
             id: 'sword',
             name: 'Iron Sword',
@@ -338,22 +338,31 @@ describe('InventoryService', () => {
         mockItemRepository.findManyWithDetails.mockResolvedValue(itemsWithDetails);
         mockItemRepository.findEquippedByUser.mockResolvedValue([]);
 
-        mockedStatsService.computeItemStatsForLevel
+        mockedStatsService.computeItemStats
+          .mockReturnValueOnce({ atkPower: 1.0, atkAccuracy: 0.8, defPower: 0.5, defAccuracy: 0.3 })
           .mockReturnValueOnce({ atkPower: 1.0, atkAccuracy: 0.8, defPower: 0.5, defAccuracy: 0.3 })
           .mockReturnValueOnce({ atkPower: 1.5, atkAccuracy: 1.0, defPower: 0.7, defAccuracy: 0.4 });
 
         // Act
         const result = await inventoryService.getPlayerInventory(testUserId);
 
-        // Assert
-        expect(result.items).toHaveLength(0); // All items are stackable
-        expect(result.stacks).toHaveLength(2); // 2 level 3 swords + 1 level 5 sword
+        // Assert - All items are now individual items in the items array
+        expect(result.items).toHaveLength(3); // All 3 items appear individually
+        expect(result).not.toHaveProperty('stacks'); // No stacks property in response
 
-        const level3Stack = result.stacks.find(s => s.level === 3);
-        const level5Stack = result.stacks.find(s => s.level === 5);
+        // Check each item appears with its unique ID and generated image fallback
+        const item1 = result.items.find(i => i.id === 'item-1');
+        const item2 = result.items.find(i => i.id === 'item-2');
+        const item3 = result.items.find(i => i.id === 'item-3');
 
-        expect(level3Stack?.quantity).toBe(2);
-        expect(level5Stack?.quantity).toBe(1);
+        expect(item1).toBeDefined();
+        expect(item2).toBeDefined();
+        expect(item3).toBeDefined();
+
+        // All should have default fallback images since generated_image_url is null
+        expect(item1?.generated_image_url).toMatch(/default_weapon\.png$/);
+        expect(item2?.generated_image_url).toMatch(/default_weapon\.png$/);
+        expect(item3?.generated_image_url).toMatch(/default_weapon\.png$/);
       });
     });
 
@@ -454,7 +463,7 @@ describe('InventoryService', () => {
 
     describe('Mixed and Edge Cases', () => {
       it('should handle mixed item types correctly', async () => {
-        // Arrange: Mix of stackable and unique items
+        // Arrange: Mix of items with and without materials - both treated as individual items now
         const userItems = [
           {
             id: 'item-1',
@@ -463,7 +472,7 @@ describe('InventoryService', () => {
             level: 3,
             is_styled: false,
             current_stats: { atkPower: 1.2, atkAccuracy: 0.9, defPower: 0.6, defAccuracy: 0.3 },
-            material_combo_hash: 'abc123', // Has materials = unique
+            material_combo_hash: 'abc123', // Has materials
             generated_image_url: 'https://example.com/sword.png',
             image_generation_status: 'complete' as const,
             created_at: '2025-01-21T10:00:00Z'
@@ -475,7 +484,7 @@ describe('InventoryService', () => {
             level: 2,
             is_styled: false,
             computed_stats: { atkPower: 0.8, atkAccuracy: 1.0, defPower: 0.3, defAccuracy: 0.2 },
-            material_combo_hash: null, // No materials = stackable
+            material_combo_hash: null, // No materials
             generated_image_url: null,
             image_generation_status: null,
             created_at: '2025-01-21T11:00:00Z'
@@ -525,28 +534,31 @@ describe('InventoryService', () => {
         mockItemRepository.findManyWithDetails.mockResolvedValue(itemsWithDetails);
         mockItemRepository.findEquippedByUser.mockResolvedValue([]);
 
-        mockedStatsService.computeItemStats.mockReturnValue({
-          atkPower: 1.3, atkAccuracy: 0.9, defPower: 0.5, defAccuracy: 0.3
-        });
-        mockedStatsService.computeItemStatsForLevel.mockReturnValue({
-          atkPower: 0.8, atkAccuracy: 1.0, defPower: 0.3, defAccuracy: 0.2
-        });
+        mockedStatsService.computeItemStats
+          .mockReturnValueOnce({
+            atkPower: 1.3, atkAccuracy: 0.9, defPower: 0.5, defAccuracy: 0.3
+          })
+          .mockReturnValueOnce({
+            atkPower: 0.8, atkAccuracy: 1.0, defPower: 0.3, defAccuracy: 0.2
+          });
 
         // Act
         const result = await inventoryService.getPlayerInventory(testUserId);
 
-        // Assert
-        expect(result.items).toHaveLength(1); // Only sword with materials
-        expect(result.stacks).toHaveLength(1); // Only dagger without materials
+        // Assert - Both items appear as individual items now
+        expect(result.items).toHaveLength(2); // Both sword and dagger appear individually
+        expect(result).not.toHaveProperty('stacks'); // No stacks property in response
 
-        const uniqueItem = result.items[0];
-        expect(uniqueItem.id).toBe('item-1');
-        expect(uniqueItem.applied_materials).toHaveLength(1);
+        const swordItem = result.items.find(i => i.id === 'item-1');
+        const daggerItem = result.items.find(i => i.id === 'item-2');
 
-        const stackableItem = result.stacks[0];
-        expect(stackableItem.item_type_id).toBe('dagger');
-        expect(stackableItem.level).toBe(2);
-        expect(stackableItem.quantity).toBe(1);
+        expect(swordItem).toBeDefined();
+        expect(swordItem?.applied_materials).toHaveLength(1);
+        expect(swordItem?.generated_image_url).toBe('https://example.com/sword.png');
+
+        expect(daggerItem).toBeDefined();
+        expect(daggerItem?.applied_materials).toHaveLength(0);
+        expect(daggerItem?.generated_image_url).toMatch(/default_weapon\.png$/); // Fallback image
       });
 
       it('should handle items with null generated_image_url correctly', async () => {
