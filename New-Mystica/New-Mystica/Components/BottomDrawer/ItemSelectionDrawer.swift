@@ -16,7 +16,6 @@ struct ItemSelectionDrawerContent: View {
     let onItemSelected: (EnhancedPlayerItem) -> Void
 
     @State private var selectedItem: EnhancedPlayerItem?
-    @State private var showConfirmation = false
     @Environment(\.audioManager) private var audioManager
 
     // Use the items passed in - they're already filtered by EquipmentViewModel
@@ -76,33 +75,15 @@ struct ItemSelectionDrawerContent: View {
 
                     TextButton("Equip Item") {
                         audioManager.playBattleClick()
-                        showConfirmation = true
+                        if let item = selectedItem {
+                            onItemSelected(item)
+                            selectedItem = nil
+                        }
                     }
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 16)
             }
-        }
-        .confirmationDialog(
-            "Equip Item",
-            isPresented: $showConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button("Equip") {
-                if let item = selectedItem {
-                    onItemSelected(item)
-                    selectedItem = nil
-                }
-            }
-
-            Button("Cancel", role: .cancel) {
-                // Do nothing, just dismiss
-            }
-        } message: {
-            if let item = selectedItem {
-                Text("Equip \(getDisplayName(for: item))?")
-            }
-        }
     }
 
     private func selectItem(_ item: EnhancedPlayerItem) {
