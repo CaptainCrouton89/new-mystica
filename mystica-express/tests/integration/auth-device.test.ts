@@ -240,8 +240,9 @@ describe('Device-Based Anonymous Authentication (F-07)', () => {
         .post('/api/v1/auth/register-device')
         .send({ device_id: validDeviceId });
 
-      if (response.body.session?.access_token) {
-        const token = response.body.session.access_token;
+      const responseData = extractResponseData(response.body);
+      if (responseData.session?.access_token) {
+        const token = responseData.session.access_token;
 
         // Verify JWT token structure
         const decoded = jwt.verify(token, env.JWT_SECRET) as any;
@@ -298,7 +299,7 @@ describe('Device-Based Anonymous Authentication (F-07)', () => {
         .set('Authorization', `Bearer ${token}`);
 
       expect(response.status).toBe(200);
-      expect(response.body.user).toMatchObject({
+      expect(extractResponseData(response.body).user).toMatchObject({
         id: userId,
         email: null,
         device_id: deviceId,
@@ -342,7 +343,7 @@ describe('Device-Based Anonymous Authentication (F-07)', () => {
         .set('Authorization', 'Bearer supabase-jwt-token');
 
       expect(response.status).toBe(200);
-      expect(response.body.user).toMatchObject({
+      expect(extractResponseData(response.body).user).toMatchObject({
         id: 'email-user-123',
         email: 'test@example.com',
         device_id: null,
@@ -403,8 +404,9 @@ describe('Device-Based Anonymous Authentication (F-07)', () => {
         .post('/api/v1/auth/register-device')
         .send({ device_id: deviceId });
 
-      if (response.body.session) {
-        const { session } = response.body;
+      const responseData = extractResponseData(response.body);
+      if (responseData.session) {
+        const { session } = responseData;
         expect(session.expires_in).toBe(2592000); // 30 days in seconds
 
         const now = Math.floor(Date.now() / 1000);

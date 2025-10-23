@@ -145,7 +145,7 @@ describe('Enemy API Endpoints', () => {
         .get('/api/v1/enemies/types');
 
       expect(response.status).toBe(200);
-      expect(response.body.enemy_types).toHaveLength(5);
+      expect(extractResponseData(response.body).enemy_types).toHaveLength(5);
 
       // Verify no auth checks were attempted
       expect(mockGetClaims).not.toHaveBeenCalled();
@@ -165,7 +165,7 @@ describe('Enemy API Endpoints', () => {
         .get('/api/v1/enemies/types');
 
       expect(response.status).toBe(200);
-      expect(response.body.enemy_types).toEqual(
+      expect(extractResponseData(response.body).enemy_types).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
             id: expect.any(String),
@@ -180,7 +180,7 @@ describe('Enemy API Endpoints', () => {
       );
 
       // Verify specific enemy types exist
-      const enemyNames = response.body.enemy_types.map((enemy: any) => enemy.name);
+      const enemyNames = extractResponseData(response.body).enemy_types.map((enemy: any) => enemy.name);
       expect(enemyNames).toContain('Spray Paint Goblin');
       expect(enemyNames).toContain('Goopy Floating Eye');
       expect(enemyNames).toContain('Feral Unicorn');
@@ -454,7 +454,7 @@ describe('Enemy API Endpoints', () => {
         .set('Authorization', 'Bearer valid-token');
 
       expect(response.status).toBe(200);
-      expect(response.body.win_rate).toBe(1.0);
+      expect(extractResponseData(response.body).win_rate).toBe(1.0);
     });
 
     it('should reject request with expired token', async () => {

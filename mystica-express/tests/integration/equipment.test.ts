@@ -169,7 +169,7 @@ describe('Equipment API Endpoints', () => {
       expect(extractResponseData(response.body).total_stats.defAccuracy).toBe(11); // 3 + 8
 
       // Verify equipment count
-      expect(response.body.equipment_count).toBe(2);
+      expect(extractResponseData(response.body).equipment_count).toBe(2);
 
       // Verify the query was called correctly
       expect(mockFrom).toHaveBeenCalledWith('userequipment');
@@ -232,7 +232,7 @@ describe('Equipment API Endpoints', () => {
       expect(extractResponseData(response.body).total_stats.defAccuracy).toBe(0);
 
       // Verify zero equipment count
-      expect(response.body.equipment_count).toBe(0);
+      expect(extractResponseData(response.body).equipment_count).toBe(0);
     });
 
     it('should return 401 without valid token', async () => {
@@ -351,7 +351,7 @@ describe('Equipment API Endpoints', () => {
         .expect(200);
 
       // Verify equipment count
-      expect(response.body.equipment_count).toBe(3);
+      expect(extractResponseData(response.body).equipment_count).toBe(3);
 
       // Verify stats aggregation (weapon + armor + accessory)
       expect(extractResponseData(response.body).total_stats.atkPower).toBe(19); // 15 + 1 + 3
@@ -459,8 +459,8 @@ describe('Equipment API Endpoints', () => {
 
       // Should skip the corrupted item and return empty slots
       expect(extractResponseData(response.body).slots.weapon).toBeUndefined();
-      expect(response.body.equipment_count).toBe(0);
-      expect(response.body.total_stats).toEqual({
+      expect(extractResponseData(response.body).equipment_count).toBe(0);
+      expect(extractResponseData(response.body).total_stats).toEqual({
         atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0
       });
     });
