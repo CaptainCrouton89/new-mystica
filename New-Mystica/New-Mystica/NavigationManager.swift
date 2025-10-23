@@ -23,7 +23,8 @@ enum NavigationDestination: Hashable {
         preselectedItem: EnhancedPlayerItem? = nil,
         preselectedMaterial: MaterialInventoryStack? = nil
     )
-    
+    case upgradePreview
+
     var title: String {
         switch self {
         case .mainMenu:
@@ -46,6 +47,8 @@ enum NavigationDestination: Hashable {
             return "Defeat"
         case .crafting:
             return "Crafting"
+        case .upgradePreview:
+            return "Upgrade Item"
         }
     }
 }

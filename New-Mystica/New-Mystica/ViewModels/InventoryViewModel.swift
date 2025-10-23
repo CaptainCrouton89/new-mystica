@@ -45,6 +45,12 @@ final class InventoryViewModel {
     var isNavigatingToCraft: Bool = false
     var isNavigatingToUpgrade: Bool = false
 
+    // MARK: - Upgrade State
+    var upgradeCostData: Loadable<UpgradeCostInfo> = .idle
+    var upgradeInProgress: Bool = false
+    var showingUpgradeCompleteModal: Bool = false
+    var lastUpgradeResult: UpgradeResult?
+
     // MARK: - Error State
     var currentError: AppError?
     var showingErrorAlert: Bool = false
@@ -53,6 +59,10 @@ final class InventoryViewModel {
     var showingSuccessToast: Bool = false
     var successMessage: String = ""
     var successIcon: String = "checkmark.circle.fill"
+
+    // MARK: - Gold Shower Animation State
+    var showingGoldShower: Bool = false
+    var goldShowerAmount: Int = 0
 
     init(repository: InventoryRepository = DefaultInventoryRepository(), materialsRepository: MaterialsRepository = DefaultMaterialsRepository(), navigationManager: NavigationManager? = nil) {
         self.repository = repository
@@ -303,15 +313,18 @@ print("❌ Error: \(appError)")
     }
 
     private func handleUpgradeNavigation() async {
+        guard let item = selectedItemForDetail else { return }
+
         isNavigatingToUpgrade = true
 
         // Simulate navigation delay for loading state
         try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
 
-        // TODO: Navigate to upgrade screen when F-06 integration is complete
-        print("⬆️ Navigate to upgrade screen")
+        // Navigate to upgrade preview screen
+        await MainActor.run {
+            navigationManager?.navigateTo(.upgradePreview)
+        }
 
-        showSuccessToast(message: "Opening upgrade screen", icon: "arrow.up.circle.fill")
         isNavigatingToUpgrade = false
     }
 
@@ -350,9 +363,26 @@ print("❌ Error: \(appError)")
                         return balance
                     }
                     AppState.shared.setCurrencies(updatedBalances)
+                } else {
+                    // Currencies not loaded yet - initialize with backend response
+                    AppState.shared.setCurrencies([
+                        CurrencyBalance(
+                            currencyCode: .gold,
+                            balance: response.newGoldBalance,
+                            updatedAt: ISO8601DateFormatter().string(from: Date())
+                        )
+                    ])
                 }
 
-                showSuccessToast(message: "Sold for \(response.goldEarned) gold", icon: "dollarsign.circle.fill")
+                // Trigger gold shower animation
+                goldShowerAmount = response.goldEarned
+                showingGoldShower = true
+
+                // Show success toast after animation
+                Task {
+                    try? await Task.sleep(nanoseconds: 1_600_000_000) // Wait for animation (1.6s)
+                    showSuccessToast(message: "Sold for \(response.goldEarned) gold", icon: "dollarsign.circle.fill")
+                }
             }
 
             print("✅ Item sold successfully: \(response.itemName) for \(response.goldEarned) gold")
@@ -433,6 +463,91 @@ print("❌ Error: \(appError)")
         }
 
         isEquipping = false
+    }
+
+    // MARK: - Upgrade Methods
+
+    func fetchUpgradeCost(itemId: String) async {
+        upgradeCostData = .loading
+
+        do {
+            let url = URL(string: "http://localhost:3000/api/v1/items/\(itemId)/upgrade-cost")!
+            let (data, _) = try await URLSession.shared.data(from: url)
+            let costInfo = try JSONDecoder().decode(UpgradeCostInfo.self, from: data)
+            upgradeCostData = .loaded(costInfo)
+        } catch let error as AppError {
+            upgradeCostData = .error(error)
+        } catch {
+            upgradeCostData = .error(.unknown(error))
+        }
+    }
+
+    func performUpgrade(itemId: String) async {
+        upgradeInProgress = true
+        defer { upgradeInProgress = false }
+
+        do {
+            var request = URLRequest(url: URL(string: "http://localhost:3000/api/v1/items/\(itemId)/upgrade")!)
+            request.httpMethod = "POST"
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+            let (data, response) = try await URLSession.shared.data(for: request)
+
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw AppError.invalidResponse
+            }
+
+            if httpResponse.statusCode == 400 {
+                throw AppError.businessLogic("Not enough gold to upgrade this item")
+            }
+
+            guard httpResponse.statusCode == 200 else {
+                throw AppError.serverError(httpResponse.statusCode, nil)
+            }
+
+            let upgradeResult = try JSONDecoder().decode(UpgradeResult.self, from: data)
+
+            // Update the item in local state - note: UpgradeResult.item is PlayerItem, need to convert to EnhancedPlayerItem
+            // For now, just refresh inventory to get authoritative state
+            await refreshInventory()
+
+            // Update gold balance in AppState
+            await MainActor.run {
+                if case .loaded(let balances) = AppState.shared.currencies {
+                    let updatedBalances = balances.map { balance in
+                        if balance.currencyCode == .gold {
+                            return CurrencyBalance(
+                                currencyCode: balance.currencyCode,
+                                balance: upgradeResult.newGoldBalance,
+                                updatedAt: balance.updatedAt
+                            )
+                        }
+                        return balance
+                    }
+                    AppState.shared.setCurrencies(updatedBalances)
+                } else {
+                    // Currencies not loaded yet - initialize with backend response
+                    AppState.shared.setCurrencies([
+                        CurrencyBalance(
+                            currencyCode: .gold,
+                            balance: upgradeResult.newGoldBalance,
+                            updatedAt: ISO8601DateFormatter().string(from: Date())
+                        )
+                    ])
+                }
+
+                // Store the upgrade result and show the completion modal
+                lastUpgradeResult = upgradeResult
+                showingUpgradeCompleteModal = true
+            }
+
+            print("✅ Item upgraded successfully to level \(upgradeResult.item.level)")
+
+        } catch let error as AppError {
+            handleError(error)
+        } catch {
+            handleError(.unknown(error))
+        }
     }
 
     // MARK: - Helper Methods

@@ -49,6 +49,9 @@ struct ContentView: View {
                 preselectedItem: preselectedItem,
                 preselectedMaterial: preselectedMaterial
             )
+        case .upgradePreview:
+            // Upgrade preview screen - to be implemented
+            EmptyView()
         }
     }
 }

@@ -18,15 +18,12 @@ final class DefaultLocationRepository: LocationRepository {
     // MARK: - LocationRepository Protocol
 
     func fetchNearby(userLocation: (latitude: Double, longitude: Double), radiusKm: Double) async throws -> [Location] {
-        struct NearbyLocationsResponse: Decodable {
-            let locations: [Location]
-        }
-
         // Convert radius from km to meters for API (API expects meters)
         let radiusMeters = Int(radiusKm * 1000)
 
         let endpoint = "/locations/nearby?lat=\(userLocation.latitude)&lng=\(userLocation.longitude)&radius=\(radiusMeters)"
 
+        // Backend returns {locations: [...]} directly without ApiResponseWrapper
         let response: NearbyLocationsResponse = try await apiClient.get(endpoint: endpoint)
         return response.locations
     }

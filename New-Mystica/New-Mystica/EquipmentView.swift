@@ -265,13 +265,39 @@ struct EquipmentView: View {
                         viewModel.showItemSelection(for: slot)
                     },
                     onUpgrade: {
-                        // TODO: Navigate to upgrade view when available
-                        print("Upgrade tapped for item: \(item.baseType)")
+                        // Perform upgrade via inventory view model
+                        Task {
+                            await inventoryViewModel.performUpgrade(itemId: item.id)
+                        }
                     },
                     onCraft: {
                         audioManager.playMenuButtonClick()
                         navigationManager.navigateTo(.crafting())
                     }
+                )
+            }
+        }
+        .sheet(isPresented: $inventoryViewModel.showingUpgradeCompleteModal) {
+            if let upgradeResult = inventoryViewModel.lastUpgradeResult {
+                UpgradeCompleteModal(
+                    item: upgradeResult.item,
+                    goldSpent: upgradeResult.goldSpent,
+                    newGoldBalance: upgradeResult.newGoldBalance,
+                    newVanityLevel: upgradeResult.newVanityLevel,
+                    statsBefore: ItemStats(atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0), // Placeholder - would need to calculate from response
+                    statsAfter: upgradeResult.item.computedStats,
+                    onUpgradeAgain: {
+                        if let itemId = inventoryViewModel.selectedItemForDetail?.id {
+                            Task {
+                                await inventoryViewModel.performUpgrade(itemId: itemId)
+                            }
+                        }
+                    },
+                    onReturnToInventory: {
+                        inventoryViewModel.showingUpgradeCompleteModal = false
+                        viewModel.showingItemDetailModal = false
+                    },
+                    isPresented: $inventoryViewModel.showingUpgradeCompleteModal
                 )
             }
         }

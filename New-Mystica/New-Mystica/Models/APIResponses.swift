@@ -64,22 +64,37 @@ struct ReplaceMaterialResult: Codable {
     }
 }
 
+// MARK: - Item Upgrade Cost Info
+struct UpgradeCostInfo: Codable {
+    let currentLevel: Int
+    let nextLevel: Int
+    let goldCost: Int
+    let playerGold: Int
+    let canAfford: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case currentLevel = "current_level"
+        case nextLevel = "next_level"
+        case goldCost = "gold_cost"
+        case playerGold = "player_gold"
+        case canAfford = "can_afford"
+    }
+}
+
 // MARK: - Item Upgrade Result
 struct UpgradeResult: Codable {
     let success: Bool
-    let updatedItem: PlayerItem
+    let item: PlayerItem
     let goldSpent: Int
-    let newLevel: Int
-    let statIncrease: ItemStats
-    let message: String?
+    let newGoldBalance: Int
+    let newVanityLevel: Int
 
     enum CodingKeys: String, CodingKey {
         case success
-        case updatedItem = "updated_item"
+        case item
         case goldSpent = "gold_spent"
-        case newLevel = "new_level"
-        case statIncrease = "stat_increase"
-        case message
+        case newGoldBalance = "new_gold_balance"
+        case newVanityLevel = "new_vanity_level"
     }
 }
 

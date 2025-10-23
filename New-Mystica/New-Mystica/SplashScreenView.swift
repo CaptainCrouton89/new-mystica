@@ -14,6 +14,7 @@ struct SplashScreenView: View {
     @State private var loadingText: String = ""
     @State private var errorMessage: String?
     @State private var authViewModel = AuthViewModel(appState: AppState.shared)
+    @State private var profileController = ProfileController()
     @State private var inventoryViewModel: InventoryViewModel?
     @State private var equipmentViewModel: EquipmentViewModel?
     @Environment(\.navigationManager) private var navigationManager
@@ -88,6 +89,7 @@ struct SplashScreenView: View {
                                         }
 
                                         loadingText = "Loading player data..."
+                                        await profileController.loadProfileAndCurrencies()
                                         await equipmentViewModel?.fetchEquipment()
 
                                         withAnimation(.easeInOut(duration: 0.5)) {
@@ -160,6 +162,10 @@ struct SplashScreenView: View {
                     // Data loading phase
                     loadingText = "Loading player data..."
                     print("⚔️ [SPLASH] Loading equipment data...")
+
+                    // Load profile and currencies (required for gold balance display)
+                    print("💰 [SPLASH] Loading profile and currencies...")
+                    await profileController.loadProfileAndCurrencies()
 
                     // Attempt to load equipment, but don't fail splash if it errors
                     do {

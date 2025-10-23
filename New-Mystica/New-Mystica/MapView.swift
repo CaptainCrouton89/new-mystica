@@ -210,13 +210,13 @@ struct MapView: View, NavigableView {
                         }
                     }
 
-                    if !location.materialDropPool.isEmpty {
+                    if let materialDropPool = location.materialDropPool, !materialDropPool.isEmpty {
                         VStack(alignment: .leading, spacing: 4) {
                             NormalText("Potential Materials:")
                                 .foregroundColor(Color.textSecondary)
 
                             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 4) {
-                                ForEach(location.materialDropPool.prefix(4), id: \.self) { material in
+                                ForEach(materialDropPool.prefix(4), id: \.self) { material in
                                     NormalText(material.capitalized)
                                         .font(.caption)
                                         .foregroundColor(Color.accent)

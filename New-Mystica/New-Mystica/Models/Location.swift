@@ -16,9 +16,9 @@ struct Location: APIModel, Identifiable {
     let locationType: String
     let stateCode: String
     let countryCode: String
-    let enemyLevel: Int
-    let materialDropPool: [String]
-    let distanceMeters: Int
+    let enemyLevel: Int?           // Deprecated field - optional for backward compatibility
+    let materialDropPool: [String]? // Deprecated field - optional for backward compatibility
+    let distanceMeters: Double?     // Only present in nearby queries, not in detail queries
 
     enum CodingKeys: String, CodingKey {
         case id

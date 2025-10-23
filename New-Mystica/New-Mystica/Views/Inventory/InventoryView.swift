@@ -293,6 +293,7 @@ struct InventoryView: View {
                 }
             }
             .overlay(sellConfirmationOverlay)
+            .goldShower(isActive: $viewModel.showingGoldShower, goldAmount: viewModel.goldShowerAmount)
             .overlay(successToastOverlay)
             .alert("Error", isPresented: $viewModel.showingErrorAlert) {
                 Button("OK") {
