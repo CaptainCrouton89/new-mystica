@@ -8,42 +8,37 @@
 import Foundation
 
 struct PlayerItem: Codable {
-    let id: UUID
-    let userId: UUID
-    let itemTypeId: UUID
+    let id: String
+    let itemType: ItemType
     let level: Int
-    let baseStats: ItemStats
-    let currentStats: ItemStats
-    let materialComboHash: String?
-    let imageUrl: String?
-    let itemType: ItemType?
-    let createdAt: String
-    let updatedAt: String
+    let rarity: String
+    let appliedMaterials: [String]
+    let isStyled: Bool
+    let computedStats: ItemStats
+    let isEquipped: Bool
+    let generatedImageUrl: String?
 
     enum CodingKeys: String, CodingKey {
         case id
-        case userId = "user_id"
-        case itemTypeId = "item_type_id"
-        case level
-        case baseStats = "base_stats"
-        case currentStats = "current_stats"
-        case materialComboHash = "material_combo_hash"
-        case imageUrl = "image_url"
         case itemType = "item_type"
-        case createdAt = "created_at"
-        case updatedAt = "updated_at"
+        case level
+        case rarity
+        case appliedMaterials = "applied_materials"
+        case isStyled = "is_styled"
+        case computedStats = "computed_stats"
+        case isEquipped = "is_equipped"
+        case generatedImageUrl = "generated_image_url"
     }
 }
 
 struct ItemType: Codable {
-    let id: UUID
+    let id: String
     let name: String
     let category: String
     let equipmentSlot: String
     let baseStats: ItemStats
     let rarity: String
-    let imageUrl: String?
-    let description: String?
+    let description: String
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -52,7 +47,6 @@ struct ItemType: Codable {
         case equipmentSlot = "equipment_slot"
         case baseStats = "base_stats"
         case rarity
-        case imageUrl = "image_url"
         case description
     }
 }

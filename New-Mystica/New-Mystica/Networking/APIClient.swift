@@ -123,10 +123,22 @@ class APIClient {
             decoder.dateDecodingStrategy = .iso8601
 
             do {
+                // First, try to decode as wrapped response
+                if let wrappedResponse = try? decoder.decode(ApiResponseWrapper<T>.self, from: data) {
+                    if wrappedResponse.success, let responseData = wrappedResponse.data {
+                        return responseData
+                    } else if let error = wrappedResponse.error {
+                        throw AppError.serverError(httpResponse.statusCode, error.message)
+                    }
+                }
+
+                // Fallback: decode as direct type (for backward compatibility during migration)
                 return try decoder.decode(T.self, from: data)
             } catch {
                 if APIConfig.enableNetworkLogging {
+                    let responseString = String(data: data, encoding: .utf8) ?? "unable to decode response as string"
                     print("❌ Decoding error: \(error.localizedDescription)")
+                    print("📥 Response payload: \(responseString)")
                 }
                 throw AppError.decodingError(error.localizedDescription)
             }
@@ -141,4 +153,19 @@ class APIClient {
     private func isAppError(_ error: Error) -> Bool {
         return error is AppError
     }
+}
+
+// MARK: - Response Wrapper Types
+
+private struct ApiResponseWrapper<T: Decodable>: Decodable {
+    let success: Bool
+    let data: T?
+    let error: ErrorDetails?
+    let timestamp: String
+}
+
+private struct ErrorDetails: Decodable {
+    let code: String
+    let message: String
+    let details: String?
 }

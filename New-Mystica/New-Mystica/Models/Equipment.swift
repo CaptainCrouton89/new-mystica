@@ -87,6 +87,18 @@ struct EquipmentSlots: APIModel {
         case accessory1 = "accessory_1"
         case accessory2 = "accessory_2"
     }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        weapon = try container.decodeIfPresent(PlayerItem.self, forKey: .weapon)
+        offhand = try container.decodeIfPresent(PlayerItem.self, forKey: .offhand)
+        head = try container.decodeIfPresent(PlayerItem.self, forKey: .head)
+        armor = try container.decodeIfPresent(PlayerItem.self, forKey: .armor)
+        feet = try container.decodeIfPresent(PlayerItem.self, forKey: .feet)
+        accessory1 = try container.decodeIfPresent(PlayerItem.self, forKey: .accessory1)
+        accessory2 = try container.decodeIfPresent(PlayerItem.self, forKey: .accessory2)
+        pet = try container.decodeIfPresent(PlayerItem.self, forKey: .pet)
+    }
 }
 
 struct Equipment: APIModel {
@@ -100,5 +112,13 @@ struct Equipment: APIModel {
         case totalStats = "total_stats"
         case equipmentCount = "equipment_count"
         case generatedImageUrl = "generated_image_url"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        slots = try container.decode(EquipmentSlots.self, forKey: .slots)
+        totalStats = try container.decode(ItemStats.self, forKey: .totalStats)
+        equipmentCount = try container.decode(Int.self, forKey: .equipmentCount)
+        generatedImageUrl = try container.decodeIfPresent(String.self, forKey: .generatedImageUrl)
     }
 }

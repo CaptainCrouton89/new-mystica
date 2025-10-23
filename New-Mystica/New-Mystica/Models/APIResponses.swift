@@ -100,18 +100,14 @@ struct StorageCapacity: Codable {
 
 // MARK: - Inventory Response
 struct InventoryResponse: Codable {
-    let items: [PlayerItem]
-    let materialStacks: [MaterialStack]
-    let totalItems: Int
-    let totalMaterials: Int
-    let storageCapacity: StorageCapacity
+    let items: [EnhancedPlayerItem]
+    let stacks: [ItemStack]
+    let pagination: PaginationInfo
 
     enum CodingKeys: String, CodingKey {
         case items
-        case materialStacks = "material_stacks"
-        case totalItems = "total_items"
-        case totalMaterials = "total_materials"
-        case storageCapacity = "storage_capacity"
+        case stacks
+        case pagination
     }
 }
 
