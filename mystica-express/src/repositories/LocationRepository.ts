@@ -48,6 +48,11 @@ export class LocationRepository extends BaseRepository<Location> {
    * Find nearby locations within specified radius using PostGIS geography calculations
    * Uses get_nearby_locations RPC function with ST_DWithin for efficient spatial queries
    * Returns results ordered by distance (closest first)
+   *
+   * Enriches results with API contract fields:
+   * - enemy_level: Set to 1 (MVP0 simplification - not stored in DB)
+   * - material_drop_pool: Empty array (deprecated per api-contracts.yaml, use LootPools)
+   * - distance_meters: Returned from PostGIS RPC
    */
   async findNearby(lat: number, lng: number, radius: number): Promise<LocationWithDistance[]> {
     const data = await this.rpc<LocationWithDistance[]>('get_nearby_locations', {
@@ -56,16 +61,33 @@ export class LocationRepository extends BaseRepository<Location> {
       search_radius: radius,
     });
 
-    return data || [];
+    // Enrich with API contract fields
+    return (data || []).map(location => ({
+      ...location,
+      enemy_level: 1, // MVP0: Hardcoded to 1, would be user.avg_item_level in production
+      material_drop_pool: [], // Deprecated - use LootPools system instead
+    }));
   }
 
   /**
-   * Find location by ID with additional validation
-   * Overrides base findById to add proper error handling
+   * Find location by ID with additional validation and API enrichment
+   * Overrides base findById to add proper error handling and enrich with missing API fields
+   *
+   * Enriches result with API contract fields:
+   * - enemy_level: Set to 1 (MVP0 simplification)
+   * - material_drop_pool: Empty array (deprecated, use LootPools)
+   * - distance_meters: Not applicable for single location query (null)
    */
-  async findById(locationId: string): Promise<Location | null> {
+  async findById(locationId: string): Promise<(Location & { enemy_level: number; material_drop_pool: string[]; distance_meters?: number }) | null> {
     const location = await super.findById(locationId);
-    return location;
+    if (!location) return null;
+
+    // Enrich with API contract fields
+    return {
+      ...location,
+      enemy_level: 1, // MVP0: Hardcoded to 1
+      material_drop_pool: [], // Deprecated
+    };
   }
 
   // ============================================================================
@@ -74,27 +96,45 @@ export class LocationRepository extends BaseRepository<Location> {
 
   /**
    * Find locations by type (e.g., 'restaurant', 'park', 'shopping_mall')
+   * Enriches results with API contract fields
    */
-  async findByType(locationType: string): Promise<Location[]> {
-    return this.findMany({ location_type: locationType });
+  async findByType(locationType: string): Promise<any[]> {
+    const locations = await this.findMany({ location_type: locationType });
+    return this.enrichLocations(locations);
   }
 
   /**
    * Find locations by region (state and country codes)
+   * Enriches results with API contract fields
    */
-  async findByRegion(stateCode: string, countryCode: string): Promise<Location[]> {
-    return this.findMany({
+  async findByRegion(stateCode: string, countryCode: string): Promise<any[]> {
+    const locations = await this.findMany({
       state_code: stateCode,
       country_code: countryCode
     });
+    return this.enrichLocations(locations);
   }
 
   /**
    * Get all locations with optional pagination
+   * Enriches results with API contract fields
    */
-  async findAll(limit?: number, offset?: number): Promise<Location[]> {
+  async findAll(limit?: number, offset?: number): Promise<any[]> {
     const pagination = limit ? { limit, offset: offset || 0 } : undefined;
-    return this.findMany({}, { pagination });
+    const locations = await this.findMany({}, { pagination });
+    return this.enrichLocations(locations);
+  }
+
+  /**
+   * Helper method to enrich locations with API contract fields
+   * Adds: enemy_level (MVP0: 1), material_drop_pool (empty array)
+   */
+  private enrichLocations(locations: Location[]): any[] {
+    return locations.map(location => ({
+      ...location,
+      enemy_level: 1, // MVP0: Hardcoded to 1, would be user.avg_item_level in production
+      material_drop_pool: [], // Deprecated - use LootPools system instead
+    }));
   }
 
   // ============================================================================

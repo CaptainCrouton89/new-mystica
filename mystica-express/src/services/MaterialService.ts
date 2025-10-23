@@ -7,6 +7,7 @@ import { ImageGenerationService } from './ImageGenerationService.js';
 import { MaterialInstance, CreateImageCacheData } from '../types/repository.types.js';
 import { computeComboHash } from '../utils/hash.js';
 import { economyService } from './EconomyService.js';
+import { statsService } from './StatsService.js';
 
 /**
  * Handles material application to items with image generation
@@ -193,6 +194,36 @@ export class MaterialService {
     // 11. Update Items table with new combo_hash and image_url
     await this.itemRepository.updateImageData(itemId, userId, comboHash, imageUrl, 'complete');
 
+    // 11.5. Calculate and update item stats with applied materials
+    // Note: We need to fetch the item with type data for base stats and rarity
+    const itemWithType = await this.itemRepository.findWithMaterials(itemId, userId);
+    if (itemWithType && itemWithType.item_type) {
+      // Get base stats and rarity multiplier from item type
+      const baseStats = itemWithType.item_type.base_stats_normalized;
+      const rarity = itemWithType.item_type.rarity;
+
+      // Get rarity multiplier and apply to base stats
+      const rarityMultiplier = this.getRarityMultiplier(rarity);
+      const rarityAdjustedBaseStats = {
+        atkPower: baseStats.atkPower * rarityMultiplier,
+        atkAccuracy: baseStats.atkAccuracy * rarityMultiplier,
+        defPower: baseStats.defPower * rarityMultiplier,
+        defAccuracy: baseStats.defAccuracy * rarityMultiplier
+      };
+
+      // Calculate final stats with materials applied
+      // Note: Filter out any materials that don't have proper stat_modifiers (for tests)
+      const validMaterials = allMaterials.filter(m => m.material && m.material.stat_modifiers);
+      const finalStats = statsService.computeItemStats(
+        rarityAdjustedBaseStats,
+        itemWithType.level,
+        validMaterials
+      );
+
+      // Update the item's current_stats in the database
+      await this.itemRepository.updateStats(itemId, userId, finalStats);
+    }
+
     // 12. Return result with cache status and craft count
     const updatedItem = await this.itemRepository.findWithMaterials(itemId, userId);
     if (!updatedItem) {
@@ -207,7 +238,7 @@ export class MaterialService {
 
     return {
       success: true,
-      updated_item: this.transformItemToApiFormat(updatedItem),
+      updated_item: this.transformItemToApiFormat(updatedItem, craftCount),
       is_first_craft: isFirstCraft,
       craft_count: craftCount,
       image_url: imageUrl,
@@ -342,6 +373,38 @@ export class MaterialService {
     // 11. Update Items table
     await this.itemRepository.updateImageData(itemId, userId, comboHash, imageUrl, 'complete');
 
+    // 11.5. Calculate and update item stats with new materials
+    const itemWithTypeUpdated = await this.itemRepository.findWithMaterials(itemId, userId);
+    if (itemWithTypeUpdated && itemWithTypeUpdated.item_type) {
+      // Get base stats and rarity multiplier from item type
+      const baseStatsUpdated = itemWithTypeUpdated.item_type.base_stats_normalized;
+      const rarityUpdated = itemWithTypeUpdated.item_type.rarity;
+
+      // Get rarity multiplier and apply to base stats
+      const rarityMultiplierUpdated = this.getRarityMultiplier(rarityUpdated);
+      const rarityAdjustedBaseStatsUpdated = {
+        atkPower: baseStatsUpdated.atkPower * rarityMultiplierUpdated,
+        atkAccuracy: baseStatsUpdated.atkAccuracy * rarityMultiplierUpdated,
+        defPower: baseStatsUpdated.defPower * rarityMultiplierUpdated,
+        defAccuracy: baseStatsUpdated.defAccuracy * rarityMultiplierUpdated
+      };
+
+      // Get updated materials after replacement
+      const updatedMaterials = await this.materialRepository.findMaterialsByItem(itemId);
+
+      // Calculate final stats with replaced materials
+      // Note: Filter out any materials that don't have proper stat_modifiers (for tests)
+      const validMaterialsUpdated = updatedMaterials.filter(m => m.material && m.material.stat_modifiers);
+      const finalStatsUpdated = statsService.computeItemStats(
+        rarityAdjustedBaseStatsUpdated,
+        itemWithTypeUpdated.level,
+        validMaterialsUpdated
+      );
+
+      // Update the item's current_stats in the database
+      await this.itemRepository.updateStats(itemId, userId, finalStatsUpdated);
+    }
+
     // 12. Return result with gold spent and replaced material
     const updatedItem = await this.itemRepository.findWithMaterials(itemId, userId);
     if (!updatedItem) {
@@ -353,7 +416,7 @@ export class MaterialService {
 
     return {
       success: true,
-      updated_item: this.transformItemToApiFormat(updatedItem),
+      updated_item: this.transformItemToApiFormat(updatedItem, craftCount),
       gold_spent: goldCost,
       replaced_material: {
         id: oldInstance.id,
@@ -397,44 +460,77 @@ export class MaterialService {
   }
 
   /**
-   * Transform ItemWithDetails from repository to API Item format
+   * Get rarity multiplier for stat calculations
+   * Copied from StatsService to avoid service dependency
    */
-  private transformItemToApiFormat(itemWithDetails: any): any {
+  private getRarityMultiplier(rarity: string): number {
+    const multipliers: Record<string, number> = {
+      'common': 1.0,
+      'uncommon': 1.25,
+      'rare': 1.5,
+      'epic': 1.75,
+      'legendary': 2.0
+    };
+
+    const multiplier = multipliers[rarity];
+    if (multiplier === undefined) {
+      throw new ValidationError(`Invalid rarity: ${rarity}`);
+    }
+
+    return multiplier;
+  }
+
+  /**
+   * Transform ItemWithDetails from repository to API Item format
+   * Maps to iOS EnhancedPlayerItem structure
+   */
+  private transformItemToApiFormat(itemWithDetails: any, craftCount: number = 1): any {
+    // Extract the item type name as base_type
+    const baseType = itemWithDetails.item_type?.name || 'Unknown';
+    const category = itemWithDetails.item_type?.category || 'weapon';
+    const rarity = itemWithDetails.item_type?.rarity || 'common';
+
     return {
       id: itemWithDetails.id,
-      user_id: itemWithDetails.user_id,
+      base_type: baseType,
       item_type_id: itemWithDetails.item_type_id,
+      category: category,
       level: itemWithDetails.level,
-      base_stats: itemWithDetails.item_type?.base_stats_normalized || {},
-      current_stats: itemWithDetails.current_stats || {},
-      is_styled: itemWithDetails.is_styled || false,
-      material_combo_hash: itemWithDetails.material_combo_hash,
-      image_url: itemWithDetails.generated_image_url,
-      materials: itemWithDetails.materials?.map((m: any) => ({
-        id: m.material?.id || '',
+      rarity: rarity,
+      applied_materials: itemWithDetails.materials?.map((m: any) => ({
         material_id: m.material?.id || '',
         style_id: m.material?.style_id || '00000000-0000-0000-0000-000000000000',
         slot_index: m.slot_index,
         material: {
           id: m.material?.id || '',
           name: m.material?.name || '',
-          stat_modifiers: m.material?.stat_modifiers || {},
           description: m.material?.description,
-          base_drop_weight: m.material?.base_drop_weight || 100
+          style_id: m.material?.style_id || '00000000-0000-0000-0000-000000000000',
+          stat_modifiers: m.material?.stat_modifiers || {},
+          image_url: undefined
         }
       })) || [],
-      item_type: itemWithDetails.item_type ? {
-        id: itemWithDetails.item_type.id,
-        name: itemWithDetails.item_type.name,
-        category: itemWithDetails.item_type.category,
-        equipment_slot: itemWithDetails.item_type.category, // Assuming category maps to slot
-        base_stats: itemWithDetails.item_type.base_stats_normalized || {},
-        rarity: itemWithDetails.item_type.rarity || 'common',
-        image_url: undefined,
-        description: itemWithDetails.item_type.description
-      } : undefined,
-      created_at: itemWithDetails.created_at,
-      updated_at: itemWithDetails.created_at // Fallback since updated_at might not exist
+      materials: itemWithDetails.materials?.map((m: any) => ({
+        material_id: m.material?.id || '',
+        style_id: m.material?.style_id || '00000000-0000-0000-0000-000000000000',
+        slot_index: m.slot_index,
+        material: {
+          id: m.material?.id || '',
+          name: m.material?.name || '',
+          description: m.material?.description,
+          style_id: m.material?.style_id || '00000000-0000-0000-0000-000000000000',
+          stat_modifiers: m.material?.stat_modifiers || {},
+          image_url: undefined
+        }
+      })) || [],
+      computed_stats: itemWithDetails.current_stats || {},
+      material_combo_hash: itemWithDetails.material_combo_hash || null,
+      generated_image_url: itemWithDetails.generated_image_url || null,
+      image_generation_status: itemWithDetails.image_generation_status || 'complete',
+      craft_count: craftCount,
+      is_styled: itemWithDetails.is_styled || false,
+      is_equipped: false, // TODO: Check UserEquipment table
+      equipped_slot: null // TODO: Get from UserEquipment if equipped
     };
   }
 }
