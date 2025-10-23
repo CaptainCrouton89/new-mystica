@@ -20,59 +20,30 @@ struct UpgradeCompleteModal: View {
     let onReturnToInventory: () -> Void
 
     @Environment(\.dismiss) private var dismiss
-    @State private var isAnimating = false
     @Environment(\.audioManager) private var audioManager
 
     var body: some View {
-        ZStack {
-            // Background overlay with blur effect
-            Color.black.opacity(0.7)
-                .ignoresSafeArea()
-                .background(
-                    .ultraThinMaterial,
-                    in: Rectangle()
-                )
-                .onTapGesture {
-                    dismissModal()
-                }
+        VStack(spacing: 0) {
+            // Header with close button
+            headerView
 
-            // Modal content
-            VStack(spacing: 0) {
-                // Header with close button
-                headerView
+            // Item image section
+            itemImageView
 
-                // Item image section
-                itemImageView
+            // Level progression badge
+            levelProgressionView
 
-                // Level progression badge
-                levelProgressionView
+            // Stat comparison table
+            statComparisonView
 
-                // Stat comparison table
-                statComparisonView
+            // Gold spent confirmation
+            goldSpentView
 
-                // Gold spent confirmation
-                goldSpentView
-
-                // Action buttons
-                actionButtonsView
-            }
-            .background(
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(Color.backgroundPrimary)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 20)
-                            .stroke(Color.accent, lineWidth: 2)
-                    )
-            )
-            .padding(.horizontal, 32)
-            .offset(y: isAnimating ? 0 : 100)
-            .opacity(isAnimating ? 1.0 : 0.0)
+            // Action buttons
+            actionButtonsView
         }
-        .onAppear {
-            withAnimation(.easeOut(duration: 0.3)) {
-                isAnimating = true
-            }
-        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.backgroundPrimary)
     }
 
     // MARK: - Header View
@@ -188,7 +159,6 @@ struct UpgradeCompleteModal: View {
                 StatComparisonRow(
                     iconUrl: "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/attack-power-crossed-swords.png",
                     fallbackIcon: "hammer.fill",
-                    label: "ATK Power",
                     oldValue: String(format: "%.0f", statsBefore.atkPower * 100),
                     newValue: String(format: "%.0f", statsAfter.atkPower * 100),
                     color: Color.alert
@@ -197,7 +167,6 @@ struct UpgradeCompleteModal: View {
                 StatComparisonRow(
                     iconUrl: "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/attack-accuracy-crosshair.png",
                     fallbackIcon: "target",
-                    label: "ATK Accuracy",
                     oldValue: String(format: "%.1f%%", statsBefore.atkAccuracy * 100),
                     newValue: String(format: "%.1f%%", statsAfter.atkAccuracy * 100),
                     color: Color.warning
@@ -206,7 +175,6 @@ struct UpgradeCompleteModal: View {
                 StatComparisonRow(
                     iconUrl: "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/defense-power-round-shield.png",
                     fallbackIcon: "shield.fill",
-                    label: "DEF Power",
                     oldValue: String(format: "%.0f", statsBefore.defPower * 100),
                     newValue: String(format: "%.0f", statsAfter.defPower * 100),
                     color: Color.accentSecondary
@@ -215,7 +183,6 @@ struct UpgradeCompleteModal: View {
                 StatComparisonRow(
                     iconUrl: "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/defense-accuracy-force-field.png",
                     fallbackIcon: "checkmark.shield.fill",
-                    label: "DEF Accuracy",
                     oldValue: String(format: "%.1f%%", statsBefore.defAccuracy * 100),
                     newValue: String(format: "%.1f%%", statsAfter.defAccuracy * 100),
                     color: Color.success
@@ -269,7 +236,7 @@ struct UpgradeCompleteModal: View {
     private var actionButtonsView: some View {
         VStack(spacing: 12) {
             if isConfirmation {
-                // Confirmation mode: Show "Confirm Upgrade" and "Cancel"
+                // Confirmation mode: Show only "Confirm Upgrade"
                 Button {
                     audioManager.playMenuButtonClick()
                     dismissModal()
@@ -296,31 +263,8 @@ struct UpgradeCompleteModal: View {
                     .foregroundColor(Color.success)
                 }
                 .buttonStyle(PlainButtonStyle())
-
-                Button {
-                    audioManager.playCancelClick()
-                    dismissModal()
-                } label: {
-                    HStack {
-                        Image(systemName: "xmark.circle.fill")
-                        Text("Cancel")
-                            .font(FontManager.impact(size: 16))
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color.textSecondary.opacity(0.15))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color.textSecondary, lineWidth: 2)
-                            )
-                    )
-                    .foregroundColor(Color.textSecondary)
-                }
-                .buttonStyle(PlainButtonStyle())
             } else {
-                // Completion mode: Show "Upgrade Again" and "Return to Inventory"
+                // Completion mode: Show only "Upgrade Again"
                 Button {
                     audioManager.playMenuButtonClick()
                     dismissModal()
@@ -347,33 +291,6 @@ struct UpgradeCompleteModal: View {
                     .foregroundColor(Color.accent)
                 }
                 .buttonStyle(PlainButtonStyle())
-
-                Button {
-                    audioManager.playMenuButtonClick()
-                    dismissModal()
-                    Task {
-                        try? await Task.sleep(for: .milliseconds(300))
-                        onReturnToInventory()
-                    }
-                } label: {
-                    HStack {
-                        Image(systemName: "backpack.fill")
-                        Text("Return to Inventory")
-                            .font(FontManager.impact(size: 16))
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color.accentSecondary.opacity(0.15))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color.accentSecondary, lineWidth: 2)
-                            )
-                    )
-                    .foregroundColor(Color.accentSecondary)
-                }
-                .buttonStyle(PlainButtonStyle())
             }
         }
         .padding(.horizontal, 20)
@@ -384,14 +301,7 @@ struct UpgradeCompleteModal: View {
     // MARK: - Helper Methods
 
     private func dismissModal() {
-        withAnimation(.easeOut(duration: 0.3)) {
-            isAnimating = false
-        }
-
-        Task {
-            try? await Task.sleep(for: .milliseconds(300))
-            dismiss()
-        }
+        dismiss()
     }
 
     private func getRarityColor() -> Color {
@@ -437,7 +347,6 @@ struct UpgradeCompleteModal: View {
 private struct StatComparisonRow: View {
     let iconUrl: String
     let fallbackIcon: String
-    let label: String
     let oldValue: String
     let newValue: String
     let color: Color
@@ -461,18 +370,13 @@ private struct StatComparisonRow: View {
             .foregroundColor(color)
             .frame(width: 40)
 
-            // Stat label
-            VStack(alignment: .leading, spacing: 2) {
-                SmallText(label)
-                    .foregroundColor(Color.textSecondary)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            Spacer()
 
             // Old value (grayed out)
             Text(oldValue)
                 .font(FontManager.body)
                 .foregroundColor(Color.textSecondary)
-                .frame(width: 60, alignment: .trailing)
+                .frame(alignment: .trailing)
 
             // Arrow
             Image(systemName: "arrow.right")
@@ -490,7 +394,7 @@ private struct StatComparisonRow: View {
                     .font(.system(size: 10, weight: .bold))
                     .foregroundColor(Color.success)
             }
-            .frame(width: 80, alignment: .trailing)
+            .frame(alignment: .trailing)
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 10)

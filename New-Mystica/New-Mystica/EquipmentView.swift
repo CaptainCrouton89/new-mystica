@@ -267,13 +267,20 @@ struct EquipmentView: View {
                     onUpgrade: {
                         // Show upgrade confirmation via inventory view model
                         viewModel.showingItemDetailModal = false
+                        // Prepare the item in inventoryViewModel so handleUpgradeAction can find it
+                        viewModel.prepareItemForInventoryAction()
                         Task {
                             await viewModel.inventoryViewModel.handleUpgradeAction()
                         }
                     },
                     onCraft: {
                         audioManager.playMenuButtonClick()
-                        navigationManager.navigateTo(.crafting())
+                        viewModel.showingItemDetailModal = false
+                        // Prepare the item in inventoryViewModel so handleCraftAction can find it
+                        viewModel.prepareItemForInventoryAction()
+                        Task {
+                            await viewModel.inventoryViewModel.handleCraftAction()
+                        }
                     }
                 )
             }
@@ -301,6 +308,7 @@ struct EquipmentView: View {
                         onUpgradeAgain: nil,
                         onReturnToInventory: {
                             viewModel.inventoryViewModel.showingUpgradeConfirmationModal = false
+                            viewModel.inventoryViewModel.selectedItemForDetail = nil
                         }
                     )
                 } else {
