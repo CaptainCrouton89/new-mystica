@@ -8,6 +8,7 @@ import AppKit
 #if canImport(SwiftUI)
 import SwiftUI
 #endif
+import Combine
 
 /**
  * SpriteAnimationGenerator - Swift class for creating simple forward-looping sprite animations
@@ -83,6 +84,8 @@ class SpriteAnimationGenerator {
         frameRate: Double = 12.0
     ) -> SKSpriteNode? {
         
+        print("🎬 Creating animated sprite from: \(folderPath)")
+        
         // Get first frame for initial texture
         guard let imageFiles = getImageFiles(from: folderPath) else {
             print("❌ Failed to load first frame from: \(folderPath)")
@@ -98,10 +101,12 @@ class SpriteAnimationGenerator {
         
         // Add looping animation
         guard let animation = createLoopingAnimation(from: folderPath, frameRate: frameRate) else {
+            print("❌ Failed to create animation")
             return nil
         }
         
         spriteNode.run(animation)
+        print("✅ Successfully created animated sprite")
         return spriteNode
     }
     
@@ -136,14 +141,115 @@ class SpriteAnimationGenerator {
         return skView
     }
     
+    // MARK: - Remote Animation Loading Methods
+    
+    /**
+     * Creates a sprite node with animation loaded from remote URLs
+     * 
+     * - Parameters:
+     *   - frameUrls: Array of URLs to sprite frame images
+     *   - frameRate: Frames per second (default: 12)
+     *   - completion: Completion handler with the created sprite node
+     */
+    static func createAnimatedSpriteFromURLs(
+        frameUrls: [URL],
+        frameRate: Double = 12.0,
+        completion: @escaping (SKSpriteNode?) -> Void
+    ) {
+        print("🌐 Loading animation from \(frameUrls.count) remote URLs")
+        
+        let group = DispatchGroup()
+        var textures: [SKTexture] = []
+        var errors: [Error] = []
+        
+        for (index, url) in frameUrls.enumerated() {
+            group.enter()
+            
+            URLSession.shared.dataTask(with: url) { data, response, error in
+                defer { group.leave() }
+                
+                if let error = error {
+                    print("❌ Failed to load frame \(index) from \(url): \(error)")
+                    errors.append(error)
+                    return
+                }
+                
+                guard let data = data,
+                      let image = UIImage(data: data) else {
+                    print("❌ Failed to create image from data for frame \(index)")
+                    return
+                }
+                
+                let texture = SKTexture(image: image)
+                textures.append(texture)
+            }.resume()
+        }
+        
+        group.notify(queue: .main) {
+            guard !textures.isEmpty else {
+                print("❌ No textures loaded successfully")
+                completion(nil)
+                return
+            }
+            
+            print("✅ Successfully loaded \(textures.count) textures")
+            
+            // Create sprite node with first texture
+            let spriteNode = SKSpriteNode(texture: textures[0])
+            
+            // Create animation
+            let frameTime = 1.0 / frameRate
+            let animateAction = SKAction.animate(with: textures, timePerFrame: frameTime)
+            let loopAction = SKAction.repeatForever(animateAction)
+            
+            spriteNode.run(loopAction)
+            completion(spriteNode)
+        }
+    }
+    
+    /**
+     * Creates a SwiftUI-compatible animated view from remote URLs
+     * 
+     * - Parameters:
+     *   - frameUrls: Array of URLs to sprite frame images
+     *   - frameRate: Frames per second (default: 12)
+     *   - size: Size of the animated view
+     *   - completion: Completion handler with the created SKView
+     */
+    static func createAnimatedViewFromURLs(
+        frameUrls: [URL],
+        frameRate: Double = 12.0,
+        size: CGSize = CGSize(width: 100, height: 100),
+        completion: @escaping (SKView?) -> Void
+    ) {
+        createAnimatedSpriteFromURLs(frameUrls: frameUrls, frameRate: frameRate) { spriteNode in
+            guard let spriteNode = spriteNode else {
+                completion(nil)
+                return
+            }
+            
+            let skView = SKView(frame: CGRect(origin: .zero, size: size))
+            let scene = SKScene(size: size)
+            scene.backgroundColor = .clear
+            
+            spriteNode.position = CGPoint(x: size.width / 2, y: size.height / 2)
+            scene.addChild(spriteNode)
+            
+            skView.presentScene(scene)
+            completion(skView)
+        }
+    }
+    
     // MARK: - Private Helper Methods
     
     private static func getImageFiles(from folderPath: String) -> [String]? {
+        print("🔍 Looking for images in: \(folderPath)")
         let fileManager = FileManager.default
         let url = URL(fileURLWithPath: folderPath)
         
         do {
             let files = try fileManager.contentsOfDirectory(at: url, includingPropertiesForKeys: nil)
+            print("📁 Found \(files.count) files in directory")
             
             // Filter for image files and sort by name
             let imageFiles = files
@@ -154,6 +260,7 @@ class SpriteAnimationGenerator {
                 .sorted { $0.lastPathComponent < $1.lastPathComponent }
                 .map { $0.path }
             
+            print("🖼️ Found \(imageFiles.count) image files")
             return imageFiles
         } catch {
             print("❌ Error reading directory: \(error)")
@@ -218,6 +325,68 @@ struct AnimatedSpriteView: View {
         }
         
         return scene
+    }
+}
+
+// MARK: - Remote Animation SwiftUI View
+
+struct RemoteAnimatedSpriteView: View {
+    let frameUrls: [URL]
+    let frameRate: Double
+    let size: CGSize
+    @State private var skView: SKView?
+    @State private var isLoading = true
+    @State private var hasError = false
+    
+    init(
+        frameUrls: [URL],
+        frameRate: Double = 12.0,
+        size: CGSize = CGSize(width: 100, height: 100)
+    ) {
+        self.frameUrls = frameUrls
+        self.frameRate = frameRate
+        self.size = size
+    }
+    
+    var body: some View {
+        ZStack {
+            if isLoading {
+                ProgressView("Loading animation...")
+                    .frame(width: size.width, height: size.height)
+            } else if hasError {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.red.opacity(0.1))
+                    .frame(width: size.width, height: size.height)
+                    .overlay(
+                        Text("Failed to load animation")
+                            .foregroundColor(.red)
+                            .font(.caption)
+                    )
+            } else if let skView = skView {
+                SpriteView(scene: skView.scene)
+                    .frame(width: size.width, height: size.height)
+            }
+        }
+        .onAppear {
+            loadAnimation()
+        }
+    }
+    
+    private func loadAnimation() {
+        SpriteAnimationGenerator.createAnimatedViewFromURLs(
+            frameUrls: frameUrls,
+            frameRate: frameRate,
+            size: size
+        ) { loadedSkView in
+            DispatchQueue.main.async {
+                isLoading = false
+                if let loadedSkView = loadedSkView {
+                    self.skView = loadedSkView
+                } else {
+                    hasError = true
+                }
+            }
+        }
     }
 }
 #endif
