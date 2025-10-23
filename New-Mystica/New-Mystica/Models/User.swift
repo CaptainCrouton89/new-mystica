@@ -17,23 +17,34 @@ struct User: Codable {
     let createdAt: Date
     let lastLogin: Date?
 
-    // Custom decoding to handle backend's snake_case JSON
+    // Proper CodingKeys enum for snake_case JSON mapping
+    enum CodingKeys: String, CodingKey {
+        case id
+        case deviceId = "device_id"
+        case accountType = "account_type"
+        case email
+        case vanityLevel = "vanity_level"
+        case avgItemLevel = "avg_item_level"
+        case createdAt = "created_at"
+        case lastLogin = "last_login"
+    }
+
+    // Custom decoding to handle backend's snake_case JSON and date formatting
     init(from decoder: Decoder) throws {
-        // Use a dynamic container that looks for snake_case keys directly
-        let container = try decoder.container(keyedBy: DynamicCodingKeys.self)
+        let container = try decoder.container(keyedBy: CodingKeys.self)
 
         // Required fields
-        id = try container.decode(UUID.self, forKey: DynamicCodingKeys(stringValue: "id")!)
-        accountType = try container.decode(String.self, forKey: DynamicCodingKeys(stringValue: "account_type")!)
+        id = try container.decode(UUID.self, forKey: .id)
+        accountType = try container.decode(String.self, forKey: .accountType)
 
         // Optional fields (backend may not include these for anonymous users)
-        deviceId = try container.decodeIfPresent(String.self, forKey: DynamicCodingKeys(stringValue: "device_id")!)
-        email = try container.decodeIfPresent(String.self, forKey: DynamicCodingKeys(stringValue: "email")!)
-        vanityLevel = try container.decodeIfPresent(Int.self, forKey: DynamicCodingKeys(stringValue: "vanity_level")!)
-        avgItemLevel = try container.decodeIfPresent(Float.self, forKey: DynamicCodingKeys(stringValue: "avg_item_level")!)
+        deviceId = try container.decodeIfPresent(String.self, forKey: .deviceId)
+        email = try container.decodeIfPresent(String.self, forKey: .email)
+        vanityLevel = try container.decodeIfPresent(Int.self, forKey: .vanityLevel)
+        avgItemLevel = try container.decodeIfPresent(Float.self, forKey: .avgItemLevel)
 
         // Dates - handle ISO8601 strings
-        if let createdAtString = try? container.decode(String.self, forKey: DynamicCodingKeys(stringValue: "created_at")!) {
+        if let createdAtString = try? container.decode(String.self, forKey: .createdAt) {
             let formatter = ISO8601DateFormatter()
             formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
             if let date = formatter.date(from: createdAtString) {
@@ -47,7 +58,7 @@ struct User: Codable {
             createdAt = Date() // Fallback
         }
 
-        if let lastLoginString = try? container.decodeIfPresent(String.self, forKey: DynamicCodingKeys(stringValue: "last_login")!) {
+        if let lastLoginString = try? container.decodeIfPresent(String.self, forKey: .lastLogin) {
             let formatter = ISO8601DateFormatter()
             formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
             lastLogin = formatter.date(from: lastLoginString ?? "")
@@ -56,31 +67,22 @@ struct User: Codable {
         }
     }
 
-    // Encoding (if needed)
+    // Encoding using proper CodingKeys
     func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: DynamicCodingKeys.self)
-        try container.encode(id, forKey: DynamicCodingKeys(stringValue: "id")!)
-        try container.encode(accountType, forKey: DynamicCodingKeys(stringValue: "account_type")!)
-        try container.encodeIfPresent(deviceId, forKey: DynamicCodingKeys(stringValue: "device_id")!)
-        try container.encodeIfPresent(email, forKey: DynamicCodingKeys(stringValue: "email")!)
-        try container.encodeIfPresent(vanityLevel, forKey: DynamicCodingKeys(stringValue: "vanity_level")!)
-        try container.encodeIfPresent(avgItemLevel, forKey: DynamicCodingKeys(stringValue: "avg_item_level")!)
-        // Dates would need custom formatting here if encoding is needed
-    }
-}
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(accountType, forKey: .accountType)
+        try container.encodeIfPresent(deviceId, forKey: .deviceId)
+        try container.encodeIfPresent(email, forKey: .email)
+        try container.encodeIfPresent(vanityLevel, forKey: .vanityLevel)
+        try container.encodeIfPresent(avgItemLevel, forKey: .avgItemLevel)
 
-// Dynamic coding keys for runtime key lookup
-struct DynamicCodingKeys: CodingKey {
-    var stringValue: String
-    var intValue: Int?
-
-    init?(stringValue: String) {
-        self.stringValue = stringValue
-        self.intValue = nil
-    }
-
-    init?(intValue: Int) {
-        self.stringValue = "\(intValue)"
-        self.intValue = intValue
+        // Encode dates as ISO8601 strings
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        try container.encode(formatter.string(from: createdAt), forKey: .createdAt)
+        if let lastLogin = lastLogin {
+            try container.encode(formatter.string(from: lastLogin), forKey: .lastLogin)
+        }
     }
 }
