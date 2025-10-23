@@ -267,12 +267,12 @@ print("❌ Error: \(appError)")
         actionMenuItem = nil
     }
 
-    func handleEquipAction() {
+    func handleEquipAction() async {
         guard let item = actionMenuItem else { return }
         dismissActionMenu()
 
-        // Show equipment drawer for slot selection
-        showingEquipmentDrawer = true
+        // Directly equip the item
+        await equipItem(item)
     }
 
     func handleCraftAction() async {

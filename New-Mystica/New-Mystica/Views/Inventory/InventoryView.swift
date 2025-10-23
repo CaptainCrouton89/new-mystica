@@ -263,12 +263,6 @@ struct InventoryView: View {
                 await viewModel.loadInventory()
             }
             .overlay(actionMenuOverlay)
-            .bottomDrawer(
-                title: "Select Equipment",
-                isPresented: $viewModel.showingEquipmentDrawer
-            ) {
-                equipmentDrawerContent
-            }
             .overlay(sellConfirmationOverlay)
             .overlay(successToastOverlay)
             .alert("Error", isPresented: $viewModel.showingErrorAlert) {
@@ -339,7 +333,9 @@ struct InventoryView: View {
                         ItemActionMenu(
                             item: item,
                             onEquip: {
-                                viewModel.handleEquipAction()
+                                Task {
+                                    await viewModel.handleEquipAction()
+                                }
                             },
                             onCraft: {
                                 Task {
@@ -367,25 +363,6 @@ struct InventoryView: View {
                 .transition(.opacity.combined(with: .move(edge: .bottom)))
                 .animation(.easeInOut(duration: 0.3), value: viewModel.showingItemActionMenu)
             }
-        }
-    }
-
-    @ViewBuilder
-    private var equipmentDrawerContent: some View {
-        if let item = viewModel.actionMenuItem {
-            ItemSelectionDrawer(
-                targetSlot: viewModel.getSlotForItem(item),
-                availableItems: viewModel.getAvailableItemsForSlot(viewModel.getSlotForItem(item)),
-                isPresented: $viewModel.showingEquipmentDrawer,
-                onItemSelected: { selectedItem in
-                    Task {
-                        await viewModel.equipItem(selectedItem)
-                    }
-                },
-                onDismiss: {
-                    viewModel.dismissEquipmentDrawer()
-                }
-            )
         }
     }
 

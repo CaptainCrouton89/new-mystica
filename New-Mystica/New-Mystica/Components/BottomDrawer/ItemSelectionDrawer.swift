@@ -9,34 +9,15 @@
 import SwiftUI
 import SwiftData
 
-// MARK: - Item Selection Drawer
-struct ItemSelectionDrawer: View {
-    let title: String
+// MARK: - Item Selection Drawer Content (for use inside bottomDrawer)
+struct ItemSelectionDrawerContent: View {
     let targetSlot: EquipmentSlot
     let availableItems: [EnhancedPlayerItem]
-    let isPresented: Binding<Bool>
     let onItemSelected: (EnhancedPlayerItem) -> Void
-    let onDismiss: (() -> Void)?
 
     @State private var selectedItem: EnhancedPlayerItem?
     @State private var showConfirmation = false
     @Environment(\.audioManager) private var audioManager
-
-    init(
-        title: String = "Select Equipment",
-        targetSlot: EquipmentSlot,
-        availableItems: [EnhancedPlayerItem],
-        isPresented: Binding<Bool>,
-        onItemSelected: @escaping (EnhancedPlayerItem) -> Void,
-        onDismiss: (() -> Void)? = nil
-    ) {
-        self.title = title
-        self.targetSlot = targetSlot
-        self.availableItems = availableItems
-        self.isPresented = isPresented
-        self.onItemSelected = onItemSelected
-        self.onDismiss = onDismiss
-    }
 
     // Filter items that can be equipped in the target slot
     private var filteredItems: [EnhancedPlayerItem] {
@@ -48,61 +29,55 @@ struct ItemSelectionDrawer: View {
     }
 
     var body: some View {
-        BottomDrawerSheet(
-            title: "\(title) - \(targetSlot.displayName)",
-            isPresented: isPresented,
-            onDismiss: onDismiss
-        ) {
-            VStack(spacing: 16) {
-                if filteredItems.isEmpty {
-                    // Empty state
-                    VStack(spacing: 16) {
-                        Image(systemName: "tray")
-                            .font(.system(size: 48, weight: .light))
-                            .foregroundColor(Color.textSecondary)
+        VStack(spacing: 16) {
+            if filteredItems.isEmpty {
+                // Empty state
+                VStack(spacing: 16) {
+                    Image(systemName: "tray")
+                        .font(.system(size: 48, weight: .light))
+                        .foregroundColor(Color.textSecondary)
 
-                        NormalText("No available \(targetSlot.displayName.lowercased()) items to equip.")
-                            .multilineTextAlignment(.center)
-                    }
-                    .frame(maxHeight: .infinity)
-                } else {
-                    // Items list
-                    ScrollView {
-                        LazyVGrid(
-                            columns: [
-                                GridItem(.adaptive(minimum: 280), spacing: 12)
-                            ],
-                            spacing: 12
-                        ) {
-                            ForEach(filteredItems, id: \.id) { item in
-                                ItemSelectionCard(
-                                    item: item,
-                                    isSelected: selectedItem?.id == item.id
-                                ) {
-                                    selectItem(item)
-                                }
-                            }
-                        }
-                        .padding(.horizontal, 20)
-                    }
+                    NormalText("No available \(targetSlot.displayName.lowercased()) items to equip.")
+                        .multilineTextAlignment(.center)
                 }
-
-                // Action buttons (only show if item is selected)
-                if selectedItem != nil {
-                    HStack(spacing: 12) {
-                        TextButton("Cancel") {
-                            audioManager.playCancelClick()
-                            selectedItem = nil
-                        }
-
-                        TextButton("Equip Item") {
-                            audioManager.playBattleClick()
-                            showConfirmation = true
+                .frame(maxHeight: .infinity)
+            } else {
+                // Items list
+                ScrollView {
+                    LazyVGrid(
+                        columns: [
+                            GridItem(.adaptive(minimum: 280), spacing: 12)
+                        ],
+                        spacing: 12
+                    ) {
+                        ForEach(filteredItems, id: \.id) { item in
+                            ItemSelectionCard(
+                                item: item,
+                                isSelected: selectedItem?.id == item.id
+                            ) {
+                                selectItem(item)
+                            }
                         }
                     }
                     .padding(.horizontal, 20)
-                    .padding(.bottom, 16)
                 }
+            }
+
+            // Action buttons (only show if item is selected)
+            if selectedItem != nil {
+                HStack(spacing: 12) {
+                    TextButton("Cancel") {
+                        audioManager.playCancelClick()
+                        selectedItem = nil
+                    }
+
+                    TextButton("Equip Item") {
+                        audioManager.playBattleClick()
+                        showConfirmation = true
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.bottom, 16)
             }
         }
         .confirmationDialog(
@@ -114,7 +89,6 @@ struct ItemSelectionDrawer: View {
                 if let item = selectedItem {
                     onItemSelected(item)
                     selectedItem = nil
-                    isPresented.wrappedValue = false
                 }
             }
 
@@ -165,6 +139,46 @@ struct ItemSelectionDrawer: View {
             return "Level \(item.level) \(item.baseType.capitalized)"
         } else {
             return item.baseType.capitalized
+        }
+    }
+}
+
+// MARK: - Item Selection Drawer (legacy - wraps content in BottomDrawerSheet)
+struct ItemSelectionDrawer: View {
+    let title: String
+    let targetSlot: EquipmentSlot
+    let availableItems: [EnhancedPlayerItem]
+    let isPresented: Binding<Bool>
+    let onItemSelected: (EnhancedPlayerItem) -> Void
+    let onDismiss: (() -> Void)?
+
+    init(
+        title: String = "Select Equipment",
+        targetSlot: EquipmentSlot,
+        availableItems: [EnhancedPlayerItem],
+        isPresented: Binding<Bool>,
+        onItemSelected: @escaping (EnhancedPlayerItem) -> Void,
+        onDismiss: (() -> Void)? = nil
+    ) {
+        self.title = title
+        self.targetSlot = targetSlot
+        self.availableItems = availableItems
+        self.isPresented = isPresented
+        self.onItemSelected = onItemSelected
+        self.onDismiss = onDismiss
+    }
+
+    var body: some View {
+        BottomDrawerSheet(
+            title: "\(title) - \(targetSlot.displayName)",
+            isPresented: isPresented,
+            onDismiss: onDismiss
+        ) {
+            ItemSelectionDrawerContent(
+                targetSlot: targetSlot,
+                availableItems: availableItems,
+                onItemSelected: onItemSelected
+            )
         }
     }
 }
