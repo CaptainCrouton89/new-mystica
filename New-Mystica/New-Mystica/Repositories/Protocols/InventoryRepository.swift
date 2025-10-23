@@ -10,7 +10,9 @@ import Foundation
 
 protocol InventoryRepository {
     /// Fetch all player items (both stacked base items and unique crafted items)
-    func fetchInventory() async throws -> [EnhancedPlayerItem]
+    /// - Parameter page: Page number for pagination (default: 1)
+    /// - Returns: Complete inventory response with items, stacks, and pagination info
+    func fetchInventory(page: Int) async throws -> InventoryResponse
 
     /// Fetch all material templates (library/catalog)
     func fetchMaterials() async throws -> [MaterialTemplate]

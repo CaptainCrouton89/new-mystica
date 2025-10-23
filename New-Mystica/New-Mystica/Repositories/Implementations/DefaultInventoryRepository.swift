@@ -17,13 +17,11 @@ final class DefaultInventoryRepository: InventoryRepository {
 
     // MARK: - InventoryRepository Protocol
 
-    func fetchInventory() async throws -> [EnhancedPlayerItem] {
-        struct InventoryResponse: Decodable {
-            let items: [EnhancedPlayerItem]
-        }
-
-        let response: InventoryResponse = try await apiClient.get(endpoint: "/inventory")
-        return response.items
+    func fetchInventory(page: Int = 1) async throws -> InventoryResponse {
+        let response: InventoryResponse = try await apiClient.get(
+            endpoint: "/inventory?page=\(page)&limit=50"
+        )
+        return response
     }
 
     func fetchMaterials() async throws -> [MaterialTemplate] {

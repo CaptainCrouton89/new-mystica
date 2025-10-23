@@ -14,7 +14,15 @@ final class InventoryViewModel {
 
     // MARK: - State
     var items: Loadable<[EnhancedPlayerItem]> = .idle
+    var stacks: [ItemStack] = []
     var materials: Loadable<[MaterialTemplate]> = .idle
+
+    // MARK: - Pagination State
+    var currentPage: Int = 1
+    var totalPages: Int = 1
+    var totalItems: Int = 0
+    var isLoading: Bool = false
+    var canLoadMore: Bool = false
 
     // MARK: - UI State
     var selectedItem: EnhancedPlayerItem?
@@ -28,15 +36,25 @@ final class InventoryViewModel {
 
     func loadInventory() async {
         items = .loading
+        currentPage = 1
+        isLoading = true
 
         do {
-            let inventory = try await repository.fetchInventory()
-            items = .loaded(inventory)
+            let response = try await repository.fetchInventory(page: currentPage)
+            items = .loaded(response.items)
+            stacks = response.stacks
+
+            currentPage = response.pagination.currentPage
+            totalPages = response.pagination.totalPages
+            totalItems = response.pagination.totalItems
+            canLoadMore = currentPage < totalPages
         } catch let error as AppError {
             items = .error(error)
         } catch {
             items = .error(.unknown(error))
         }
+
+        isLoading = false
     }
 
     func loadMaterials() async {
@@ -50,6 +68,41 @@ final class InventoryViewModel {
         } catch {
             materials = .error(.unknown(error))
         }
+    }
+
+    func loadMoreItems() async {
+        guard canLoadMore && !isLoading else { return }
+
+        isLoading = true
+        do {
+            let response = try await repository.fetchInventory(page: currentPage + 1)
+
+            // Accumulate items for infinite scroll
+            if case .loaded(var currentItems) = items {
+                currentItems.append(contentsOf: response.items)
+                items = .loaded(currentItems)
+            } else {
+                items = .loaded(response.items)
+            }
+
+            // Replace stacks (they're not paginated)
+            stacks = response.stacks
+
+            currentPage = response.pagination.currentPage
+            totalPages = response.pagination.totalPages
+            canLoadMore = currentPage < totalPages
+        } catch let error as AppError {
+            items = .error(error)
+        } catch {
+            items = .error(.unknown(error))
+        }
+        isLoading = false
+    }
+
+    func refreshInventory() async {
+        currentPage = 1
+        stacks = []
+        await loadInventory()
     }
 
     func applyMaterial(itemId: String, materialId: String, styleId: String, slotIndex: Int = 0) async {
