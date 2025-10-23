@@ -25,8 +25,9 @@ struct ItemRow: View {
                         case .success(let image):
                             image
                                 .resizable()
-                                .aspectRatio(contentMode: .fit)
+                                .aspectRatio(contentMode: .fill)
                                 .frame(width: 50, height: 50)
+                                .clipped()
                         case .failure:
                             ZStack {
                                 RoundedRectangle(cornerRadius: 8)
@@ -56,7 +57,7 @@ struct ItemRow: View {
             .clipShape(RoundedRectangle(cornerRadius: 8))
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
-                    .stroke(getRarityColor(), lineWidth: 2)
+                    .stroke(Color.accentSecondary, lineWidth: 2)
             )
             .overlay(
                 // Equipped indicator overlay

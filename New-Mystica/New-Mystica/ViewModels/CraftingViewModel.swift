@@ -170,11 +170,19 @@ final class CraftingViewModel {
         }
 
         do {
+            // Find first available slot (0-2)
+            let occupiedSlots = Set(item.materials.map { $0.slotIndex })
+            let availableSlot = (0...2).first { !occupiedSlots.contains($0) }
+
+            guard let slotIndex = availableSlot else {
+                throw AppError.businessLogic("Item already has maximum 3 materials applied")
+            }
+
             let response = try await inventoryRepository.applyMaterial(
                 itemId: item.id,
                 materialId: material.materialId,
                 styleId: material.styleId,
-                slotIndex: 0 // Always use first available slot
+                slotIndex: slotIndex
             )
 
             // Update results state
@@ -219,7 +227,7 @@ final class CraftingViewModel {
             try? await Task.sleep(nanoseconds: UInt64(stepDuration * 1_000_000_000))
             await MainActor.run {
                 self.craftingProgress = Double(step) / Double(progressSteps)
-                self.progressMessage = "Generating image... \(step * 5)%"
+                self.progressMessage = "Crafting item... \(step * 5)%"
             }
         }
     }
