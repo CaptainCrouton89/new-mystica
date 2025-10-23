@@ -61,33 +61,16 @@ export class LocationRepository extends BaseRepository<Location> {
       search_radius: radius,
     });
 
-    // Enrich with API contract fields
-    return (data || []).map(location => ({
-      ...location,
-      enemy_level: 1, // MVP0: Hardcoded to 1, would be user.avg_item_level in production
-      material_drop_pool: [], // Deprecated - use LootPools system instead
-    }));
+    return data || [];
   }
 
   /**
-   * Find location by ID with additional validation and API enrichment
-   * Overrides base findById to add proper error handling and enrich with missing API fields
-   *
-   * Enriches result with API contract fields:
-   * - enemy_level: Set to 1 (MVP0 simplification)
-   * - material_drop_pool: Empty array (deprecated, use LootPools)
-   * - distance_meters: Not applicable for single location query (null)
+   * Find location by ID
+   * Note: Previously added deprecated fields (enemy_level, material_drop_pool).
+   * Now returns base Location - use pool-based system (EnemyPools/LootPools) instead.
    */
-  async findById(locationId: string): Promise<(Location & { enemy_level: number; material_drop_pool: string[]; distance_meters?: number }) | null> {
-    const location = await super.findById(locationId);
-    if (!location) return null;
-
-    // Enrich with API contract fields
-    return {
-      ...location,
-      enemy_level: 1, // MVP0: Hardcoded to 1
-      material_drop_pool: [], // Deprecated
-    };
+  async findById(locationId: string): Promise<Location | null> {
+    return await super.findById(locationId);
   }
 
   // ============================================================================
@@ -126,15 +109,11 @@ export class LocationRepository extends BaseRepository<Location> {
   }
 
   /**
-   * Helper method to enrich locations with API contract fields
-   * Adds: enemy_level (MVP0: 1), material_drop_pool (empty array)
+   * Helper method to enrich locations (no longer adds deprecated fields)
+   * Note: enemy_level and material_drop_pool removed - use pool-based system instead
    */
-  private enrichLocations(locations: Location[]): any[] {
-    return locations.map(location => ({
-      ...location,
-      enemy_level: 1, // MVP0: Hardcoded to 1, would be user.avg_item_level in production
-      material_drop_pool: [], // Deprecated - use LootPools system instead
-    }));
+  private enrichLocations(locations: Location[]): Location[] {
+    return locations;
   }
 
   // ============================================================================
