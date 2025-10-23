@@ -2,7 +2,6 @@
 //  EquipmentViewModel.swift
 //  New-Mystica
 //
-//  Manages equipment state and interactions
 //
 
 import Foundation
@@ -15,11 +14,9 @@ final class EquipmentViewModel {
 
     var equipment: Loadable<[Equipment]> = .idle
 
-    // MARK: - Drawer State
     var showingItemSelectionDrawer: Bool = false
     var selectedSlotForEquipping: EquipmentSlot?
 
-    // MARK: - Modal State
     var showingItemDetailModal: Bool = false
     var selectedItemForDetail: PlayerItem?
     var selectedSlotForDetail: EquipmentSlot?
@@ -48,7 +45,6 @@ final class EquipmentViewModel {
     func equipItem(slotName: String, itemId: String) async {
         do {
             try await repository.equipItem(slotName: slotName, itemId: itemId)
-            // Refresh equipment list
             await fetchEquipment()
         } catch let error as AppError {
             equipment = .error(error)
@@ -60,7 +56,6 @@ final class EquipmentViewModel {
     func unequipItem(slotName: String) async {
         do {
             try await repository.unequipItem(slotName: slotName)
-            // Refresh equipment list
             await fetchEquipment()
         } catch let error as AppError {
             equipment = .error(error)
@@ -69,7 +64,6 @@ final class EquipmentViewModel {
         }
     }
 
-    // MARK: - Modal Methods
 
     func showItemDetail(for item: PlayerItem, slot: EquipmentSlot) {
         selectedItemForDetail = item
@@ -90,7 +84,6 @@ final class EquipmentViewModel {
         dismissItemDetail()
     }
 
-    // MARK: - Drawer Methods
 
     func showItemSelection(for slot: EquipmentSlot) {
         selectedSlotForEquipping = slot
@@ -121,14 +114,11 @@ final class EquipmentViewModel {
         guard let slot = selectedSlotForEquipping else { return }
 
         do {
-            // Call the equipment API
             try await repository.equipItem(slotName: slot.rawValue, itemId: item.id)
 
-            // Refresh both equipment and inventory
             await fetchEquipment()
             await inventoryViewModel.refreshInventory()
 
-            // Close the drawer
             dismissItemSelection()
 
             FileLogger.shared.log("✅ Successfully equipped \(item.baseType) to \(slot.rawValue) slot", level: .info, category: "Equipment")
@@ -141,11 +131,7 @@ final class EquipmentViewModel {
         }
     }
 
-    // MARK: - Helper Methods
 
-    /// Map backend category to equipment slot
-    /// Backend categories: 'weapon', 'offhand', 'head', 'armor', 'feet', 'accessory', 'pet'
-    /// Frontend slots: weapon, offhand, head, armor, feet, accessory_1, accessory_2, pet
     private func categoryMatchesSlot(category: String, slot: EquipmentSlot) -> Bool {
         let categoryLower = category.lowercased()
 
@@ -161,7 +147,6 @@ final class EquipmentViewModel {
         case .feet:
             return categoryLower == "feet"
         case .accessory_1, .accessory_2:
-            // Both accessory slots can accept items with category "accessory"
             return categoryLower == "accessory"
         case .pet:
             return categoryLower == "pet"

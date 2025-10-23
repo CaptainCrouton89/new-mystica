@@ -8,7 +8,6 @@
 import SwiftUI
 import Combine
 
-// MARK: - FloatingText Model
 struct FloatingText: Identifiable {
     let id = UUID()
     let text: String
@@ -46,7 +45,6 @@ struct FloatingText: Identifiable {
 }
 
 
-// MARK: - FloatingTextView Modifier
 struct FloatingTextModifier: ViewModifier {
     @StateObject private var floatingTextView = FloatingTextView()
     
@@ -59,12 +57,10 @@ struct FloatingTextModifier: ViewModifier {
         }
         .environmentObject(floatingTextView)
         .onAppear {
-            // Ensure the floatingTextView is available in the environment
         }
     }
 }
 
-// MARK: - FloatingTextOverlay
 struct FloatingTextOverlay: View {
     @Binding var floatingTexts: [FloatingText]
     
@@ -82,28 +78,22 @@ struct FloatingTextOverlay: View {
     }
 }
 
-// MARK: - View Extension
 extension View {
-    /// Adds floating text capability to any view
     func floatingText() -> some View {
         modifier(FloatingTextModifier())
     }
 }
 
-// MARK: - FloatingTextView EnvironmentObject
 @MainActor
 class FloatingTextView: ObservableObject {
     @Published var floatingTexts: [FloatingText] = []
     
-    // MARK: - Public Methods
     
-    /// Shows a floating text with default settings
     func showText(_ text: String, color: Color = Color.primary) {
         let floatingText = FloatingText(text: text, color: color)
         showFloatingText(floatingText)
     }
     
-    /// Shows a floating text with custom configuration
     func showText(
         _ text: String,
         color: Color = Color.primary,
@@ -123,7 +113,6 @@ class FloatingTextView: ObservableObject {
         showFloatingText(floatingText)
     }
     
-    /// Shows a damage number with special styling
     func showDamage(_ damage: Double, isCritical: Bool = false) {
         let damageText = String(format: "%.0f", damage)
         let color = isCritical ? Color.red : Color.orange
@@ -165,7 +154,6 @@ class FloatingTextView: ObservableObject {
         showFloatingText(floatingText)
     }
     
-    /// Shows a multiplier with color coding
     func showMultiplier(_ multiplier: Double) {
         let multiplierText = String(format: "%.1fx", multiplier)
         let color = multiplier > 1.5 ? Color.green : multiplier > 1.0 ? Color.yellow : Color.red
@@ -201,7 +189,6 @@ class FloatingTextView: ObservableObject {
         showFloatingText(floatingText)
     }
     
-    /// Shows a healing number with green styling
     func showHealing(_ healing: Double) {
         let healingText = "+" + String(format: "%.0f", healing)
         let floatingText = FloatingText(
@@ -215,7 +202,6 @@ class FloatingTextView: ObservableObject {
         showFloatingText(floatingText)
     }
     
-    /// Shows a status effect message
     func showStatusEffect(_ effect: String, color: Color = Color.purple) {
         let floatingText = FloatingText(
             text: effect,
@@ -228,12 +214,10 @@ class FloatingTextView: ObservableObject {
         showFloatingText(floatingText)
     }
     
-    /// Clears all floating texts
     func clearAll() {
         floatingTexts.removeAll()
     }
     
-    // MARK: - Private Methods
     
     private func showFloatingText(_ floatingText: FloatingText) {
         floatingTexts.append(floatingText)
@@ -259,7 +243,6 @@ class FloatingTextView: ObservableObject {
             .padding()
         
         Button("Show Multiplier") {
-            // This would be connected to the floating text system
         }
         .padding()
     }
