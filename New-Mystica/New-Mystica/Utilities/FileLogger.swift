@@ -1,9 +1,12 @@
 import Foundation
 import OSLog
+#if canImport(UIKit)
+import UIKit
+#endif
 
 /// Comprehensive file-based logger for debugging network requests, responses, and app events
-class FileLogger {
-    static let shared = FileLogger()
+public class FileLogger {
+    public static let shared = FileLogger()
 
     private let fileURL: URL
     private let queue = DispatchQueue(label: "com.mystica.filelogger", qos: .utility)
@@ -11,7 +14,7 @@ class FileLogger {
 
     private let logger = Logger(subsystem: "com.mystica.app", category: "FileLogger")
 
-    init() {
+    public init() {
         let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
         fileURL = documentsPath.appendingPathComponent("mystica_debug.log")
 
@@ -27,12 +30,12 @@ class FileLogger {
     // MARK: - Public Logging Methods
 
     /// Log a general message
-    func log(_ message: String, level: LogLevel = .info) {
-        writeLog(message: message, level: level)
+    public func log(_ message: String, level: LogLevel = .info, category: String? = nil) {
+        writeLog(message: message, level: level, category: category)
     }
 
     /// Log network request details
-    func logRequest(_ request: URLRequest, body: Data? = nil) {
+    public func logRequest(_ request: URLRequest, body: Data? = nil) {
         var logMessage = """
 
         ╔══════════════════════════════════════════════════════════════
@@ -59,11 +62,11 @@ class FileLogger {
 
         logMessage += "\n╚══════════════════════════════════════════════════════════════"
 
-        writeLog(message: logMessage, level: .info)
+        writeLog(message: logMessage, level: .info, category: "Network")
     }
 
     /// Log network response details
-    func logResponse(_ response: HTTPURLResponse?, data: Data?, error: Error? = nil) {
+    public func logResponse(_ response: HTTPURLResponse?, data: Data?, error: Error? = nil) {
         var logMessage = """
 
         ╔══════════════════════════════════════════════════════════════
@@ -106,22 +109,22 @@ class FileLogger {
         logMessage += "\n╚══════════════════════════════════════════════════════════════"
 
         let level: LogLevel = error != nil ? .error : .info
-        writeLog(message: logMessage, level: level)
+        writeLog(message: logMessage, level: level, category: "Network")
     }
 
     /// Log an error with context
-    func logError(_ error: Error, context: String = "") {
+    public func logError(_ error: Error, context: String = "") {
         let message = """
 
         ❌ ERROR\(context.isEmpty ? "" : " [\(context)]")
         \(error.localizedDescription)
         \(error)
         """
-        writeLog(message: message, level: .error)
+        writeLog(message: message, level: .error, category: "Error")
     }
 
     /// Log an encodable payload (like request/response models)
-    func logPayload<T: Encodable>(_ payload: T, label: String = "Payload") {
+    public func logPayload<T: Encodable>(_ payload: T, label: String = "Payload") {
         do {
             let encoder = JSONEncoder()
             encoder.outputFormatting = .prettyPrinted
@@ -132,27 +135,27 @@ class FileLogger {
                 📦 \(label):
                 \(jsonString)
                 """
-                writeLog(message: message, level: .debug)
+                writeLog(message: message, level: .debug, category: "Payload")
             }
         } catch {
-            writeLog(message: "Failed to encode \(label): \(error)", level: .error)
+            writeLog(message: "Failed to encode \(label): \(error)", level: .error, category: "Payload")
         }
     }
 
     // MARK: - File Management
 
     /// Get the log file URL for sharing
-    func getLogFileURL() -> URL {
+    public func getLogFileURL() -> URL {
         return fileURL
     }
 
     /// Read all logs as a string
-    func readLogs() -> String {
+    public func readLogs() -> String {
         return (try? String(contentsOf: fileURL, encoding: .utf8)) ?? "No logs available"
     }
 
     /// Clear all logs
-    func clearLogs() {
+    public func clearLogs() {
         queue.async { [weak self] in
             guard let self = self else { return }
             try? "".write(to: self.fileURL, atomically: true, encoding: .utf8)
@@ -161,7 +164,7 @@ class FileLogger {
     }
 
     /// Get file size
-    func getLogFileSize() -> Int64 {
+    public func getLogFileSize() -> Int64 {
         guard let attributes = try? FileManager.default.attributesOfItem(atPath: fileURL.path),
               let fileSize = attributes[.size] as? Int64 else {
             return 0
@@ -171,7 +174,7 @@ class FileLogger {
 
     // MARK: - Private Methods
 
-    private func writeLog(message: String, level: LogLevel) {
+    private func writeLog(message: String, level: LogLevel, category: String? = nil) {
         queue.async { [weak self] in
             guard let self = self else { return }
 
@@ -181,7 +184,8 @@ class FileLogger {
             }
 
             let timestamp = ISO8601DateFormatter().string(from: Date())
-            let logEntry = "[\(timestamp)] [\(level.emoji) \(level.rawValue)] \(message)\n"
+            let categoryString = category.map { "[\($0)]" } ?? ""
+            let logEntry = "[\(timestamp)] [\(level.emoji) \(level.rawValue)]\(categoryString) \(message)\n"
 
             // Also log to OSLog for Console.app access
             self.logger.log(level: level.osLogType, "\(message)")
@@ -217,13 +221,13 @@ class FileLogger {
         App Version: \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown")
         ════════════════════════════════════════════════════════════════
         """
-        writeLog(message: message, level: .info)
+        writeLog(message: message, level: .info, category: "Session")
     }
 }
 
 // MARK: - Supporting Types
 
-enum LogLevel: String {
+public enum LogLevel: String {
     case debug = "DEBUG"
     case info = "INFO"
     case warning = "WARNING"
