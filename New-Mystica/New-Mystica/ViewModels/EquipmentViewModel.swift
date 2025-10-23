@@ -109,8 +109,8 @@ final class EquipmentViewModel {
         }
 
         let available = items.filter { item in
-            let itemSlot = getSlotForItemType(item.baseType)
-            return itemSlot == slot && !item.isEquipped
+            let matchesSlot = categoryMatchesSlot(category: item.category, slot: slot)
+            return matchesSlot && !item.isEquipped
         }
 
         print("✅ [EQUIPMENT] Available items for \(slot.rawValue) slot: \(available.count) of \(items.count) total items")
@@ -143,26 +143,28 @@ final class EquipmentViewModel {
 
     // MARK: - Helper Methods
 
-    /// Map base item types to equipment slots (same logic as InventoryViewModel)
-    private func getSlotForItemType(_ baseType: String) -> EquipmentSlot {
-        let lowercased = baseType.lowercased()
+    /// Map backend category to equipment slot
+    /// Backend categories: 'weapon', 'offhand', 'head', 'armor', 'feet', 'accessory', 'pet'
+    /// Frontend slots: weapon, offhand, head, armor, feet, accessory_1, accessory_2, pet
+    private func categoryMatchesSlot(category: String, slot: EquipmentSlot) -> Bool {
+        let categoryLower = category.lowercased()
 
-        if lowercased.contains("sword") || lowercased.contains("staff") || lowercased.contains("bow") || lowercased.contains("wand") {
-            return .weapon
-        } else if lowercased.contains("shield") || lowercased.contains("tome") {
-            return .offhand
-        } else if lowercased.contains("helm") || lowercased.contains("crown") || lowercased.contains("hat") {
-            return .head
-        } else if lowercased.contains("armor") || lowercased.contains("robe") || lowercased.contains("chainmail") {
-            return .armor
-        } else if lowercased.contains("boots") || lowercased.contains("sandals") || lowercased.contains("shoes") {
-            return .feet
-        } else if lowercased.contains("ring") || lowercased.contains("amulet") || lowercased.contains("bracelet") {
-            return .accessory_1
-        } else if lowercased.contains("pet") {
-            return .pet
-        } else {
-            return .weapon // Default fallback
+        switch slot {
+        case .weapon:
+            return categoryLower == "weapon"
+        case .offhand:
+            return categoryLower == "offhand"
+        case .head:
+            return categoryLower == "head"
+        case .armor:
+            return categoryLower == "armor"
+        case .feet:
+            return categoryLower == "feet"
+        case .accessory_1, .accessory_2:
+            // Both accessory slots can accept items with category "accessory"
+            return categoryLower == "accessory"
+        case .pet:
+            return categoryLower == "pet"
         }
     }
 }
