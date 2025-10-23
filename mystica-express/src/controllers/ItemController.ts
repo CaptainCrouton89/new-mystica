@@ -58,9 +58,29 @@ export class ItemController {
 
       const result = await itemService.upgradeItem(userId, item_id);
 
+      // Transform Item to PlayerItem format for frontend compatibility
+      const playerItem = {
+        id: result.updated_item.id,
+        base_type: result.updated_item.item_type?.name || 'Unknown',
+        item_type_id: result.updated_item.item_type_id,
+        category: result.updated_item.item_type?.category || 'misc',
+        level: result.updated_item.level,
+        rarity: result.updated_item.item_type?.rarity || 'common',
+        applied_materials: result.updated_item.materials || [],
+        materials: result.updated_item.materials || [],
+        computed_stats: result.updated_item.current_stats,
+        material_combo_hash: result.updated_item.material_combo_hash || null,
+        generated_image_url: result.updated_item.image_url || null,
+        image_generation_status: null,
+        craft_count: 0,
+        is_styled: (result.updated_item.materials || []).some((m: any) => m.style_id !== 'normal'),
+        is_equipped: false, // Equipment status not tracked in upgrade result
+        equipped_slot: null
+      };
+
       res.json({
         success: result.success,
-        item: result.updated_item,
+        item: playerItem,
         gold_spent: result.gold_spent,
         new_gold_balance: result.new_gold_balance,
         new_vanity_level: result.new_vanity_level
