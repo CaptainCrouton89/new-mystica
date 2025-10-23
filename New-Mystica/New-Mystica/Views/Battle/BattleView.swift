@@ -352,7 +352,7 @@ struct BattleView: View {
                     // Attack Button
                     CombatActionButton(
                         title: "Attack",
-                        icon: "sword.fill",
+                        icon: "hammer.fill",
                         color: Color.accent,
                         isDisabled: !viewModel.canAct
                     ) {

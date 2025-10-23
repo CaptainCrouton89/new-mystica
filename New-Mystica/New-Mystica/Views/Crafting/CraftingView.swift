@@ -2,8 +2,6 @@
 //  CraftingView.swift
 //  New-Mystica
 //
-//  Full crafting interface implementation using existing components
-//  Implements item + material selection, stat preview, and material application
 //
 
 import SwiftUI
@@ -23,20 +21,15 @@ struct CraftingView: View {
 
     var body: some View {
         ZStack {
-            // Background
             Color.backgroundPrimary
                 .ignoresSafeArea()
 
-            // Main content
             ScrollView {
                 VStack(spacing: 24) {
-                    // Header
                     headerView
 
-                    // Selection area
                     selectionArea
 
-                    // Stats preview (only show when both selected)
                     if let baseStats = viewModel.baseStats,
                        let previewStats = viewModel.previewStats {
                         StatPreview(
@@ -47,7 +40,6 @@ struct CraftingView: View {
                         .padding(.horizontal, 20)
                     }
 
-                    // Craft button
                     if viewModel.selectedItem != nil && viewModel.selectedMaterial != nil {
                         CraftButton(
                             isEnabled: viewModel.canApplyMaterial,
@@ -66,7 +58,6 @@ struct CraftingView: View {
                 .padding(.top, 20)
             }
 
-            // Overlays
             if showCraftingProgress {
                 craftingProgressOverlay
             }
@@ -78,17 +69,15 @@ struct CraftingView: View {
         .navigationTitle("Crafting")
         .navigationBarBackButtonHidden(false)
         .task {
-            // Load initial data
             await loadData()
 
-            // Pre-select if navigated from inventory (read from NavigationManager)
             if let item = navigationManager.craftingPreselectedItem {
                 viewModel.selectItem(item)
-                navigationManager.craftingPreselectedItem = nil // Clear after use
+                navigationManager.craftingPreselectedItem = nil
             }
             if let material = navigationManager.craftingPreselectedMaterial {
                 viewModel.selectMaterial(material)
-                navigationManager.craftingPreselectedMaterial = nil // Clear after use
+                navigationManager.craftingPreselectedMaterial = nil
             }
         }
         .alert("Crafting Error", isPresented: $showErrorAlert) {
@@ -112,7 +101,6 @@ struct CraftingView: View {
         }
     }
 
-    // MARK: - Header View
 
     private var headerView: some View {
         VStack(spacing: 8) {
@@ -126,11 +114,9 @@ struct CraftingView: View {
         .padding(.horizontal, 20)
     }
 
-    // MARK: - Selection Area
 
     private var selectionArea: some View {
         HStack(spacing: 16) {
-            // Item slot
             ItemSlotSelector(
                 selectedItem: viewModel.selectedItem,
                 onTap: {
@@ -139,12 +125,10 @@ struct CraftingView: View {
                 }
             )
 
-            // Plus icon
             Image(systemName: "plus.circle.fill")
                 .font(.system(size: 32, weight: .medium))
                 .foregroundColor(Color.accent)
 
-            // Material slot
             MaterialSlotSelector(
                 selectedMaterial: viewModel.selectedMaterial,
                 onTap: {
@@ -156,7 +140,6 @@ struct CraftingView: View {
         .padding(.horizontal, 20)
     }
 
-    // MARK: - Item Selection Drawer Content
 
     private var itemSelectionDrawerContent: some View {
         Group {
@@ -220,7 +203,6 @@ struct CraftingView: View {
         }
     }
 
-    // MARK: - Material Selection Drawer Content
 
     private var materialSelectionDrawerContent: some View {
         Group {
@@ -300,7 +282,6 @@ struct CraftingView: View {
         }
     }
 
-    // MARK: - Crafting Progress Overlay
 
     private var craftingProgressOverlay: some View {
         ZStack {
@@ -338,7 +319,6 @@ struct CraftingView: View {
         }
     }
 
-    // MARK: - Success Result Overlay
 
     private func successResultOverlay(item: EnhancedPlayerItem) -> some View {
         ZStack {
@@ -346,7 +326,6 @@ struct CraftingView: View {
                 .ignoresSafeArea()
 
             VStack(spacing: 24) {
-                // Success icon
                 Image(systemName: "checkmark.circle.fill")
                     .font(.system(size: 64, weight: .medium))
                     .foregroundColor(Color.accent)
@@ -354,7 +333,6 @@ struct CraftingView: View {
                 TitleText("Material Applied!", size: 26)
                     .foregroundColor(Color.textPrimary)
 
-                // Item preview
                 VStack(spacing: 12) {
                     if let imageUrl = item.generatedImageUrl, let url = URL(string: imageUrl) {
                         CachedAsyncImage(
@@ -383,7 +361,6 @@ struct CraftingView: View {
                         .foregroundColor(Color.textSecondary)
                 }
 
-                // Craft count notification
                 if viewModel.craftCount > 1 {
                     HStack(spacing: 8) {
                         Image(systemName: "person.2.fill")
@@ -401,7 +378,6 @@ struct CraftingView: View {
                     )
                 }
 
-                // Action buttons
                 VStack(spacing: 12) {
                     TextButton("Return to Crafting") {
                         audioManager.playMenuButtonClick()
@@ -439,7 +415,6 @@ struct CraftingView: View {
         }
     }
 
-    // MARK: - Helper Methods
 
     private func loadData() async {
         await viewModel.loadItems()
@@ -451,7 +426,6 @@ struct CraftingView: View {
         await viewModel.applyMaterial()
         showCraftingProgress = false
 
-        // Handle result
         switch viewModel.craftingState {
         case .results:
             showSuccessResult = true
@@ -467,14 +441,12 @@ struct CraftingView: View {
         showSuccessResult = false
         viewModel.reset()
 
-        // Reload data
         Task {
             await loadData()
         }
     }
 }
 
-// MARK: - Preview
 
 #Preview {
     NavigationStack {

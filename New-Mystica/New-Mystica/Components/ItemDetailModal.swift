@@ -168,7 +168,7 @@ struct ItemDetailModal: View {
                 HStack(spacing: 12) {
                     StatDetailRow(
                         iconUrl: "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/attack-power-crossed-swords.png",
-                        fallbackIcon: "sword.fill",
+                        fallbackIcon: "hammer.fill",
                         label: "ATK Power",
                         value: String(format: "%.0f", item.computedStats.atkPower * 100),
                         color: Color.alert
@@ -368,7 +368,7 @@ struct ItemDetailModal: View {
     private func getSlotIcon() -> String {
         switch slot {
         case .weapon:
-            return "sword.fill"
+            return "hammer.fill"
         case .offhand:
             return "shield.fill"
         case .head:

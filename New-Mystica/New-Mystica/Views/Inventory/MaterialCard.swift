@@ -2,21 +2,16 @@
 //  MaterialCard.swift
 //  New-Mystica
 //
-//  Material card component for inventory display with quantity badges and style borders
-//  Used in inventory grid layout for materials section
 //
 
 import SwiftUI
 
-// MARK: - Material Card Component
 struct MaterialCard: View {
     let material: MaterialInventoryStack
 
     var body: some View {
         VStack(spacing: 8) {
-            // Material Image with Quantity Badge
             ZStack(alignment: .topTrailing) {
-                // Material Icon/Image
                 materialImageView
                     .frame(width: 60, height: 60)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
@@ -25,20 +20,18 @@ struct MaterialCard: View {
                             .stroke(getStyleBorderColor(), lineWidth: 2)
                     )
 
-                // Quantity Badge
                 if material.quantity > 1 {
                     quantityBadge
                 }
             }
 
-            // Material Name
             SmallText(material.name.capitalized)
                 .foregroundColor(Color.textPrimary)
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
-                .frame(minHeight: 32) // Consistent height for grid alignment
+                .frame(minHeight: 32)
         }
-        .frame(width: 80) // Fixed width for grid layout
+        .frame(width: 80)
         .padding(8)
         .background(
             RoundedRectangle(cornerRadius: 12)
@@ -48,14 +41,12 @@ struct MaterialCard: View {
                         .stroke(Color.borderSubtle, lineWidth: 1)
                 )
         )
-        .contentShape(Rectangle()) // Ensure entire card is tappable
+        .contentShape(Rectangle())
     }
 
-    // MARK: - Material Image View
 
     private var materialImageView: some View {
         ZStack {
-            // Material Image from R2
             if let imageUrl = material.imageUrl, let url = URL(string: imageUrl) {
                 CachedAsyncImage(
                     url: url,
@@ -73,7 +64,6 @@ struct MaterialCard: View {
                     }
                 )
             } else {
-                // Fallback to SF Symbol icon if no URL
                 ZStack {
                     RoundedRectangle(cornerRadius: 12)
                         .fill(Color.backgroundSecondary)
@@ -86,7 +76,6 @@ struct MaterialCard: View {
         }
     }
 
-    // MARK: - Quantity Badge
 
     private var quantityBadge: some View {
         ZStack {
@@ -101,13 +90,11 @@ struct MaterialCard: View {
         .offset(x: 4, y: -4)
     }
 
-    // MARK: - Helper Methods
 
     private func getMaterialIcon() -> String {
         let theme = material.theme.lowercased()
         let name = material.name.lowercased()
 
-        // Icon based on material theme and name
         if theme.contains("nature") || name.contains("wood") || name.contains("leaf") {
             return "leaf.fill"
         } else if theme.contains("mystical") || name.contains("crystal") || name.contains("gem") {
@@ -123,7 +110,6 @@ struct MaterialCard: View {
         } else if name.contains("fabric") || name.contains("cloth") {
             return "scissors"
         } else {
-            // Default material icon
             return "cube.fill"
         }
     }
@@ -131,24 +117,21 @@ struct MaterialCard: View {
     private func getStyleBorderColor() -> Color {
         let styleId = material.styleId.lowercased()
 
-        // Style-based border colors as mentioned in plan
         switch styleId {
         case let id where id.contains("pixel"):
-            return Color(hex: "FF69B4") // Pink for pixel art style
+            return Color(hex: "FF69B4")
         case let id where id.contains("holographic"):
-            return Color.accent // Rainbow-like (using accent as placeholder)
+            return Color.accent
         case let id where id.contains("ethereal") || id.contains("magical"):
-            return Color.accentSecondary // Blue for magical styles
+            return Color.accentSecondary
         case let id where id.contains("rustic") || id.contains("natural"):
-            return Color(hex: "8B4513") // Brown for natural styles
+            return Color(hex: "8B4513")
         default:
-            return Color.borderSubtle // White/gray for normal style
+            return Color.borderSubtle
         }
     }
 }
 
-// MARK: - Tappable Material Card Wrapper
-/// Wrapper that adds tap gesture with material detail modal
 struct TappableMaterialCard: View {
     let material: MaterialInventoryStack
     let onCraft: () -> Void
@@ -169,9 +152,7 @@ struct TappableMaterialCard: View {
     }
 }
 
-// MARK: - Preview
 #Preview {
-    // Mock materials with imageUrl from R2
     let mockMaterialDetail1 = MaterialInventoryStack.MaterialDetail(
         id: "wood_001",
         name: "Enchanted Wood",
@@ -199,7 +180,6 @@ struct TappableMaterialCard: View {
         imageUrl: "https://pub-34824eb66e5f4c31b6b58f4188ae2391.r2.dev/materials/pixel_cloth.png"
     )
 
-    // Create mock materials array
     let mockMaterials = [
         MaterialInventoryStack(
             materialId: "wood_001",

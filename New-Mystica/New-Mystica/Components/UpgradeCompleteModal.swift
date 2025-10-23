@@ -193,7 +193,7 @@ struct UpgradeCompleteModal: View {
             VStack(spacing: 8) {
                 StatComparisonRow(
                     iconUrl: "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/attack-power-crossed-swords.png",
-                    fallbackIcon: "sword.fill",
+                    fallbackIcon: "hammer.fill",
                     label: "ATK Power",
                     oldValue: String(format: "%.0f", statsBefore.atkPower * 100),
                     newValue: String(format: "%.0f", statsAfter.atkPower * 100),
@@ -394,7 +394,7 @@ struct UpgradeCompleteModal: View {
     private func getItemIcon() -> String {
         switch item.category.lowercased() {
         case "weapon":
-            return "sword.fill"
+            return "hammer.fill"
         case "offhand":
             return "shield.fill"
         case "head":

@@ -2,13 +2,10 @@
 //  CraftingSheet.swift
 //  New-Mystica
 //
-//  Material application interface with 20s blocking progress and image generation
-//  Integrates with CraftingViewModel for state management
 //
 
 import SwiftUI
 
-// MARK: - Main Crafting Sheet
 struct CraftingSheet: View {
     @State var viewModel: CraftingViewModel
     let item: EnhancedPlayerItem
@@ -37,10 +34,8 @@ struct CraftingSheet: View {
                     }
                 }
 
-            // Main content
             VStack(spacing: 0) {
                 if viewModel.isProcessing {
-                    // Progress view during material application
                     CraftingProgressView(
                         progress: viewModel.craftingProgress,
                         progressPercentage: viewModel.progressPercentage
@@ -52,23 +47,16 @@ struct CraftingSheet: View {
             .padding(.horizontal, 20)
         }
         .task {
-            // Initialize with selected item
             viewModel.selectItem(item)
 
-            // Load available materials (mock data for now)
-            // Note: This should use viewModel.loadMaterials() but using mock for build
-            // viewModel.availableMaterials = .loaded(mockMaterialInventory)
         }
     }
 
-    // MARK: - Crafting Content View
 
     private var craftingContentView: some View {
         VStack(spacing: 24) {
-            // Header
             craftingHeaderView
 
-            // Item display
             itemDisplayView
 
             // Action buttons
@@ -101,7 +89,6 @@ struct CraftingSheet: View {
 
     private var itemDisplayView: some View {
         VStack(spacing: 12) {
-            // Item image
             Group {
                 if let imageUrl = viewModel.selectedItem?.generatedImageUrl, !imageUrl.isEmpty {
                     CachedAsyncImage(
@@ -131,7 +118,6 @@ struct CraftingSheet: View {
                 }
             }
 
-            // Item info
             VStack(spacing: 4) {
                 NormalText(viewModel.selectedItem?.baseType.capitalized ?? "Unknown Item")
                     .foregroundColor(Color.textPrimary)
@@ -207,7 +193,6 @@ struct CraftingSheet: View {
         }
     }
 
-    // MARK: - Error View
 
     private func craftingErrorView(error: AppError) -> some View {
         ZStack {
@@ -215,14 +200,11 @@ struct CraftingSheet: View {
             Color.black.opacity(0.8)
                 .edgesIgnoringSafeArea(.all)
 
-            // Error content
             VStack(spacing: 20) {
-                // Error icon
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.system(size: 48, weight: .medium))
                     .foregroundColor(Color.accent)
 
-                // Error message
                 VStack(spacing: 8) {
                     TitleText("Crafting Failed", size: 24)
                         .foregroundColor(Color.textPrimary)
@@ -265,7 +247,6 @@ struct CraftingSheet: View {
     }
 }
 
-// MARK: - Mock Data
 private let mockMaterials: [MaterialTemplate] = [
     MaterialTemplate(
         id: "wood",
@@ -293,7 +274,6 @@ private let mockMaterials: [MaterialTemplate] = [
     )
 ]
 
-// MARK: - Preview
 #Preview {
     CraftingSheet(
         item: mockEnhancedPlayerItem,

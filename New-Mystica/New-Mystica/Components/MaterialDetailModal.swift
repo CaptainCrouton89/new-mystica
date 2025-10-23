@@ -158,7 +158,7 @@ struct MaterialDetailModal: View {
                 HStack(spacing: 12) {
                     StatModifierRow(
                         iconUrl: "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/attack-power-crossed-swords.png",
-                        fallbackIcon: "sword.fill",
+                        fallbackIcon: "hammer.fill",
                         label: "ATK Power",
                         multiplier: material.statModifiers.atkPower,
                         color: Color.alert

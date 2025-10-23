@@ -79,7 +79,7 @@ struct EquipmentSlotView: View {
     private func getSlotIcon() -> String {
         switch slot {
         case "weapon":
-            return "sword.fill"
+            return "hammer.fill"
         case "offhand":
             return "shield.fill"
         case "head":

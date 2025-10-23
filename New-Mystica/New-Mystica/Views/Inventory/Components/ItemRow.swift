@@ -155,7 +155,7 @@ struct ItemRow: View {
     private func getItemIcon() -> String {
         let lowercased = item.baseType.lowercased()
         if lowercased.contains("sword") || lowercased.contains("weapon") {
-            return "sword.fill"
+            return "hammer.fill"
         } else if lowercased.contains("shield") {
             return "shield.fill"
         } else if lowercased.contains("armor") || lowercased.contains("chest") {

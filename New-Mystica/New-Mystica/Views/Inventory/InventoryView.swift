@@ -2,14 +2,11 @@
 //  InventoryView.swift
 //  New-Mystica
 //
-//  Displays player inventory using InventoryViewModel with LoadableView pattern
-//  Replaces the dummy CollectionView with real inventory functionality
 //
 
 import SwiftUI
 
 
-// MARK: - Main Inventory View
 struct InventoryView: View {
     @Environment(\.navigationManager) private var navigationManager
     @Environment(\.audioManager) private var audioManager
@@ -17,8 +14,6 @@ struct InventoryView: View {
     @State private var viewModel: InventoryViewModel
 
     init() {
-        // Create viewModel with navigationManager from environment is not possible in init
-        // So we create with nil and set it in onAppear
         _viewModel = State(initialValue: InventoryViewModel())
     }
 
@@ -87,17 +82,14 @@ struct InventoryView: View {
             }
             .overlay(loadingOverlay)
             .onAppear {
-                // Set navigationManager after initialization
                 viewModel.navigationManager = navigationManager
             }
     }
 
-    // MARK: - Main Content
 
     private var mainContentView: some View {
         BaseView(title: "Inventory") {
             VStack(spacing: 0) {
-                // Gold Balance Header
                 HStack {
                     Spacer()
                     GoldBalanceView(amount: appState.getCurrencyBalance(for: .gold))
@@ -106,10 +98,8 @@ struct InventoryView: View {
                 }
                 .padding(.bottom, 8)
 
-                // Main Content
                 ScrollView {
                     VStack(spacing: 20) {
-                        // Items Section (styled items with materials)
                         LoadableView(viewModel.items) { items in
                             itemsSection(items: items)
                         } retry: {
@@ -117,7 +107,6 @@ struct InventoryView: View {
                         }
 
 
-                        // Materials Section
                         LoadableView(viewModel.materialInventory) { materials in
                             materialsSection(materials: materials)
                         } retry: {
@@ -131,7 +120,6 @@ struct InventoryView: View {
         }
     }
 
-    // MARK: - Overlay Views
 
     @ViewBuilder
     private var sellConfirmationOverlay: some View {
@@ -234,11 +222,9 @@ struct InventoryView: View {
         }
     }
 
-    // MARK: - Content Sections
 
     private func itemsSection(items: [EnhancedPlayerItem]) -> some View {
         Group {
-            // Show empty state if no items
             if items.isEmpty {
                 emptyStateView
             } else {
@@ -263,7 +249,6 @@ struct InventoryView: View {
                     }
             }
 
-            // Load More button
             if viewModel.canLoadMore {
                 HStack {
                     Spacer()
@@ -288,18 +273,15 @@ struct InventoryView: View {
     }
 
 
-    // MARK: - Materials Section
 
     private func materialsSection(materials: [MaterialInventoryStack]) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            // Section Header
             HStack {
                 TitleText("All Materials", size: 20)
                     .foregroundColor(Color.textPrimary)
 
                 Spacer()
 
-                // Material count
                 SmallText("\(materials.count) types")
                     .foregroundColor(Color.textSecondary)
                     .padding(.horizontal, 8)
@@ -339,7 +321,6 @@ struct InventoryView: View {
                 TappableMaterialCard(material: material) {
                     audioManager.playMenuButtonClick()
                     viewModel.selectMaterial(material)
-                    // Navigate to crafting with material pre-selected
                     Task {
                         await viewModel.navigateToCraftingWithMaterial(material)
                     }
@@ -348,10 +329,8 @@ struct InventoryView: View {
         }
     }
 
-    // MARK: - Helper Methods
 
     private func calculateSellValue(for item: EnhancedPlayerItem) -> Int {
-        // Basic sell value calculation based on level and styling
         let baseValue = item.level * 10
         let styledBonus = item.isStyled ? (item.appliedMaterials.count * 15) : 0
         return baseValue + styledBonus
@@ -359,7 +338,6 @@ struct InventoryView: View {
 }
 
 
-// MARK: - Preview
 #Preview {
     let appState = AppState.shared
     appState.setCurrencies([CurrencyBalance(currencyCode: .gold, balance: 1234, updatedAt: "")])
@@ -370,7 +348,6 @@ struct InventoryView: View {
         .environment(appState)
 }
 
-// MARK: - Mock Data for Preview
 #if DEBUG
 extension InventoryView {
     static var mockItems: [EnhancedPlayerItem] {

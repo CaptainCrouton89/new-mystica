@@ -45,7 +45,7 @@ struct CombatActionButton: View {
     HStack(spacing: 20) {
         CombatActionButton(
             title: "Attack",
-            icon: "sword.fill",
+            icon: "hammer.fill",
             color: Color.accent,
             isDisabled: false,
             action: {}

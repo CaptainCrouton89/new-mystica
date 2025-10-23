@@ -99,7 +99,7 @@ private struct StatRow: View {
         case "ATK Power":
             return (
                 "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/attack-power-crossed-swords.png",
-                "sword.fill",
+                "hammer.fill",
                 Color.alert
             )
         case "ATK Accuracy":

@@ -2,37 +2,12 @@
 //  InventoryViewModel.swift
 //  New-Mystica
 //
-//  Manages player inventory state and material application
 //
 
 import Foundation
 import Observation
 
-/// Manages player inventory state, including items, materials, and complex inventory operations.
-///
-/// This ViewModel serves as the central coordinator for all inventory-related functionality including:
-/// - Paginated item loading with infinite scroll support
-/// - Material inventory management and application to items
-/// - Item equipment, selling, and upgrade workflows
-/// - Complex UI state management for modals, confirmations, and loading states
-/// - Error handling and user feedback (toasts, alerts, animations)
-///
-/// ## State Management
-/// The ViewModel manages multiple interconnected state systems:
-/// - **Core Data**: Items and materials using `Loadable<T>` pattern for async operations
-/// - **Pagination**: Page-based loading with `canLoadMore` tracking
-/// - **UI State**: Modal visibility, selections, loading flags for different operations
-/// - **Transaction State**: Equipment, selling, upgrade operations with progress tracking
-///
-/// ## Key Workflows
-/// 1. **Inventory Loading**: Initial load → pagination → refresh cycles
-/// 2. **Material Application**: Selection → validation → API call → state update
-/// 3. **Item Operations**: Equipment/sell/upgrade with confirmation flows
-/// 4. **Navigation Integration**: Coordinated transitions to crafting/upgrade screens
-///
-/// - Important: This ViewModel maintains authoritative state that must be synchronized
-///   with backend responses. All mutations should go through repository methods.
-/// - Note: Uses weak reference to NavigationManager to prevent retain cycles
+/// Manages inventory state with paginated loading and item operations.
 @Observable
 final class InventoryViewModel {
     let repository: InventoryRepository
@@ -450,8 +425,7 @@ final class InventoryViewModel {
                     }
                     AppState.shared.setCurrencies(updatedBalances)
                 } else {
-                    // Currencies not loaded yet - initialize with backend response
-                    AppState.shared.setCurrencies([
+                        AppState.shared.setCurrencies([
                         CurrencyBalance(
                             currencyCode: .gold,
                             balance: response.newGoldBalance,
@@ -590,8 +564,7 @@ final class InventoryViewModel {
                     }
                     AppState.shared.setCurrencies(updatedBalances)
                 } else {
-                    // Currencies not loaded yet - initialize with backend response
-                    AppState.shared.setCurrencies([
+                        AppState.shared.setCurrencies([
                         CurrencyBalance(
                             currencyCode: .gold,
                             balance: upgradeResult.newGoldBalance,

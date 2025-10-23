@@ -211,7 +211,7 @@ private struct ItemSelectionCard: View {
                         if item.computedStats.atkPower > 0 {
                             StatBadge(
                                 iconUrl: "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/attack-power-crossed-swords.png",
-                                fallbackIcon: "sword.fill",
+                                fallbackIcon: "hammer.fill",
                                 value: String(format: "%.0f", item.computedStats.atkPower * 100),
                                 color: Color.alert
                             )
@@ -285,7 +285,7 @@ private struct ItemSelectionCard: View {
     private func getIconForItemType(_ baseType: String) -> String {
         switch baseType.lowercased() {
         case "sword":
-            return "sword.fill"
+            return "hammer.fill"
         case "staff", "wand":
             return "wand.and.stars"
         case "bow":

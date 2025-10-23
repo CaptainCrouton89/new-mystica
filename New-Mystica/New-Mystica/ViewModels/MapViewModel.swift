@@ -2,7 +2,6 @@
 //  MapViewModel.swift
 //  New-Mystica
 //
-//  Manages location services and nearby location discovery
 //
 
 import Foundation
@@ -14,16 +13,13 @@ final class MapViewModel: NSObject, CLLocationManagerDelegate {
     let repository: LocationRepository
     let locationManager = CLLocationManager()
 
-    // MARK: - State
     var userLocation: CLLocationCoordinate2D?
     var nearbyLocations: Loadable<[Location]> = .idle
 
-    // MARK: - Location Management
     var lastUpdateTime: Date?
     var debounceRadius: Double = 100.0 // meters
     var authorizationStatus: CLAuthorizationStatus = .notDetermined
 
-    // MARK: - UI State
     var locationPermissionRequested: Bool = false
     var significantLocationChange: Bool = false
     var isFollowingUser: Bool = false
@@ -34,16 +30,14 @@ final class MapViewModel: NSObject, CLLocationManagerDelegate {
         setupLocationManager()
     }
 
-    // MARK: - Location Manager Setup
 
     private func setupLocationManager() {
         locationManager.delegate = self
         locationManager.desiredAccuracy = kCLLocationAccuracyBest
-        locationManager.distanceFilter = debounceRadius // Only update when moved >100m
+        locationManager.distanceFilter = debounceRadius
         authorizationStatus = locationManager.authorizationStatus
     }
 
-    // MARK: - Public Methods
 
     func requestLocationPermission() {
         locationPermissionRequested = true
@@ -72,7 +66,7 @@ final class MapViewModel: NSObject, CLLocationManagerDelegate {
         do {
             let locations = try await repository.fetchNearby(
                 userLocation: (latitude: currentLocation.latitude, longitude: currentLocation.longitude),
-                radiusKm: 5.0 // 5km radius
+                radiusKm: 5.0
             )
             nearbyLocations = .loaded(locations)
         } catch let error as AppError {
@@ -86,7 +80,6 @@ final class MapViewModel: NSObject, CLLocationManagerDelegate {
         await loadNearbyLocations()
     }
 
-    // MARK: - CLLocationManagerDelegate
 
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         authorizationStatus = manager.authorizationStatus
@@ -114,7 +107,6 @@ final class MapViewModel: NSObject, CLLocationManagerDelegate {
             lastUpdateTime = Date()
             significantLocationChange = true
 
-            // Automatically load nearby locations when location updates
             Task {
                 await loadNearbyLocations()
             }
@@ -136,22 +128,18 @@ final class MapViewModel: NSObject, CLLocationManagerDelegate {
         }
     }
 
-    // MARK: - Private Methods
 
     private func shouldUpdateLocation(_ newCoordinate: CLLocationCoordinate2D) -> Bool {
-        // Always update if this is the first location
         guard let currentLocation = userLocation,
               let lastUpdate = lastUpdateTime else {
             return true
         }
 
-        // Check time-based debounce (minimum 30 seconds)
         let timeSinceLastUpdate = Date().timeIntervalSince(lastUpdate)
         if timeSinceLastUpdate < 30.0 {
             return false
         }
 
-        // Check distance-based debounce (minimum 100 meters)
         let lastLocation = CLLocation(
             latitude: currentLocation.latitude,
             longitude: currentLocation.longitude
@@ -165,7 +153,6 @@ final class MapViewModel: NSObject, CLLocationManagerDelegate {
         return distance >= debounceRadius
     }
 
-    // MARK: - Computed Properties
 
     var hasLocationPermission: Bool {
         return authorizationStatus == .authorizedWhenInUse ||
@@ -204,11 +191,10 @@ final class MapViewModel: NSObject, CLLocationManagerDelegate {
                 longitude: location.lng
             )
             let distance = userCLLocation.distance(from: locationCL)
-            return distance <= 100.0 ? location : nil // Within 100 meters for interaction
+            return distance <= 100.0 ? location : nil
         }
     }
 
-    // Get distance to a specific location
     func distance(to location: Location) -> Double? {
         guard let currentLocation = userLocation else { return nil }
 
@@ -224,7 +210,6 @@ final class MapViewModel: NSObject, CLLocationManagerDelegate {
         return userCLLocation.distance(from: targetCLLocation)
     }
 
-    // Check if a location is within interaction range
     func isWithinRange(location: Location, range: Double = 100.0) -> Bool {
         guard let distance = distance(to: location) else { return false }
         return distance <= range
