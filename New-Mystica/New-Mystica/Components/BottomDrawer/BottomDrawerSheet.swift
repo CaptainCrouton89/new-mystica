@@ -15,7 +15,6 @@ struct BottomDrawerSheet<Content: View>: View {
     let onDismiss: (() -> Void)?
     @ViewBuilder let content: () -> Content
 
-    @State private var dragOffset: CGFloat = 0
     @Environment(\.audioManager) private var audioManager
 
     init(
@@ -32,13 +31,6 @@ struct BottomDrawerSheet<Content: View>: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            // Drag indicator
-            RoundedRectangle(cornerRadius: 2)
-                .fill(Color.borderSubtle)
-                .frame(width: 36, height: 4)
-                .padding(.top, 8)
-                .padding(.bottom, 16)
-
             // Header with title and close button
             HStack {
                 TitleText(title, size: 20)
@@ -65,44 +57,14 @@ struct BottomDrawerSheet<Content: View>: View {
                 .buttonStyle(PlainButtonStyle())
             }
             .padding(.horizontal, 20)
+            .padding(.top, 16)
             .padding(.bottom, 16)
 
             // Content
             content()
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
-        .background(
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color.backgroundPrimary)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.accent, lineWidth: 1)
-                )
-        )
-        .offset(y: dragOffset)
-        .gesture(
-            DragGesture()
-                .onChanged { value in
-                    // Only allow dragging down
-                    if value.translation.height > 0 {
-                        dragOffset = value.translation.height
-                    }
-                }
-                .onEnded { value in
-                    // Dismiss if dragged down more than 100 points
-                    if value.translation.height > 100 {
-                        dismissDrawer()
-                    } else {
-                        // Snap back to original position
-                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                            dragOffset = 0
-                        }
-                    }
-                }
-        )
-        .onAppear {
-            dragOffset = 0
-        }
+        .background(Color.backgroundPrimary)
     }
 
     private func dismissDrawer() {
@@ -126,9 +88,9 @@ extension View {
                 onDismiss: onDismiss,
                 content: content
             )
-            .presentationDetents([.height(400), .large])
-            .presentationDragIndicator(.hidden) // We have our own
-            .presentationBackground(Color.clear)
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+            .presentationBackgroundInteraction(.enabled(upThrough: .medium))
         }
     }
 }

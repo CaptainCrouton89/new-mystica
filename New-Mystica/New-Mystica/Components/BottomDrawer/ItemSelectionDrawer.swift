@@ -192,16 +192,46 @@ private struct ItemSelectionCard: View {
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 12) {
-                // Item icon placeholder
-                ZStack {
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(getRarityColor())
-                        .frame(width: 48, height: 48)
+                // Item image
+                Group {
+                    if let imageUrl = item.generatedImageUrl, let url = URL(string: imageUrl) {
+                        AsyncImage(url: url) { phase in
+                            switch phase {
+                            case .empty:
+                                ProgressView()
+                                    .frame(width: 48, height: 48)
+                            case .success(let image):
+                                image
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fit)
+                                    .frame(width: 48, height: 48)
+                            case .failure:
+                                ZStack {
+                                    RoundedRectangle(cornerRadius: 8)
+                                        .fill(getRarityColor())
+                                        .frame(width: 48, height: 48)
 
-                    Image(systemName: getIconForItemType(item.baseType))
-                        .font(.system(size: 20, weight: .medium))
-                        .foregroundColor(Color.textPrimary)
+                                    Image(systemName: getIconForItemType(item.baseType))
+                                        .font(.system(size: 20, weight: .medium))
+                                        .foregroundColor(Color.textPrimary)
+                                }
+                            @unknown default:
+                                EmptyView()
+                            }
+                        }
+                    } else {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(getRarityColor())
+                                .frame(width: 48, height: 48)
+
+                            Image(systemName: getIconForItemType(item.baseType))
+                                .font(.system(size: 20, weight: .medium))
+                                .foregroundColor(Color.textPrimary)
+                        }
+                    }
                 }
+                .clipShape(RoundedRectangle(cornerRadius: 8))
 
                 // Item details
                 VStack(alignment: .leading, spacing: 4) {
