@@ -4,12 +4,12 @@ import { InventoryQuery } from '../types/schemas';
 
 /**
  * Inventory Controller
- * Handles player inventory retrieval (items + material stacks)
+ * Handles player inventory retrieval (all items as unique individuals)
  */
 export class InventoryController {
   /**
    * GET /inventory
-   * Get player's complete inventory (items + material stacks) with filtering and pagination
+   * Get player's complete inventory (all items as unique individuals) with filtering and pagination
    */
   getInventory = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
@@ -25,7 +25,6 @@ export class InventoryController {
 
       res.json({
         items: result.items,
-        stacks: result.stacks,
         pagination: result.pagination
       });
     } catch (error) {

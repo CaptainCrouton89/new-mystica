@@ -93,40 +93,21 @@ struct MapView: View, NavigableView {
                 }
                 .ignoresSafeArea()
 
-                // Control buttons - top right corner
+                // Location tracking button - top right corner
                 VStack(alignment: .trailing, spacing: 12) {
-                    HStack(spacing: 12) {
-                        // Snap to location button
-                        Button(action: {
-                            audioManager.playMapIconClick()
-                            withAnimation {
-                                userTrackingMode = .none
-                                updateRegionToUserLocation()
-                            }
-                        }) {
-                            Image(systemName: "location.fill")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundColor(.white)
-                                .frame(width: 44, height: 44)
-                                .background(Circle().fill(Color.accent))
-                                .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
+                    Button(action: {
+                        audioManager.playMapIconClick()
+                        withAnimation {
+                            userTrackingMode = .follow
+                            updateRegionToUserLocation()
                         }
-
-                        // Follow location button
-                        Button(action: {
-                            audioManager.playMapIconClick()
-                            withAnimation {
-                                userTrackingMode = userTrackingMode == .follow ? .none : .follow
-                            }
-                        }) {
-                            Image(systemName: userTrackingMode == .follow ? "location.fill" : "location")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundColor(userTrackingMode == .follow ? .white : .accentSecondary)
-                                .frame(width: 44, height: 44)
-                                .background(Circle().fill(userTrackingMode == .follow ? Color.accent : Color.backgroundCard))
-                                .overlay(Circle().stroke(Color.borderSubtle, lineWidth: 1))
-                                .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
-                        }
+                    }) {
+                        Image(systemName: "location.fill")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(.white)
+                            .frame(width: 44, height: 44)
+                            .background(Circle().fill(Color.accent))
+                            .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
                     }
 
                     Spacer()

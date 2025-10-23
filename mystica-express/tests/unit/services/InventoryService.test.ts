@@ -1,9 +1,8 @@
 /**
  * Unit Tests: InventoryService
  *
- * Tests inventory retrieval with items separated into:
- * - Unique items (with materials applied)
- * - Stackable items (no materials, grouped by type+level)
+ * Tests inventory retrieval where ALL items are treated as unique individuals
+ * and returned with their generated_image_url (or fallback to default)
  */
 
 import { InventoryService } from '../../../src/services/InventoryService.js';
@@ -51,7 +50,7 @@ describe('InventoryService', () => {
 
   describe('getPlayerInventory()', () => {
     describe('Empty Inventory Scenarios', () => {
-      it('should return empty arrays when user has no items', async () => {
+      it('should return empty items array when user has no items', async () => {
         // Arrange: Mock empty responses
         mockItemRepository.findByUser.mockResolvedValue([]);
         mockItemRepository.findEquippedByUser.mockResolvedValue([]);
@@ -61,13 +60,13 @@ describe('InventoryService', () => {
 
         // Assert
         expect(result.items).toEqual([]);
-        expect(result.stacks).toEqual([]);
+        expect(result).not.toHaveProperty('stacks'); // No stacks property in response
         expect(mockItemRepository.findByUser).toHaveBeenCalledWith(testUserId);
         expect(mockItemRepository.findManyWithDetails).not.toHaveBeenCalled();
       });
 
-      it('should handle user with only stackable items (no materials)', async () => {
-        // Arrange: User has items but no materials
+      it('should handle items without materials as individual items', async () => {
+        // Arrange: User has items but no materials - should still appear as individual items
         const userItems = [{
           id: 'item-1',
           user_id: testUserId,
@@ -99,22 +98,23 @@ describe('InventoryService', () => {
         mockItemRepository.findManyWithDetails.mockResolvedValue([itemWithDetails]);
         mockItemRepository.findEquippedByUser.mockResolvedValue([]);
 
-        mockedStatsService.computeItemStatsForLevel.mockReturnValue({
+        mockedStatsService.computeItemStats.mockReturnValue({
           atkPower: 1.0, atkAccuracy: 0.8, defPower: 0.5, defAccuracy: 0.3
         });
 
         // Act
         const result = await inventoryService.getPlayerInventory(testUserId);
 
-        // Assert
-        expect(result.items).toHaveLength(0); // No materials = stackable item
-        expect(result.stacks).toHaveLength(1);
-        expect(result.stacks[0]).toMatchObject({
+        // Assert - ALL items now appear as individual items
+        expect(result.items).toHaveLength(1);
+        expect(result).not.toHaveProperty('stacks'); // No stacks property in response
+        expect(result.items[0]).toMatchObject({
+          id: 'item-1',
           item_type_id: 'sword',
           level: 5,
-          quantity: 1,
-          base_stats: { atkPower: 1.0, atkAccuracy: 0.8, defPower: 0.5, defAccuracy: 0.3 },
-          icon_url: 'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/icons/weapon_icon.png'
+          generated_image_url: 'https://example.com/sword.png',
+          applied_materials: [],
+          rarity: 'common'
         });
       });
     });

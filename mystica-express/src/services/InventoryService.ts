@@ -243,31 +243,6 @@ export class InventoryService {
     });
   }
 
-  /**
-   * Sort item stacks by specified criteria
-   */
-  private sortItemStacks(stacks: ItemStack[], sortBy: string): ItemStack[] {
-    return stacks.sort((a, b) => {
-      switch (sortBy) {
-        case 'level':
-          return b.level - a.level; // Descending (highest level first)
-        case 'rarity':
-          // For stacks, we can't easily get rarity without additional queries
-          // Fall back to level sorting
-          return b.level - a.level;
-        case 'newest':
-          // For stacks, we can't determine creation time
-          // Fall back to level sorting
-          return b.level - a.level;
-        case 'name':
-          // For stacks, we don't have name in the stack object
-          // Fall back to item_type_id sorting
-          return a.item_type_id.localeCompare(b.item_type_id);
-        default:
-          return b.level - a.level;
-      }
-    });
-  }
 
   /**
    * Compare rarity values for sorting (returns positive if a > b)
