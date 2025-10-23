@@ -26,6 +26,7 @@ final class MapViewModel: NSObject, CLLocationManagerDelegate {
     // MARK: - UI State
     var locationPermissionRequested: Bool = false
     var significantLocationChange: Bool = false
+    var isFollowingUser: Bool = false
 
     init(repository: LocationRepository = DefaultLocationRepository()) {
         self.repository = repository

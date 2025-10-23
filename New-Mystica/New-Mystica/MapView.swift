@@ -20,6 +20,7 @@ struct MapView: View, NavigableView {
     )
     @State private var showLocationPopup = false
     @State private var selectedLocation: Location?
+    @State private var isFollowingUser = false
     
     var navigationTitle: String { "Map" }
 
@@ -62,7 +63,7 @@ struct MapView: View, NavigableView {
             viewModel.stopLocationUpdates()
         }
         .onChange(of: viewModel.userLocation?.latitude) { _, _ in
-            if viewModel.userLocation != nil {
+            if viewModel.userLocation != nil && isFollowingUser {
                 updateRegionToUserLocation()
             }
         }
@@ -96,15 +97,26 @@ struct MapView: View, NavigableView {
             }
             .ignoresSafeArea()
             .overlay(
-                // Location status indicator
+                // User location indicator overlay
+                Group {
+                    if let userLocation = viewModel.userLocation {
+                        UserLocationOverlay(userLocation: userLocation, mapRegion: region)
+                    }
+                }
+            )
+            .overlay(
+                // Location status and controls overlay
                 VStack {
                     HStack {
                         Spacer()
-                        locationStatusView
+                        VStack(spacing: 8) {
+                            locationStatusView
+                            locationControlsView
+                        }
                     }
                     Spacer()
                 },
-                alignment: .topTrailing
+                alignment: .top
             )
         } retry: {
             Task {
@@ -139,6 +151,73 @@ struct MapView: View, NavigableView {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.backgroundPrimary)
         .padding(.horizontal, 32)
+    }
+
+    // MARK: - Location Controls View
+
+    private var locationControlsView: some View {
+        VStack(spacing: 8) {
+            // Snap to location button
+            Button(action: {
+                audioManager.playMapIconClick()
+                updateRegionToUserLocation()
+                isFollowingUser = false
+            }) {
+                HStack(spacing: 6) {
+                    Image(systemName: "location")
+                        .font(.system(size: 12, weight: .medium))
+                    SmallText("Snap")
+                        .foregroundColor(Color.textPrimary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+                .padding(.horizontal, 12)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.backgroundCard)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color.borderSubtle, lineWidth: 1)
+                        )
+                )
+            }
+
+            // Follow toggle button
+            Button(action: {
+                audioManager.playMapIconClick()
+                isFollowingUser.toggle()
+                if isFollowingUser {
+                    updateRegionToUserLocation()
+                }
+            }) {
+                HStack(spacing: 6) {
+                    Image(systemName: isFollowingUser ? "location.fill" : "location")
+                        .font(.system(size: 12, weight: .medium))
+                    SmallText(isFollowingUser ? "Following" : "Follow")
+                        .foregroundColor(Color.textPrimary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 8)
+                .padding(.horizontal, 12)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(isFollowingUser ? Color.accent.opacity(0.2) : Color.backgroundCard)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(isFollowingUser ? Color.accent : Color.borderSubtle, lineWidth: 1)
+                        )
+                )
+            }
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color.backgroundCard)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color.borderSubtle, lineWidth: 1)
+                )
+        )
     }
 
     // MARK: - Location Status View
@@ -368,6 +447,30 @@ struct LocationMarkerView: View {
             return "snowflake"
         default:
             return "location.fill"
+        }
+    }
+}
+
+// MARK: - User Location Overlay Component
+struct UserLocationOverlay: View {
+    let userLocation: CLLocationCoordinate2D
+    let mapRegion: MKCoordinateRegion
+
+    var body: some View {
+        ZStack {
+            // Outer pulsing ring
+            Circle()
+                .stroke(Color.accent.opacity(0.6), lineWidth: 2)
+                .frame(width: 40, height: 40)
+
+            // Inner filled circle
+            Circle()
+                .fill(Color.accent)
+                .frame(width: 16, height: 16)
+                .overlay(
+                    Circle()
+                        .stroke(Color.white, lineWidth: 2)
+                )
         }
     }
 }
