@@ -36,7 +36,6 @@ final class InventoryViewModel {
     var actionMenuItem: EnhancedPlayerItem?
     var showingEquipmentDrawer: Bool = false
     var showingSellConfirmation: Bool = false
-    var equipmentViewModel: EquipmentViewModel?
 
     // MARK: - Loading States
     var isEquipping: Bool = false
@@ -56,7 +55,6 @@ final class InventoryViewModel {
     init(repository: InventoryRepository = DefaultInventoryRepository(), materialsRepository: MaterialsRepository = DefaultMaterialsRepository()) {
         self.repository = repository
         self.materialsRepository = materialsRepository
-        self.equipmentViewModel = EquipmentViewModel()
     }
 
     // MARK: - Public Methods
@@ -387,66 +385,14 @@ print("❌ Error: \(error)")
         }
     }
 
-    func equipItem(_ item: EnhancedPlayerItem) async {
-        guard let equipmentVM = equipmentViewModel else {
-            print("⚠️ EquipmentViewModel not available")
-            return
-        }
-
+    private func equipItem(_ item: EnhancedPlayerItem) async {
         isEquipping = true
         let slot = getSlotForItem(item)
-
-        // Store original state for rollback on error
-        let originalItems = items
-
-        // Optimistic update: update equipment state immediately
-        if case .loaded(var currentItems) = items {
-            // First unequip any item currently equipped in this slot
-            for index in currentItems.indices {
-                if currentItems[index].equippedSlot == slot.rawValue && currentItems[index].isEquipped {
-                    currentItems[index] = EnhancedPlayerItem(
-                        id: currentItems[index].id,
-                        baseType: currentItems[index].baseType,
-                        level: currentItems[index].level,
-                        appliedMaterials: currentItems[index].appliedMaterials,
-                        computedStats: currentItems[index].computedStats,
-                        materialComboHash: currentItems[index].materialComboHash,
-                        generatedImageUrl: currentItems[index].generatedImageUrl,
-                        imageGenerationStatus: currentItems[index].imageGenerationStatus,
-                        craftCount: currentItems[index].craftCount,
-                        isStyled: currentItems[index].isStyled,
-                        isEquipped: false,
-                        equippedSlot: nil
-                    )
-                    print("🔄 Optimistically unequipped \(currentItems[index].baseType) from \(slot.rawValue)")
-                }
-            }
-
-            // Then equip the new item
-            if let index = currentItems.firstIndex(where: { $0.id == item.id }) {
-                currentItems[index] = EnhancedPlayerItem(
-                    id: item.id,
-                    baseType: item.baseType,
-                    level: item.level,
-                    appliedMaterials: item.appliedMaterials,
-                    computedStats: item.computedStats,
-                    materialComboHash: item.materialComboHash,
-                    generatedImageUrl: item.generatedImageUrl,
-                    imageGenerationStatus: item.imageGenerationStatus,
-                    craftCount: item.craftCount,
-                    isStyled: item.isStyled,
-                    isEquipped: true,
-                    equippedSlot: slot.rawValue
-                )
-                print("🔄 Optimistically equipped \(item.baseType) to \(slot.rawValue)")
-            }
-
-            items = .loaded(currentItems)
-        }
+        let equipmentRepo = DefaultEquipmentRepository()
 
         do {
             // Call equipment API
-            await equipmentVM.equipItem(slotName: slot.rawValue, itemId: item.id)
+            try await equipmentRepo.equipItem(slotName: slot.rawValue, itemId: item.id)
 
             // Refresh inventory to get authoritative state from backend
             await refreshInventory()
@@ -455,25 +401,15 @@ print("❌ Error: \(error)")
             showSuccessToast(message: "\(item.baseType.capitalized) equipped", icon: "checkmark.shield.fill")
 
             print("✅ Successfully equipped \(item.baseType) to \(slot.rawValue) slot")
-
+        } catch let error as AppError {
+            handleError(error)
+            print("❌ Equipment API failed: \(error)")
         } catch {
-            // Rollback optimistic update on error
-            items = originalItems
-            print("❌ Equipment API failed, rolling back optimistic update")
-
-            // Handle error with retry option
-print("❌ Error: \(error)")
+            handleError(.unknown(error))
+            print("❌ Equipment API failed: \(error)")
         }
 
-        // Always clean up UI state
-        showingEquipmentDrawer = false
-        actionMenuItem = nil
         isEquipping = false
-    }
-
-    func dismissEquipmentDrawer() {
-        showingEquipmentDrawer = false
-        actionMenuItem = nil
     }
 
     // MARK: - Helper Methods

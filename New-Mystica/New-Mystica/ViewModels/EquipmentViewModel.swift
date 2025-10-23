@@ -11,10 +11,20 @@ import Observation
 @Observable
 final class EquipmentViewModel {
     let repository: EquipmentRepository
+    let inventoryViewModel: InventoryViewModel
+
     var equipment: Loadable<[Equipment]> = .idle
 
-    init(repository: EquipmentRepository = DefaultEquipmentRepository()) {
+    // MARK: - Drawer State
+    var showingItemSelectionDrawer: Bool = false
+    var selectedSlotForEquipping: EquipmentSlot?
+
+    init(
+        repository: EquipmentRepository = DefaultEquipmentRepository(),
+        inventoryViewModel: InventoryViewModel
+    ) {
         self.repository = repository
+        self.inventoryViewModel = inventoryViewModel
     }
 
     func fetchEquipment() async {
@@ -51,6 +61,76 @@ final class EquipmentViewModel {
             equipment = .error(error)
         } catch {
             equipment = .error(.unknown(error))
+        }
+    }
+
+    // MARK: - Drawer Methods
+
+    func showItemSelection(for slot: EquipmentSlot) {
+        selectedSlotForEquipping = slot
+        showingItemSelectionDrawer = true
+    }
+
+    func dismissItemSelection() {
+        showingItemSelectionDrawer = false
+        selectedSlotForEquipping = nil
+    }
+
+    func getAvailableItemsForSlot(_ slot: EquipmentSlot) -> [EnhancedPlayerItem] {
+        guard case .loaded(let items) = inventoryViewModel.items else { return [] }
+
+        return items.filter { item in
+            let itemSlot = getSlotForItemType(item.baseType)
+            return itemSlot == slot && !item.isEquipped
+        }
+    }
+
+    func equipItemFromInventory(_ item: EnhancedPlayerItem) async {
+        guard let slot = selectedSlotForEquipping else { return }
+
+        do {
+            // Call the equipment API
+            try await repository.equipItem(slotName: slot.rawValue, itemId: item.id)
+
+            // Refresh both equipment and inventory
+            await fetchEquipment()
+            await inventoryViewModel.refreshInventory()
+
+            // Close the drawer
+            dismissItemSelection()
+
+            print("✅ Successfully equipped \(item.baseType) to \(slot.rawValue) slot")
+        } catch let error as AppError {
+            equipment = .error(error)
+            print("❌ Failed to equip item: \(error)")
+        } catch {
+            equipment = .error(.unknown(error))
+            print("❌ Failed to equip item: \(error)")
+        }
+    }
+
+    // MARK: - Helper Methods
+
+    /// Map base item types to equipment slots (same logic as InventoryViewModel)
+    private func getSlotForItemType(_ baseType: String) -> EquipmentSlot {
+        let lowercased = baseType.lowercased()
+
+        if lowercased.contains("sword") || lowercased.contains("staff") || lowercased.contains("bow") || lowercased.contains("wand") {
+            return .weapon
+        } else if lowercased.contains("shield") || lowercased.contains("tome") {
+            return .offhand
+        } else if lowercased.contains("helm") || lowercased.contains("crown") || lowercased.contains("hat") {
+            return .head
+        } else if lowercased.contains("armor") || lowercased.contains("robe") || lowercased.contains("chainmail") {
+            return .armor
+        } else if lowercased.contains("boots") || lowercased.contains("sandals") || lowercased.contains("shoes") {
+            return .feet
+        } else if lowercased.contains("ring") || lowercased.contains("amulet") || lowercased.contains("bracelet") {
+            return .accessory_1
+        } else if lowercased.contains("pet") {
+            return .pet
+        } else {
+            return .weapon // Default fallback
         }
     }
 }
