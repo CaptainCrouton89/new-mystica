@@ -198,30 +198,43 @@ export class MaterialService {
     // Note: We need to fetch the item with type data for base stats and rarity
     const itemWithType = await this.itemRepository.findWithMaterials(itemId, userId);
     if (itemWithType && itemWithType.item_type) {
-      // Get base stats and rarity multiplier from item type
+      // Get base stats and rarity from item type
+      // NOTE: Pass un-adjusted base stats to computeItemStats - it handles rarity internally
       const baseStats = itemWithType.item_type.base_stats_normalized;
       const rarity = itemWithType.item_type.rarity;
-
-      // Get rarity multiplier and apply to base stats
-      const rarityMultiplier = this.getRarityMultiplier(rarity);
-      const rarityAdjustedBaseStats = {
-        atkPower: baseStats.atkPower * rarityMultiplier,
-        atkAccuracy: baseStats.atkAccuracy * rarityMultiplier,
-        defPower: baseStats.defPower * rarityMultiplier,
-        defAccuracy: baseStats.defAccuracy * rarityMultiplier
-      };
 
       // Calculate final stats with materials applied
       // Note: Filter out any materials that don't have proper stat_modifiers (for tests)
       const validMaterials = allMaterials.filter(m => m.material && m.material.stat_modifiers);
-      const finalStats = statsService.computeItemStats(
-        rarityAdjustedBaseStats,
-        itemWithType.level,
-        validMaterials
-      );
+
+      // Create a wrapper with rarity info for the stats calculation
+      const itemWithRarity = {
+        item_type: {
+          base_stats_normalized: baseStats,
+          rarity: rarity
+        }
+      };
+
+      // Use computeItemStatsForLevel which properly handles rarity multiplier
+      const finalStats = statsService.computeItemStatsForLevel(itemWithRarity, itemWithType.level);
+
+      // Apply material modifiers separately
+      const materialMods = validMaterials.reduce((acc, material) => ({
+        atkPower: acc.atkPower + material.material.stat_modifiers.atkPower,
+        atkAccuracy: acc.atkAccuracy + material.material.stat_modifiers.atkAccuracy,
+        defPower: acc.defPower + material.material.stat_modifiers.defPower,
+        defAccuracy: acc.defAccuracy + material.material.stat_modifiers.defAccuracy
+      }), { atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0 });
+
+      const finalStatsWithMaterials = {
+        atkPower: Math.round((finalStats.atkPower + materialMods.atkPower) * 100) / 100,
+        atkAccuracy: Math.round((finalStats.atkAccuracy + materialMods.atkAccuracy) * 100) / 100,
+        defPower: Math.round((finalStats.defPower + materialMods.defPower) * 100) / 100,
+        defAccuracy: Math.round((finalStats.defAccuracy + materialMods.defAccuracy) * 100) / 100
+      };
 
       // Update the item's current_stats in the database
-      await this.itemRepository.updateStats(itemId, userId, finalStats);
+      await this.itemRepository.updateStats(itemId, userId, finalStatsWithMaterials);
     }
 
     // 12. Return result with cache status and craft count
@@ -376,18 +389,10 @@ export class MaterialService {
     // 11.5. Calculate and update item stats with new materials
     const itemWithTypeUpdated = await this.itemRepository.findWithMaterials(itemId, userId);
     if (itemWithTypeUpdated && itemWithTypeUpdated.item_type) {
-      // Get base stats and rarity multiplier from item type
+      // Get base stats and rarity from item type
+      // NOTE: Pass un-adjusted base stats - computeItemStatsForLevel handles rarity internally
       const baseStatsUpdated = itemWithTypeUpdated.item_type.base_stats_normalized;
       const rarityUpdated = itemWithTypeUpdated.item_type.rarity;
-
-      // Get rarity multiplier and apply to base stats
-      const rarityMultiplierUpdated = this.getRarityMultiplier(rarityUpdated);
-      const rarityAdjustedBaseStatsUpdated = {
-        atkPower: baseStatsUpdated.atkPower * rarityMultiplierUpdated,
-        atkAccuracy: baseStatsUpdated.atkAccuracy * rarityMultiplierUpdated,
-        defPower: baseStatsUpdated.defPower * rarityMultiplierUpdated,
-        defAccuracy: baseStatsUpdated.defAccuracy * rarityMultiplierUpdated
-      };
 
       // Get updated materials after replacement
       const updatedMaterials = await this.materialRepository.findMaterialsByItem(itemId);
@@ -395,11 +400,32 @@ export class MaterialService {
       // Calculate final stats with replaced materials
       // Note: Filter out any materials that don't have proper stat_modifiers (for tests)
       const validMaterialsUpdated = updatedMaterials.filter(m => m.material && m.material.stat_modifiers);
-      const finalStatsUpdated = statsService.computeItemStats(
-        rarityAdjustedBaseStatsUpdated,
-        itemWithTypeUpdated.level,
-        validMaterialsUpdated
-      );
+
+      // Create a wrapper with rarity info for the stats calculation
+      const itemWithRarityUpdated = {
+        item_type: {
+          base_stats_normalized: baseStatsUpdated,
+          rarity: rarityUpdated
+        }
+      };
+
+      // Use computeItemStatsForLevel which properly handles rarity multiplier
+      const finalStatsBase = statsService.computeItemStatsForLevel(itemWithRarityUpdated, itemWithTypeUpdated.level);
+
+      // Apply material modifiers separately
+      const materialModsUpdated = validMaterialsUpdated.reduce((acc, material) => ({
+        atkPower: acc.atkPower + material.material.stat_modifiers.atkPower,
+        atkAccuracy: acc.atkAccuracy + material.material.stat_modifiers.atkAccuracy,
+        defPower: acc.defPower + material.material.stat_modifiers.defPower,
+        defAccuracy: acc.defAccuracy + material.material.stat_modifiers.defAccuracy
+      }), { atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0 });
+
+      const finalStatsUpdated = {
+        atkPower: Math.round((finalStatsBase.atkPower + materialModsUpdated.atkPower) * 100) / 100,
+        atkAccuracy: Math.round((finalStatsBase.atkAccuracy + materialModsUpdated.atkAccuracy) * 100) / 100,
+        defPower: Math.round((finalStatsBase.defPower + materialModsUpdated.defPower) * 100) / 100,
+        defAccuracy: Math.round((finalStatsBase.defAccuracy + materialModsUpdated.defAccuracy) * 100) / 100
+      };
 
       // Update the item's current_stats in the database
       await this.itemRepository.updateStats(itemId, userId, finalStatsUpdated);
