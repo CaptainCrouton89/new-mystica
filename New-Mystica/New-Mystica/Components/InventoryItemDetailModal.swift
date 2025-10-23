@@ -201,7 +201,7 @@ struct InventoryItemDetailModal: View {
     // MARK: - Materials View
     private var materialsView: some View {
         VStack(spacing: 12) {
-            TitleText("Applied Materials", size: 20)
+            TitleText("Ingredients", size: 20)
 
             VStack(alignment: .leading, spacing: 8) {
                 ForEach(item.appliedMaterials, id: \.self) { material in
@@ -210,7 +210,7 @@ struct InventoryItemDetailModal: View {
                             .font(.system(size: 6))
                             .foregroundColor(Color.accent)
 
-                        NormalText(material.materialId.capitalized)
+                        NormalText(material.material!.name)
                             .foregroundColor(Color.textPrimary)
 
                         Spacer()
@@ -461,11 +461,41 @@ private struct StatDetailRow: View {
         item: EnhancedPlayerItem(
             id: "550e8400-e29b-41d4-a716-446655440000",
             baseType: "Magic Sword",
+            itemTypeId: "550e8400-e29b-41d4-a716-446655440001",
+            category: "weapon",
             level: 5,
+            rarity: "rare",
             appliedMaterials: [
-                ItemMaterialApplication(materialId: "steel", styleId: "rustic", slotIndex: 0),
-                ItemMaterialApplication(materialId: "crystal", styleId: "ethereal", slotIndex: 1)
+                ItemMaterialApplication(
+                    materialId: "steel",
+                    styleId: "rustic",
+                    slotIndex: 0,
+                    appliedAt: "2025-10-23T06:00:00Z",
+                    material: ItemMaterialApplication.MaterialDetail(
+                        id: "steel",
+                        name: "Steel",
+                        description: nil,
+                        styleId: "rustic",
+                        statModifiers: StatModifier(atkPower: 5, atkAccuracy: 0, defPower: 0, defAccuracy: 0),
+                        imageUrl: nil
+                    )
+                ),
+                ItemMaterialApplication(
+                    materialId: "crystal",
+                    styleId: "ethereal",
+                    slotIndex: 1,
+                    appliedAt: "2025-10-23T06:00:00Z",
+                    material: ItemMaterialApplication.MaterialDetail(
+                        id: "crystal",
+                        name: "Crystal",
+                        description: nil,
+                        styleId: "ethereal",
+                        statModifiers: StatModifier(atkPower: 10, atkAccuracy: 0, defPower: 0, defAccuracy: 0),
+                        imageUrl: nil
+                    )
+                )
             ],
+            materials: [],
             computedStats: ItemStats(
                 atkPower: 45.0,
                 atkAccuracy: 0.85,

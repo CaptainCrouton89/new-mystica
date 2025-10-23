@@ -218,7 +218,7 @@ struct ItemDetailModal: View {
     // MARK: - Materials View
     private var materialsView: some View {
         VStack(spacing: 12) {
-            TitleText("Applied Materials", size: 20)
+            TitleText("Ingredients", size: 20)
 
             VStack(alignment: .leading, spacing: 8) {
                 ForEach(item.appliedMaterials, id: \.self) { material in
