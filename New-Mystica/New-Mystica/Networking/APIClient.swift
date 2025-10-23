@@ -77,7 +77,9 @@ class APIClient {
         body: Encodable? = nil,
         requiresAuth: Bool = false
     ) throws -> URLRequest {
-        let url = URL(string: "\(baseURL)\(path)")!
+        guard let url = URL(string: "\(baseURL)\(path)") else {
+            throw AppError.invalidURL("\(baseURL)\(path)")
+        }
         var request = URLRequest(url: url)
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
