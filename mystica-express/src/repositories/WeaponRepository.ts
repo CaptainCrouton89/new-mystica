@@ -267,19 +267,38 @@ export class WeaponRepository extends BaseRepository<Weapon> {
         deg_graze: number;
         deg_normal: number;
         deg_crit: number;
-      }>('fn_weapon_bands_adjusted', {
+      }[]>('fn_weapon_bands_adjusted', {
         w_id: weaponId,
         player_acc: playerAccuracy
       });
 
-      const totalDegrees = result.deg_injure + result.deg_miss + result.deg_graze +
-                          result.deg_normal + result.deg_crit;
+      // PostgreSQL TABLE functions return arrays from Supabase RPC
+      // Extract the first element to get the flat object structure
+      const bandData = Array.isArray(result) ? result[0] : result;
+
+      if (!bandData) {
+        throw new NotFoundError('weapon', weaponId);
+      }
+
+      const roundedBands = {
+        deg_injure: Math.round(bandData.deg_injure),
+        deg_miss: Math.round(bandData.deg_miss),
+        deg_graze: Math.round(bandData.deg_graze),
+        deg_normal: Math.round(bandData.deg_normal),
+        deg_crit: Math.round(bandData.deg_crit)
+      };
+
+      const totalDegrees = roundedBands.deg_injure + roundedBands.deg_miss + roundedBands.deg_graze +
+                          roundedBands.deg_normal + roundedBands.deg_crit;
 
       return {
-        ...result,
+        ...roundedBands,
         total_degrees: totalDegrees
       };
     } catch (error) {
+      if (error instanceof NotFoundError) {
+        throw error;
+      }
       if (error instanceof DatabaseError && error.message.includes('Weapon not found')) {
         throw new NotFoundError('weapon', weaponId);
       }

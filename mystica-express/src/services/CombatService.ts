@@ -236,6 +236,9 @@ export class CombatService {
 
     return {
       session_id: sessionId,
+      player_id: userId,
+      enemy_id: enemy.id,
+      status: 'active',
       enemy,
       player_stats: playerStats,
       weapon_config: weaponConfig,

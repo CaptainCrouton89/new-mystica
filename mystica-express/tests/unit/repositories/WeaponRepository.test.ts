@@ -255,27 +255,38 @@ describe('WeaponRepository', () => {
 
   describe('getAdjustedBands', () => {
     it('should return adjusted bands from PostgreSQL function', async () => {
-      const mockResult = {
+      const mockResult = [{
         deg_injure: 2.5,
         deg_miss: 22.5,
         deg_graze: 75.0,
         deg_normal: 210.0,
         deg_crit: 50.0
-      };
+      }];
 
       mockClient.rpc.mockResolvedValue({ data: mockResult, error: null });
 
       const result = await repository.getAdjustedBands('weapon-1', 85.0);
 
       expect(result).toEqual({
-        ...mockResult,
-        total_degrees: 360.0
+        deg_injure: 3,
+        deg_miss: 23,
+        deg_graze: 75,
+        deg_normal: 210,
+        deg_crit: 50,
+        total_degrees: 361
       });
 
       expect(mockClient.rpc).toHaveBeenCalledWith('fn_weapon_bands_adjusted', {
         w_id: 'weapon-1',
         player_acc: 85.0
       });
+    });
+
+    it('should handle empty array result', async () => {
+      mockClient.rpc.mockResolvedValue({ data: [], error: null });
+
+      await expect(repository.getAdjustedBands('weapon-1', 85.0))
+        .rejects.toThrow(NotFoundError);
     });
 
     it('should throw NotFoundError for nonexistent weapon', async () => {
@@ -386,18 +397,24 @@ describe('WeaponRepository', () => {
     };
 
     const mockAdjustedBands = {
-      deg_injure: 2.5,
-      deg_miss: 22.5,
-      deg_graze: 75.0,
-      deg_normal: 210.0,
-      deg_crit: 50.0,
-      total_degrees: 360.0
+      deg_injure: 3,
+      deg_miss: 23,
+      deg_graze: 75,
+      deg_normal: 210,
+      deg_crit: 50,
+      total_degrees: 361
     };
 
     it('should return comprehensive combat statistics', async () => {
       mockClient.single.mockResolvedValue({ data: mockWeapon, error: null });
       mockClient.rpc
-        .mockResolvedValueOnce({ data: mockAdjustedBands, error: null })
+        .mockResolvedValueOnce({ data: [{
+          deg_injure: 2.5,
+          deg_miss: 22.5,
+          deg_graze: 75.0,
+          deg_normal: 210.0,
+          deg_crit: 50.0
+        }], error: null })
         .mockResolvedValueOnce({ data: 1.25, error: null });
 
       const result = await repository.getWeaponCombatStats('weapon-1', 85.0);

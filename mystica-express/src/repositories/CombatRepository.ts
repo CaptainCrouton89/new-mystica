@@ -101,10 +101,11 @@ export interface ChatterLogEntry {
 }
 
 /**
- * Combat session TTL in seconds (15 minutes)
+ * Combat session TTL in seconds (60 minutes)
  * Used for session expiry logic based on created_at timestamp
+ * Increased from 15min to 60min to support app backgrounding and debugging
  */
-export const COMBAT_SESSION_TTL = 900; // 15 minutes
+export const COMBAT_SESSION_TTL = 3600; // 60 minutes
 
 /**
  * CombatRepository - PostgreSQL-only combat session management
