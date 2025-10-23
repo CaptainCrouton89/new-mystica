@@ -8,23 +8,19 @@ struct GoldBalanceView: View {
     var body: some View {
         HStack(spacing: 8) {
             // Gold coin icon from R2
-            AsyncImage(url: URL(string: "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/assets/ui/coins.png")) { phase in
-                switch phase {
-                case .empty:
-                    ProgressView()
-                        .frame(width: 48, height: 48)
-                case .success(let image):
+            CachedAsyncImage(
+                url: URL(string: "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/assets/ui/coins.png"),
+                content: { image in
                     image
                         .resizable()
                         .aspectRatio(contentMode: .fit)
                         .frame(width: 48, height: 48)
-                case .failure:
-                    EmptyView()
+                },
+                placeholder: {
+                    ProgressView()
                         .frame(width: 48, height: 48)
-                @unknown default:
-                    EmptyView()
                 }
-            }
+            )
 
             // Gold amount with blocky font
             Text(formattedAmount)

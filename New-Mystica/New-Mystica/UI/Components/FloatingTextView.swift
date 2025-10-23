@@ -91,6 +91,7 @@ extension View {
 }
 
 // MARK: - FloatingTextView EnvironmentObject
+@MainActor
 class FloatingTextView: ObservableObject {
     @Published var floatingTexts: [FloatingText] = []
     
