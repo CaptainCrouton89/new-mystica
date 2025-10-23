@@ -113,17 +113,6 @@ export interface AppliedMaterial {
   material: Material;
 }
 
-/**
- * Detailed material stack with full material data (used by MaterialService)
- */
-export interface MaterialStackDetailed {
-  id: string;
-  user_id: string;
-  material_id: string;
-  style_id: string;
-  quantity: number;
-  material: Material;
-}
 
 /**
  * Simplified material stack for inventory response
@@ -137,14 +126,6 @@ export interface MaterialStack {
   is_styled: boolean;
 }
 
-/**
- * Item stack for inventory management
- */
-export interface ItemStack {
-  item_id: string;
-  quantity: number;
-  item?: Item;
-}
 
 // ============================================================================
 // Stats and Equipment
@@ -293,7 +274,6 @@ export interface UpgradeResult {
  */
 export interface InventoryResponse {
   items: Item[];
-  material_stacks: MaterialStack[];
   total_items: number;
   total_materials: number;
   storage_capacity: {

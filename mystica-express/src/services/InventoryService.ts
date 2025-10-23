@@ -27,16 +27,6 @@ export interface PlayerItem {
   equipped_slot: string | null;
 }
 
-/**
- * Stackable item group by type+level
- */
-export interface ItemStack {
-  item_type_id: string;
-  level: number;
-  quantity: number;
-  base_stats: Stats;
-  icon_url: string;
-}
 
 /**
  * Pagination metadata
@@ -63,7 +53,6 @@ export interface InventoryOptions {
  */
 export interface PaginatedInventory {
   items: PlayerItem[];
-  stacks: ItemStack[];
   pagination: PaginationInfo;
 }
 
@@ -81,9 +70,8 @@ export class InventoryService {
   }
 
   /**
-   * Get user's complete inventory with stacking logic, filtering, sorting, and pagination
-   * Separates unique items (with materials) from stackable items (no materials)
-   * Returns items with materials as unique items, groups base items by type+level as stacks
+   * Get user's complete inventory - all items treated as unique individuals
+   * Returns all items with their generated_image_url (or fallback to default if not set)
    */
   async getPlayerInventory(userId: string, options: InventoryOptions = {}): Promise<PaginatedInventory> {
     if (!userId || typeof userId !== 'string') {
@@ -119,20 +107,8 @@ export class InventoryService {
       // Apply slot type filtering
       const filteredItems = this.applySlotFilter(itemsWithDetails, slotType);
 
-      // Classify items by material state
-      const uniqueItems: ItemWithDetails[] = [];
-      const stackableItems: ItemWithDetails[] = [];
-
-      for (const item of filteredItems) {
-        if (item.materials && item.materials.length > 0) {
-          uniqueItems.push(item);
-        } else {
-          stackableItems.push(item);
-        }
-      }
-
-      // Process unique items (items with materials applied)
-      let playerItems: PlayerItem[] = uniqueItems.map(item => {
+      // Process ALL items as unique items (no stacking)
+      let playerItems: PlayerItem[] = filteredItems.map(item => {
         try {
           return {
             id: item.id,
@@ -153,79 +129,29 @@ export class InventoryService {
             equipped_slot: equippedSlotMap.get(item.id) || null
           };
         } catch (error) {
-          throw new DatabaseError(`Failed to process unique item ${item.id}`, error as Record<string, any>);
+          throw new DatabaseError(`Failed to process item ${item.id}`, error as Record<string, any>);
         }
       });
 
-      // Apply sorting to unique items
+      // Apply sorting to all items
       playerItems = this.sortPlayerItems(playerItems, sortBy);
 
-      // Process stackable items (items without materials, grouped by type+level)
-      const stacksMap = new Map<string, ItemStack>();
-
-      stackableItems.forEach(item => {
-        try {
-          const stackKey = `${item.item_type_id}_${item.level}`;
-
-          if (!stacksMap.has(stackKey)) {
-            stacksMap.set(stackKey, {
-              item_type_id: item.item_type_id,
-              level: item.level,
-              quantity: 0,
-              base_stats: this.calculateBaseStatsForLevel(item.item_type, item.level),
-              icon_url: this.getDefaultIcon(item.item_type.category)
-            });
-          }
-
-          stacksMap.get(stackKey)!.quantity++;
-        } catch (error) {
-          throw new DatabaseError(`Failed to process stackable item ${item.id}`, error as Record<string, any>);
-        }
-      });
-
-      let stacks = Array.from(stacksMap.values());
-
-      // Apply sorting to stacks
-      stacks = this.sortItemStacks(stacks, sortBy);
-
-      // Apply pagination to both items and stacks
+      // Apply pagination to items only
       const totalItems = playerItems.length;
-      const totalStacks = stacks.length;
-      const totalCombined = totalItems + totalStacks;
-
       const offset = (page - 1) * limit;
-      const totalPages = Math.ceil(totalCombined / limit);
+      const totalPages = Math.ceil(totalItems / limit);
 
-      // Determine which items to include based on pagination
-      let paginatedItems: PlayerItem[] = [];
-      let paginatedStacks: ItemStack[] = [];
-
-      if (offset < totalItems) {
-        // Start with items
-        const itemsToTake = Math.min(limit, totalItems - offset);
-        paginatedItems = playerItems.slice(offset, offset + itemsToTake);
-
-        const remainingLimit = limit - itemsToTake;
-        if (remainingLimit > 0) {
-          // Take some stacks too
-          paginatedStacks = stacks.slice(0, remainingLimit);
-        }
-      } else {
-        // Only stacks
-        const stackOffset = offset - totalItems;
-        paginatedStacks = stacks.slice(stackOffset, stackOffset + limit);
-      }
+      const paginatedItems = playerItems.slice(offset, offset + limit);
 
       const pagination: PaginationInfo = {
         current_page: page,
         total_pages: totalPages,
-        total_items: totalCombined,
+        total_items: totalItems,
         items_per_page: limit
       };
 
       return {
         items: paginatedItems,
-        stacks: paginatedStacks,
         pagination
       };
 
@@ -275,12 +201,6 @@ export class InventoryService {
     return `https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/items/default_${item.item_type.category}.png`;
   }
 
-  /**
-   * Get default icon for item category
-   */
-  private getDefaultIcon(category: string): string {
-    return `https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/icons/${category}_icon.png`;
-  }
 
   /**
    * Apply slot type filter to items
