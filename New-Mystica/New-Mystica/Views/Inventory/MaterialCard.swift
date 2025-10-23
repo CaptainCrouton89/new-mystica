@@ -148,26 +148,23 @@ struct MaterialCard: View {
 }
 
 // MARK: - Tappable Material Card Wrapper
-/// Wrapper that adds tap gesture with action menu integration
+/// Wrapper that adds tap gesture with material detail modal
 struct TappableMaterialCard: View {
     let material: MaterialInventoryStack
     let onCraft: () -> Void
 
-    @State private var showingActionMenu = false
+    @State private var showingDetailModal = false
 
     var body: some View {
         MaterialCard(material: material)
             .onTapGesture {
-                showingActionMenu = true
+                showingDetailModal = true
             }
-            .sheet(isPresented: $showingActionMenu) {
-                MaterialActionSheet(
+            .sheet(isPresented: $showingDetailModal) {
+                MaterialDetailModal(
                     material: material,
-                    isPresented: $showingActionMenu,
                     onCraft: onCraft
                 )
-                .presentationDetents([.height(300)])
-                .presentationDragIndicator(.visible)
             }
     }
 }

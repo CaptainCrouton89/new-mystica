@@ -8,6 +8,31 @@
 import Foundation
 import Observation
 
+/// Manages player inventory state, including items, materials, and complex inventory operations.
+///
+/// This ViewModel serves as the central coordinator for all inventory-related functionality including:
+/// - Paginated item loading with infinite scroll support
+/// - Material inventory management and application to items
+/// - Item equipment, selling, and upgrade workflows
+/// - Complex UI state management for modals, confirmations, and loading states
+/// - Error handling and user feedback (toasts, alerts, animations)
+///
+/// ## State Management
+/// The ViewModel manages multiple interconnected state systems:
+/// - **Core Data**: Items and materials using `Loadable<T>` pattern for async operations
+/// - **Pagination**: Page-based loading with `canLoadMore` tracking
+/// - **UI State**: Modal visibility, selections, loading flags for different operations
+/// - **Transaction State**: Equipment, selling, upgrade operations with progress tracking
+///
+/// ## Key Workflows
+/// 1. **Inventory Loading**: Initial load → pagination → refresh cycles
+/// 2. **Material Application**: Selection → validation → API call → state update
+/// 3. **Item Operations**: Equipment/sell/upgrade with confirmation flows
+/// 4. **Navigation Integration**: Coordinated transitions to crafting/upgrade screens
+///
+/// - Important: This ViewModel maintains authoritative state that must be synchronized
+///   with backend responses. All mutations should go through repository methods.
+/// - Note: Uses weak reference to NavigationManager to prevent retain cycles
 @Observable
 final class InventoryViewModel {
     let repository: InventoryRepository
@@ -66,6 +91,12 @@ final class InventoryViewModel {
     var showingGoldShower: Bool = false
     var goldShowerAmount: Int = 0
 
+    /// Initializes the InventoryViewModel with required dependencies.
+    ///
+    /// - Parameters:
+    ///   - repository: Repository for inventory operations (default: DefaultInventoryRepository)
+    ///   - materialsRepository: Repository for material operations (default: DefaultMaterialsRepository)
+    ///   - navigationManager: Optional navigation coordinator for screen transitions
     init(repository: InventoryRepository = DefaultInventoryRepository(), materialsRepository: MaterialsRepository = DefaultMaterialsRepository(), navigationManager: NavigationManager? = nil) {
         self.repository = repository
         self.materialsRepository = materialsRepository
@@ -74,6 +105,17 @@ final class InventoryViewModel {
 
     // MARK: - Public Methods
 
+    /// Loads the initial inventory page and material inventory.
+    ///
+    /// Performs a complete inventory refresh by:
+    /// 1. Resetting to page 1 and setting loading states
+    /// 2. Fetching paginated items from the repository
+    /// 3. Loading material inventory in parallel
+    /// 4. Updating pagination metadata for infinite scroll
+    ///
+    /// - Important: This method sets both `items` and `materialInventory` to loading state.
+    ///   Any errors during loading will set both to the same error state.
+    /// - Note: Automatically updates pagination state (`currentPage`, `totalPages`, `canLoadMore`)
     func loadInventory() async {
         items = .loading
         materialInventory = .loading
@@ -88,7 +130,7 @@ final class InventoryViewModel {
             )
             items = .loaded(response.items)
 
-            print("✅ [INVENTORY] Loaded \(response.items.count) items from inventory API")
+            FileLogger.shared.log("✅ Loaded \(response.items.count) items from inventory API", level: .info, category: "Inventory")
 
             // Load material inventory alongside items
             await loadMaterialInventory()
@@ -100,12 +142,12 @@ final class InventoryViewModel {
         } catch let error as AppError {
             items = .error(error)
             materialInventory = .error(error)
-            print("❌ [INVENTORY] Failed to load inventory: \(error)")
+            FileLogger.shared.log("❌ Failed to load inventory: \(error)", level: .error, category: "Inventory")
         } catch {
             let appError = AppError.unknown(error)
             items = .error(appError)
             materialInventory = .error(appError)
-            print("❌ [INVENTORY] Failed to load inventory: \(appError)")
+            FileLogger.shared.log("❌ Failed to load inventory: \(appError)", level: .error, category: "Inventory")
         }
 
         isLoading = false
@@ -124,6 +166,17 @@ final class InventoryViewModel {
         }
     }
 
+    /// Loads the next page of items for infinite scroll functionality.
+    ///
+    /// Implements pagination by:
+    /// 1. Checking if more items are available and not currently loading
+    /// 2. Fetching the next page from the repository
+    /// 3. Appending new items to existing loaded items
+    /// 4. Updating pagination state for continued scrolling
+    ///
+    /// - Important: Items are accumulated (appended) rather than replaced for infinite scroll.
+    ///   If items are not in loaded state, replaces with new items instead.
+    /// - Note: Method is safe to call multiple times - guards against concurrent loading
     func loadMoreItems() async {
         guard canLoadMore && !isLoading else { return }
 
@@ -148,11 +201,11 @@ final class InventoryViewModel {
             canLoadMore = currentPage < totalPages
         } catch let error as AppError {
             items = .error(error)
-print("❌ Error: \(error)")
+            FileLogger.shared.log("❌ Failed to load more items: \(error)", level: .error, category: "Inventory")
         } catch {
             let appError = AppError.unknown(error)
             items = .error(appError)
-print("❌ Error: \(appError)")
+            FileLogger.shared.log("❌ Failed to load more items: \(appError)", level: .error, category: "Inventory")
         }
         isLoading = false
     }
@@ -162,6 +215,23 @@ print("❌ Error: \(appError)")
         await loadInventory()
     }
 
+    /// Applies a material to an item at the specified slot index.
+    ///
+    /// Performs material application by:
+    /// 1. Setting loading state (`applyingMaterial = true`)
+    /// 2. Making API call to repository with material and slot details
+    /// 3. Updating local item state with the enhanced item from backend
+    /// 4. Synchronizing selection state if the modified item is currently selected
+    ///
+    /// - Parameters:
+    ///   - itemId: The unique identifier of the item to enhance
+    ///   - materialId: The identifier of the material to apply
+    ///   - styleId: The specific style variant of the material
+    ///   - slotIndex: The material slot index (0-2, default: 0)
+    ///
+    /// - Important: This method maintains local state synchronization by updating the item
+    ///   in the loaded items array and updating `selectedItem` if it matches.
+    /// - Note: Sets `applyingMaterial` loading flag for UI feedback during API call
     func applyMaterial(itemId: String, materialId: String, styleId: String, slotIndex: Int = 0) async {
         applyingMaterial = true
         defer { applyingMaterial = false }
@@ -223,6 +293,19 @@ print("❌ Error: \(appError)")
         selectedMaterial = material
     }
 
+    /// Navigates to the crafting screen with a preselected material.
+    ///
+    /// Initiates navigation workflow by:
+    /// 1. Setting navigation loading state for UI feedback
+    /// 2. Storing the selected material for crafting context
+    /// 3. Adding artificial delay to show loading state
+    /// 4. Triggering navigation through NavigationManager
+    ///
+    /// - Parameter material: The material stack to preselect in crafting view
+    ///
+    /// - Important: Uses `@MainActor` for navigation call to ensure UI updates
+    ///   happen on the main thread. Sets `isNavigatingToCraft` for loading state.
+    /// - Note: 0.5 second delay provides user feedback during navigation transition
     func navigateToCraftingWithMaterial(_ material: MaterialInventoryStack) async {
         isNavigatingToCraft = true
         selectedMaterial = material
@@ -230,10 +313,11 @@ print("❌ Error: \(appError)")
         // Simulate navigation delay for loading state
         try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
 
-        // TODO: Navigate to crafting screen when F-04 integration is complete
-        print("🔨 Navigate to crafting with material: \(material.name) (ID: \(material.materialId))")
+        // Navigate to crafting screen with preselected material
+        await MainActor.run {
+            navigationManager?.navigateTo(.crafting(preselectedItem: nil, preselectedMaterial: material))
+        }
 
-        showSuccessToast(message: "Opening crafting with \(material.name)", icon: "hammer.fill")
         isNavigatingToCraft = false
     }
 
@@ -262,11 +346,11 @@ print("❌ Error: \(appError)")
             materialInventory = .loaded(materialStacks)
         } catch let error as AppError {
             materialInventory = .error(error)
-            print("❌ Material Inventory Error: \(error)")
+            FileLogger.shared.log("❌ Material inventory error: \(error)", level: .error, category: "Inventory")
         } catch {
             let appError = AppError.unknown(error)
             materialInventory = .error(appError)
-print("❌ Error: \(appError)")
+            FileLogger.shared.log("❌ Material inventory error: \(appError)", level: .error, category: "Inventory")
         }
     }
 
@@ -381,13 +465,13 @@ print("❌ Error: \(appError)")
                 showingGoldShower = true
             }
 
-            print("✅ Item sold successfully: \(response.itemName) for \(response.goldEarned) gold")
+            FileLogger.shared.log("✅ Item sold successfully: \(response.itemName) for \(response.goldEarned) gold", level: .info, category: "Inventory")
         } catch let error as AppError {
             handleError(error)
-            print("❌ Failed to sell item: \(error)")
+            FileLogger.shared.log("❌ Failed to sell item: \(error)", level: .error, category: "Inventory")
         } catch {
             handleError(.unknown(error))
-            print("❌ Failed to sell item: \(error)")
+            FileLogger.shared.log("❌ Failed to sell item: \(error)", level: .error, category: "Inventory")
         }
 
         showingSellConfirmation = false
@@ -449,13 +533,13 @@ print("❌ Error: \(appError)")
             // Show success feedback
             showSuccessToast(message: "\(item.baseType.capitalized) equipped", icon: "checkmark.shield.fill")
 
-            print("✅ Successfully equipped \(item.baseType) to \(slot.rawValue) slot")
+            FileLogger.shared.log("✅ Successfully equipped \(item.baseType) to \(slot.rawValue) slot", level: .info, category: "Inventory")
         } catch let error as AppError {
             handleError(error)
-            print("❌ Equipment API failed: \(error)")
+            FileLogger.shared.log("❌ Equipment API failed: \(error)", level: .error, category: "Inventory")
         } catch {
             handleError(.unknown(error))
-            print("❌ Equipment API failed: \(error)")
+            FileLogger.shared.log("❌ Equipment API failed: \(error)", level: .error, category: "Inventory")
         }
 
         isEquipping = false
@@ -521,7 +605,7 @@ print("❌ Error: \(appError)")
                 showingUpgradeCompleteModal = true
             }
 
-            print("✅ Item upgraded successfully to level \(upgradeResult.item.level)")
+            FileLogger.shared.log("✅ Item upgraded successfully to level \(upgradeResult.item.level)", level: .info, category: "Inventory")
 
         } catch let error as AppError {
             handleError(error)
@@ -542,7 +626,7 @@ print("❌ Error: \(appError)")
     private func handleError(_ error: AppError) {
         currentError = error
         showingErrorAlert = true
-        print("❌ InventoryViewModel Error: \(error.localizedDescription)")
+        FileLogger.shared.log("❌ InventoryViewModel error: \(error.localizedDescription)", level: .error, category: "Inventory")
     }
 
     private func showSuccessToast(message: String, icon: String = "checkmark.circle.fill") {

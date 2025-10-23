@@ -1,0 +1,301 @@
+//
+//  ItemRow.swift
+//  New-Mystica
+//
+//  Item row component for inventory display
+//  Extracted from InventoryView.swift for better maintainability
+//
+
+import SwiftUI
+
+struct ItemRow: View {
+    let item: EnhancedPlayerItem
+
+    var body: some View {
+        HStack(spacing: 12) {
+            // Item Image
+            Group {
+                if let imageUrl = item.generatedImageUrl, let url = URL(string: imageUrl) {
+                    CachedAsyncImage(
+                        url: url,
+                        content: { image in
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .frame(width: 50, height: 50)
+                                .clipped()
+                        },
+                        placeholder: {
+                            ProgressView()
+                                .frame(width: 50, height: 50)
+                        }
+                    )
+                } else {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color.backgroundSecondary)
+                            .frame(width: 50, height: 50)
+
+                        Image(systemName: getItemIcon())
+                            .font(.system(size: 24, weight: .medium))
+                            .foregroundColor(Color.textSecondary)
+                    }
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color.accentSecondary, lineWidth: 2)
+            )
+            .overlay(
+                // Equipped indicator overlay
+                Group {
+                    if item.isEquipped {
+                        VStack {
+                            HStack {
+                                Spacer()
+                                Image(systemName: "checkmark.circle.fill")
+                                    .font(.system(size: 16, weight: .bold))
+                                    .foregroundColor(Color.accent)
+                                    .background(Color.backgroundPrimary)
+                                    .clipShape(Circle())
+                            }
+                            Spacer()
+                        }
+                        .padding(2)
+                    }
+                }
+            )
+
+            // Item Details
+            VStack(alignment: .leading, spacing: 4) {
+                // Item Name and Level
+                HStack {
+                    NormalText(item.baseType.capitalized, size: 16)
+                        .foregroundColor(Color.textPrimary)
+                        .bold()
+
+                    Spacer()
+
+                    NormalText("Lv. \(item.level)")
+                        .foregroundColor(Color.textSecondary)
+                }
+
+                // Stats Preview
+                HStack(spacing: 16) {
+                    StatValueView(
+                        label: "ATK",
+                        value: String(format: "%.0f", item.computedStats.atkPower),
+                        color: Color.accent
+                    )
+
+                    StatValueView(
+                        label: "DEF",
+                        value: String(format: "%.0f", item.computedStats.defPower),
+                        color: Color.accentSecondary
+                    )
+
+                    Spacer()
+                }
+
+                // Styling Status
+                HStack {
+                    if item.isStyled {
+                        SmallText("Styled (\(item.appliedMaterials.count)/3)")
+                            .foregroundColor(Color.accent)
+                    } else {
+                        SmallText("Unstyled")
+                            .foregroundColor(Color.textSecondary)
+                    }
+
+                    if item.craftCount > 0 {
+                        SmallText("• Crafted \(item.craftCount)x")
+                            .foregroundColor(Color.textSecondary)
+                    }
+
+                    Spacer()
+                }
+
+                // Equipped Status Badge
+                if item.isEquipped, let equippedSlot = item.equippedSlot {
+                    HStack(spacing: 4) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(Color.accent)
+
+                        SmallText("Equipped: \(formatSlotName(equippedSlot))")
+                            .foregroundColor(Color.accent)
+                            .bold()
+
+                        Spacer()
+                    }
+                    .padding(.top, 2)
+                }
+            }
+
+            // Chevron Indicator
+            Image(systemName: "chevron.right")
+                .font(.system(size: 14, weight: .medium))
+                .foregroundColor(Color.borderSubtle)
+        }
+        .padding(.vertical, 8)
+        .padding(.horizontal, 16)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.backgroundCard)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.borderSubtle, lineWidth: 1)
+                )
+        )
+    }
+
+    // MARK: - Helper Methods
+
+    private func getItemIcon() -> String {
+        let lowercased = item.baseType.lowercased()
+        if lowercased.contains("sword") || lowercased.contains("weapon") {
+            return "sword.fill"
+        } else if lowercased.contains("shield") {
+            return "shield.fill"
+        } else if lowercased.contains("armor") || lowercased.contains("chest") {
+            return "tshirt.fill"
+        } else if lowercased.contains("head") || lowercased.contains("helmet") {
+            return "crown.fill"
+        } else if lowercased.contains("feet") || lowercased.contains("boot") {
+            return "shoe.2.fill"
+        } else if lowercased.contains("ring") || lowercased.contains("accessory") {
+            return "ring.circle.fill"
+        } else if lowercased.contains("pet") {
+            return "pawprint.fill"
+        } else {
+            return "cube.fill"
+        }
+    }
+
+    private func getRarityColor() -> Color {
+        // Enhanced rarity border system based on level and styling
+        if item.isEquipped {
+            // Equipped items get accent color border
+            return Color.accent
+        } else if item.isStyled {
+            // Styled items get secondary accent color
+            return Color.accentSecondary
+        } else if item.level >= 10 {
+            // High level items get orange/legendary color
+            return Color.orange
+        } else if item.level >= 5 {
+            // Mid level items get blue/rare color
+            return Color.blue
+        } else {
+            // Low level items get subtle border
+            return Color.borderSubtle
+        }
+    }
+
+    private func formatSlotName(_ slotName: String) -> String {
+        switch slotName.lowercased() {
+        case "weapon":
+            return "Weapon"
+        case "offhand":
+            return "Offhand"
+        case "head":
+            return "Head"
+        case "armor":
+            return "Armor"
+        case "feet":
+            return "Feet"
+        case "accessory_1":
+            return "Accessory 1"
+        case "accessory_2":
+            return "Accessory 2"
+        case "pet":
+            return "Pet"
+        default:
+            return slotName.capitalized
+        }
+    }
+}
+
+#Preview {
+    VStack(spacing: 12) {
+        ItemRow(item: mockItemEquipped)
+        ItemRow(item: mockItemStyled)
+        ItemRow(item: mockItemBasic)
+    }
+    .padding()
+    .background(Color.backgroundPrimary)
+}
+
+// Mock data for preview
+private let mockItemEquipped = EnhancedPlayerItem(
+    id: "1",
+    baseType: "iron_sword",
+    itemTypeId: "type-1",
+    category: "weapon",
+    level: 3,
+    rarity: "rare",
+    appliedMaterials: [],
+    materials: [],
+    computedStats: ItemStats(atkPower: 25, atkAccuracy: 15, defPower: 5, defAccuracy: 8),
+    materialComboHash: nil,
+    generatedImageUrl: nil,
+    imageGenerationStatus: nil,
+    craftCount: 0,
+    isStyled: false,
+    isEquipped: true,
+    equippedSlot: "weapon"
+)
+
+private let mockItemStyled = EnhancedPlayerItem(
+    id: "2",
+    baseType: "steel_armor",
+    itemTypeId: "type-2",
+    category: "armor",
+    level: 5,
+    rarity: "epic",
+    appliedMaterials: [
+        ItemMaterialApplication(
+            materialId: "wood",
+            styleId: "rustic",
+            slotIndex: 0,
+            appliedAt: "2025-10-23T06:00:00Z",
+            material: ItemMaterialApplication.MaterialDetail(
+                id: "wood",
+                name: "Wood",
+                description: nil,
+                styleId: "rustic",
+                statModifiers: StatModifier(atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0),
+                imageUrl: nil
+            )
+        )
+    ],
+    materials: [],
+    computedStats: ItemStats(atkPower: 10, atkAccuracy: 20, defPower: 45, defAccuracy: 25),
+    materialComboHash: "abc123",
+    generatedImageUrl: "https://example.com/styled_armor.png",
+    imageGenerationStatus: .complete,
+    craftCount: 2,
+    isStyled: true,
+    isEquipped: false,
+    equippedSlot: nil
+)
+
+private let mockItemBasic = EnhancedPlayerItem(
+    id: "3",
+    baseType: "leather_boots",
+    itemTypeId: "type-3",
+    category: "armor",
+    level: 1,
+    rarity: "common",
+    appliedMaterials: [],
+    materials: [],
+    computedStats: ItemStats(atkPower: 2, atkAccuracy: 3, defPower: 8, defAccuracy: 5),
+    materialComboHash: nil,
+    generatedImageUrl: nil,
+    imageGenerationStatus: nil,
+    craftCount: 0,
+    isStyled: false,
+    isEquipped: false,
+    equippedSlot: nil
+)
