@@ -417,6 +417,29 @@ icons:
   implementation: "Image(systemName:) for SF Symbols, Image(named:) for custom assets"
   notes: "SF Symbols provide consistent icon set. Custom game assets stored in Assets catalog."
 
+  stat_icons:
+    source: "Remote R2 CDN with AsyncImage loading and SF Symbol fallbacks"
+    base_url: "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/"
+    icons:
+      attack_power:
+        url: "attack-power-crossed-swords.png"
+        fallback: "sword.fill"
+        usage: "Item stats, equipment details, combat displays"
+      attack_accuracy:
+        url: "attack-accuracy-crosshair.png"
+        fallback: "target"
+        usage: "Item stats, equipment details, combat displays"
+      defense_power:
+        url: "defense-power-round-shield.png"
+        fallback: "shield.fill"
+        usage: "Item stats, equipment details, combat displays"
+      defense_accuracy:
+        url: "defense-accuracy-force-field.png"
+        fallback: "checkmark.shield.fill"
+        usage: "Item stats, equipment details, combat displays"
+    implementation: "AsyncImage(url:) with placeholder SF Symbol fallback. Components: StatDetailRow (16x16pt), StatBadge (10x10pt)"
+    notes: "Remote icons provide visual consistency across platforms. Fallbacks ensure functionality when offline."
+
 implementation_notes: |
   CURRENT STATUS (Light MVP):
   - ✅ Color system implemented: Colors.swift with semantic naming (primary, secondary, accent, text*, background*, border*)

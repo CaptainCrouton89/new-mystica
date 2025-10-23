@@ -19,13 +19,10 @@ struct ItemSelectionDrawerContent: View {
     @State private var showConfirmation = false
     @Environment(\.audioManager) private var audioManager
 
-    // Filter items that can be equipped in the target slot
+    // Use the items passed in - they're already filtered by EquipmentViewModel
+    // Do NOT filter again here, as that causes items to be hidden
     private var filteredItems: [EnhancedPlayerItem] {
-        availableItems.filter { item in
-            // Convert baseType to equipment slot comparison
-            let itemSlot = getSlotForItemType(item.baseType)
-            return itemSlot == targetSlot && !item.isEquipped
-        }
+        availableItems
     }
 
     var body: some View {
@@ -41,6 +38,9 @@ struct ItemSelectionDrawerContent: View {
                         .multilineTextAlignment(.center)
                 }
                 .frame(maxHeight: .infinity)
+                .onAppear {
+                    print("📦 [DRAWER] No items available for \(targetSlot.rawValue) slot. Received \(availableItems.count) items from EquipmentViewModel")
+                }
             } else {
                 // Items list
                 ScrollView {
@@ -60,6 +60,9 @@ struct ItemSelectionDrawerContent: View {
                         }
                     }
                     .padding(.horizontal, 20)
+                }
+                .onAppear {
+                    print("✅ [DRAWER] Displaying \(filteredItems.count) items for \(targetSlot.rawValue) slot")
                 }
             }
 
@@ -110,29 +113,6 @@ struct ItemSelectionDrawerContent: View {
     }
 
     // Helper functions
-    private func getSlotForItemType(_ baseType: String) -> EquipmentSlot {
-        // Map base item types to equipment slots
-        // This mapping should match your backend logic
-        switch baseType.lowercased() {
-        case "sword", "staff", "bow", "wand":
-            return .weapon
-        case "shield", "tome":
-            return .offhand
-        case "helm", "crown", "hat":
-            return .head
-        case "armor", "robe", "chainmail":
-            return .armor
-        case "boots", "sandals", "shoes":
-            return .feet
-        case "ring", "amulet", "bracelet":
-            return .accessory_1 // Could be accessory_1 or accessory_2
-        case "pet":
-            return .pet
-        default:
-            return .weapon // Default fallback
-        }
-    }
-
     private func getDisplayName(for item: EnhancedPlayerItem) -> String {
         // Format: "Level X BaseType" or just "BaseType" if level 1
         if item.level > 1 {
@@ -259,21 +239,24 @@ private struct ItemSelectionCard: View {
                     HStack(spacing: 8) {
                         if item.computedStats.atkPower > 0 {
                             StatBadge(
-                                icon: "sword.fill",
+                                iconUrl: "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/attack-power-crossed-swords.png",
+                                fallbackIcon: "sword.fill",
                                 value: String(format: "%.1f", item.computedStats.atkPower),
                                 color: Color.alert
                             )
                         }
                         if item.computedStats.defPower > 0 {
                             StatBadge(
-                                icon: "shield.fill",
+                                iconUrl: "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/defense-power-round-shield.png",
+                                fallbackIcon: "shield.fill",
                                 value: String(format: "%.1f", item.computedStats.defPower),
                                 color: Color.accentSecondary
                             )
                         }
                         if item.computedStats.atkAccuracy > 0 {
                             StatBadge(
-                                icon: "target",
+                                iconUrl: "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/attack-accuracy-crosshair.png",
+                                fallbackIcon: "target",
                                 value: String(format: "%.0f%%", item.computedStats.atkAccuracy * 100),
                                 color: Color.warning
                             )
@@ -358,14 +341,22 @@ private struct ItemSelectionCard: View {
 
 // MARK: - Stat Badge Helper
 private struct StatBadge: View {
-    let icon: String
+    let iconUrl: String
+    let fallbackIcon: String
     let value: String
     let color: Color
 
     var body: some View {
         HStack(spacing: 2) {
-            Image(systemName: icon)
-                .font(.system(size: 10))
+            AsyncImage(url: URL(string: iconUrl)) { image in
+                image
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 10, height: 10)
+            } placeholder: {
+                Image(systemName: fallbackIcon)
+                    .font(.system(size: 10))
+            }
             Text(value)
                 .font(FontManager.caption)
         }

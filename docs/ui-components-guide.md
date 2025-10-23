@@ -281,6 +281,55 @@ HStack {
 .padding()
 ```
 
+## Stat Icons
+
+The app uses remote stat icons loaded via AsyncImage with SF Symbol fallbacks for consistent visual representation of combat stats.
+
+### Available Stat Icons
+
+| Stat | Icon URL | Fallback SF Symbol | Usage Context |
+|------|----------|-------------------|----------------|
+| Attack Power | `https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/attack-power-crossed-swords.png` | `sword.fill` | Item details, equipment stats |
+| Attack Accuracy | `https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/attack-accuracy-crosshair.png` | `target` | Item details, equipment stats |
+| Defense Power | `https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/defense-power-round-shield.png` | `shield.fill` | Item details, equipment stats |
+| Defense Accuracy | `https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/defense-accuracy-force-field.png` | `checkmark.shield.fill` | Item details, equipment stats |
+
+### Implementation Pattern
+
+Use this pattern for all stat icon displays to ensure consistent loading behavior and fallbacks:
+
+```swift
+AsyncImage(url: URL(string: "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/attack-power-crossed-swords.png")) { image in
+    image
+        .resizable()
+        .aspectRatio(contentMode: .fit)
+        .frame(width: 16, height: 16) // Adjust size as needed per context
+} placeholder: {
+    Image(systemName: "sword.fill") // Fallback to SF Symbol
+        .font(.system(size: 16))
+}
+.foregroundColor(color)
+```
+
+### Component Integration
+
+**StatDetailRow** (ItemDetailModal.swift):
+- Uses 16x16pt icons with 24pt frame width
+- Displays stat label and value alongside icon
+- Color-coded by stat type
+
+**StatBadge** (ItemSelectionDrawer.swift):
+- Uses 10x10pt icons for compact display
+- Shows condensed stat value with icon
+- Used in item lists and selection views
+
+### Design Guidelines
+
+1. **Sizing**: Adjust icon size based on context (10pt for badges, 16pt for detail rows)
+2. **Fallbacks**: Always provide appropriate SF Symbol fallbacks
+3. **Colors**: Use stat-specific colors (red for attack, blue for defense, etc.)
+4. **Performance**: AsyncImage handles caching and network loading automatically
+
 ## Complex View Examples
 
 ### Settings Screen

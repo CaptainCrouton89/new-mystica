@@ -168,14 +168,16 @@ struct ItemDetailModal: View {
                 // Attack stats
                 HStack(spacing: 12) {
                     StatDetailRow(
-                        icon: "sword.fill",
+                        iconUrl: "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/attack-power-crossed-swords.png",
+                        fallbackIcon: "sword.fill",
                         label: "ATK Power",
                         value: String(format: "%.1f", item.computedStats.atkPower),
                         color: Color.alert
                     )
 
                     StatDetailRow(
-                        icon: "target",
+                        iconUrl: "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/attack-accuracy-crosshair.png",
+                        fallbackIcon: "target",
                         label: "ATK Accuracy",
                         value: String(format: "%.1f%%", item.computedStats.atkAccuracy * 100),
                         color: Color.warning
@@ -185,14 +187,16 @@ struct ItemDetailModal: View {
                 // Defense stats
                 HStack(spacing: 12) {
                     StatDetailRow(
-                        icon: "shield.fill",
+                        iconUrl: "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/defense-power-round-shield.png",
+                        fallbackIcon: "shield.fill",
                         label: "DEF Power",
                         value: String(format: "%.1f", item.computedStats.defPower),
                         color: Color.accentSecondary
                     )
 
                     StatDetailRow(
-                        icon: "checkmark.shield.fill",
+                        iconUrl: "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/defense-accuracy-force-field.png",
+                        fallbackIcon: "checkmark.shield.fill",
                         label: "DEF Accuracy",
                         value: String(format: "%.1f%%", item.computedStats.defAccuracy * 100),
                         color: Color.success
@@ -405,17 +409,25 @@ private struct Badge: View {
 
 // MARK: - Stat Detail Row Component
 private struct StatDetailRow: View {
-    let icon: String
+    let iconUrl: String
+    let fallbackIcon: String
     let label: String
     let value: String
     let color: Color
 
     var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: icon)
-                .font(.system(size: 16, weight: .medium))
-                .foregroundColor(color)
-                .frame(width: 24)
+            AsyncImage(url: URL(string: iconUrl)) { image in
+                image
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 16, height: 16)
+            } placeholder: {
+                Image(systemName: fallbackIcon)
+                    .font(.system(size: 16, weight: .medium))
+            }
+            .foregroundColor(color)
+            .frame(width: 24)
 
             VStack(alignment: .leading, spacing: 2) {
                 SmallText(label)
