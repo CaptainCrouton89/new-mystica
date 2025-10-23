@@ -17,7 +17,7 @@ final class DefaultInventoryRepository: InventoryRepository {
 
     // MARK: - InventoryRepository Protocol
 
-    func fetchInventory(page: Int = 1, filter: InventoryFilter? = nil, sortOption: InventorySortOption? = nil) async throws -> InventoryResponse {
+    func fetchInventory(page: Int, filter: InventoryFilter?, sortOption: InventorySortOption?) async throws -> InventoryResponse {
         var queryParams = ["page=\(page)", "limit=50"]
 
         // Add filter parameter
@@ -67,6 +67,11 @@ final class DefaultInventoryRepository: InventoryRepository {
         struct ApplyMaterialResponse: Decodable {
             let success: Bool
             let item: EnhancedPlayerItem
+
+            enum CodingKeys: String, CodingKey {
+                case success
+                case item
+            }
         }
 
         let request = ApplyMaterialRequest(
@@ -131,5 +136,26 @@ final class DefaultInventoryRepository: InventoryRepository {
         )
 
         return response.item
+    }
+
+    func sellItem(itemId: String) async throws -> SellItemResponse {
+        let response: SellItemResponse = try await apiClient.delete(
+            endpoint: "/items/\(itemId)"
+        )
+        return response
+    }
+}
+
+struct SellItemResponse: Decodable {
+    let success: Bool
+    let goldEarned: Int
+    let newGoldBalance: Int
+    let itemName: String
+
+    enum CodingKeys: String, CodingKey {
+        case success
+        case goldEarned = "gold_earned"
+        case newGoldBalance = "new_gold_balance"
+        case itemName = "item_name"
     }
 }

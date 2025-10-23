@@ -20,8 +20,12 @@ enum ImageGenerationStatus: String, Codable, CaseIterable {
 struct EnhancedPlayerItem: APIModel, Hashable {
     let id: String
     let baseType: String
+    let itemTypeId: String
+    let category: String
     let level: Int
+    let rarity: String
     let appliedMaterials: [ItemMaterialApplication]
+    let materials: [ItemMaterialApplication]
     let computedStats: ItemStats
     let materialComboHash: String?
     let generatedImageUrl: String?
@@ -34,8 +38,12 @@ struct EnhancedPlayerItem: APIModel, Hashable {
     enum CodingKeys: String, CodingKey {
         case id
         case baseType = "base_type"
+        case itemTypeId = "item_type_id"
+        case category
         case level
+        case rarity
         case appliedMaterials = "applied_materials"
+        case materials
         case computedStats = "computed_stats"
         case materialComboHash = "material_combo_hash"
         case generatedImageUrl = "generated_image_url"
@@ -59,14 +67,94 @@ struct EnhancedPlayerItem: APIModel, Hashable {
 // MARK: - Applied Material Model
 /// Material applied to a specific item slot
 struct ItemMaterialApplication: APIModel, Hashable {
+    struct MaterialDetail: Codable, Hashable {
+        let id: String
+        let name: String
+        let description: String?
+        let styleId: String
+        let statModifiers: StatModifier?
+        let imageUrl: String?
+
+        enum CodingKeys: String, CodingKey {
+            case id
+            case name
+            case description
+            case styleId = "style_id"
+            case statModifiers = "stat_modifiers"
+            case imageUrl = "image_url"
+        }
+    }
+
     let materialId: String
     let styleId: String
     let slotIndex: Int
+    let appliedAt: String?
+    let material: MaterialDetail?
 
     enum CodingKeys: String, CodingKey {
         case materialId = "material_id"
         case styleId = "style_id"
         case slotIndex = "slot_index"
+        case appliedAt = "applied_at"
+        case material
+    }
+
+    init(
+        materialId: String,
+        styleId: String,
+        slotIndex: Int,
+        appliedAt: String? = nil,
+        material: MaterialDetail? = nil
+    ) {
+        self.materialId = materialId
+        self.styleId = styleId
+        self.slotIndex = slotIndex
+        self.appliedAt = appliedAt
+        self.material = material
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        slotIndex = try container.decode(Int.self, forKey: .slotIndex)
+        appliedAt = try container.decodeIfPresent(String.self, forKey: .appliedAt)
+        material = try container.decodeIfPresent(MaterialDetail.self, forKey: .material)
+
+        if let explicitMaterialId = try container.decodeIfPresent(String.self, forKey: .materialId) {
+            materialId = explicitMaterialId
+        } else if let material {
+            materialId = material.id
+        } else {
+            throw DecodingError.keyNotFound(
+                CodingKeys.materialId,
+                DecodingError.Context(
+                    codingPath: container.codingPath,
+                    debugDescription: "Missing material identifier in ItemMaterialApplication payload"
+                )
+            )
+        }
+
+        if let explicitStyleId = try container.decodeIfPresent(String.self, forKey: .styleId) {
+            styleId = explicitStyleId
+        } else if let material {
+            styleId = material.styleId
+        } else {
+            throw DecodingError.keyNotFound(
+                CodingKeys.styleId,
+                DecodingError.Context(
+                    codingPath: container.codingPath,
+                    debugDescription: "Missing style identifier in ItemMaterialApplication payload"
+                )
+            )
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(materialId, forKey: .materialId)
+        try container.encode(styleId, forKey: .styleId)
+        try container.encode(slotIndex, forKey: .slotIndex)
+        try container.encodeIfPresent(appliedAt, forKey: .appliedAt)
+        try container.encodeIfPresent(material, forKey: .material)
     }
 }
 

@@ -43,4 +43,10 @@ protocol InventoryRepository {
     ///   - newMaterialId: New material template ID
     /// - Returns: Updated player item with material replaced
     func replaceMaterial(itemId: String, slotIndex: Int, newMaterialId: String) async throws -> EnhancedPlayerItem
+
+    /// Sell/discard item for gold compensation
+    /// - Parameters:
+    ///   - itemId: Player item ID to sell
+    /// - Returns: Sell response with gold earned and new balance
+    func sellItem(itemId: String) async throws -> SellItemResponse
 }
