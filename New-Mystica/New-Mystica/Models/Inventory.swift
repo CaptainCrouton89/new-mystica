@@ -17,7 +17,7 @@ enum ImageGenerationStatus: String, Codable, CaseIterable {
 
 // MARK: - Enhanced Player Item Model
 /// Enhanced player item model with materials and computed stats
-struct EnhancedPlayerItem: APIModel {
+struct EnhancedPlayerItem: APIModel, Hashable {
     let id: String
     let baseType: String
     let level: Int
@@ -45,11 +45,20 @@ struct EnhancedPlayerItem: APIModel {
         case isEquipped = "is_equipped"
         case equippedSlot = "equipped_slot"
     }
+
+    // MARK: - Hashable Conformance
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+
+    static func == (lhs: EnhancedPlayerItem, rhs: EnhancedPlayerItem) -> Bool {
+        lhs.id == rhs.id
+    }
 }
 
 // MARK: - Applied Material Model
 /// Material applied to a specific item slot
-struct ItemMaterialApplication: APIModel {
+struct ItemMaterialApplication: APIModel, Hashable {
     let materialId: String
     let styleId: String
     let slotIndex: Int
@@ -83,7 +92,7 @@ struct MaterialTemplate: APIModel {
 
 // MARK: - Material Stack Model
 /// Player's material inventory with stacking
-struct MaterialInventoryStack: APIModel {
+struct MaterialInventoryStack: APIModel, Hashable {
     let materialId: String
     let name: String
     let styleId: String
@@ -93,7 +102,7 @@ struct MaterialInventoryStack: APIModel {
     let imageUrl: String?
 
     // Nested material object from backend API
-    struct MaterialDetail: Codable {
+    struct MaterialDetail: Codable, Hashable {
         let id: String
         let name: String
         let statModifiers: StatModifier
@@ -151,6 +160,16 @@ struct MaterialInventoryStack: APIModel {
         case statModifiers = "stat_modifiers"
         case imageUrl = "image_url"
         case material
+    }
+
+    // MARK: - Hashable Conformance
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(materialId)
+        hasher.combine(styleId)
+    }
+
+    static func == (lhs: MaterialInventoryStack, rhs: MaterialInventoryStack) -> Bool {
+        lhs.materialId == rhs.materialId && lhs.styleId == rhs.styleId
     }
 }
 

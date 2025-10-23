@@ -55,7 +55,7 @@ struct ItemType: Codable {
     }
 }
 
-struct ItemStats: Codable {
+struct ItemStats: Codable, Hashable {
     let atkPower: Double
     let atkAccuracy: Double
     let defPower: Double
@@ -63,5 +63,29 @@ struct ItemStats: Codable {
 
     enum CodingKeys: String, CodingKey {
         case atkPower, atkAccuracy, defPower, defAccuracy
+    }
+}
+
+// MARK: - ItemStats Helper Methods for CraftingViewModel
+
+extension ItemStats {
+    /// Convert ItemStats to dictionary for stat modification calculations
+    func toDictionary() -> [String: Double] {
+        return [
+            "atkPower": atkPower,
+            "atkAccuracy": atkAccuracy,
+            "defPower": defPower,
+            "defAccuracy": defAccuracy
+        ]
+    }
+
+    /// Create ItemStats from dictionary after applying material modifiers
+    static func fromDictionary(_ dict: [String: Double]) -> ItemStats {
+        return ItemStats(
+            atkPower: dict["atkPower"] ?? 0.0,
+            atkAccuracy: dict["atkAccuracy"] ?? 0.0,
+            defPower: dict["defPower"] ?? 0.0,
+            defAccuracy: dict["defAccuracy"] ?? 0.0
+        )
     }
 }

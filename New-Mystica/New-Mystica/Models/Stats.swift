@@ -48,7 +48,7 @@ struct EnemyStats: APIModel {
 }
 
 /// Material-applied stat bonuses/penalties
-struct StatModifier: APIModel {
+struct StatModifier: APIModel, Hashable {
     let atkPower: Double
     let atkAccuracy: Double
     let defPower: Double
@@ -71,5 +71,19 @@ struct EquipmentStats: APIModel {
         case itemContributions = "item_contributions"
         case equippedItemsCount = "equipped_items_count"
         case totalItemLevel = "total_item_level"
+    }
+}
+
+// MARK: - StatModifier Helper Methods for CraftingViewModel
+
+extension StatModifier {
+    /// Convert StatModifier to dictionary for easy iteration
+    func toDictionary() -> [String: Double] {
+        return [
+            "atkPower": atkPower,
+            "atkAccuracy": atkAccuracy,
+            "defPower": defPower,
+            "defAccuracy": defAccuracy
+        ]
     }
 }

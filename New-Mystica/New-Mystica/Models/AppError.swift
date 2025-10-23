@@ -17,6 +17,8 @@ enum AppError: LocalizedError, Equatable, Sendable {
     case unauthorized
     case notFound
     case invalidData(String)
+    case invalidInput(String)      // For CraftingViewModel validation errors
+    case businessLogic(String)     // For business rule violations (max materials, etc.)
     case unknown(Error)
 
     var errorDescription: String? {
@@ -42,6 +44,10 @@ enum AppError: LocalizedError, Equatable, Sendable {
             return "Resource not found"
         case .invalidData(let message):
             return "Invalid data: \(message)"
+        case .invalidInput(let message):
+            return "Invalid input: \(message)"
+        case .businessLogic(let message):
+            return message
         case .unknown(let error):
             return "Unknown error: \(error.localizedDescription)"
         }
@@ -95,6 +101,10 @@ extension AppError {
         case (.notFound, .notFound):
             return true
         case (.invalidData(let lhsMessage), .invalidData(let rhsMessage)):
+            return lhsMessage == rhsMessage
+        case (.invalidInput(let lhsMessage), .invalidInput(let rhsMessage)):
+            return lhsMessage == rhsMessage
+        case (.businessLogic(let lhsMessage), .businessLogic(let rhsMessage)):
             return lhsMessage == rhsMessage
         case (.unknown(let lhsError), .unknown(let rhsError)):
             return lhsError.localizedDescription == rhsError.localizedDescription
