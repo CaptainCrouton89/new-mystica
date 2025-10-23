@@ -202,8 +202,8 @@ struct MaterialSelectionModal: View {
                             .lineLimit(2)
                     }
 
-                    SmallText("Theme: \(material.theme.capitalized)")
-                        .foregroundColor(Color.accentSecondary)
+                    SmallText("Weight: \(material.baseDropWeight)")
+                        .foregroundColor(Color.textSecondary)
                 }
 
                 Spacer()
@@ -407,7 +407,7 @@ struct CraftingSheet: View {
                     onSelect: { material in
                         showMaterialSelection = false
                         Task {
-                            await viewModel.applyMaterial(materialId: material.id, styleId: material.styleId)
+                            await viewModel.applyMaterial(materialId: material.id, styleId: "normal")  // Default to normal style
                             if case .loaded(let updatedItem) = viewModel.craftingProgress {
                                 showSuccessResult = true
                             }
@@ -689,27 +689,24 @@ private let mockMaterials: [MaterialTemplate] = [
         name: "Wood",
         description: "Natural wooden material",
         statModifiers: StatModifier(atkPower: 5, atkAccuracy: 2, defPower: 3, defAccuracy: 1),
-        styleId: "rustic",
-        theme: "nature",
-        imageUrl: nil
+        baseDropWeight: 100,
+        createdAt: "2025-01-01T00:00:00.000000"
     ),
     MaterialTemplate(
         id: "crystal",
         name: "Crystal",
         description: "Magical crystal material",
         statModifiers: StatModifier(atkPower: 8, atkAccuracy: 5, defPower: 2, defAccuracy: 4),
-        styleId: "ethereal",
-        theme: "magic",
-        imageUrl: nil
+        baseDropWeight: 50,
+        createdAt: "2025-01-01T00:00:00.000000"
     ),
     MaterialTemplate(
         id: "metal",
         name: "Metal",
         description: "Strong metallic material",
         statModifiers: StatModifier(atkPower: 3, atkAccuracy: 1, defPower: 8, defAccuracy: 2),
-        styleId: "industrial",
-        theme: "tech",
-        imageUrl: nil
+        baseDropWeight: 80,
+        createdAt: "2025-01-01T00:00:00.000000"
     )
 ]
 
@@ -734,5 +731,7 @@ private let mockEnhancedPlayerItem = EnhancedPlayerItem(
     generatedImageUrl: nil,
     imageGenerationStatus: nil,
     craftCount: 0,
-    isStyled: false
+    isStyled: false,
+    isEquipped: false,
+    equippedSlot: nil
 )

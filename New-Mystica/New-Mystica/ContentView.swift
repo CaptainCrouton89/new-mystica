@@ -31,7 +31,7 @@ struct ContentView: View {
         case .map:
             MapView()
         case .collection:
-            CollectionView()
+            InventoryView()
         case .equipment:
             EquipmentView()
         case .settings:

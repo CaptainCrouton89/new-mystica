@@ -17,10 +17,28 @@ final class DefaultInventoryRepository: InventoryRepository {
 
     // MARK: - InventoryRepository Protocol
 
-    func fetchInventory(page: Int = 1) async throws -> InventoryResponse {
-        let response: InventoryResponse = try await apiClient.get(
-            endpoint: "/inventory?page=\(page)&limit=50"
-        )
+    func fetchInventory(page: Int = 1, filter: InventoryFilter? = nil, sortOption: InventorySortOption? = nil) async throws -> InventoryResponse {
+        var queryParams = ["page=\(page)", "limit=50"]
+
+        // Add filter parameter
+        if let filter = filter {
+            if filter.isSlotFilter {
+                queryParams.append("slot_type=\(filter.rawValue)")
+            } else if filter == .styled {
+                queryParams.append("styled=true")
+            } else if filter == .unstyled {
+                queryParams.append("styled=false")
+            }
+            // .all filter doesn't add any parameters
+        }
+
+        // Add sort parameter
+        if let sortOption = sortOption {
+            queryParams.append("sort=\(sortOption.rawValue)")
+        }
+
+        let endpoint = "/inventory?" + queryParams.joined(separator: "&")
+        let response: InventoryResponse = try await apiClient.get(endpoint: endpoint)
         return response
     }
 

@@ -77,21 +77,15 @@ final class MaterialsViewModel {
     var filteredMaterials: [MaterialTemplate] {
         guard case .loaded(let materials) = allMaterials else { return [] }
 
-        var filtered = materials
+        // Note: Theme and rarity filtering not available in current MaterialTemplate schema
+        // Materials table only has: id, name, stat_modifiers, base_drop_weight, description, created_at
 
-        if let theme = selectedTheme {
-            filtered = filtered.filter { $0.theme == theme }
-        }
-
-        // Note: Rarity filtering would require a rarity field in MaterialTemplate
-        // For now, we'll filter by theme only
-
-        return filtered
+        return materials
     }
 
     var availableThemes: [String] {
-        guard case .loaded(let materials) = allMaterials else { return [] }
-        return Array(Set(materials.map { $0.theme })).sorted()
+        // Themes not available in current schema
+        return []
     }
 
     var ownedMaterialIds: Set<String> {

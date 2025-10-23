@@ -44,6 +44,25 @@ struct ItemRow: View {
                 RoundedRectangle(cornerRadius: 8)
                     .stroke(getRarityColor(), lineWidth: 2)
             )
+            .overlay(
+                // Equipped indicator overlay
+                Group {
+                    if item.isEquipped {
+                        VStack {
+                            HStack {
+                                Spacer()
+                                Image(systemName: "checkmark.circle.fill")
+                                    .font(.system(size: 16, weight: .bold))
+                                    .foregroundColor(Color.accent)
+                                    .background(Color.backgroundPrimary)
+                                    .clipShape(Circle())
+                            }
+                            Spacer()
+                        }
+                        .padding(2)
+                    }
+                }
+            )
 
             // Item Details
             VStack(alignment: .leading, spacing: 4) {
@@ -93,6 +112,22 @@ struct ItemRow: View {
 
                     Spacer()
                 }
+
+                // Equipped Status Badge
+                if item.isEquipped, let equippedSlot = item.equippedSlot {
+                    HStack(spacing: 4) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(Color.accent)
+
+                        SmallText("Equipped: \(formatSlotName(equippedSlot))")
+                            .foregroundColor(Color.accent)
+                            .bold()
+
+                        Spacer()
+                    }
+                    .padding(.top, 2)
+                }
             }
 
             // Chevron Indicator
@@ -136,13 +171,45 @@ struct ItemRow: View {
     }
 
     private func getRarityColor() -> Color {
-        // Base color on styling status and level
-        if item.isStyled {
+        // Enhanced rarity border system based on level and styling
+        if item.isEquipped {
+            // Equipped items get accent color border
             return Color.accent
-        } else if item.level >= 5 {
+        } else if item.isStyled {
+            // Styled items get secondary accent color
             return Color.accentSecondary
+        } else if item.level >= 10 {
+            // High level items get orange/legendary color
+            return Color.orange
+        } else if item.level >= 5 {
+            // Mid level items get blue/rare color
+            return Color.blue
         } else {
+            // Low level items get subtle border
             return Color.borderSubtle
+        }
+    }
+
+    private func formatSlotName(_ slotName: String) -> String {
+        switch slotName.lowercased() {
+        case "weapon":
+            return "Weapon"
+        case "offhand":
+            return "Offhand"
+        case "head":
+            return "Head"
+        case "armor":
+            return "Armor"
+        case "feet":
+            return "Feet"
+        case "accessory_1":
+            return "Accessory 1"
+        case "accessory_2":
+            return "Accessory 2"
+        case "pet":
+            return "Pet"
+        default:
+            return slotName.capitalized
         }
     }
 }
@@ -171,9 +238,37 @@ struct InventoryView: View {
     @Environment(\.audioManager) private var audioManager
     @Environment(AppState.self) private var appState
     @State private var viewModel = InventoryViewModel()
-    @State private var selectedSegment = 0 // 0 = All, 1 = Styled, 2 = Unstyled
 
     var body: some View {
+        mainContentView
+            .refreshable {
+                await viewModel.refreshInventory()
+            }
+            .task {
+                await viewModel.loadInventory()
+            }
+            .overlay(actionMenuOverlay)
+            .bottomDrawer(
+                title: "Select Equipment",
+                isPresented: $viewModel.showingEquipmentDrawer
+            ) {
+                equipmentDrawerContent
+            }
+            .overlay(sellConfirmationOverlay)
+            .overlay(successToastOverlay)
+            .alert("Error", isPresented: $viewModel.showingErrorAlert) {
+                Button("OK") {
+                    viewModel.dismissErrorAlert()
+                }
+            } message: {
+                Text("An error occurred. Please try again.")
+            }
+            .overlay(loadingOverlay)
+    }
+
+    // MARK: - Main Content
+
+    private var mainContentView: some View {
         BaseView(title: "Inventory") {
             VStack(spacing: 0) {
                 // Gold Balance Header
@@ -185,71 +280,203 @@ struct InventoryView: View {
                 }
                 .padding(.bottom, 8)
 
-                // Filter Segments
-                filterSegmentView
-                    .padding(.horizontal, 16)
-                    .padding(.bottom, 12)
-
                 // Main Content
-                LoadableView(viewModel.items) { items in
-                    inventoryContentView(items: filteredItems(from: items))
-                } retry: {
-                    Task { await viewModel.loadInventory() }
+                ScrollView {
+                    VStack(spacing: 20) {
+                        // Items Section
+                        LoadableView(viewModel.items) { items in
+                            itemsSection(items: items)
+                        } retry: {
+                            Task { await viewModel.loadInventory() }
+                        }
+
+                        // Materials Section
+                        LoadableView(viewModel.materialInventory) { materials in
+                            materialsSection(materials: materials)
+                        } retry: {
+                            Task { await viewModel.loadInventory() }
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
                 }
             }
         }
-        .refreshable {
-            await viewModel.refreshInventory()
-        }
-        .task {
-            await viewModel.loadInventory()
-        }
     }
 
-    // MARK: - Filter Segment View
+    // MARK: - Overlay Views
 
-    private var filterSegmentView: some View {
-        HStack(spacing: 0) {
-            ForEach(0..<3) { index in
-                Button(action: {
-                    audioManager.playMenuButtonClick()
-                    selectedSegment = index
-                }) {
-                    Text(segmentTitle(for: index))
-                        .font(FontManager.body)
-                        .foregroundColor(selectedSegment == index ? Color.textPrimary : Color.textSecondary)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 40)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8)
-                                .fill(selectedSegment == index ? Color.accent : Color.clear)
+    @ViewBuilder
+    private var actionMenuOverlay: some View {
+        Group {
+            if viewModel.showingItemActionMenu, let item = viewModel.actionMenuItem {
+                ZStack {
+                    Color.black.opacity(0.4)
+                        .edgesIgnoringSafeArea(.all)
+                        .onTapGesture {
+                            audioManager.playCancelClick()
+                            viewModel.dismissActionMenu()
+                        }
+
+                    VStack {
+                        Spacer()
+                        ItemActionMenu(
+                            item: item,
+                            onEquip: {
+                                viewModel.handleEquipAction()
+                            },
+                            onCraft: {
+                                Task {
+                                    await viewModel.handleCraftAction()
+                                }
+                            },
+                            onUpgrade: {
+                                Task {
+                                    await viewModel.handleUpgradeAction()
+                                }
+                            },
+                            onSell: {
+                                viewModel.handleSellAction()
+                            },
+                            onDismiss: {
+                                viewModel.dismissActionMenu()
+                            },
+                            isNavigatingToCraft: viewModel.isNavigatingToCraft,
+                            isNavigatingToUpgrade: viewModel.isNavigatingToUpgrade
                         )
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 50)
+                    }
                 }
-                .buttonStyle(PlainButtonStyle())
+                .transition(.opacity.combined(with: .move(edge: .bottom)))
+                .animation(.easeInOut(duration: 0.3), value: viewModel.showingItemActionMenu)
             }
         }
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color.backgroundSecondary)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color.borderSubtle, lineWidth: 1)
-                )
-        )
     }
 
-    private func segmentTitle(for index: Int) -> String {
-        switch index {
-        case 0: return "All"
-        case 1: return "Styled"
-        case 2: return "Unstyled"
-        default: return ""
+    @ViewBuilder
+    private var equipmentDrawerContent: some View {
+        if let item = viewModel.actionMenuItem {
+            ItemSelectionDrawer(
+                targetSlot: viewModel.getSlotForItem(item),
+                availableItems: viewModel.getAvailableItemsForSlot(viewModel.getSlotForItem(item)),
+                isPresented: $viewModel.showingEquipmentDrawer,
+                onItemSelected: { selectedItem in
+                    Task {
+                        await viewModel.equipItem(selectedItem)
+                    }
+                },
+                onDismiss: {
+                    viewModel.dismissEquipmentDrawer()
+                }
+            )
         }
     }
 
-    // MARK: - Inventory Content View
+    @ViewBuilder
+    private var sellConfirmationOverlay: some View {
+        Group {
+            if viewModel.showingSellConfirmation, let item = viewModel.actionMenuItem {
+                SellConfirmationModal(
+                    item: item,
+                    sellValue: calculateSellValue(for: item),
+                    isLoading: viewModel.isSelling,
+                    onConfirm: {
+                        Task {
+                            await viewModel.confirmSellItem()
+                        }
+                    },
+                    onCancel: {
+                        viewModel.cancelSell()
+                    }
+                )
+                .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                .animation(.easeInOut(duration: 0.3), value: viewModel.showingSellConfirmation)
+            }
+        }
+    }
 
-    private func inventoryContentView(items: [EnhancedPlayerItem]) -> some View {
+    @ViewBuilder
+    private var successToastOverlay: some View {
+        Group {
+            if viewModel.showingSuccessToast {
+                VStack {
+                    HStack(spacing: 12) {
+                        Image(systemName: viewModel.successIcon)
+                            .font(.system(size: 20, weight: .medium))
+                            .foregroundColor(Color.success)
+
+                        Text(viewModel.successMessage)
+                            .font(FontManager.body)
+                            .foregroundColor(Color.textPrimary)
+
+                        Spacer()
+
+                        Button(action: {
+                            viewModel.dismissSuccessToast()
+                        }) {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundColor(Color.textSecondary)
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.success.opacity(0.1))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color.success, lineWidth: 1)
+                            )
+                    )
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+
+                    Spacer()
+                }
+                .transition(.move(edge: .top).combined(with: .opacity))
+                .animation(.easeInOut(duration: 0.3), value: viewModel.showingSuccessToast)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var loadingOverlay: some View {
+        Group {
+            if viewModel.isEquipping {
+                ZStack {
+                    Color.black.opacity(0.3)
+                        .edgesIgnoringSafeArea(.all)
+
+                    VStack(spacing: 16) {
+                        ProgressView()
+                            .scaleEffect(1.2)
+                            .tint(Color.accent)
+
+                        Text("Equipping item...")
+                            .font(FontManager.body)
+                            .foregroundColor(Color.textPrimary)
+                    }
+                    .padding(24)
+                    .background(
+                        RoundedRectangle(cornerRadius: 16)
+                            .fill(Color.backgroundCard)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .stroke(Color.borderSubtle, lineWidth: 1)
+                            )
+                    )
+                }
+                .transition(.opacity)
+                .animation(.easeInOut(duration: 0.2), value: viewModel.isEquipping)
+            }
+        }
+    }
+
+    // MARK: - Content Sections
+
+    private func itemsSection(items: [EnhancedPlayerItem]) -> some View {
         Group {
             if items.isEmpty {
                 emptyStateView
@@ -283,56 +510,136 @@ struct InventoryView: View {
     }
 
     private func itemListView(items: [EnhancedPlayerItem]) -> some View {
-        ScrollView {
-            LazyVStack(spacing: 12) {
-                ForEach(items, id: \.id) { item in
-                    ItemRow(item: item)
-                        .onTapGesture {
-                            audioManager.playMenuButtonClick()
-                            viewModel.selectItem(item)
-                            // Navigate to item detail or crafting view
-                            // TODO: Implement navigation to item detail/crafting
-                        }
-                }
-
-                // Load More button
-                if viewModel.canLoadMore {
-                    HStack {
-                        Spacer()
-                        if viewModel.isLoading {
-                            ProgressView()
-                                .scaleEffect(0.8)
-                                .padding()
-                        } else {
-                            TextButton("Load More") {
-                                audioManager.playMenuButtonClick()
-                                Task {
-                                    await viewModel.loadMoreItems()
-                                }
-                            }
-                            .frame(maxWidth: 200)
-                        }
-                        Spacer()
+        LazyVStack(spacing: 12) {
+            ForEach(items, id: \.id) { item in
+                ItemRow(item: item)
+                    .onTapGesture {
+                        audioManager.playMenuButtonClick()
+                        viewModel.showActionMenu(for: item)
                     }
-                    .padding(.top, 16)
+            }
+
+            // Load More button
+            if viewModel.canLoadMore {
+                HStack {
+                    Spacer()
+                    if viewModel.isLoading {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                            .padding()
+                    } else {
+                        TextButton("Load More") {
+                            audioManager.playMenuButtonClick()
+                            Task {
+                                await viewModel.loadMoreItems()
+                            }
+                        }
+                        .frame(maxWidth: 200)
+                    }
+                    Spacer()
+                }
+                .padding(.top, 16)
+            }
+        }
+    }
+
+    // MARK: - Materials Section
+
+    private func materialsSection(materials: [MaterialInventoryStack]) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Section Header
+            HStack {
+                TitleText("All Materials", size: 20)
+                    .foregroundColor(Color.textPrimary)
+
+                Spacer()
+
+                // Material count
+                SmallText("\(materials.count) types")
+                    .foregroundColor(Color.textSecondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.backgroundSecondary)
+                    )
+            }
+
+            if materials.isEmpty {
+                materialEmptyStateView
+            } else {
+                materialGridView(materials: materials)
+            }
+        }
+    }
+
+    private var materialEmptyStateView: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "cube.transparent")
+                .font(.system(size: 32, weight: .medium))
+                .foregroundColor(Color.borderSubtle)
+
+            VStack(spacing: 4) {
+                NormalText("No Materials")
+                    .foregroundColor(Color.textPrimary)
+                    .bold()
+
+                SmallText("Collect materials to craft styled items")
+                    .foregroundColor(Color.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 16)
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 24)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.backgroundCard)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.borderSubtle, lineWidth: 1)
+                )
+        )
+    }
+
+    private func materialGridView(materials: [MaterialInventoryStack]) -> some View {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: 3), spacing: 12) {
+            ForEach(materials, id: \.materialId) { material in
+                TappableMaterialCard(material: material) {
+                    audioManager.playMenuButtonClick()
+                    viewModel.selectMaterial(material)
+                    // Navigate to crafting with material pre-selected
+                    Task {
+                        await viewModel.navigateToCraftingWithMaterial(material)
+                    }
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
         }
     }
 
     // MARK: - Helper Methods
 
-    private func filteredItems(from items: [EnhancedPlayerItem]) -> [EnhancedPlayerItem] {
-        switch selectedSegment {
-        case 1: // Styled only
-            return items.filter { $0.isStyled }
-        case 2: // Unstyled only
-            return items.filter { !$0.isStyled }
-        default: // All items
-            return items
-        }
+    // MARK: - Navigation Methods
+
+    private func handleCraftNavigation(for item: EnhancedPlayerItem) {
+        viewModel.dismissActionMenu()
+        // TODO: Navigate to crafting screen when F-04 integration is complete
+        print("🔨 Navigate to crafting with item: \(item.baseType) (ID: \(item.id))")
+        // navigationManager.navigateTo(.crafting) // Will be enabled when crafting destination exists
+    }
+
+    private func handleUpgradeNavigation(for item: EnhancedPlayerItem) {
+        viewModel.dismissActionMenu()
+        // TODO: Navigate to upgrade screen when F-06 integration is complete
+        print("⬆️ Navigate to upgrade with item: \(item.baseType) (ID: \(item.id))")
+        // navigationManager.navigateTo(.upgrade) // Will be enabled when upgrade destination exists
+    }
+
+    private func calculateSellValue(for item: EnhancedPlayerItem) -> Int {
+        // Basic sell value calculation based on level and styling
+        let baseValue = item.level * 10
+        let styledBonus = item.isStyled ? (item.appliedMaterials.count * 15) : 0
+        return baseValue + styledBonus
     }
 }
 
@@ -363,7 +670,9 @@ extension InventoryView {
                 generatedImageUrl: nil,
                 imageGenerationStatus: nil,
                 craftCount: 0,
-                isStyled: false
+                isStyled: false,
+                isEquipped: true,
+                equippedSlot: "weapon"
             ),
             EnhancedPlayerItem(
                 id: "2",
@@ -378,7 +687,9 @@ extension InventoryView {
                 generatedImageUrl: "https://example.com/styled_armor.png",
                 imageGenerationStatus: .complete,
                 craftCount: 2,
-                isStyled: true
+                isStyled: true,
+                isEquipped: false,
+                equippedSlot: nil
             )
         ]
     }
