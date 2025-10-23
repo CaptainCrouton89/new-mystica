@@ -77,6 +77,28 @@ final class EquipmentViewModel {
         selectedSlotForDetail = nil
     }
 
+    /// Converts the currently selected PlayerItem to EnhancedPlayerItem and sets it in InventoryViewModel
+    /// This enables craft/upgrade handlers to work correctly from equipment screen
+    func prepareItemForInventoryAction() {
+        guard let playerItem = selectedItemForDetail else {
+            FileLogger.shared.log("⚠️ No selectedItemForDetail to prepare for inventory action", level: .warning, category: "Equipment")
+            return
+        }
+
+        // Find the matching EnhancedPlayerItem from inventory
+        guard case .loaded(let items) = inventoryViewModel.items else {
+            FileLogger.shared.log("⚠️ Inventory not loaded, cannot prepare item for action", level: .warning, category: "Equipment")
+            return
+        }
+
+        if let enhancedItem = items.first(where: { $0.id == playerItem.id }) {
+            inventoryViewModel.selectedItemForDetail = enhancedItem
+            FileLogger.shared.log("✅ Prepared item for inventory action: \(enhancedItem.baseType) (id: \(enhancedItem.id))", level: .info, category: "Equipment")
+        } else {
+            FileLogger.shared.log("❌ Could not find matching EnhancedPlayerItem for id: \(playerItem.id)", level: .error, category: "Equipment")
+        }
+    }
+
     func unequipCurrentItem() async {
         guard let slot = selectedSlotForDetail else { return }
 

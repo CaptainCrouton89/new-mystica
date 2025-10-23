@@ -74,6 +74,7 @@ struct InventoryView: View {
                             onUpgradeAgain: nil,
                             onReturnToInventory: {
                                 viewModel.showingUpgradeConfirmationModal = false
+                                viewModel.selectedItemForDetail = nil
                             }
                         )
                     } else {

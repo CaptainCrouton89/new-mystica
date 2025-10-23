@@ -352,14 +352,24 @@ final class InventoryViewModel {
     }
 
     func handleCraftAction() async {
-        guard let item = selectedItemForDetail else { return }
+        guard let item = selectedItemForDetail else {
+            FileLogger.shared.log("⚠️ handleCraftAction called but selectedItemForDetail is nil", level: .warning, category: "Inventory")
+            return
+        }
+        FileLogger.shared.log("✅ handleCraftAction starting with item: \(item.baseType) (id: \(item.id))", level: .info, category: "Inventory")
         dismissItemDetailModal()
         await handleCraftNavigation(with: item)
     }
 
     func handleUpgradeAction() async {
-        guard let item = selectedItemForDetail else { return }
-        dismissItemDetailModal()
+        guard let item = selectedItemForDetail else {
+            FileLogger.shared.log("⚠️ handleUpgradeAction called but selectedItemForDetail is nil", level: .warning, category: "Inventory")
+            return
+        }
+        FileLogger.shared.log("✅ handleUpgradeAction starting with item: \(item.baseType) (id: \(item.id))", level: .info, category: "Inventory")
+
+        // Close detail modal but keep selectedItemForDetail for upgrade confirmation modal
+        showingItemDetailModal = false
 
         // Fetch upgrade cost and show confirmation modal
         await fetchUpgradeCostAndShowConfirmation(itemId: item.id)
