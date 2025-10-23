@@ -89,12 +89,14 @@ components:
           description: ISO country code (USA, CAN, etc.)
         enemy_level:
           type: integer
-          description: Dynamically set to player avg item level
+          description: "DEPRECATED: Removed in favor of pool-based enemy selection (EnemyPools). Combat level is now determined from player's avg_item_level at combat start."
+          deprecated: true
         material_drop_pool:
           type: array
           items:
             type: string
-          description: Array of material IDs that can drop here (deprecated - use LootPools)
+          description: "DEPRECATED: Removed in favor of pool-based loot system (LootPools/LootPoolEntries)."
+          deprecated: true
         distance_meters:
           type: integer
 
