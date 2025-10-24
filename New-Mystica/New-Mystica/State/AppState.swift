@@ -100,11 +100,14 @@ final class AppState {
     }
 
     // Convenience method for getting specific currency balance
-    func getCurrencyBalance(for code: CurrencyCode) -> Int {
-        if case .loaded(let balances) = currencies {
-            return balances.first { $0.currencyCode == code }?.balance ?? 0
+    // Returns nil if currencies not loaded or currency not found
+    // Views should handle the nil case explicitly to avoid silent failures
+    func getCurrencyBalance(for code: CurrencyCode) -> Int? {
+        guard case .loaded(let balances) = currencies else {
+            return nil
         }
-        return 0
+
+        return balances.first(where: { $0.currencyCode == code })?.balance
     }
 
     // MARK: - Combat Session Methods
@@ -170,14 +173,20 @@ final class AppState {
             let accountType = payloadJSON["account_type"] as? String ?? "anonymous"
 
             // Create user from JWT claims
-            let stubData = """
+            let deviceIdString = deviceId.map { "\"\($0)\"" } ?? "null"
+
+            let stubDataString = """
             {
                 "id": "\(userId)",
-                "device_id": \(deviceId != nil ? "\"\(deviceId!)\"" : "null"),
+                "device_id": \(deviceIdString),
                 "account_type": "\(accountType)",
                 "created_at": "\(ISO8601DateFormatter().string(from: Date()))"
             }
-            """.data(using: .utf8)!
+            """
+
+            guard let stubData = stubDataString.data(using: .utf8) else {
+                throw AppError.invalidData("Failed to encode user stub data as UTF-8")
+            }
 
             let user = try JSONDecoder().decode(User.self, from: stubData)
             self.authSession = .loaded((user: user, token: token))

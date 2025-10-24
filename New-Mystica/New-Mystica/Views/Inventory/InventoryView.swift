@@ -127,9 +127,17 @@ struct InventoryView: View {
             VStack(spacing: 0) {
                 HStack {
                     Spacer()
-                    GoldBalanceView(amount: appState.getCurrencyBalance(for: .gold))
-                        .padding(.trailing, 16)
-                        .padding(.top, 8)
+                    if let goldBalance = appState.getCurrencyBalance(for: .gold) {
+                        GoldBalanceView(amount: goldBalance)
+                            .padding(.trailing, 16)
+                            .padding(.top, 8)
+                    } else {
+                        // Currencies not loaded - show loading state
+                        Text("Loading...")
+                            .foregroundColor(.secondary)
+                            .padding(.trailing, 16)
+                            .padding(.top, 8)
+                    }
                 }
                 .padding(.bottom, 8)
 
