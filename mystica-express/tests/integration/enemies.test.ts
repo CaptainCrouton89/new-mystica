@@ -41,45 +41,70 @@ describe('Enemy API Endpoints', () => {
       name: 'Spray Paint Goblin',
       ai_personality_traits: ['mischievous', 'artistic', 'territorial'],
       dialogue_tone: 'taunting',
-      verbosity: 'medium',
-      example_taunts: ['My art is better than yours!', 'This wall belongs to me!'],
-      base_dialogue_prompt: 'You are a mischievous spray paint goblin who is territorial about art spaces.'
+      dialogue_guidelines: 'You are a mischievous spray paint goblin who is territorial about art spaces.',
+      atk_power: 25,
+      atk_accuracy: 75,
+      def_power: 15,
+      def_accuracy: 70,
+      base_hp: 80,
+      tier_id: 1,
+      style_id: 'normal'
     },
     {
       id: '4637f636-0b6a-4825-b1aa-492cf8d9d1bb',
       name: 'Goopy Floating Eye',
       ai_personality_traits: ['surreal', 'omniscient', 'cryptic'],
       dialogue_tone: 'mysterious',
-      verbosity: 'low',
-      example_taunts: ['I see all...', 'Your movements are predictable.'],
-      base_dialogue_prompt: 'You are a cryptic floating eye that speaks in riddles and sees everything.'
+      dialogue_guidelines: 'You are a cryptic floating eye that speaks in riddles and sees everything.',
+      atk_power: 20,
+      atk_accuracy: 90,
+      def_power: 25,
+      def_accuracy: 85,
+      base_hp: 70,
+      tier_id: 2,
+      style_id: 'magical'
     },
     {
       id: '63d218fc-5cd9-4404-9090-fb72537da205',
       name: 'Feral Unicorn',
       ai_personality_traits: ['aggressive', 'proud', 'magical'],
       dialogue_tone: 'arrogant',
-      verbosity: 'high',
-      example_taunts: ['My horn shall pierce your soul!', 'You dare challenge a unicorn?!'],
-      base_dialogue_prompt: 'You are an arrogant and aggressive unicorn who believes in your superiority.'
+      dialogue_guidelines: 'You are an arrogant and aggressive unicorn who believes in your superiority.',
+      atk_power: 40,
+      atk_accuracy: 80,
+      def_power: 30,
+      def_accuracy: 75,
+      base_hp: 150,
+      tier_id: 3,
+      style_id: 'legendary'
     },
     {
       id: '19cd32dc-e874-4836-a3e9-851431262cc8',
       name: 'Bipedal Deer',
       ai_personality_traits: ['noble', 'forest-wise', 'protective'],
       dialogue_tone: 'dignified',
-      verbosity: 'medium',
-      example_taunts: ['The forest will remember this.', 'You disturb the natural order.'],
-      base_dialogue_prompt: 'You are a wise and noble bipedal deer, protector of the forest.'
+      dialogue_guidelines: 'You are a wise and noble bipedal deer, protector of the forest.',
+      atk_power: 30,
+      atk_accuracy: 85,
+      def_power: 35,
+      def_accuracy: 90,
+      base_hp: 120,
+      tier_id: 2,
+      style_id: 'natural'
     },
     {
       id: 'beb6ea68-597a-4052-92f6-ad73d0fd02b3',
       name: 'Politician',
       ai_personality_traits: ['manipulative', 'eloquent', 'power-hungry'],
       dialogue_tone: 'condescending',
-      verbosity: 'high',
-      example_taunts: ['You cannot defeat the system!', 'I have connections you cannot imagine.'],
-      base_dialogue_prompt: 'You are a corrupt politician who uses words as weapons and believes in your own power.'
+      dialogue_guidelines: 'You are a corrupt politician who uses words as weapons and believes in your own power.',
+      atk_power: 35,
+      atk_accuracy: 70,
+      def_power: 40,
+      def_accuracy: 95,
+      base_hp: 200,
+      tier_id: 4,
+      style_id: 'political'
     }
   ];
 
@@ -172,9 +197,14 @@ describe('Enemy API Endpoints', () => {
             name: expect.any(String),
             ai_personality_traits: expect.any(Array),
             dialogue_tone: expect.any(String),
-            verbosity: expect.any(String),
-            example_taunts: expect.any(Array),
-            base_dialogue_prompt: expect.any(String)
+            dialogue_guidelines: expect.any(String),
+            atk_power: expect.any(Number),
+            atk_accuracy: expect.any(Number),
+            def_power: expect.any(Number),
+            def_accuracy: expect.any(Number),
+            base_hp: expect.any(Number),
+            tier_id: expect.any(Number),
+            style_id: expect.any(String)
           })
         ])
       );

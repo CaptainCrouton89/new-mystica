@@ -45,6 +45,7 @@ jest.mock('../../../src/repositories/MaterialRepository.js', () => ({
   MaterialRepository: jest.fn().mockImplementation(() => ({
     findAllMaterials: jest.fn(),
     findAllStacksByUser: jest.fn(),
+    findStacksByUserWithDetails: jest.fn(),
     findMaterialById: jest.fn(),
     findStackByUser: jest.fn(),
     getSlotOccupancy: jest.fn(),
@@ -69,7 +70,8 @@ jest.mock('../../../src/repositories/ItemRepository.js', () => ({
     findById: jest.fn(),
     updateImageData: jest.fn(),
     findWithMaterials: jest.fn(),
-    updateStats: jest.fn()
+    updateStats: jest.fn(),
+    updateItemNameDescription: jest.fn()
   }))
 }));
 
@@ -90,6 +92,15 @@ jest.mock('../../../src/services/EconomyService.js', () => ({
       amount: 100
     })
   }
+}));
+
+jest.mock('../../../src/services/NameDescriptionService.js', () => ({
+  NameDescriptionService: jest.fn().mockImplementation(() => ({
+    generateForItem: jest.fn().mockResolvedValue({
+      name: 'Generated Item Name',
+      description: 'Generated item description.'
+    })
+  }))
 }));
 
 // Mock Supabase for tests that use it (even though service should use repositories)
@@ -223,9 +234,34 @@ describe('MaterialService (TDD)', () => {
         { user_id: userId, material_id: 'iron', style_id: 'pixel_art', quantity: 3 }, // Same material, different style
       ];
 
-      mockMaterialRepository.findAllStacksByUser.mockResolvedValue(mockStacks);
+      // Mock the new method that returns detailed data
+      const mockStacksWithDetails = [
+        {
+          material_id: 'iron',
+          style_id: 'normal',
+          quantity: 10,
+          materials: { name: 'Iron' },
+          styledefinitions: { style_name: 'Normal' }
+        },
+        {
+          material_id: 'crystal',
+          style_id: 'normal',
+          quantity: 5,
+          materials: { name: 'Crystal' },
+          styledefinitions: { style_name: 'Normal' }
+        },
+        {
+          material_id: 'iron',
+          style_id: 'pixel_art',
+          quantity: 3,
+          materials: { name: 'Iron' },
+          styledefinitions: { style_name: 'Pixel Art' }
+        }
+      ];
 
-      // Mock material lookups (one per stack)
+      mockMaterialRepository.findStacksByUserWithDetails.mockResolvedValue(mockStacksWithDetails);
+
+      // Mock material lookups for each stack
       mockMaterialRepository.findMaterialById
         .mockResolvedValueOnce(IRON_MATERIAL)
         .mockResolvedValueOnce(CRYSTAL_MATERIAL)
@@ -235,7 +271,7 @@ describe('MaterialService (TDD)', () => {
       const result = await materialService.getMaterialInventory(userId);
 
       // Assert: Verify repository calls and response
-      expect(mockMaterialRepository.findAllStacksByUser).toHaveBeenCalledWith(userId);
+      expect(mockMaterialRepository.findStacksByUserWithDetails).toHaveBeenCalledWith(userId);
       expect(result).toHaveLength(3);
       expect(result[0].quantity).toBe(10);
 
@@ -245,25 +281,29 @@ describe('MaterialService (TDD)', () => {
     });
 
     it('should return empty array when user has no materials', async () => {
-      mockMaterialRepository.findAllStacksByUser.mockResolvedValue([]);
+      mockMaterialRepository.findStacksByUserWithDetails.mockResolvedValue([]);
 
       const result = await materialService.getMaterialInventory(userId);
       expect(result).toEqual([]);
     });
 
     it('should include material stats and theme in response', async () => {
-      const mockStack = {
-        user_id: userId,
+      const mockStackWithDetails = {
         material_id: 'iron',
         style_id: 'normal',
-        quantity: 10
+        quantity: 10,
+        materials: { name: 'Iron' },
+        styledefinitions: { style_name: 'Normal' }
       };
 
-      mockMaterialRepository.findAllStacksByUser.mockResolvedValue([mockStack]);
+      mockMaterialRepository.findStacksByUserWithDetails.mockResolvedValue([mockStackWithDetails]);
       mockMaterialRepository.findMaterialById.mockResolvedValue(IRON_MATERIAL);
 
       const result = await materialService.getMaterialInventory(userId);
 
+      expect(result[0]).toHaveProperty('material_id');
+      expect(result[0]).toHaveProperty('style_id');
+      expect(result[0]).toHaveProperty('quantity');
       expect(result[0]).toHaveProperty('material');
       expect(result[0].material).toHaveProperty('stat_modifiers');
       expect(result[0].material).toHaveProperty('base_drop_weight');
@@ -310,6 +350,7 @@ describe('MaterialService (TDD)', () => {
       });
       mockItemRepository.updateImageData.mockResolvedValue(undefined);
       mockItemRepository.updateStats.mockResolvedValue(undefined);
+      mockItemRepository.updateItemNameDescription.mockResolvedValue(undefined);
       mockMaterialRepository.findMaterialById.mockResolvedValue(IRON_MATERIAL);
       mockItemRepository.findWithMaterials.mockResolvedValue({
         ...item,

@@ -51,6 +51,8 @@ export class ItemFactory {
       current_stats: baseStats as any, // JSON field
       computed_stats: baseStats,
       created_at: new Date().toISOString(),
+      description: null, // Explicit null for optional field
+      name: null, // Explicit null for optional field
       ...overrides
     };
 
@@ -111,6 +113,8 @@ export class ItemFactory {
       current_stats: modifiedStats as any,
       computed_stats: modifiedStats,
       created_at: new Date().toISOString(),
+      description: null, // Explicit null for optional field
+      name: null, // Explicit null for optional field
       ...overrides
     };
 

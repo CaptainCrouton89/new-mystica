@@ -50,8 +50,10 @@ export function createTestEnemyData(overrides: any = {}) {
     enemy_name: 'Spray Paint Goblin',
     tier: 1,
     base_hp: 120,
-    base_atk: 25,
-    base_def: 10,
+    atk_power: 25,
+    atk_accuracy: 75,
+    def_power: 10,
+    def_accuracy: 70,
     style_id: 'normal',
     ...overrides
   };

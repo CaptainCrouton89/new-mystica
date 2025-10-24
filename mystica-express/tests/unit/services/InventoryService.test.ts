@@ -82,6 +82,8 @@ describe('InventoryService', () => {
 
         const itemWithDetails: ItemWithDetails = {
           ...userItems[0],
+          name: 'Iron Sword',
+          description: 'A basic sword',
           current_stats: { atkPower: 1.0, atkAccuracy: 0.8, defPower: 0.5, defAccuracy: 0.3 },
           item_type: {
             id: 'sword',
@@ -166,6 +168,8 @@ describe('InventoryService', () => {
 
         const itemWithDetails: ItemWithDetails = {
           ...item,
+          name: 'Iron Sword',
+          description: 'A basic sword',
           current_stats: { atkPower: 1.2, atkAccuracy: 0.9, defPower: 0.6, defAccuracy: 0.3 },
           item_type: {
             id: 'sword',
@@ -229,6 +233,8 @@ describe('InventoryService', () => {
 
         const itemWithDetails: ItemWithDetails = {
           ...item,
+          name: 'Iron Sword',
+          description: 'A basic sword',
           current_stats: { atkPower: 1.5, atkAccuracy: 1.0, defPower: 0.7, defAccuracy: 0.4 },
           item_type: {
             id: 'sword',
@@ -322,6 +328,8 @@ describe('InventoryService', () => {
 
         const itemsWithDetails: ItemWithDetails[] = userItems.map(item => ({
           ...item,
+          name: 'Iron Sword',
+          description: 'A basic sword',
           current_stats: item.current_stats,
           item_type: {
             id: 'sword',

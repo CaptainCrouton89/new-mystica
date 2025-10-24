@@ -29,6 +29,7 @@ class MockInventoryRepository: InventoryRepository {
     var mockMaterials: [MaterialTemplate] = [MaterialTemplate.testData()]
     var mockGoldEarned: Int = 50
     var mockNewGoldBalance: Int = 500
+    var mockPagination: PaginationInfo = PaginationInfo.testData()
 
     // MARK: - Call Tracking
     var fetchInventoryCallCount = 0
@@ -37,14 +38,18 @@ class MockInventoryRepository: InventoryRepository {
     var removeMaterialCallCount = 0
     var replaceMaterialCallCount = 0
     var sellItemCallCount = 0
+    var fetchUpgradeCostCallCount = 0
+    var upgradeItemCallCount = 0
     var lastAppliedMaterialParams: (itemId: String, materialId: String, styleId: String, slotIndex: Int)?
     var lastRemovedMaterialParams: (itemId: String, slotIndex: Int)?
     var lastReplacedMaterialParams: (itemId: String, slotIndex: Int, newMaterialId: String)?
     var lastSoldItemId: String?
+    var lastUpgradeCostItemId: String?
+    var lastUpgradeItemId: String?
 
     // MARK: - InventoryRepository Implementation
 
-    func fetchInventory() async throws -> [EnhancedPlayerItem] {
+    func fetchInventory(page: Int = 1, filter: InventoryFilter? = nil, sortOption: InventorySortOption? = nil) async throws -> InventoryResponse {
         fetchInventoryCallCount += 1
 
         if fetchInventoryDelayMs > 0 {
@@ -55,7 +60,7 @@ class MockInventoryRepository: InventoryRepository {
             throw AppError.networkError(URLError(.timedOut))
         }
 
-        return mockInventory
+        return InventoryResponse(items: mockInventory, pagination: mockPagination)
     }
 
     func fetchMaterials() async throws -> [MaterialTemplate] {
@@ -72,7 +77,7 @@ class MockInventoryRepository: InventoryRepository {
         return mockMaterials
     }
 
-    func applyMaterial(itemId: String, materialId: String, styleId: String, slotIndex: Int) async throws -> EnhancedPlayerItem {
+    func applyMaterial(itemId: String, materialId: String, styleId: String, slotIndex: Int) async throws -> ApplyMaterialResult {
         applyMaterialCallCount += 1
         lastAppliedMaterialParams = (itemId: itemId, materialId: materialId, styleId: styleId, slotIndex: slotIndex)
 
@@ -99,17 +104,31 @@ class MockInventoryRepository: InventoryRepository {
         updatedItem = EnhancedPlayerItem(
             id: updatedItem.id,
             baseType: updatedItem.baseType,
+            itemTypeId: updatedItem.itemTypeId,
+            category: updatedItem.category,
             level: updatedItem.level,
+            rarity: updatedItem.rarity,
             appliedMaterials: appliedMaterials,
+            materials: appliedMaterials,
             computedStats: updatedItem.computedStats,
             materialComboHash: "new_hash_\(materialId)",
             generatedImageUrl: updatedItem.generatedImageUrl,
             imageGenerationStatus: .complete,
             craftCount: updatedItem.craftCount + 1,
-            isStyled: true
+            isStyled: true,
+            isEquipped: updatedItem.isEquipped,
+            equippedSlot: updatedItem.equippedSlot
         )
 
-        return updatedItem
+        return ApplyMaterialResult(
+            success: true,
+            updatedItem: updatedItem,
+            isFirstCraft: updatedItem.craftCount == 1,
+            craftCount: updatedItem.craftCount,
+            imageUrl: updatedItem.generatedImageUrl ?? "https://example.com/test.png",
+            materialsConsumed: [],
+            message: "Material applied successfully"
+        )
     }
 
     func removeMaterial(itemId: String, slotIndex: Int) async throws -> EnhancedPlayerItem {
@@ -135,14 +154,20 @@ class MockInventoryRepository: InventoryRepository {
         updatedItem = EnhancedPlayerItem(
             id: updatedItem.id,
             baseType: updatedItem.baseType,
+            itemTypeId: updatedItem.itemTypeId,
+            category: updatedItem.category,
             level: updatedItem.level,
+            rarity: updatedItem.rarity,
             appliedMaterials: appliedMaterials,
+            materials: appliedMaterials,
             computedStats: updatedItem.computedStats,
             materialComboHash: appliedMaterials.isEmpty ? nil : "updated_hash",
             generatedImageUrl: updatedItem.generatedImageUrl,
             imageGenerationStatus: .complete,
             craftCount: updatedItem.craftCount,
-            isStyled: !appliedMaterials.isEmpty
+            isStyled: !appliedMaterials.isEmpty,
+            isEquipped: updatedItem.isEquipped,
+            equippedSlot: updatedItem.equippedSlot
         )
 
         return updatedItem
@@ -175,14 +200,20 @@ class MockInventoryRepository: InventoryRepository {
         updatedItem = EnhancedPlayerItem(
             id: updatedItem.id,
             baseType: updatedItem.baseType,
+            itemTypeId: updatedItem.itemTypeId,
+            category: updatedItem.category,
             level: updatedItem.level,
+            rarity: updatedItem.rarity,
             appliedMaterials: appliedMaterials,
+            materials: appliedMaterials,
             computedStats: updatedItem.computedStats,
             materialComboHash: "replaced_hash_\(newMaterialId)",
             generatedImageUrl: updatedItem.generatedImageUrl,
             imageGenerationStatus: .complete,
             craftCount: updatedItem.craftCount,
-            isStyled: true
+            isStyled: true,
+            isEquipped: updatedItem.isEquipped,
+            equippedSlot: updatedItem.equippedSlot
         )
 
         return updatedItem
@@ -205,6 +236,60 @@ class MockInventoryRepository: InventoryRepository {
             goldEarned: mockGoldEarned,
             newGoldBalance: mockNewGoldBalance,
             itemName: "Test Item"
+        )
+    }
+
+    func fetchUpgradeCost(itemId: String) async throws -> UpgradeCostInfo {
+        fetchUpgradeCostCallCount += 1
+        lastUpgradeCostItemId = itemId
+
+        if shouldFailFetchInventory {
+            throw AppError.networkError(URLError(.timedOut))
+        }
+
+        return UpgradeCostInfo(
+            currentLevel: 5,
+            nextLevel: 6,
+            goldCost: 100,
+            playerGold: 500,
+            canAfford: true
+        )
+    }
+
+    func upgradeItem(itemId: String) async throws -> UpgradeResult {
+        upgradeItemCallCount += 1
+        lastUpgradeItemId = itemId
+
+        if shouldFailFetchInventory {
+            throw AppError.networkError(URLError(.timedOut))
+        }
+
+        let item = mockInventory.first ?? EnhancedPlayerItem.testData()
+        let upgradedItem = EnhancedPlayerItem(
+            id: item.id,
+            baseType: item.baseType,
+            itemTypeId: item.itemTypeId,
+            category: item.category,
+            level: item.level + 1,
+            rarity: item.rarity,
+            appliedMaterials: item.appliedMaterials,
+            materials: item.materials,
+            computedStats: item.computedStats,
+            materialComboHash: item.materialComboHash,
+            generatedImageUrl: item.generatedImageUrl,
+            imageGenerationStatus: item.imageGenerationStatus,
+            craftCount: item.craftCount,
+            isStyled: item.isStyled,
+            isEquipped: item.isEquipped,
+            equippedSlot: item.equippedSlot
+        )
+
+        return UpgradeResult(
+            success: true,
+            item: upgradedItem,
+            goldSpent: 100,
+            newGoldBalance: 400,
+            newVanityLevel: 6
         )
     }
 
@@ -245,27 +330,43 @@ class MockInventoryRepository: InventoryRepository {
 extension EnhancedPlayerItem {
     static func testData(
         id: String = "test_item_123",
+        name: String = "Test Sword",
+        description: String? = "A test sword for testing",
         baseType: String = "sword",
+        itemTypeId: String = "sword_001",
+        category: String = "weapon",
         level: Int = 5,
+        rarity: String = "common",
         appliedMaterials: [ItemMaterialApplication] = [],
+        materials: [ItemMaterialApplication] = [],
         computedStats: ItemStats = ItemStats.testData(),
         materialComboHash: String? = nil,
         generatedImageUrl: String? = "https://example.com/item.png",
         imageGenerationStatus: ImageGenerationStatus? = .complete,
         craftCount: Int = 0,
-        isStyled: Bool = false
+        isStyled: Bool = false,
+        isEquipped: Bool = false,
+        equippedSlot: String? = nil
     ) -> EnhancedPlayerItem {
         return EnhancedPlayerItem(
             id: id,
             baseType: baseType,
+            itemTypeId: itemTypeId,
+            category: category,
             level: level,
+            rarity: rarity,
             appliedMaterials: appliedMaterials,
+            materials: materials.isEmpty ? appliedMaterials : materials,
             computedStats: computedStats,
             materialComboHash: materialComboHash,
             generatedImageUrl: generatedImageUrl,
             imageGenerationStatus: imageGenerationStatus,
             craftCount: craftCount,
-            isStyled: isStyled
+            isStyled: isStyled,
+            isEquipped: isEquipped,
+            equippedSlot: equippedSlot,
+            name: name,
+            description: description
         )
     }
 }
@@ -290,18 +391,16 @@ extension MaterialTemplate {
         name: String = "Iron Ore",
         description: String? = "A common metal ore",
         statModifiers: StatModifier = StatModifier.testData(),
-        styleId: String = "style_1",
-        theme: String = "metal",
-        imageUrl: String? = "https://example.com/iron_ore.png"
+        baseDropWeight: Int = 10,
+        createdAt: String = "2023-01-01T00:00:00Z"
     ) -> MaterialTemplate {
         return MaterialTemplate(
             id: id,
             name: name,
             description: description,
             statModifiers: statModifiers,
-            styleId: styleId,
-            theme: theme,
-            imageUrl: imageUrl
+            baseDropWeight: baseDropWeight,
+            createdAt: createdAt
         )
     }
 }
@@ -318,6 +417,52 @@ extension StatModifier {
             atkAccuracy: atkAccuracy,
             defPower: defPower,
             defAccuracy: defAccuracy
+        )
+    }
+}
+
+extension ItemStats {
+    static func testData(
+        atkPower: Double = 10.0,
+        atkAccuracy: Double = 15.0,
+        defPower: Double = 8.0,
+        defAccuracy: Double = 12.0
+    ) -> ItemStats {
+        return ItemStats(
+            atkPower: atkPower,
+            atkAccuracy: atkAccuracy,
+            defPower: defPower,
+            defAccuracy: defAccuracy
+        )
+    }
+}
+
+extension PaginationInfo {
+    static func testData(
+        page: Int = 1,
+        limit: Int = 20,
+        total: Int = 1,
+        hasNext: Bool = false,
+        hasPrev: Bool = false
+    ) -> PaginationInfo {
+        return PaginationInfo(
+            page: page,
+            limit: limit,
+            total: total,
+            hasNext: hasNext,
+            hasPrev: hasPrev
+        )
+    }
+}
+
+extension InventoryResponse {
+    static func testData(
+        items: [EnhancedPlayerItem] = [EnhancedPlayerItem.testData()],
+        pagination: PaginationInfo = PaginationInfo.testData()
+    ) -> InventoryResponse {
+        return InventoryResponse(
+            items: items,
+            pagination: pagination
         )
     }
 }

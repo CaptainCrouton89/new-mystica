@@ -60,13 +60,19 @@ export class CombatFactory {
    * Create enemy of specific type
    */
   static createEnemy(type: string, level: number, overrides?: Partial<Enemy>): Enemy {
+    // Validate enemy type exists before processing
+    const enemyTypes = ['goblin', 'orc', 'skeleton', 'dragon', 'wolf'];
+    if (!enemyTypes.includes(type)) {
+      throw new Error(`Unknown enemy type in test factory: ${type}`);
+    }
+
     const baseStats = this.getBaseEnemyStats(type);
 
     // Scale stats with level
     const levelMultiplier = 1 + (level - 1) * 0.15;
     const computed_hp = Math.floor(baseStats.base_hp * levelMultiplier);
-    const computed_atk = Math.floor(baseStats.base_atk * levelMultiplier);
-    const computed_def = Math.floor(baseStats.base_def * levelMultiplier);
+    const computed_atk = Math.floor(baseStats.atk_power * levelMultiplier);
+    const computed_def = Math.floor(baseStats.def_power * levelMultiplier);
 
     // Scale gold rewards with level
     const gold_min = Math.floor(10 * levelMultiplier);
@@ -76,19 +82,15 @@ export class CombatFactory {
       id: generateUuid(),
       name: `${type.charAt(0).toUpperCase() + type.slice(1)} Lv.${level}`,
       base_hp: baseStats.base_hp,
-      base_atk: baseStats.base_atk,
-      base_def: baseStats.base_def,
-      hp_offset: baseStats.hp_offset,
-      atk_offset: baseStats.atk_offset,
-      def_offset: baseStats.def_offset,
+      atk_power: baseStats.atk_power,
+      atk_accuracy: baseStats.atk_accuracy,
+      def_power: baseStats.def_power,
+      def_accuracy: baseStats.def_accuracy,
       tier_id: Math.min(Math.floor(level / 5) + 1, 5), // Tier 1-5 based on level
       style_id: 'normal',
       dialogue_tone: baseStats.dialogue_tone,
-      verbosity: 'medium',
-      base_dialogue_prompt: `You are a ${type} enemy in combat.`,
+      dialogue_guidelines: `You are a ${type} enemy in combat.`,
       ai_personality_traits: { aggressive: 0.7, cunning: 0.5, taunting: 0.6 },
-      example_taunts: [`Prepare to face the wrath of a ${type}!`, `You cannot defeat me!`],
-      appearance_data: { color: baseStats.color, size: baseStats.size },
       computed_hp,
       computed_atk,
       computed_def,
@@ -149,19 +151,15 @@ export class CombatFactory {
       id: enemy.id,
       name: enemy.name,
       base_hp: enemy.base_hp,
-      base_atk: enemy.base_atk,
-      base_def: enemy.base_def,
-      hp_offset: enemy.hp_offset,
-      atk_offset: enemy.atk_offset,
-      def_offset: enemy.def_offset,
+      atk_power: enemy.atk_power,
+      atk_accuracy: enemy.atk_accuracy,
+      def_power: enemy.def_power,
+      def_accuracy: enemy.def_accuracy,
       tier_id: enemy.tier_id,
       style_id: enemy.style_id,
       dialogue_tone: enemy.dialogue_tone,
-      verbosity: enemy.verbosity,
-      base_dialogue_prompt: enemy.base_dialogue_prompt,
+      dialogue_guidelines: enemy.dialogue_guidelines,
       ai_personality_traits: enemy.ai_personality_traits,
-      example_taunts: enemy.example_taunts,
-      appearance_data: enemy.appearance_data,
       ...overrides
     };
   }
@@ -190,44 +188,42 @@ export class CombatFactory {
    */
   private static getBaseEnemyStats(type: string): {
     base_hp: number;
-    base_atk: number;
-    base_def: number;
-    hp_offset: number;
-    atk_offset: number;
-    def_offset: number;
+    atk_power: number;
+    atk_accuracy: number;
+    def_power: number;
+    def_accuracy: number;
     dialogue_tone: string;
     color: string;
     size: string;
   } {
     const enemyStats: Record<string, any> = {
       goblin: {
-        base_hp: 80, base_atk: 25, base_def: 15,
-        hp_offset: 10, atk_offset: 5, def_offset: 3,
+        base_hp: 80, atk_power: 25, atk_accuracy: 75, def_power: 15, def_accuracy: 70,
         dialogue_tone: 'mischievous', color: 'green', size: 'small'
       },
       orc: {
-        base_hp: 120, base_atk: 35, base_def: 20,
-        hp_offset: 15, atk_offset: 8, def_offset: 5,
+        base_hp: 120, atk_power: 35, atk_accuracy: 80, def_power: 20, def_accuracy: 75,
         dialogue_tone: 'aggressive', color: 'brown', size: 'large'
       },
       skeleton: {
-        base_hp: 60, base_atk: 30, base_def: 10,
-        hp_offset: 8, atk_offset: 6, def_offset: 2,
+        base_hp: 60, atk_power: 30, atk_accuracy: 70, def_power: 10, def_accuracy: 65,
         dialogue_tone: 'eerie', color: 'white', size: 'medium'
       },
       dragon: {
-        base_hp: 300, base_atk: 60, base_def: 40,
-        hp_offset: 30, atk_offset: 15, def_offset: 10,
+        base_hp: 300, atk_power: 60, atk_accuracy: 95, def_power: 40, def_accuracy: 90,
         dialogue_tone: 'arrogant', color: 'red', size: 'huge'
       },
       wolf: {
-        base_hp: 70, base_atk: 28, base_def: 12,
-        hp_offset: 8, atk_offset: 4, def_offset: 2,
+        base_hp: 70, atk_power: 28, atk_accuracy: 85, def_power: 12, def_accuracy: 80,
         dialogue_tone: 'feral', color: 'gray', size: 'medium'
       }
     };
 
-    return enemyStats[type] || enemyStats['goblin'];
+    const stats = enemyStats[type];
+    if (!stats) {
+      throw new Error(`Unknown enemy type in test factory: ${type}`);
+    }
+    return stats;
   }
 
   /**
@@ -242,7 +238,11 @@ export class CombatFactory {
       wolf: ['fur', 'fang', 'claw']
     };
 
-    const basePool = basePools[type] || basePools['goblin'];
+    const basePool = basePools[type];
+    if (!basePool) {
+      throw new Error(`Unknown enemy type for material drop pool: ${type}`);
+    }
+    return basePool;
 
     // Higher level enemies can drop rarer materials
     if (level >= 10) {

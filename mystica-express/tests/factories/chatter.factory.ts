@@ -30,8 +30,6 @@ export interface EnemyType {
   display_name: string;
   personality_traits: string[];
   dialogue_tone: 'aggressive' | 'sarcastic' | 'condescending' | 'chaotic' | 'political';
-  example_taunts: string[];
-  verbosity: 'terse' | 'moderate' | 'verbose';
   tier_id: number;
   style_id: string;
 }
@@ -222,12 +220,6 @@ export class ChatterFactory {
         display_name: 'Goblin',
         personality_traits: ['mischievous', 'cowardly', 'cunning'],
         dialogue_tone: 'sarcastic' as const,
-        example_taunts: [
-          'Heh heh, you think you can beat me?',
-          'I\'ve stolen from better warriors than you!',
-          'My precious shinies will be mine!'
-        ],
-        verbosity: 'moderate' as const,
         tier_id: 1,
         style_id: 'normal'
       },
@@ -235,12 +227,6 @@ export class ChatterFactory {
         display_name: 'Orc',
         personality_traits: ['brutal', 'aggressive', 'simple'],
         dialogue_tone: 'aggressive' as const,
-        example_taunts: [
-          'GRAAAH! Me crush you!',
-          'You weak! Me strong!',
-          'Blood and bones! Fight me!'
-        ],
-        verbosity: 'terse' as const,
         tier_id: 2,
         style_id: 'normal'
       },
@@ -248,12 +234,6 @@ export class ChatterFactory {
         display_name: 'Ancient Dragon',
         personality_traits: ['arrogant', 'intelligent', 'ancient'],
         dialogue_tone: 'condescending' as const,
-        example_taunts: [
-          'Mortals... always so eager to throw away their lives.',
-          'I have seen empires rise and fall. You are nothing.',
-          'Your bravery is admirable, your chances are not.'
-        ],
-        verbosity: 'verbose' as const,
         tier_id: 5,
         style_id: 'legendary'
       },
@@ -261,12 +241,6 @@ export class ChatterFactory {
         display_name: 'Chaos Wizard',
         personality_traits: ['eccentric', 'unpredictable', 'magical'],
         dialogue_tone: 'chaotic' as const,
-        example_taunts: [
-          'Reality is optional! Let me show you!',
-          'Purple! No, green! What were we talking about?',
-          'Time flows backwards on Tuesdays!'
-        ],
-        verbosity: 'moderate' as const,
         tier_id: 3,
         style_id: 'magical'
       },
@@ -274,12 +248,6 @@ export class ChatterFactory {
         display_name: 'Corrupt Politician',
         personality_traits: ['manipulative', 'verbose', 'deceitful'],
         dialogue_tone: 'political' as const,
-        example_taunts: [
-          'My policies will defeat you more thoroughly than my sword!',
-          'I promise you a swift defeat - and I keep my promises!',
-          'Vote for violence! It\'s what the people want!'
-        ],
-        verbosity: 'verbose' as const,
         tier_id: 4,
         style_id: 'political'
       }
