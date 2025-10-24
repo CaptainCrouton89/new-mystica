@@ -25,6 +25,7 @@ import {
 } from '../types/repository.types.js';
 import { Stats } from '../types/api.types.js';
 import { DatabaseError, NotFoundError, ValidationError } from '../utils/errors.js';
+import { computeComboHash } from '../utils/hash.js';
 
 // Database row types
 type ItemRow = Database['public']['Tables']['items']['Row'];
@@ -105,13 +106,17 @@ export class ItemRepository extends BaseRepository<ItemRow> {
       ? itemType.base_image_url
       : null;
 
+    // Compute initial material_combo_hash for items with no materials
+    // This ensures all items have a valid hash, even if they haven't had materials applied yet
+    const initialComboHash = computeComboHash([], []);
+
     const insertData: ItemInsert = {
       user_id: itemData.user_id,
       item_type_id: itemData.item_type_id,
       level: itemData.level || 1,
       is_styled: false,
       current_stats: null,
-      material_combo_hash: null,
+      material_combo_hash: initialComboHash,
       generated_image_url: baseImageUrl,
       image_generation_status: null
     };
@@ -186,6 +191,8 @@ export class ItemRepository extends BaseRepository<ItemRow> {
         generated_image_url,
         image_generation_status,
         created_at,
+        name,
+        description,
         itemtypes (
           id,
           name,
@@ -208,6 +215,10 @@ export class ItemRepository extends BaseRepository<ItemRow> {
               name,
               description,
               stat_modifiers
+            ),
+            styledefinitions:style_id (
+              id,
+              display_name
             )
           )
         )
@@ -254,6 +265,8 @@ export class ItemRepository extends BaseRepository<ItemRow> {
         generated_image_url,
         image_generation_status,
         created_at,
+        name,
+        description,
         itemtypes (
           id,
           name,
@@ -304,6 +317,8 @@ export class ItemRepository extends BaseRepository<ItemRow> {
         generated_image_url,
         image_generation_status,
         created_at,
+        name,
+        description,
         itemtypes (
           id,
           name,
@@ -405,6 +420,29 @@ export class ItemRepository extends BaseRepository<ItemRow> {
     });
   }
 
+  /**
+   * Update item name and description
+   *
+   * @param itemId - Item ID to update
+   * @param userId - User ID for ownership validation
+   * @param name - New item name
+   * @param description - New item description
+   * @returns Updated item with new fields
+   * @throws NotFoundError if item not found or wrong owner
+   * @throws DatabaseError on update failure
+   */
+  async updateItemNameDescription(
+    itemId: string,
+    userId: string,
+    name: string,
+    description: string
+  ): Promise<ItemRow> {
+    return await this.updateItem(itemId, userId, {
+      name,
+      description
+    });
+  }
+
   // ============================================================================
   // History Tracking
   // ============================================================================
@@ -503,6 +541,8 @@ export class ItemRepository extends BaseRepository<ItemRow> {
         generated_image_url,
         image_generation_status,
         created_at,
+        name,
+        description,
         itemtypes (
           id,
           name,
@@ -525,6 +565,10 @@ export class ItemRepository extends BaseRepository<ItemRow> {
               name,
               description,
               stat_modifiers
+            ),
+            styledefinitions:style_id (
+              id,
+              display_name
             )
           )
         )
@@ -604,6 +648,8 @@ export class ItemRepository extends BaseRepository<ItemRow> {
       generated_image_url: data.generated_image_url,
       image_generation_status: data.image_generation_status,
       created_at: data.created_at,
+      name: data.name,
+      description: data.description,
       item_type: {
         id: data.itemtypes.id,
         name: data.itemtypes.name,
@@ -617,7 +663,27 @@ export class ItemRepository extends BaseRepository<ItemRow> {
 
     // Transform materials if included and available
     if (includeMaterials && data.itemmaterials) {
-      item.materials = data.itemmaterials.map((im: any) => ({
+      interface ItemMaterialRow {
+        slot_index: number;
+        applied_at: string;
+        materialinstances: {
+          materials: {
+            id: string;
+            name: string;
+            description: string | null;
+            rarity: string | null;
+            stat_modifiers: Record<string, number>;
+            image_url: string | null;
+          };
+          style_id: string;
+          styledefinitions: {
+            id: string;
+            display_name: string;
+          } | null;
+        };
+      }
+
+      item.materials = data.itemmaterials.map((im: ItemMaterialRow) => ({
         slot_index: im.slot_index,
         applied_at: im.applied_at,
         material: {
@@ -626,6 +692,7 @@ export class ItemRepository extends BaseRepository<ItemRow> {
           description: im.materialinstances.materials.description,
           rarity: im.materialinstances.materials.rarity,
           style_id: im.materialinstances.style_id,
+          style_name: im.materialinstances.styledefinitions?.display_name || null,
           stat_modifiers: im.materialinstances.materials.stat_modifiers,
           image_url: im.materialinstances.materials.image_url
         }

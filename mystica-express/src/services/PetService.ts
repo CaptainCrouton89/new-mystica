@@ -130,7 +130,7 @@ export class PetService {
       return {
         pet: petData,
         item: petData.items,
-        personality: petData.petpersonalities || undefined
+        personality: petData.petpersonalities !== null && petData.petpersonalities !== undefined ? petData.petpersonalities : undefined
       };
     } catch (error) {
       throw new BusinessLogicError(`Failed to fetch pet: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -155,16 +155,50 @@ export class PetService {
       const pets = await this.petRepository.getUserPets(userId.trim());
       const equippedPet = await this.getEquippedPet(userId.trim());
 
-      return pets.map(petData => ({
-        itemId: petData.item_id,
-        name: petData.items?.name || 'Unknown Pet',
-        customName: petData.custom_name || undefined,
-        personalityType: petData.petpersonalities?.personality_type || undefined,
-        personalityDisplayName: petData.petpersonalities?.display_name || undefined,
-        level: petData.items?.level || 1,
-        isEquipped: equippedPet?.pet.item_id === petData.item_id,
-        chatterMessageCount: Array.isArray(petData.chatter_history) ? petData.chatter_history.length : 0
-      }));
+      return pets.map(petData => {
+        // Validate items exist and have a name
+        if (!petData.items) {
+          throw new ValidationError(`Missing item data for pet: ${JSON.stringify(petData)}`);
+        }
+        if (!petData.items.name) {
+          throw new ValidationError(`Missing pet name in item data: ${JSON.stringify(petData.items)}`);
+        }
+
+        // Validate level exists and is a number
+        if (petData.items.level === undefined || petData.items.level === null) {
+          throw new ValidationError(`Missing or null level in item data: ${JSON.stringify(petData.items)}`);
+        }
+        if (typeof petData.items.level !== 'number') {
+          throw new ValidationError(`Invalid level type in item data: ${typeof petData.items.level}`);
+        }
+
+        // Validate chatter history is an array
+        const chatterMessageCount = Array.isArray(petData.chatter_history)
+          ? petData.chatter_history.length
+          : 0;
+
+        // Validate equipped pet reference
+        const isEquipped = equippedPet?.pet?.item_id === petData.item_id;
+
+        const personalityData = petData.petpersonalities;
+
+        return {
+          itemId: petData.item_id,
+          name: petData.items.name,
+          customName: petData.custom_name !== null && petData.custom_name !== undefined
+            ? petData.custom_name
+            : undefined,
+          personalityType: personalityData?.personality_type !== null && personalityData?.personality_type !== undefined
+            ? personalityData.personality_type
+            : undefined,
+          personalityDisplayName: personalityData?.display_name !== null && personalityData?.display_name !== undefined
+            ? personalityData.display_name
+            : undefined,
+          level: petData.items.level,
+          isEquipped: isEquipped,
+          chatterMessageCount: chatterMessageCount
+        };
+      });
     } catch (error) {
       throw new BusinessLogicError(`Failed to fetch user pets: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
@@ -408,7 +442,7 @@ export class PetService {
       const messageWithTimestamp = {
         ...message,
         text: message.text.trim(),
-        timestamp: message.timestamp || new Date().toISOString()
+        timestamp: message.timestamp !== null && message.timestamp !== undefined ? message.timestamp : new Date().toISOString()
       };
 
       await this.petRepository.addChatterMessage(itemId.trim(), messageWithTimestamp, maxMessages);
@@ -629,10 +663,24 @@ export class PetService {
       const pets = await this.getUserPets(userId.trim());
       const equippedPet = await this.getEquippedPet(userId.trim());
 
+      if (!equippedPet || !equippedPet.pet) {
+        throw new NoPetEquippedError('No pet equipped for statistics calculation');
+      }
+
+      if (equippedPet.pet.custom_name === undefined || equippedPet.pet.custom_name === null) {
+        throw new ValidationError(`Equipped pet has no custom name: ${JSON.stringify(equippedPet.pet)}`);
+      }
+
+      const personalityTypes = Array.from(new Set(pets.map(p => p.personalityType).filter(p => p !== undefined && p !== null)));
+      if (personalityTypes.length === 0) {
+        // This is not necessarily an error, but you might want to log it
+        console.warn('No personality types found for pets');
+      }
+
       return {
         totalPets: pets.length,
-        equippedPet: equippedPet?.pet.custom_name || 'Unknown Pet',
-        personalityTypes: Array.from(new Set(pets.map(p => p.personalityType).filter(Boolean))) as string[],
+        equippedPet: equippedPet.pet.custom_name,
+        personalityTypes: personalityTypes,
         totalChatterMessages: pets.reduce((sum, p) => sum + p.chatterMessageCount, 0)
       };
     } catch (error) {
