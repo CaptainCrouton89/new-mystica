@@ -151,6 +151,31 @@ struct BattleView: View {
         }
         .floatingText()
         .environmentObject(floatingTextManager)
+        .onChange(of: currentPhase) { oldPhase, newPhase in
+            // Handle visual transitions when phase changes (no timers)
+            withAnimation(.easeInOut(duration: 0.3)) {
+                switch newPhase {
+                case .playerAttack:
+                    enemyGlowing = false
+                    showDefensePrompt = false
+                case .playerDefense:
+                    enemyGlowing = true
+                    showDefensePrompt = true
+                }
+            }
+
+            // Hide defense prompt after brief display
+            if newPhase == .playerDefense {
+                Task {
+                    try? await Task.sleep(nanoseconds: 500_000_000)
+                    await MainActor.run {
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            showDefensePrompt = false
+                        }
+                    }
+                }
+            }
+        }
         .task {
             // Connect environment dependencies to viewModel
             viewModel.navigationManager = navigationManager
@@ -200,63 +225,17 @@ struct BattleView: View {
 
         // Start dial spinning on combat start
         if !viewModel.combatEnded {
-            startCombatPhase(.playerAttack)
+            transitionToPhase(.playerAttack)
         }
     }
 
-    // MARK: - Turn State Machine Methods
+    // MARK: - Phase Management
 
-    /// Start a specific combat phase with appropriate setup
-    func startCombatPhase(_ phase: CombatPhase) {
+    /// Transition to a new combat phase (data-driven, no timers)
+    func transitionToPhase(_ phase: CombatPhase) {
         currentPhase = phase
-
-        switch phase {
-        case .playerAttack:
-            dialVisible = true
-            isDialSpinning = true
-            enemyGlowing = false
-            showDefensePrompt = false
-
-        case .attackTransition:
-            dialVisible = true
-            isDialSpinning = false
-            enemyGlowing = false
-            showDefensePrompt = false
-
-            // Transition to defense prompt after 1 second
-            Task {
-                try? await Task.sleep(nanoseconds: 1_000_000_000) // 1s
-                await MainActor.run {
-                    startCombatPhase(.defensePrompt)
-                }
-            }
-
-        case .defensePrompt:
-            dialVisible = true
-            isDialSpinning = false
-            enemyGlowing = true
-
-            withAnimation(.easeInOut(duration: 0.3)) {
-                showDefensePrompt = true
-            }
-
-            // Fade to defense dial after 0.5s
-            Task {
-                try? await Task.sleep(nanoseconds: 500_000_000) // 0.5s
-                await MainActor.run {
-                    withAnimation(.easeInOut(duration: 0.3)) {
-                        showDefensePrompt = false
-                    }
-                    startCombatPhase(.playerDefense)
-                }
-            }
-
-        case .playerDefense:
-            dialVisible = true
-            isDialSpinning = true
-            enemyGlowing = true
-            showDefensePrompt = false
-        }
+        dialVisible = true
+        isDialSpinning = true
     }
 
     /// Handle dial tap based on current phase
@@ -281,15 +260,15 @@ struct BattleView: View {
                         showAttackFeedback(action: lastAction)
                     }
 
-                    // Check if combat ended
+                    // React to combat status from API response
                     if viewModel.combatEnded {
                         dialVisible = false
                         isDialSpinning = false
                         // Trigger combat end audio
                         triggerCombatEndAudio(won: viewModel.playerWon, audioManager: audioManager)
                     } else {
-                        // Transition to defense phase
-                        startCombatPhase(.attackTransition)
+                        // Backend says combat ongoing - transition to defense
+                        transitionToPhase(.playerDefense)
                     }
                 }
             }
@@ -311,46 +290,27 @@ struct BattleView: View {
                         showDefenseFeedback(action: lastAction)
                     }
 
-                    // Check if combat ended
+                    // React to combat status from API response
                     if viewModel.combatEnded {
                         dialVisible = false
                         isDialSpinning = false
                         // Trigger combat end audio
                         triggerCombatEndAudio(won: viewModel.playerWon, audioManager: audioManager)
                     } else {
-                        // Return to attack phase for next turn
-                        // Explicitly ensure dial is visible when transitioning to attack
-                        startCombatPhase(.playerAttack)
+                        // Backend says combat ongoing - transition back to attack
+                        transitionToPhase(.playerAttack)
                     }
                 }
             }
 
-        default:
-            // Ignore taps during transitions
-            break
         }
     }
 
 
     /// Get adjusted bands for current phase
     func getAdjustedBands(for phase: CombatPhase, session: CombatSession) -> AdjustedBands {
-        // Use weapon config adjusted bands from session
-        let weaponBands = session.weaponConfig.adjustedBands
-
-        switch phase {
-        case .playerAttack:
-            // Attack uses weapon's attack accuracy bands
-            return weaponBands
-
-        case .playerDefense:
-            // Defense uses weapon's defense accuracy bands
-            // For now, use same bands - backend will handle defense zone calculation
-            return weaponBands
-
-        default:
-            // Default to weapon bands
-            return weaponBands
-        }
+        // Use weapon config adjusted bands from session (same for both attack/defense)
+        return session.weaponConfig.adjustedBands
     }
 
     // MARK: - Visual Feedback Methods

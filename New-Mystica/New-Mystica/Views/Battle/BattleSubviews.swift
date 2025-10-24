@@ -271,12 +271,6 @@ extension BattleView {
                 case .playerAttack:
                     NormalText("Tap the dial to attack!", size: 14)
                         .foregroundColor(Color.accent)
-                case .attackTransition:
-                    NormalText("Processing attack...", size: 14)
-                        .foregroundColor(Color.textSecondary)
-                case .defensePrompt:
-                    NormalText("Get ready to defend!", size: 14)
-                        .foregroundColor(Color.textSecondary)
                 case .playerDefense:
                     NormalText("Tap the dial to defend!", size: 14)
                         .foregroundColor(Color.accentSecondary)

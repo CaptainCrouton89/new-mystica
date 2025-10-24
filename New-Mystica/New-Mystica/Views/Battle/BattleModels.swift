@@ -12,7 +12,5 @@ struct DamageInfo {
 // MARK: - Combat Phase State Machine
 enum CombatPhase {
     case playerAttack      // Dial visible with attack accuracy zones
-    case attackTransition  // 1s pause
-    case defensePrompt     // "DEFEND NOW!" prompt slides in
     case playerDefense     // Tap dial with defense zones, enemy glows red
 }
