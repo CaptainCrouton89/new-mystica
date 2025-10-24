@@ -27,131 +27,101 @@ export class MyService {
 ## Key Service Patterns
 
 ### 1. Constructor Injection
-Services receive dependencies via constructor:
-- Default repository instantiation for easy testing
-- Optional dependencies for services that coordinate with others
-
-```typescript
-constructor(
-  private itemRepository: ItemRepository = new ItemRepository(),
-  private materialService?: MaterialService
-) {}
-```
+Services receive dependencies via constructor with default instantiation for testability.
 
 ### 2. Error Handling
 All services use custom error classes from `src/utils/errors.ts`:
-
 - **ValidationError** - Invalid input data
 - **NotFoundError** - Entity doesn't exist
 - **UnauthorizedError** - User lacks permission
-- **ConflictError** - State conflict (e.g., already equipped)
-- **NotImplementedError** - Feature not yet implemented
+- **ConflictError** - State conflict
+- **ExternalAPIError** - AI/external service failures
 
-### 3. Repository Pattern Usage
-Services delegate data access to repositories. All repositories extend `BaseRepository<T>`:
+### 3. Repository Pattern
+Services delegate data access to repositories extending `BaseRepository<T>`.
 
-```typescript
-// Query
-const items = await this.itemRepository.findMany({ user_id: userId });
-
-// Single entity
-const item = await this.itemRepository.findById(itemId);
-
-// Create/update/delete
-await this.itemRepository.create({ ...data });
-await this.itemRepository.update(itemId, { ...updates });
-await this.itemRepository.delete(itemId);
-```
-
-## Service Responsibilities
-
-### Core Services
+## Core Services
 
 **CombatService** (✅ Fully Implemented)
-- Combat session lifecycle: initiation, turn execution, completion
-- Enemy selection with pool-based weighted randomization
+- Combat session lifecycle and turn execution
+- Enemy selection with weighted randomization
 - Attack/defense mechanics with zone-based accuracy
-- Reward application: gold, materials, items, XP, combat history
-- Equipment snapshot capture for analytics
+- Reward application (gold, materials, items, XP)
 
 **LocationService** (✅ Fully Implemented)
-- PostGIS geospatial queries (nearby locations with radius)
-- Combat and loot pool selection per location/level
-- Weighted random enemy and item drops
-- Style inheritance from enemies to material drops
+- PostGIS geospatial queries
+- Combat and loot pool selection
 
 **EquipmentService** (✅ Fully Implemented)
 - Equipment slot management (8 hardcoded slots)
-- Item equipping/unequipping with validation
-- Stat modification from equipped items
+- Item equipping/unequipping with stat modifications
 
 **InventoryService** (✅ Fully Implemented)
-- Player item inventory queries
-- Filtering by type, rarity, or custom attributes
+- Player item queries with pagination
+- Filtering by slot type, rarity, level
+- Sorting (level, rarity, newest, name)
 
 **LoadoutService** (✅ Fully Implemented)
-- Loadout CRUD operations
-- Composition validation and active loadout tracking
+- Loadout CRUD and validation
 
 **NameDescriptionService** (✅ Fully Implemented)
-- AI-generated creative names for crafted items
-- Visual descriptions using OpenAI GPT-4.1-mini
-- Structured output validation (Zod)
-- Retry logic with exponential backoff
+- AI-generated names/descriptions using OpenAI GPT-4.1-mini
+- Structured Zod validation with exponential backoff
 
-### In-Progress / Partially Implemented
+## AI-Powered Services
 
-**MaterialService** (⚠️ Needs Completion)
-- Material stack management (composite key: user_id + material_id + style_id)
-- Apply materials to items (max 3 per item, slots 0-2)
-- Material-to-item stat modifier application
-- Style inheritance and system
+**ChatterService** (✅ Fully Implemented - Implements F-11, F-12)
+- Pet personality-based dialogue generation
+- OpenAI GPT-4.1-mini integration with 2-second timeout
+- Throws ExternalAPIError on timeout/failure
+- Analytics logging for quality monitoring
+- Integrates player combat history for context
 
-**ItemService** (⚠️ Needs Completion)
-- Item creation and initialization
-- Stat calculation and derivation
-- Item template management
+**EnemyChatterService** (✅ Fully Implemented)
+- Contextual enemy dialogue during combat events
+- AI timeout handling (2s) with error throwing
+- Combat context-aware prompting (turn number, HP%, critical hits)
+- Logs all dialogue attempts for analytics
 
-**StatsService** (⚠️ Needs Completion)
-- Stat normalization algorithms
-- Modifier calculation from materials
-- Combat stat derivation
+**AI Service Patterns:**
+- Always include 2-second timeout to prevent blocking
+- Throw ExternalAPIError on timeout or API failure
+- Log attempts for quality monitoring
+- Integrate combat context into prompts for personality
 
-### Supporting Services
+## Supporting Services
 
+**PetService** - Pet management and summoning
 **ProfileService** - User profile management
 **AuthService** - Authentication and authorization
-**EconomyService** - Currency and economy management
-**ChatterService** - NPC dialogue and interaction
-**EnemyChatterService** - Enemy-specific dialogue
 **ImageGenerationService** - AI image generation and R2 storage
 **StyleService** - Style system and material styles
 **AnalyticsService** - Combat and gameplay analytics
-**RarityService** - Rarity calculations and progression
-**PetService** - Pet management and summoning
+**RarityService** - Rarity calculations
 **ProgressionService** - Level progression and XP tracking
 
-## Testing Services
+## In-Progress / Partially Implemented
 
-Services are tested in two layers:
+**MaterialService** (⚠️) - Material application and style system
+**ItemService** (⚠️) - Item creation and stat calculation
+**StatsService** (⚠️) - Stat normalization algorithms
+
+## Testing Services
 
 **Unit Tests** (`tests/unit/services/MyService.test.ts`):
 - Mock dependencies
 - Test isolated business logic
-- Use ItemFactory/UserFactory for test data
+- Use factories for test data
 
 **Integration Tests** (`tests/integration/myfeature.test.ts`):
 - Test full service with real repositories
-- Test error conditions
-- Verify database state changes
+- Test error conditions and edge cases
 
 ## Important Notes
 
-- **No Fallbacks:** Services throw errors early. No default values or silent failures.
-- **Type Safety:** All inputs validated before operations (Zod in controllers)
-- **Async/Await:** All database operations are async
-- **No `any` Types:** Use proper types from database.types.ts
-- **Module Resolution:** Import with `.js` extensions even in TypeScript
-- **Combat Session TTL:** 15 minutes (PostgreSQL TTL with auto-cleanup)
-- **Reward Transactions:** Applied atomically; session deleted only after rewards succeed
-- **Equipment Snapshot:** Captured at combat start for analytics and session recovery
+- **Error Handling:** Services throw errors early. No silent failures or fallback behavior. Throw appropriate custom errors (ValidationError, NotFoundError, ExternalAPIError, etc.).
+- **Type Safety:** Use proper types from `database.types.ts` - never use `any`
+- **Async/Await:** All database/AI operations are async
+- **Module Resolution:** Import with `.js` extensions
+- **AI Timeouts:** All external API calls must have reasonable timeouts (2s for dialogue, longer for generation)
+- **Analytics Logging:** AI service usage should be logged for monitoring quality
