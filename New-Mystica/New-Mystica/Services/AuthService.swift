@@ -191,7 +191,7 @@ class AuthService: ObservableObject {
                 print("📥 [AUTH-HTTP] Response body:", responseString)
             }
 
-            guard (200...299).contains(httpResponse.statusCode) else {
+            guard Config.successStatusCodes.contains(httpResponse.statusCode) else {
                 print("❌ [AUTH-HTTP] Server error:", httpResponse.statusCode)
                 throw AuthError.serverError(httpResponse.statusCode)
             }

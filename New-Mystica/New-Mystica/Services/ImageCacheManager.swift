@@ -12,17 +12,12 @@ import Foundation
 class ImageCacheManager {
     static let shared = ImageCacheManager()
 
-    private(set) var urlSession: URLSession!
+    private(set) var urlSession: URLSession
 
     private init() {
-        configure()
-    }
-
-    func configure() {
         // Create large URLCache for image caching
-        // 128MB memory cache, 512MB disk cache
-        let memoryCapacity = 128 * 1024 * 1024  // 128 MB
-        let diskCapacity = 512 * 1024 * 1024    // 512 MB
+        let memoryCapacity = Config.imageCacheMemoryCapacity
+        let diskCapacity = Config.imageCacheDiskCapacity
 
         let cache = URLCache(
             memoryCapacity: memoryCapacity,
@@ -38,7 +33,7 @@ class ImageCacheManager {
         configuration.timeoutIntervalForRequest = 30
         configuration.timeoutIntervalForResource = 60
 
-        urlSession = URLSession(configuration: configuration)
+        self.urlSession = URLSession(configuration: configuration)
 
         if APIConfig.enableNetworkLogging {
             print("🖼️ ImageCacheManager configured with \(memoryCapacity / 1024 / 1024)MB memory, \(diskCapacity / 1024 / 1024)MB disk cache")

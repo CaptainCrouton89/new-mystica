@@ -14,24 +14,12 @@ class BackgroundImageManager: ObservableObject {
     @Published var loadedImage: UIImage?
     @Published var isLoading: Bool = false
 
-    private let backgroundImages: [String] = [
-        "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/backgrounds/desert-temple.png",
-        "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/backgrounds/post-apocalyptic-ruins.png",
-        "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/backgrounds/enchanted-forest.png",
-        "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/backgrounds/alien-planet.png",
-        "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/backgrounds/tokyo-night.png",
-        "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/backgrounds/haunted-mansion.png",
-        "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/backgrounds/steampunk-factory.png",
-        "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/backgrounds/cyberpunk-city.png",
-        "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/backgrounds/floating-islands.png",
-        "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/backgrounds/underwater-city.png"
-    ]
+    private let backgroundImages: [String] = Config.backgroundImageURLs
 
     init() {
-        let randomURLString = backgroundImages.randomElement() ?? backgroundImages[0]
-        guard let url = URL(string: randomURLString) else {
-            self.currentBackgroundURL = URL(string: backgroundImages[0]) ?? URL(string: "https://via.placeholder.com/800x600")!
-            return
+        guard let randomURLString = backgroundImages.randomElement(),
+              let url = URL(string: randomURLString) else {
+            fatalError("BackgroundImageManager: Invalid background image URLs in Config. All URLs must be valid.")
         }
         self.currentBackgroundURL = url
 
@@ -62,10 +50,9 @@ class BackgroundImageManager: ObservableObject {
     }
 
     func randomizeBackground() {
-        let randomURLString = backgroundImages.randomElement() ?? backgroundImages[0]
-        guard let url = URL(string: randomURLString) else {
-            self.currentBackgroundURL = URL(string: backgroundImages[0]) ?? URL(string: "https://via.placeholder.com/800x600")!
-            return
+        guard let randomURLString = backgroundImages.randomElement(),
+              let url = URL(string: randomURLString) else {
+            fatalError("BackgroundImageManager: Invalid background image URLs in Config. All URLs must be valid.")
         }
         self.currentBackgroundURL = url
 
