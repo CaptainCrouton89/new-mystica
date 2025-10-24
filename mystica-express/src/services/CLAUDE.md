@@ -79,71 +79,135 @@ await this.itemRepository.delete(itemId);
 
 ## Service Responsibilities
 
-### LocationService
-- Geospatial queries using PostGIS
-- Nearby location discovery with radius filtering
-- Location metadata management
-
 ### CombatService
-- Combat turn execution and state management
-- Hit band calculation based on timing
-- Combat result persistence via RPC
-- AI dialogue integration (pending)
+**Status:** ✅ Fully Implemented
+
+Handles complete combat lifecycle: session management, enemy selection, attack/defense mechanics, damage calculation, and reward distribution.
+
+**Public API:**
+```typescript
+// Initialize combat
+const session = await combatService.startCombat(userId, locationId, selectedLevel);
+
+// Execute player actions
+const attack = await combatService.executeAttack(sessionId, tapPositionDegrees);
+const defense = await combatService.executeDefense(sessionId, tapPositionDegrees);
+
+// Session recovery
+const session = await combatService.getCombatSessionForRecovery(sessionId, userId);
+
+// Session management
+const session = await combatService.getUserActiveSession(userId);
+const details = await combatService.getCombatSession(sessionId);
+await combatService.abandonCombat(sessionId);
+await combatService.completeCombat(sessionId, result);
+```
+
+**Key Features:**
+- Session management with PostgreSQL TTL (15 min expiry)
+- Pool-based enemy selection with spawn weights
+- Weapon timing mechanics (0-360° dial) with accuracy adjustments
+- 5 hit zones: crit, normal, graze, miss, injure (self-damage)
+- Defense mechanics with zone-based damage reduction
+- Atomic reward application: gold, materials, items, XP, combat history
+- Equipment snapshot capture for analytics
+- Turn-by-turn combat log tracking
+
+**Key Types:**
+- `CombatSession` - Active combat state with enemy, player/enemy stats, weapon config
+- `AttackResult` - Attack output with damage, HP, turn number, rewards
+- `CombatRewards` - Victory/defeat outcome with currencies, drops, history
+
+### LocationService
+**Status:** ✅ Fully Implemented
+
+Geospatial queries using PostGIS and pool-based combat/loot selection.
+
+**Public API:**
+```typescript
+// Location queries
+const nearby = await locationService.nearby(lat, lng, radiusMeters);
+const location = await locationService.getById(locationId);
+const byType = await locationService.getByType(locationType);
+const byRegion = await locationService.getByRegion(stateCode, countryCode);
+const all = await locationService.getAll(limit, offset);
+
+// Combat pool selection
+const enemyPools = await locationService.getMatchingEnemyPools(locationId, combatLevel);
+const enemies = await locationService.getEnemyPoolMembers(poolIds);
+const selectedEnemy = locationService.selectRandomEnemy(poolMembers);
+
+// Loot pool selection
+const lootPools = await locationService.getMatchingLootPools(locationId, combatLevel);
+const lootEntries = await locationService.getLootPoolEntries(poolIds);
+const tierWeights = await locationService.getLootPoolTierWeights(poolIds);
+const drops = locationService.selectRandomLoot(lootEntries, tierWeights, enemyStyleId, dropCount);
+const styleName = await locationService.getStyleName(styleId);
+```
+
+**Key Features:**
+- PostGIS geography queries (ST_DWithin for efficient spatial search)
+- Universal + location-specific pool matching
+- Weighted random enemy selection by spawn_weight
+- Tier weight application to base drop weights
+- Style inheritance from enemy to material drops
+- Aggregated pool operations (future RPC optimization)
 
 ### EquipmentService
-- Equipment slot management (8 hardcoded slots)
-- Stat modification from equipped items
-- Validation of equipment state
+**Status:** ✅ Fully Implemented
+
+Equipment slot management (8 hardcoded slots) and stat modification.
 
 ### InventoryService
-- Player item inventory queries
-- Item discovery and filtering
-- Inventory state management
+**Status:** ✅ Fully Implemented
+
+Player item inventory queries and filtering by type, rarity, or other attributes.
 
 ### LoadoutService
-- Loadout creation, update, deletion
-- Loadout composition validation
-- Active loadout tracking
+**Status:** ✅ Fully Implemented
 
-### MaterialService (Not Implemented)
-- Material stack management (quantity tracking)
-- Material application to items
-- Material style system handling
-- Composite key operations (user_id + material_id + style_id)
+Loadout CRUD operations with composition validation and active loadout tracking.
 
-### ItemService (Not Implemented)
-- Item creation and stat calculation
-- Item template management
-- Rarity and base level handling
+### MaterialService
+**Status:** ❌ Not Implemented
 
-### StatsService (Not Implemented)
-- Stat normalization algorithms
-- Modifier calculation from materials
-- Combat stat derivation
+Material stack management, application to items, and style system.
 
-### ImageGenerationService (Not Implemented)
-- Replicate/OpenAI integration
-- R2 storage upload
-- Image cache management
+**Planned Responsibilities:**
+- Material stack CRUD (composite key: user_id + material_id + style_id)
+- Apply materials to items (max 3 per item, slot 0-2)
+- Material-to-item stat modifier application
+- Style inheritance and system management
 
-## Material Application System (MVP0)
-
-**Composite Key:** `(user_id, material_id, style_id)` in MaterialStacks
-
-**Flow:**
+**MVP0 Material Application Flow:**
 1. Check MaterialStacks for availability
 2. Decrement stack quantity
-3. Create MaterialInstance
-4. Insert into ItemMaterials
+3. Create MaterialInstance record
+4. Insert into ItemMaterials (validates slot_index 0-2)
 5. Compute combo_hash (item_type + material_ids + style_ids)
-6. Check ItemImageCache for cached image
-7. If miss: Generate (BLOCKING 20s), upload to R2, cache result
+6. Check ItemImageCache for cached combo
+7. If cache miss: Generate image (BLOCKING 20s), upload to R2, cache globally
 8. Set item.is_styled=true if any material.style_id != 'normal'
 
 **Constraints:**
-- Max 3 materials per item (ItemMaterials.slot_index: 0-2)
-- Styles stack separately (same material + different style = separate stack)
+- Max 3 materials per item
+- Styles stack separately (same material + different style = separate MaterialStack entry)
 - 100% drop rate (MVP0 simplification)
+
+### ItemService
+**Status:** ❌ Not Implemented
+
+Item creation, stat calculation, and item template management.
+
+### StatsService
+**Status:** ❌ Not Implemented
+
+Stat normalization, modifier calculation from materials, combat stat derivation.
+
+### ImageGenerationService
+**Status:** ❌ Not Implemented
+
+AI image generation (Replicate/OpenAI), R2 storage, image cache management.
 
 ## Testing Services
 
@@ -183,3 +247,6 @@ describe('EquipmentService', () => {
 - **Async/Await:** All database operations are async
 - **No `any` Types:** Use proper types from database.types.ts
 - **Module Resolution:** Import with `.js` extensions even in TypeScript
+- **Combat Session TTL:** 15 minutes (PostgreSQL TTL with auto-cleanup)
+- **Reward Transactions:** Applied atomically; session deleted only after rewards succeed
+- **Equipment Snapshot:** Captured at combat start for analytics and session recovery

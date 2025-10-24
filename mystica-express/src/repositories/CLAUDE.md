@@ -48,7 +48,7 @@ export class ItemRepository extends BaseRepository<Item> {
 - **ProgressionRepository** - Level, experience, unlocks
 
 ### World & Items
-- **LocationRepository** - Geospatial queries, enemy spawning
+- **LocationRepository** - Geospatial queries, enemy/loot pool matching, weighted random selection
 - **LoadoutRepository** - Saved equipment configurations
 - **PetRepository** - Pet inventory, active pet state
 
@@ -72,6 +72,32 @@ async equipItem(userId: string, itemId: string, slot: EquipmentSlot) {
 }
 ```
 
+### LocationRepository Pool Systems
+Two complementary systems for combat rewards:
+
+**Enemy Pools:** Determine which enemies spawn at a location
+- Query via `location + combat_level` filters
+- Pool filters: `universal` (always match) | `location_type` | `state` | `country`
+- Members have spawn weights; use `selectRandomEnemy()` for weighted selection
+
+**Loot Pools:** Determine drops from defeated enemies
+- Query via same location + level filters
+- Entries have drop weights and reference materials/item_types
+- Tier weights multiply material drops by `MaterialStrengthTiers` (common, uncommon, rare, epic, legendary)
+- Loot drops inherit `style_id` from enemy; use `selectRandomLoot()` for multi-drop selection
+
+**Weighted Random Selection Pattern:**
+```typescript
+// Generic algorithm used by both systems
+const totalWeight = entries.reduce((sum, e) => sum + e.weight, 0);
+const randomValue = Math.random() * totalWeight;
+let currentWeight = 0;
+for (const entry of entries) {
+  currentWeight += entry.weight;
+  if (randomValue <= currentWeight) return entry; // Selected
+}
+```
+
 ### Filters & Options
 `findMany()` supports:
 ```typescript
@@ -91,6 +117,7 @@ Throw custom errors from `src/utils/errors.ts`:
 - `NotFoundError` - Entity doesn't exist
 - `ValidationError` - Data invalid
 - `UnauthorizedError` - User lacks permission
+- `DatabaseError` - Supabase query failed
 
 ## Testing
 - Unit tests: `tests/unit/repositories/{Entity}Repository.test.ts`
