@@ -2,7 +2,7 @@ title: Technical Specification - Combat System
 template: ~/.claude/file-templates/init-project/feature-spec/feature-title.yaml
 feature_id: F-02
 status: in-progress
-last_updated: 2025-10-21
+last_updated: 2025-10-23
 
 summary: "Turn-based combat with level selection and weapon-specific timing dial mechanics. Player selects combat level (1-20), random enemy chosen from pool. MVP0 uses single_arc pattern only, constant dial speed. Combat UI shows only HP (not full stats). Player taps moving dial with zone-based outcomes. Enemy counterattacks after player turn. Combat ends when either HP reaches 0."
 
@@ -144,12 +144,31 @@ detailed_design:
     - High accuracy (e.g., 30+): Small injure/miss zones, large crit zone
     - Formula uses diminishing returns: accuracy scales bands but not linearly
 
-    UI Requirements:
-    - Dial color coding: injure=#FF4444 (red), miss=#666666 (gray), graze=#FFAA44 (yellow), normal=#FFFFFF (white), crit=#44FF44 (green)
-    - Haptic feedback: Heavy impact on crit, light impact on normal, no haptic on miss
-    - Animation: Screen flash on crit hit, damage number glow effect
+    UI Requirements (Updated 2025-10-23):
+    - Dial color coding (5 zones): red (injure), orange (miss), yellow (graze), bright green (normal), dark green (crit)
+    - Haptic feedback: Heavy impact on crit, light impact on normal/graze, no haptic on miss/injure
     - Visual indicator: Moving pointer/needle shows current tap position on dial
     - Zone size visualization: Clearly delineate band boundaries with gradients or lines
+
+    Visual Feedback - Attack Phase:
+    - Dial zone flash: Tapped zone flashes white (0.1s pulse)
+    - Damage numbers: Float up from enemy sprite (0.5s) with color coding (dark green=crit, bright green=normal, yellow=graze, orange="MISS!", red=injure on player)
+    - Enemy shake: Horizontal shake on successful hits (0.2s, ±5px)
+    - HP bar animation: Smooth 0.3s easeOut animation
+    - Audio cues: hit/miss/crit sounds via AudioManager
+
+    Visual Feedback - Defense Transition:
+    - "DEFEND NOW!" text: Slides in from top (bold, 36pt), pulses once, fades out
+    - Enemy glow: Red glow effect indicating incoming attack
+    - Dial fade in: 0.3s fade with defense accuracy zone sizing
+    - 1s pause between attack and defense phases
+
+    Visual Feedback - Defense Phase:
+    - Shield icon: Appears over player sprite (0.2s scale in) with color based on effectiveness (dark green=best, red=worst)
+    - Damage numbers: Green "+X blocked" and red "-X damage" float up from player
+    - Shield fade: 0.3s fade out
+    - HP bar animation: Smooth 0.3s easeOut
+    - Haptic + audio feedback based on defense effectiveness
 
 dependencies:
   libraries: "SwiftUI for animations, Haptic feedback (UIImpactFeedbackGenerator)"
@@ -178,9 +197,9 @@ implementation_status:
     - "Routes, controllers, and services fully implemented and tested"
     - "Counterattacks on non-injure hits with automatic enemy damage calculation"
     - "Combat session recovery for app backgrounding (15min TTL)"
-  in_progress_components: []
-  blocked_items:
-    - "Frontend SwiftUI combat UI (not started)"
+  in_progress_components:
+    - "Frontend SwiftUI combat UI - Requirements defined in docs/plans/implement-F-02-requirements.md"
+  blocked_items: []
   notes:
     - "✅ Backend 100% complete and production-ready with all weapon configs"
     - "✅ Weapon configs: 4/4 ItemTypes complete (Enormous Key, Gatling Gun, Sword, Wooden Stick)"
