@@ -11,172 +11,103 @@ import SwiftUI
 import Combine
 
 /**
- * SpriteAnimationGenerator - Swift class for creating simple forward-looping sprite animations
- * Can be called dynamically from other Swift code to generate UI-ready animations
+ * SpriteAnimationGenerator - Swift class for creating sprite animations from remote URLs
+ * Handles loading sprite frames from R2 storage and creating animated SpriteKit nodes
  */
 class SpriteAnimationGenerator {
     
+    // MARK: - Animation Source Types
+    
     /**
-     * Creates a simple forward-looping SKAction animation from sprite frames
-     * 
-     * - Parameters:
-     *   - folderPath: Path to folder containing sprite frames
-     *   - frameRate: Frames per second (default: 12)
-     * - Returns: SKAction that can be run on SKSpriteNode
+     * Defines different sources for loading sprite animations
      */
-    static func createLoopingAnimation(
-        from folderPath: String,
-        frameRate: Double = 12.0
-    ) -> SKAction? {
-        
-        // Get all image files from the folder
-        guard let imageFiles = getImageFiles(from: folderPath) else {
-            print("❌ Failed to load images from: \(folderPath)")
-            return nil
-        }
-        
-        guard !imageFiles.isEmpty else {
-            print("❌ No image files found in: \(folderPath)")
-            return nil
-        }
-        
-        print("🎬 Found \(imageFiles.count) frames in \(folderPath)")
-        
-        // Create texture array
-        var textures: [SKTexture] = []
-        
-        for imageFile in imageFiles {
-            guard let image = loadImage(from: imageFile) else {
-                print("⚠️ Failed to load image: \(imageFile)")
-                continue
-            }
-            
-            let texture = createTexture(from: image)
-            textures.append(texture)
-        }
-        
-        guard !textures.isEmpty else {
-            print("❌ No valid textures created")
-            return nil
-        }
-        
-        // Create animation action
-        let frameTime = 1.0 / frameRate
-        let animateAction = SKAction.animate(with: textures, timePerFrame: frameTime)
-        
-        // Create looping action
-        let loopAction = SKAction.repeatForever(animateAction)
-        
-        print("✅ Created forward looping animation with \(textures.count) frames")
-        return loopAction
+    enum AnimationSource {
+        case urls([URL])                           // Direct array of frame URLs
+        case atlas(URL, frameCount: Int)          // Atlas directory with known frame count
+        case atlasWithDetection(URL)              // Atlas directory with dynamic frame detection
     }
     
-    /**
-     * Creates a sprite node with looping animation
-     * 
-     * - Parameters:
-     *   - folderPath: Path to folder containing sprite frames
-     *   - frameRate: Frames per second (default: 12)
-     * - Returns: SKSpriteNode with animation, or nil if failed
-     */
-    static func createAnimatedSprite(
-        from folderPath: String,
-        frameRate: Double = 12.0
-    ) -> SKSpriteNode? {
-        
-        print("🎬 Creating animated sprite from: \(folderPath)")
-        
-        // Get first frame for initial texture
-        guard let imageFiles = getImageFiles(from: folderPath) else {
-            print("❌ Failed to load first frame from: \(folderPath)")
-            return nil
-        }
-        
-        guard let firstImage = loadImage(from: imageFiles[0]) else {
-            print("❌ Failed to load first frame from: \(folderPath)")
-            return nil
-        }
-        
-        let spriteNode = SKSpriteNode(texture: createTexture(from: firstImage))
-        
-        // Add looping animation
-        guard let animation = createLoopingAnimation(from: folderPath, frameRate: frameRate) else {
-            print("❌ Failed to create animation")
-            return nil
-        }
-        
-        spriteNode.run(animation)
-        print("✅ Successfully created animated sprite")
-        return spriteNode
-    }
+    // MARK: - Consolidated Animation Loading Method
     
     /**
-     * Creates a SwiftUI-compatible animated view using SpriteKit
+     * Creates a sprite node with animation from various sources
      * 
      * - Parameters:
-     *   - folderPath: Path to folder containing sprite frames
+     *   - source: Source of the animation (URLs, atlas with count, or atlas with detection)
      *   - frameRate: Frames per second (default: 12)
-     *   - size: Size of the animated view
-     * - Returns: SKView with animated sprite, or nil if failed
-     */
-    static func createAnimatedView(
-        from folderPath: String,
-        frameRate: Double = 12.0,
-        size: CGSize = CGSize(width: 100, height: 100)
-    ) -> SKView? {
-        
-        let skView = SKView(frame: CGRect(origin: .zero, size: size))
-        let scene = SKScene(size: size)
-        scene.backgroundColor = .clear
-        
-        guard let animatedSprite = createAnimatedSprite(from: folderPath, frameRate: frameRate) else {
-            return nil
-        }
-        
-        // Center the sprite
-        animatedSprite.position = CGPoint(x: size.width / 2, y: size.height / 2)
-        scene.addChild(animatedSprite)
-        
-        skView.presentScene(scene)
-        return skView
-    }
-    
-    // MARK: - Remote Animation Loading Methods
-    
-    /**
-     * Creates a sprite node with animation loaded from remote URLs
-     * 
-     * - Parameters:
-     *   - frameUrls: Array of URLs to sprite frame images
-     *   - frameRate: Frames per second (default: 12)
+     *   - targetSize: Target size for the sprite (optional, maintains original size if nil)
      *   - completion: Completion handler with the created sprite node
      */
-    static func createAnimatedSpriteFromURLs(
-        frameUrls: [URL],
+    static func createAnimatedSprite(
+        source: AnimationSource,
         frameRate: Double = 12.0,
+        targetSize: CGSize? = nil,
         completion: @escaping (SKSpriteNode?) -> Void
     ) {
-        print("🌐 Loading animation from \(frameUrls.count) remote URLs")
-        
+        switch source {
+        case .urls(let frameUrls):
+            loadAnimationFromURLs(frameUrls: frameUrls, frameRate: frameRate, targetSize: targetSize, completion: completion)
+            
+        case .atlas(let atlasURL, let frameCount):
+            let frameURLs = R2AnimationLoader.shared.generateAtlasFrameURLs(atlasURL: atlasURL, frameCount: frameCount)
+            guard !frameURLs.isEmpty else {
+                completion(nil)
+                return
+            }
+            loadAnimationFromURLs(frameUrls: frameURLs, frameRate: frameRate, targetSize: targetSize, completion: completion)
+            
+        case .atlasWithDetection(let atlasURL):
+            R2AnimationLoader.shared.detectFrameCount(atlasURL: atlasURL) { frameCount in
+                guard frameCount > 0 else {
+                    completion(nil)
+                    return
+                }
+                let frameURLs = R2AnimationLoader.shared.generateAtlasFrameURLs(atlasURL: atlasURL, frameCount: frameCount)
+                loadAnimationFromURLs(frameUrls: frameURLs, frameRate: frameRate, targetSize: targetSize, completion: completion)
+            }
+        }
+    }
+    
+    /**
+     * Private helper method that handles the actual texture loading and sprite creation
+     */
+    private static func loadAnimationFromURLs(
+        frameUrls: [URL],
+        frameRate: Double,
+        targetSize: CGSize?,
+        completion: @escaping (SKSpriteNode?) -> Void
+    ) {
         let group = DispatchGroup()
         var textures: [SKTexture] = []
         var errors: [Error] = []
         
-        for (index, url) in frameUrls.enumerated() {
+        for (_, url) in frameUrls.enumerated() {
             group.enter()
+            
             
             URLSession.shared.dataTask(with: url) { data, response, error in
                 defer { group.leave() }
                 
                 if let error = error {
-                    print("❌ Failed to load frame \(index) from \(url): \(error)")
                     errors.append(error)
                     return
                 }
                 
-                guard let data = data,
-                      let image = UIImage(data: data) else {
-                    print("❌ Failed to create image from data for frame \(index)")
+                guard let httpResponse = response as? HTTPURLResponse else {
+                    return
+                }
+                
+                
+                if httpResponse.statusCode != 200 {
+                    return
+                }
+                
+                guard let data = data else {
+                    return
+                }
+                
+                
+                guard let image = UIImage(data: data) else {
                     return
                 }
                 
@@ -187,15 +118,25 @@ class SpriteAnimationGenerator {
         
         group.notify(queue: .main) {
             guard !textures.isEmpty else {
-                print("❌ No textures loaded successfully")
                 completion(nil)
                 return
             }
             
-            print("✅ Successfully loaded \(textures.count) textures")
             
             // Create sprite node with first texture
             let spriteNode = SKSpriteNode(texture: textures[0])
+            
+            // Apply scaling if target size is specified
+            if let targetSize = targetSize {
+                let originalSize = spriteNode.size
+                let uniformScale = calculateOptimalScale(
+                    originalSize: originalSize,
+                    targetSize: targetSize,
+                    scalingMode: .fit
+                )
+                spriteNode.setScale(uniformScale)
+                
+            }
             
             // Create animation
             let frameTime = 1.0 / frameRate
@@ -207,143 +148,71 @@ class SpriteAnimationGenerator {
         }
     }
     
+    // MARK: - Scaling Helper Methods
+    
     /**
-     * Creates a SwiftUI-compatible animated view from remote URLs
+     * Calculate optimal scale for sprite to fit target size
      * 
      * - Parameters:
-     *   - frameUrls: Array of URLs to sprite frame images
-     *   - frameRate: Frames per second (default: 12)
-     *   - size: Size of the animated view
-     *   - completion: Completion handler with the created SKView
+     *   - originalSize: Original size of the sprite
+     *   - targetSize: Target size to fit into
+     *   - scalingMode: How to scale the sprite
+     * - Returns: Scale factor to apply to sprite
      */
-    static func createAnimatedViewFromURLs(
-        frameUrls: [URL],
-        frameRate: Double = 12.0,
-        size: CGSize = CGSize(width: 100, height: 100),
-        completion: @escaping (SKView?) -> Void
-    ) {
-        createAnimatedSpriteFromURLs(frameUrls: frameUrls, frameRate: frameRate) { spriteNode in
-            guard let spriteNode = spriteNode else {
-                completion(nil)
-                return
-            }
-            
-            let skView = SKView(frame: CGRect(origin: .zero, size: size))
-            let scene = SKScene(size: size)
-            scene.backgroundColor = .clear
-            
-            spriteNode.position = CGPoint(x: size.width / 2, y: size.height / 2)
-            scene.addChild(spriteNode)
-            
-            skView.presentScene(scene)
-            completion(skView)
-        }
-    }
-    
-    // MARK: - Private Helper Methods
-    
-    private static func getImageFiles(from folderPath: String) -> [String]? {
-        print("🔍 Looking for images in: \(folderPath)")
-        let fileManager = FileManager.default
-        let url = URL(fileURLWithPath: folderPath)
+    static func calculateOptimalScale(
+        originalSize: CGSize,
+        targetSize: CGSize,
+        scalingMode: ScalingMode = .fit
+    ) -> CGFloat {
+        let scaleX = targetSize.width / originalSize.width
+        let scaleY = targetSize.height / originalSize.height
         
-        do {
-            let files = try fileManager.contentsOfDirectory(at: url, includingPropertiesForKeys: nil)
-            print("📁 Found \(files.count) files in directory")
-            
-            // Filter for image files and sort by name
-            let imageFiles = files
-                .filter { file in
-                    let pathExtension = file.pathExtension.lowercased()
-                    return ["png", "jpg", "jpeg"].contains(pathExtension)
-                }
-                .sorted { $0.lastPathComponent < $1.lastPathComponent }
-                .map { $0.path }
-            
-            print("🖼️ Found \(imageFiles.count) image files")
-            return imageFiles
-        } catch {
-            print("❌ Error reading directory: \(error)")
-            return nil
+        switch scalingMode {
+        case .fit:
+            // Maintain aspect ratio, fit entirely within target size
+            return min(scaleX, scaleY)
+        case .fill:
+            // Maintain aspect ratio, fill entire target size (may crop)
+            return max(scaleX, scaleY)
+        case .stretch:
+            // Stretch to exact target size (may distort)
+            return scaleX // Use X scale, Y will be handled separately
+        case .none:
+            // No scaling
+            return 1.0
         }
     }
     
-    private static func loadImage(from path: String) -> Any? {
-        #if canImport(UIKit)
-        return UIImage(contentsOfFile: path)
-        #elseif canImport(AppKit)
-        return NSImage(contentsOfFile: path)
-        #else
-        return nil
-        #endif
+    /**
+     * Scaling modes for sprite fitting
+     */
+    enum ScalingMode {
+        case fit      // Maintain aspect ratio, fit within bounds
+        case fill     // Maintain aspect ratio, fill bounds (may crop)
+        case stretch  // Stretch to exact size (may distort)
+        case none     // No scaling
     }
     
-    private static func createTexture(from image: Any) -> SKTexture {
-        #if canImport(UIKit)
-        return SKTexture(image: image as! UIImage)
-        #elseif canImport(AppKit)
-        return SKTexture(image: image as! NSImage)
-        #else
-        fatalError("Unsupported platform")
-        #endif
-    }
 }
 
-// MARK: - SwiftUI Integration
 
-#if canImport(SwiftUI)
-struct AnimatedSpriteView: View {
-    let folderPath: String
-    let frameRate: Double
-    let size: CGSize
-    
-    init(
-        folderPath: String,
-        frameRate: Double = 12.0,
-        size: CGSize = CGSize(width: 100, height: 100)
-    ) {
-        self.folderPath = folderPath
-        self.frameRate = frameRate
-        self.size = size
-    }
-    
-    var body: some View {
-        SpriteView(scene: createScene())
-            .frame(width: size.width, height: size.height)
-    }
-    
-    private func createScene() -> SKScene {
-        let scene = SKScene(size: size)
-        scene.backgroundColor = .clear
-        
-        if let animatedSprite = SpriteAnimationGenerator.createAnimatedSprite(
-            from: folderPath,
-            frameRate: frameRate
-        ) {
-            animatedSprite.position = CGPoint(x: size.width / 2, y: size.height / 2)
-            scene.addChild(animatedSprite)
-        }
-        
-        return scene
-    }
-}
+// MARK: - Dynamic Frame Detection SwiftUI View
 
-// MARK: - Remote Animation SwiftUI View
-
-struct RemoteAnimatedSpriteView: View {
-    let frameUrls: [URL]
+struct DynamicAtlasAnimatedSpriteView: View {
+    let atlasURL: URL
     let frameRate: Double
     let size: CGSize
     @State private var skView: SKView?
     @State private var isLoading = true
     @State private var hasError = false
+    @State private var detectedFrameCount = 0
     
     init(
-        frameUrls: [URL],
+        atlasURL: URL,
         frameRate: Double = 12.0,
         size: CGSize = CGSize(width: 100, height: 100)
     ) {
-        self.frameUrls = frameUrls
+        self.atlasURL = atlasURL
         self.frameRate = frameRate
         self.size = size
     }
@@ -351,37 +220,63 @@ struct RemoteAnimatedSpriteView: View {
     var body: some View {
         ZStack {
             if isLoading {
-                ProgressView("Loading animation...")
-                    .frame(width: size.width, height: size.height)
+                VStack(spacing: 8) {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                    Text("Detecting frames...")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    if detectedFrameCount > 0 {
+                        Text("Found \(detectedFrameCount) frames")
+                            .font(.caption2)
+                            .foregroundColor(.blue)
+                    }
+                }
+                .frame(width: size.width, height: size.height)
             } else if hasError {
                 RoundedRectangle(cornerRadius: 8)
                     .fill(Color.red.opacity(0.1))
                     .frame(width: size.width, height: size.height)
                     .overlay(
-                        Text("Failed to load animation")
-                            .foregroundColor(.red)
-                            .font(.caption)
+                        VStack(spacing: 4) {
+                            Text("Failed to load animation")
+                                .foregroundColor(.red)
+                                .font(.caption)
+                            if detectedFrameCount > 0 {
+                                Text("Detected \(detectedFrameCount) frames")
+                                    .foregroundColor(.orange)
+                                    .font(.caption2)
+                            }
+                        }
                     )
-            } else if let skView = skView {
-                SpriteView(scene: skView.scene)
+            } else if let skView = skView, let scene = skView.scene {
+                SpriteView(scene: scene)
                     .frame(width: size.width, height: size.height)
             }
         }
         .onAppear {
-            loadAnimation()
+            loadAtlasAnimationWithDetection()
         }
     }
     
-    private func loadAnimation() {
-        SpriteAnimationGenerator.createAnimatedViewFromURLs(
-            frameUrls: frameUrls,
+    private func loadAtlasAnimationWithDetection() {
+        SpriteAnimationGenerator.createAnimatedSprite(
+            source: .atlasWithDetection(atlasURL),
             frameRate: frameRate,
-            size: size
-        ) { loadedSkView in
+            targetSize: size
+        ) { spriteNode in
             DispatchQueue.main.async {
                 isLoading = false
-                if let loadedSkView = loadedSkView {
-                    self.skView = loadedSkView
+                if let spriteNode = spriteNode {
+                    let skView = SKView(frame: CGRect(origin: .zero, size: size))
+                    let scene = SKScene(size: size)
+                    scene.backgroundColor = .clear
+                    
+                    spriteNode.position = CGPoint(x: size.width / 2, y: size.height / 2)
+                    scene.addChild(spriteNode)
+                    
+                    skView.presentScene(scene)
+                    self.skView = skView
                 } else {
                     hasError = true
                 }
@@ -389,4 +284,4 @@ struct RemoteAnimatedSpriteView: View {
         }
     }
 }
-#endif
+
