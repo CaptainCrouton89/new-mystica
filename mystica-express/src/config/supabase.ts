@@ -66,7 +66,7 @@ export const testDatabaseConnection = async (): Promise<boolean> => {
     return true;
   } catch (error) {
     console.error('❌ Supabase database connection failed:', error);
-    return false;
+    throw new Error(`Database connection failed: ${error instanceof Error ? error.message : String(error)}`);
   }
 };
 

@@ -83,7 +83,7 @@ export const testR2Connection = async (): Promise<boolean> => {
     return true;
   } catch (error) {
     console.error('❌ R2 bucket connection failed:', error);
-    return false;
+    throw new Error(`R2 connection failed: ${error instanceof Error ? error.message : String(error)}`);
   }
 };
 
