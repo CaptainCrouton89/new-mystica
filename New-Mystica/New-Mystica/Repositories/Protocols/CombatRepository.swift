@@ -19,16 +19,16 @@ protocol CombatRepository {
     /// Perform attack action during combat
     /// - Parameters:
     ///   - sessionId: Active combat session ID
-    ///   - timingScore: Player timing dial score (0.0-1.0)
+    ///   - tapPositionDegrees: Player tap position on dial (0-360 degrees)
     /// - Returns: Combat action result with damage and updated HP
-    func performAttack(sessionId: String, timingScore: Double) async throws -> CombatAction
+    func performAttack(sessionId: String, tapPositionDegrees: Float) async throws -> CombatAction
 
     /// Perform defense action during combat
     /// - Parameters:
     ///   - sessionId: Active combat session ID
-    ///   - timingScore: Player timing dial score (0.0-1.0)
+    ///   - tapPositionDegrees: Player tap position on dial (0-360 degrees)
     /// - Returns: Combat action result with damage reduced and updated HP
-    func performDefense(sessionId: String, timingScore: Double) async throws -> CombatAction
+    func performDefense(sessionId: String, tapPositionDegrees: Float) async throws -> CombatAction
 
     /// Complete combat and claim rewards
     /// - Parameters:

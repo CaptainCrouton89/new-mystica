@@ -42,20 +42,20 @@ final class DefaultCombatRepository: CombatRepository {
         return response
     }
 
-    func performAttack(sessionId: String, timingScore: Double) async throws -> CombatAction {
+    func performAttack(sessionId: String, tapPositionDegrees: Float) async throws -> CombatAction {
         struct AttackRequest: Encodable {
             let sessionId: String
-            let attackAccuracy: Double
+            let tapPositionDegrees: Float
 
             enum CodingKeys: String, CodingKey {
                 case sessionId = "session_id"
-                case attackAccuracy = "attack_accuracy"
+                case tapPositionDegrees = "tap_position_degrees"
             }
         }
 
         let request = AttackRequest(
             sessionId: sessionId,
-            attackAccuracy: timingScore
+            tapPositionDegrees: tapPositionDegrees
         )
 
         let response: AttackResult = try await apiClient.post(
@@ -67,24 +67,26 @@ final class DefaultCombatRepository: CombatRepository {
             type: .attack,
             performerId: "player",
             damageDealt: response.damageDealt,
-            result: response.combatStatus
+            result: response.combatStatus,
+            hitZone: response.hitZone,
+            damageBlocked: nil
         )
     }
 
-    func performDefense(sessionId: String, timingScore: Double) async throws -> CombatAction {
+    func performDefense(sessionId: String, tapPositionDegrees: Float) async throws -> CombatAction {
         struct DefenseRequest: Encodable {
             let sessionId: String
-            let defenseAccuracy: Double
+            let tapPositionDegrees: Float
 
             enum CodingKeys: String, CodingKey {
                 case sessionId = "session_id"
-                case defenseAccuracy = "defense_accuracy"
+                case tapPositionDegrees = "tap_position_degrees"
             }
         }
 
         let request = DefenseRequest(
             sessionId: sessionId,
-            defenseAccuracy: timingScore
+            tapPositionDegrees: tapPositionDegrees
         )
 
         let response: DefenseResult = try await apiClient.post(
@@ -96,7 +98,9 @@ final class DefaultCombatRepository: CombatRepository {
             type: .defend,
             performerId: "player",
             damageDealt: response.damageTaken,
-            result: response.combatStatus
+            result: response.combatStatus,
+            hitZone: nil, // Defense doesn't have hit zones like attack
+            damageBlocked: response.damageBlocked
         )
     }
 

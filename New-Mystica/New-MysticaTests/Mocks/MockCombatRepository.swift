@@ -41,8 +41,8 @@ class MockCombatRepository: CombatRepository {
     var getUserActiveSessionCallCount = 0
     var abandonCombatCallCount = 0
     var lastInitiatedCombatParams: (locationId: String, selectedLevel: Int)?
-    var lastAttackParams: (sessionId: String, timingScore: Double)?
-    var lastDefenseParams: (sessionId: String, timingScore: Double)?
+    var lastAttackParams: (sessionId: String, tapPositionDegrees: Float)?
+    var lastDefenseParams: (sessionId: String, tapPositionDegrees: Float)?
     var lastCompleteCombatParams: (sessionId: String, won: Bool)?
     var lastFetchedSessionId: String?
     var lastRetreatSessionId: String?
@@ -86,9 +86,9 @@ class MockCombatRepository: CombatRepository {
         return mockCombatSession
     }
 
-    func performAttack(sessionId: String, timingScore: Double) async throws -> CombatAction {
+    func performAttack(sessionId: String, tapPositionDegrees: Float) async throws -> CombatAction {
         performAttackCallCount += 1
-        lastAttackParams = (sessionId: sessionId, timingScore: timingScore)
+        lastAttackParams = (sessionId: sessionId, tapPositionDegrees: tapPositionDegrees)
 
         if performAttackDelayMs > 0 {
             try await Task.sleep(nanoseconds: UInt64(performAttackDelayMs * 1_000_000))
@@ -117,9 +117,9 @@ class MockCombatRepository: CombatRepository {
         return mockCombatAction
     }
 
-    func performDefense(sessionId: String, timingScore: Double) async throws -> CombatAction {
+    func performDefense(sessionId: String, tapPositionDegrees: Float) async throws -> CombatAction {
         performDefenseCallCount += 1
-        lastDefenseParams = (sessionId: sessionId, timingScore: timingScore)
+        lastDefenseParams = (sessionId: sessionId, tapPositionDegrees: tapPositionDegrees)
 
         if performDefenseDelayMs > 0 {
             try await Task.sleep(nanoseconds: UInt64(performDefenseDelayMs * 1_000_000))

@@ -165,12 +165,16 @@ struct CombatAction: APIModel {
     let performerId: String
     let damageDealt: Double?
     let result: String?
+    let hitZone: String? // For tracking zone hit for haptic/audio feedback
+    let damageBlocked: Double? // For defense tracking
 
     enum CodingKeys: String, CodingKey {
         case type
         case performerId = "performer_id"
         case damageDealt = "damage_dealt"
         case result
+        case hitZone = "hit_zone"
+        case damageBlocked = "damage_blocked"
     }
 }
 
