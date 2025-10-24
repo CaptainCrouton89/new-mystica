@@ -45,6 +45,14 @@ export class CombatController {
 
       const attackResult = await combatService.executeAttack(session_id, tap_position_degrees);
 
+      logger.info('📤 Attack response', {
+        sessionId: session_id,
+        combatStatus: attackResult.combat_status,
+        playerHP: attackResult.player_hp_remaining,
+        enemyHP: attackResult.enemy_hp_remaining,
+        hasRewards: !!attackResult.rewards
+      });
+
       res.json(attackResult);
 
     } catch (error) {
@@ -125,6 +133,14 @@ export class CombatController {
       const { session_id, tap_position_degrees } = req.body as DefenseRequest;
 
       const defenseResult = await combatService.executeDefense(session_id, tap_position_degrees);
+
+      logger.info('📤 Defense response', {
+        sessionId: session_id,
+        combatStatus: defenseResult.combat_status,
+        playerHP: defenseResult.player_hp_remaining,
+        enemyHP: defenseResult.enemy_hp_remaining,
+        hasRewards: !!defenseResult.rewards
+      });
 
       res.json(defenseResult);
 

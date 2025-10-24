@@ -110,66 +110,63 @@ export interface AttackResult {
  *
  * @interface CombatRewards
  * @property {string} result - Combat outcome ('victory' or 'defeat')
- * @property {object} [rewards] - Reward data (only present for victory)
- * @property {object} rewards.currencies - Currency rewards with extensible structure
- * @property {number} rewards.currencies.gold - Gold amount earned
- * @property {Array} rewards.materials - Material drops with style inheritance
- * @property {Array} rewards.items - Item drops from loot pools with full details
- * @property {number} rewards.experience - Experience points earned
- * @property {object} rewards.combat_history - Updated combat statistics for location
+ * @property {object} [currencies] - Currency rewards (only present for victory)
+ * @property {number} currencies.gold - Gold amount earned
+ * @property {Array} [materials] - Material drops with style inheritance (only present for victory)
+ * @property {Array} [items] - Item drops from loot pools with full details (only present for victory)
+ * @property {number} [experience] - Experience points earned (only present for victory)
+ * @property {object} combat_history - Updated combat statistics for location
  */
 export interface CombatRewards {
   result: 'victory' | 'defeat';
-  rewards?: {
-    /** Currency rewards with extensible structure for future currencies */
-    currencies: {
-      /** Gold amount earned from combat */
-      gold: number;
-      // Future: gems, premium_currency, event_tokens
-    };
-    /** Material drops with style inheritance from enemy */
-    materials: Array<{
-      /** Material UUID from Materials table */
-      material_id: string;
-      /** Display name of the material */
-      name: string;
-      /** Style UUID inherited from enemy */
-      style_id: string;
-      /** Display name of the style */
-      style_name: string;
-    }>;
-    /** Item drops from loot pools with full item details */
-    items: Array<{
-      /** Item type UUID from ItemTypes table */
-      item_type_id: string;
-      /** Display name of the item */
-      name: string;
-      /** Item category (weapon, armor, accessory, etc.) */
-      category: string;
-      /** Item rarity (common, uncommon, rare, epic, legendary) */
-      rarity: string;
-      /** Style UUID inherited from enemy */
-      style_id: string;
-      /** Display name of the style */
-      style_name: string;
-    }>;
-    /** Experience points earned from combat */
-    experience: number;
-    /** Updated combat statistics for this location */
-    combat_history: {
-      /** Location UUID where combat occurred */
-      location_id: string;
-      /** Total combat attempts at this location */
-      total_attempts: number;
-      /** Total victories at this location */
-      victories: number;
-      /** Total defeats at this location */
-      defeats: number;
-      /** Current win/loss streak */
-      current_streak: number;
-      /** Longest win streak achieved */
-      longest_streak: number;
-    };
+  /** Currency rewards with extensible structure for future currencies (only present for victory) */
+  currencies?: {
+    /** Gold amount earned from combat */
+    gold: number;
+    // Future: gems, premium_currency, event_tokens
+  };
+  /** Material drops with style inheritance from enemy (only present for victory) */
+  materials?: Array<{
+    /** Material UUID from Materials table */
+    material_id: string;
+    /** Display name of the material */
+    name: string;
+    /** Style UUID inherited from enemy */
+    style_id: string;
+    /** Display name of the style */
+    style_name: string;
+  }>;
+  /** Item drops from loot pools with full item details (only present for victory) */
+  items?: Array<{
+    /** Item type UUID from ItemTypes table */
+    item_type_id: string;
+    /** Display name of the item */
+    name: string;
+    /** Item category (weapon, armor, accessory, etc.) */
+    category: string;
+    /** Item rarity (common, uncommon, rare, epic, legendary) */
+    rarity: string;
+    /** Style UUID inherited from enemy */
+    style_id: string;
+    /** Display name of the style */
+    style_name: string;
+  }>;
+  /** Experience points earned from combat (only present for victory) */
+  experience?: number;
+  /** Updated combat statistics for this location */
+  combat_history: {
+    /** Location UUID where combat occurred */
+    location_id: string;
+    /** Total combat attempts at this location */
+    total_attempts: number;
+    /** Total victories at this location */
+    victories: number;
+    /** Total defeats at this location */
+    defeats: number;
+    /** Current win/loss streak */
+    current_streak: number;
+    /** Longest win streak achieved */
+    longest_streak: number;
   };
 }
 
@@ -246,9 +243,15 @@ export class CombatService {
    * @throws NotFoundError if location not found or no enemies available
    */
   async startCombat(userId: string, locationId: string, selectedLevel: number): Promise<CombatSession> {
+    logger.info('⚔️ Starting new combat session', { userId, locationId, selectedLevel });
+
     // Validate user doesn't have active session
     const existingSession = await this.combatRepository.getUserActiveSession(userId);
     if (existingSession) {
+      logger.warn('❌ Combat start failed: user already has active session', {
+        userId,
+        existingSessionId: existingSession.id
+      });
       throw new ConflictError('User already has an active combat session');
     }
 
@@ -292,6 +295,13 @@ export class CombatService {
 
     const sessionId = await this.combatRepository.createSession(userId, sessionData);
 
+    logger.info('✅ Combat session created successfully', {
+      sessionId,
+      userId,
+      enemyTypeId: enemy.id,
+      combatLevel: selectedLevel
+    });
+
     return {
       session_id: sessionId,
       player_id: userId,
@@ -315,11 +325,20 @@ export class CombatService {
    * @throws ValidationError if invalid attack accuracy
    */
   async executeAttack(sessionId: string, tapPositionDegrees: number): Promise<AttackResult> {
+    logger.info('🎯 Combat attack initiated', { sessionId, tapPositionDegrees });
+
     // Validate session exists and is active
     const session = await this.combatRepository.getActiveSession(sessionId);
     if (!session) {
+      logger.warn('❌ Attack failed: session not found', { sessionId });
       throw new NotFoundError('Combat session', sessionId);
     }
+
+    logger.debug('✅ Session found', {
+      sessionId,
+      userId: session.userId,
+      turnCount: session.combatLog?.length ?? 0
+    });
 
     // Validate tap position degrees
     if (tapPositionDegrees < 0 || tapPositionDegrees > 360) {
@@ -376,8 +395,18 @@ export class CombatService {
     let combatStatus: 'ongoing' | 'victory' | 'defeat' = 'ongoing';
     if (newEnemyHP <= 0) {
       combatStatus = 'victory';
+      logger.info('🎉 Combat victory!', { sessionId, finalDamage: damageDealt, hitZone });
     } else if (newPlayerHP <= 0) {
       combatStatus = 'defeat';
+      logger.info('💀 Combat defeat', { sessionId, finalDamage: damageDealt, hitZone });
+    } else {
+      logger.debug('⚔️ Combat ongoing', {
+        sessionId,
+        playerHP: newPlayerHP,
+        enemyHP: newEnemyHP,
+        hitZone,
+        damage: damageDealt
+      });
     }
 
     // Update session with new combat log entry
@@ -398,10 +427,7 @@ export class CombatService {
       combatLog: [...currentLog, newLogEntry],
     });
 
-    // Auto-complete session if combat ended
-    if (combatStatus === 'victory' || combatStatus === 'defeat') {
-      await this.combatRepository.completeSession(sessionId, combatStatus);
-    }
+    // NOTE: Session completion now happens in completeCombatInternal() to avoid duplicate calls
 
     // Log combat event
     await this.combatRepository.addLogEvent(sessionId, {
@@ -416,11 +442,15 @@ export class CombatService {
     // Apply rewards atomically before response for terminal combat states
     let rewards: CombatRewards | null = null;
     if (combatStatus === 'victory' || combatStatus === 'defeat') {
-      // Generate rewards for this combat outcome
-      rewards = await this.completeCombat(sessionId, combatStatus);
+      logger.info('💰 Generating and applying rewards', { sessionId, result: combatStatus });
+
+      // Generate rewards for this combat outcome (pass session to avoid refetch)
+      rewards = await this.completeCombatInternal(sessionId, combatStatus, session);
 
       // Apply rewards and delete session atomically
       await this.applyRewardsTransaction(session.userId, sessionId, rewards);
+
+      logger.info('✅ Session cleanup complete', { sessionId });
     }
 
     return {
@@ -456,11 +486,20 @@ export class CombatService {
     turn_number: number;
     rewards: CombatRewards | null;
   }> {
+    logger.info('🛡️ Combat defense initiated', { sessionId, tapPositionDegrees });
+
     // Validate session exists and is active
     const session = await this.combatRepository.getActiveSession(sessionId);
     if (!session) {
+      logger.warn('❌ Defense failed: session not found', { sessionId });
       throw new NotFoundError('Combat session', sessionId);
     }
+
+    logger.debug('✅ Session found for defense', {
+      sessionId,
+      userId: session.userId,
+      turnCount: session.combatLog?.length ?? 0
+    });
 
     // Validate tap position degrees
     if (tapPositionDegrees < 0 || tapPositionDegrees > 360) {
@@ -486,13 +525,14 @@ export class CombatService {
     // Calculate base enemy damage
     const baseEnemyDamage = Math.max(MIN_DAMAGE, enemyStats.atk - playerStats.defPower);
 
-    // Defense mechanics: hit zone determines damage reduction
+    // Defense mechanics: hit zone determines damage reduction/amplification
+    // Injure zone amplifies damage (like attack self-injury), good zones reduce damage significantly
     const zoneMultipliers: Record<HitBand, number> = {
-      'injure': 0.0,   // Self-injury, no block
-      'miss': 0.2,     // Minimal block
-      'graze': 0.4,    // Partial block
-      'normal': 0.6,   // Good block
-      'crit': 0.8      // Excellent block
+      'injure': -0.5,  // Self-injury: take 150% damage (50% penalty)
+      'miss': 0.0,     // Failed defense: take full damage, no block
+      'graze': 0.3,    // Partial block: reduce damage by 30%
+      'normal': 0.7,   // Good block: reduce damage by 70%
+      'crit': 0.9      // Perfect block: reduce damage by 90%
     };
     const defenseEffectiveness = zoneMultipliers[hitZone];
     const damageBlocked = Math.floor(baseEnemyDamage * defenseEffectiveness);
@@ -526,10 +566,7 @@ export class CombatService {
       combatLog: [...currentLog, newLogEntry],
     });
 
-    // Auto-complete session if combat ended
-    if (combatStatus === 'defeat') {
-      await this.combatRepository.completeSession(sessionId, combatStatus);
-    }
+    // NOTE: Session completion now happens in completeCombatInternal() to avoid duplicate calls
 
     // Log combat event
     await this.combatRepository.addLogEvent(sessionId, {
@@ -544,11 +581,15 @@ export class CombatService {
     // Apply rewards atomically before response for terminal combat states
     let rewards: CombatRewards | null = null;
     if (combatStatus === 'defeat') {
-      // Generate rewards for defeat (no rewards, but we return the structure for consistency)
-      rewards = await this.completeCombat(sessionId, combatStatus);
+      logger.info('💰 Generating and applying rewards', { sessionId, result: combatStatus });
+
+      // Generate rewards for defeat (pass session to avoid refetch)
+      rewards = await this.completeCombatInternal(sessionId, combatStatus, session);
 
       // Apply rewards and delete session atomically
       await this.applyRewardsTransaction(session.userId, sessionId, rewards);
+
+      logger.info('✅ Session cleanup complete', { sessionId });
     }
 
     return {
@@ -564,7 +605,8 @@ export class CombatService {
   }
 
   /**
-   * Complete combat and distribute rewards
+   * Complete combat and distribute rewards (PUBLIC API for controller)
+   * Fetches session from database - prefer completeCombatInternal() when session already loaded
    *
    * @param sessionId - Combat session UUID
    * @param result - Combat outcome ('victory' or 'defeat')
@@ -573,11 +615,29 @@ export class CombatService {
    * @throws ValidationError if invalid result
    */
   async completeCombat(sessionId: string, result: 'victory' | 'defeat'): Promise<CombatRewards> {
-    // Validate session exists
+    logger.info('📊 Completing combat session (public API)', { sessionId, result });
+
+    // Fetch session from database
     const session = await this.combatRepository.getActiveSession(sessionId);
     if (!session) {
       throw new NotFoundError('Combat session', sessionId);
     }
+
+    return this.completeCombatInternal(sessionId, result, session);
+  }
+
+  /**
+   * Complete combat and distribute rewards (INTERNAL method)
+   * IMPORTANT: This is called from executeAttack/executeDefense with session already loaded
+   *
+   * @param sessionId - Combat session UUID
+   * @param result - Combat outcome ('victory' or 'defeat')
+   * @param session - Pre-fetched session data (REQUIRED - avoids race condition)
+   * @returns Combat rewards and updated player history
+   * @throws ValidationError if invalid result
+   */
+  private async completeCombatInternal(sessionId: string, result: 'victory' | 'defeat', session: any): Promise<CombatRewards> {
+    logger.info('📊 Completing combat session (internal)', { sessionId, result });
 
     // Validate result
     if (result !== 'victory' && result !== 'defeat') {
@@ -601,18 +661,22 @@ export class CombatService {
     };
 
     // Generate rewards for victory
-    let rewards: CombatRewards['rewards'] | undefined;
     if (result === 'victory') {
       const baseRewards = await this.generateLoot(session.locationId, session.combatLevel, session.enemyTypeId);
-      rewards = {
-        ...baseRewards,
+      return {
+        result,
+        currencies: baseRewards.currencies,
+        materials: baseRewards.materials,
+        items: baseRewards.items,
+        experience: baseRewards.experience,
         combat_history: combatHistory,
       };
     }
 
+    // Defeat case - no rewards, only combat history
     return {
       result,
-      rewards,
+      combat_history: combatHistory,
     };
   }
 
@@ -839,7 +903,7 @@ export class CombatService {
         if (rewards.rewards.currencies.gold > 0) {
           await this.profileRepository.addCurrency(
             userId,
-            'gold',
+            'GOLD',
             rewards.rewards.currencies.gold,
             'combat_victory',
             sessionId,
@@ -890,9 +954,10 @@ export class CombatService {
       }
 
       // 6. Delete session as final step (atomic completion)
+      logger.info('🗑️ Deleting combat session', { sessionId, userId });
       await this.combatRepository.deleteSession(sessionId);
 
-      logger.info('Combat session deleted after reward application', { sessionId });
+      logger.info('✅ Combat session deleted successfully', { sessionId });
 
     } catch (error) {
       logger.error('Reward application transaction failed', {
