@@ -32,9 +32,11 @@ const mockItemType = {
   id: mockItemTypeId,
   name: 'Magic Sword',
   category: 'weapon',
-  base_stats_normalized: { atkPower: 0.6, atkAccuracy: 0.5, defPower: 0.4, defAccuracy: 0.3 },
-  rarity: 'epic',
-  description: 'A powerful magical sword'
+  base_stats_normalized: { atkPower: 0.6, atkAccuracy: 0.5, defPower: 0.4, defAccuracy: 0.3 } as any,
+  rarity: 'epic' as const,
+  description: 'A powerful magical sword',
+  base_image_url: 'https://example.com/base-image.png',
+  created_at: '2024-01-01T00:00:00Z'
 };
 
 const mockMaterialInstance = {
@@ -180,6 +182,9 @@ describe('ItemRepository', () => {
       };
 
       it('should create new item with provided data', async () => {
+        // Mock findItemTypeById to return the mock item type
+        const mockFindItemTypeById = jest.spyOn(repository, 'findItemTypeById').mockResolvedValue(mockItemType);
+
         const expectedInsert = {
           user_id: mockUserId,
           item_type_id: mockItemTypeId,
@@ -187,7 +192,7 @@ describe('ItemRepository', () => {
           is_styled: false,
           current_stats: null,
           material_combo_hash: null,
-          generated_image_url: null,
+          generated_image_url: 'https://example.com/base-image.png', // Now uses base_image_url
           image_generation_status: null
         };
 
@@ -200,9 +205,15 @@ describe('ItemRepository', () => {
 
         expect(result.level).toBe(3);
         expect(mockClient.from('items').insert).toHaveBeenCalledWith(expectedInsert);
+        expect(mockFindItemTypeById).toHaveBeenCalledWith(mockItemTypeId);
+
+        mockFindItemTypeById.mockRestore();
       });
 
       it('should create item with default level 1 when not provided', async () => {
+        // Mock findItemTypeById to return the mock item type
+        const mockFindItemTypeById = jest.spyOn(repository, 'findItemTypeById').mockResolvedValue(mockItemType);
+
         const createDataNoLevel = {
           user_id: mockUserId,
           item_type_id: mockItemTypeId
@@ -215,7 +226,7 @@ describe('ItemRepository', () => {
           is_styled: false,
           current_stats: null,
           material_combo_hash: null,
-          generated_image_url: null,
+          generated_image_url: 'https://example.com/base-image.png', // Now uses base_image_url
           image_generation_status: null
         };
 
@@ -227,15 +238,63 @@ describe('ItemRepository', () => {
         const result = await repository.create(createDataNoLevel);
 
         expect(result.level).toBe(1);
+        expect(mockFindItemTypeById).toHaveBeenCalledWith(mockItemTypeId);
+
+        mockFindItemTypeById.mockRestore();
       });
 
       it('should throw DatabaseError on creation failure', async () => {
+        // Mock findItemTypeById to return the mock item type
+        const mockFindItemTypeById = jest.spyOn(repository, 'findItemTypeById').mockResolvedValue(mockItemType);
+
         mockClient.from('items').insert(expect.any(Object)).select().single.mockResolvedValue({
           data: null,
           error: { code: 'ERROR', message: 'Insert failed' }
         });
 
         await expect(repository.create(createData)).rejects.toThrow(DatabaseError);
+
+        mockFindItemTypeById.mockRestore();
+      });
+
+      it('should create item with null generated_image_url when base_image_url is empty', async () => {
+        // Mock findItemTypeById to return item type with empty base_image_url
+        const itemTypeWithEmptyImage = { ...mockItemType, base_image_url: '' };
+        const mockFindItemTypeById = jest.spyOn(repository, 'findItemTypeById').mockResolvedValue(itemTypeWithEmptyImage);
+
+        const expectedInsert = {
+          user_id: mockUserId,
+          item_type_id: mockItemTypeId,
+          level: 3,
+          is_styled: false,
+          current_stats: null,
+          material_combo_hash: null,
+          generated_image_url: null, // Should be null when base_image_url is empty
+          image_generation_status: null
+        };
+
+        mockClient.from('items').insert(expectedInsert).select().single.mockResolvedValue({
+          data: { ...mockItemRow, level: 3 },
+          error: null
+        });
+
+        const result = await repository.create(createData);
+
+        expect(result.level).toBe(3);
+        expect(mockClient.from('items').insert).toHaveBeenCalledWith(expectedInsert);
+        expect(mockFindItemTypeById).toHaveBeenCalledWith(mockItemTypeId);
+
+        mockFindItemTypeById.mockRestore();
+      });
+
+      it('should throw DatabaseError when ItemType not found', async () => {
+        // Mock findItemTypeById to return null
+        const mockFindItemTypeById = jest.spyOn(repository, 'findItemTypeById').mockResolvedValue(null);
+
+        await expect(repository.create(createData)).rejects.toThrow(DatabaseError);
+        expect(mockFindItemTypeById).toHaveBeenCalledWith(mockItemTypeId);
+
+        mockFindItemTypeById.mockRestore();
       });
     });
 
@@ -931,7 +990,17 @@ describe('ItemRepository', () => {
 
         expect(result).toBeDefined();
         expect(result?.current_stats).toEqual(JSON.parse(mockItemRow.current_stats));
-        expect(result?.item_type).toEqual(mockItemType);
+
+        // Only check fields that transformToItemWithDetails actually returns for item_type
+        const expectedItemType = {
+          id: mockItemType.id,
+          name: mockItemType.name,
+          category: mockItemType.category,
+          base_stats_normalized: mockItemType.base_stats_normalized,
+          rarity: mockItemType.rarity,
+          description: mockItemType.description
+        };
+        expect(result?.item_type).toEqual(expectedItemType);
         expect(result?.materials[0].material.name).toBe('Crystal');
         expect(result?.materials[0].slot_index).toBe(0);
       });
