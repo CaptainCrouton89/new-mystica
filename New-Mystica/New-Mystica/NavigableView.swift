@@ -21,37 +21,40 @@ extension NavigableView {
 }
 
 // MARK: - BaseView Wrapper
-struct BaseView<Content: View>: View {
+struct BaseView<Content: View, TrailingView: View>: View {
     @Environment(\.navigationManager) private var navigationManager
     let content: Content
+    let trailingView: TrailingView?
     let navigationTitle: String
     let showBackButton: Bool
     let customBackAction: (() -> Void)?
-    
+
     init(
         title: String,
         showBackButton: Bool = true,
         customBackAction: (() -> Void)? = nil,
-        @ViewBuilder content: () -> Content
+        @ViewBuilder content: () -> Content,
+        @ViewBuilder trailingView: () -> TrailingView
     ) {
         self.content = content()
+        self.trailingView = trailingView()
         self.navigationTitle = title
         self.showBackButton = showBackButton
         self.customBackAction = customBackAction
     }
-    
+
     var body: some View {
         ZStack {
             // Background
             Color.backgroundPrimary
                 .ignoresSafeArea()
-            
+
             VStack(spacing: 0) {
                 // Header with Back Button (if needed)
                 if showBackButton {
                     headerView
                 }
-                
+
                 // Content
                 content
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -59,7 +62,7 @@ struct BaseView<Content: View>: View {
         }
         .navigationBarHidden(true)
     }
-    
+
     @ViewBuilder
     private var headerView: some View {
         HStack {
@@ -72,16 +75,41 @@ struct BaseView<Content: View>: View {
             }
             .padding(.top, 16)
             .padding(.leading, 16)
-            
+
             Spacer()
-            
+
             TitleText(navigationTitle, size: 24)
                 .padding(.top, 16)
-                .padding(.trailing, 60) // Offset for back button
-            
+
             Spacer()
+
+            if let trailing = trailingView {
+                trailing
+                    .padding(.top, 16)
+                    .padding(.trailing, 16)
+            } else {
+                // Dummy spacer to balance layout when no trailing view
+                Color.clear
+                    .frame(width: 60)
+            }
         }
         .padding(.bottom, 16)
+    }
+}
+
+// Convenience extension for BaseView without trailing view
+extension BaseView where TrailingView == EmptyView {
+    init(
+        title: String,
+        showBackButton: Bool = true,
+        customBackAction: (() -> Void)? = nil,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.content = content()
+        self.trailingView = nil
+        self.navigationTitle = title
+        self.showBackButton = showBackButton
+        self.customBackAction = customBackAction
     }
 }
 

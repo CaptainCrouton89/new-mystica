@@ -222,20 +222,24 @@ struct Currencies: APIModel {
 
 // MARK: - Item Drop Model
 struct ItemDrop: APIModel {
+    let id: String
     let itemTypeId: String
     let name: String
     let category: String
     let rarity: String
     let styleId: String
     let styleName: String
+    let generatedImageUrl: String?
 
     enum CodingKeys: String, CodingKey {
+        case id
         case itemTypeId = "item_type_id"
         case name
         case category
         case rarity
         case styleId = "style_id"
         case styleName = "style_name"
+        case generatedImageUrl = "generated_image_url"
     }
 }
 
@@ -267,12 +271,14 @@ struct MaterialDrop: APIModel {
     let name: String
     let styleId: String
     let styleName: String
+    let imageUrl: String?
 
     enum CodingKeys: String, CodingKey {
         case materialId = "material_id"
         case name
         case styleId = "style_id"
         case styleName = "style_name"
+        case imageUrl = "image_url"
     }
 }
 

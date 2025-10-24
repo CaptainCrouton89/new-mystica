@@ -166,9 +166,6 @@ private struct CurrencySection: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            TitleText("Currencies", size: 22)
-                .foregroundColor(.textPrimary)
-
             // Gold Card
             HStack(spacing: 16) {
                 // Coin Icon
@@ -240,15 +237,27 @@ private struct ItemCard: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            // Item Icon (placeholder for now)
-            Image(systemName: iconForCategory(item.category))
-                .font(.system(size: 24, weight: .medium))
-                .foregroundColor(.textPrimary)
-                .frame(width: 40, height: 40)
-                .background(
-                    Circle()
-                        .fill(colorForRarity(item.rarity).opacity(0.2))
+            // Item Image
+            if let imageUrlString = item.generatedImageUrl, let url = URL(string: imageUrlString) {
+                CachedAsyncImage(
+                    url: url,
+                    content: { image in
+                        image
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 40, height: 40)
+                            .clipShape(Circle())
+                    },
+                    placeholder: {
+                        ProgressView()
+                            .frame(width: 40, height: 40)
+                    }
                 )
+            } else {
+                // No image - show placeholder
+                Color.clear
+                    .frame(width: 40, height: 40)
+            }
 
             // Item Name
             Text(item.name)
@@ -284,10 +293,18 @@ private struct ItemCard: View {
         switch category.lowercased() {
         case "weapon":
             return "sword.fill"
-        case "armor":
+        case "offhand":
             return "shield.fill"
-        case "accessory":
+        case "head":
+            return "crown.fill"
+        case "armor":
+            return "figure.dress.fill"
+        case "feet":
+            return "shoeprints.fill"
+        case "accessory", "accessory_1", "accessory_2":
             return "diamond.fill"
+        case "pet":
+            return "pawprint.fill"
         default:
             return "questionmark.circle.fill"
         }
@@ -341,15 +358,36 @@ private struct VictoryMaterialCard: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            // Material Icon (placeholder for now)
-            Image(systemName: "cube.fill")
-                .font(.system(size: 24, weight: .medium))
-                .foregroundColor(.textPrimary)
-                .frame(width: 40, height: 40)
-                .background(
-                    Circle()
-                        .fill(Color.accentSecondary.opacity(0.2))
-                )
+            // Material Image or Icon
+            ZStack {
+                if let imageUrl = material.imageUrl, let url = URL(string: imageUrl) {
+                    CachedAsyncImage(
+                        url: url,
+                        content: { image in
+                            image
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 40, height: 40)
+                                .clipShape(Circle())
+                        },
+                        placeholder: {
+                            ProgressView()
+                                .frame(width: 40, height: 40)
+                                .progressViewStyle(CircularProgressViewStyle(tint: .accentSecondary))
+                        }
+                    )
+                } else {
+                    Image(systemName: "cube.fill")
+                        .font(.system(size: 24, weight: .medium))
+                        .foregroundColor(.textPrimary)
+                        .frame(width: 40, height: 40)
+                        .background(
+                            Circle()
+                                .fill(Color.accentSecondary.opacity(0.2))
+                        )
+                }
+            }
+            .frame(width: 40, height: 40)
 
             // Material Name
             Text(material.name)

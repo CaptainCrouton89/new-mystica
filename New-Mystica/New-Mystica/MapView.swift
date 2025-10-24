@@ -287,8 +287,8 @@ struct LocationMarkerView: View {
 
                 VStack {
                     Spacer()
-                    Text("\(location.enemyLevel)")
-                        .font(.system(size: 10, weight: .bold))
+                    Text(location.locationType.capitalized)
+                        .font(.system(size: 8, weight: .bold))
                         .foregroundColor(.white)
                         .padding(.horizontal, 4)
                         .padding(.vertical, 2)
@@ -297,6 +297,7 @@ struct LocationMarkerView: View {
                                 .fill(Color.black.opacity(0.7))
                         )
                         .offset(y: 8)
+                        .lineLimit(1)
                 }
                 .frame(width: 44, height: 44)
             }
