@@ -79,3 +79,6 @@ pnpm generate-raw-image --batch materials --upload --remove-background
 - **SwiftUI Previews:** Require `.modelContainer(for: Item.self, inMemory: true).environmentObject(NavigationManager())` or they crash
 - **Wrangler Authenticated:** CLI R2 operations work globally without env vars
 - **Costs Low but Not Zero:** Replicate ~$0.002-0.01/image, OpenAI ~$0.0001-0.0005/description
+
+Device Credentials:
+[deviceId: EBC2A413-66A2-4566-9339-0B5B1DE4A788, userId: 4225382A-D2C1-445F-BF3E-AC0F1AEF8DDA]
