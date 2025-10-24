@@ -339,15 +339,6 @@ struct InventoryView: View {
         InventoryEmptyState(type: .materials) {
             Task { await viewModel.loadInventory() }
         }
-        .padding(.vertical, 24)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.backgroundCard)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.borderSubtle, lineWidth: 1)
-                )
-        )
     }
 
     private func materialGridView(materials: [MaterialInventoryStack]) -> some View {
