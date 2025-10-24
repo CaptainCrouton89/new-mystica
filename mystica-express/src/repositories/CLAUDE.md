@@ -73,22 +73,24 @@ async equipItem(userId: string, itemId: string, slot: EquipmentSlot) {
 ```
 
 ### LocationRepository Pool Systems
-Two complementary systems for combat rewards:
+Two complementary systems for combat enemy selection and loot drops:
 
 **Enemy Pools:** Determine which enemies spawn at a location
-- Query via `location + combat_level` filters
-- Pool filters: `universal` (always match) | `location_type` | `state` | `country`
-- Members have spawn weights; use `selectRandomEnemy()` for weighted selection
+- Query `enemypools` via `combat_level` + location filters
+- Get members via `enemypoolmembers` table (enemy_type_id + spawn_weight pairs)
+- Use `selectRandomEnemy(poolMembers)` for weighted random selection
+- Pool filters built via `buildPoolFilter()`: `universal` | `location_type` | `state` | `country`
 
 **Loot Pools:** Determine drops from defeated enemies
-- Query via same location + level filters
-- Entries have drop weights and reference materials/item_types
-- Tier weights multiply material drops by `MaterialStrengthTiers` (common, uncommon, rare, epic, legendary)
-- Loot drops inherit `style_id` from enemy; use `selectRandomLoot()` for multi-drop selection
+- Query `lootpools` via same `combat_level` + location filters
+- Get entries via `lootpoolentries` (polymorphic: material or item_type + drop_weight)
+- Get tier weights via `lootpooltierweights` (common/uncommon/rare/epic/legendary multipliers)
+- Use `selectRandomLoot(entries, tierWeights, enemyStyleId, dropCount)` for multi-drop selection
+- Loot drops inherit `style_id` from defeated enemy for material styling
 
 **Weighted Random Selection Pattern:**
 ```typescript
-// Generic algorithm used by both systems
+// Used by selectRandomEnemy() and selectRandomLoot()
 const totalWeight = entries.reduce((sum, e) => sum + e.weight, 0);
 const randomValue = Math.random() * totalWeight;
 let currentWeight = 0;
