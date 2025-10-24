@@ -204,6 +204,35 @@ Item creation, stat calculation, and item template management.
 
 Stat normalization, modifier calculation from materials, combat stat derivation.
 
+### NameDescriptionService
+**Status:** ✅ Fully Implemented
+
+Generates creative names and visual descriptions for crafted items using OpenAI's GPT-4.1-mini model.
+
+**Public API:**
+```typescript
+const result = await nameDescriptionService.generateForItem(
+  'sword',
+  ['wood', 'crystal'],
+  ['normal']
+);
+// Returns: { name: "Crystal-Bound Timber Blade", description: "..." }
+```
+
+**Key Features:**
+- OpenAI API integration with structured output (Zod schema validation)
+- Retry logic with exponential backoff (2 retries, 1s/2s delays)
+- Environment credential validation on instantiation
+- Error handling: `ValidationError`, `ExternalServiceError`, `ConfigurationError`
+- Prompt engineering for consistent visual descriptions (2 sentences, material-form fusion focus)
+- Console logging for generation timing and results
+
+**Constraints:**
+- Requires `OPENAI_API_KEY` environment variable
+- Validates 1-3 materials (throws ValidationError for 0 or >3)
+- Validates non-empty itemType and material strings
+- Uses `ai` package (not direct OpenAI client) with `generateObject` for structured generation
+
 ### ImageGenerationService
 **Status:** ❌ Not Implemented
 
