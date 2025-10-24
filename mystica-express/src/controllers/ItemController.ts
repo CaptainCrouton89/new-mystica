@@ -220,11 +220,11 @@ export class ItemController {
       });
 
       res.json({
-        item: result.updated_item,
-        stats: result.updated_item.current_stats,
+        success: true,
+        updated_item: result.updated_item,
         image_url: result.image_url,
         is_first_craft: result.is_first_craft,
-        total_crafts: result.craft_count,
+        craft_count: result.craft_count,
         materials_consumed: result.materials_consumed
       });
     } catch (error) {

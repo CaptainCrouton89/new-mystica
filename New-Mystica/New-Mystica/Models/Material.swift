@@ -44,7 +44,7 @@ struct AppliedMaterial: Codable, Sendable {
 }
 
 struct MaterialStack: Codable, Sendable {
-    let id: UUID
+    let id: String
     let userId: UUID
     let materialId: UUID
     let styleId: String

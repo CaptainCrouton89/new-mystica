@@ -43,6 +43,7 @@ logs/
 # Supabase
 .supabase/
 supabase/
+!supabase/migrations/
 
 New-Mystica/build/
 docs/investigations/
