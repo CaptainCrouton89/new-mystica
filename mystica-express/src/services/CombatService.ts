@@ -663,7 +663,54 @@ export class CombatService {
     // Generate rewards for victory
     if (result === 'victory') {
       const baseRewards = await this.generateLoot(session.locationId, session.combatLevel, session.enemyTypeId);
-      return {
+
+      // Persist materials to player's inventory
+      for (const material of baseRewards.materials) {
+        try {
+          await materialRepository.createStack(
+            session.userId,
+            material.material_id,
+            material.style_id,
+            1 // 1 of each material
+          );
+          logger.info('✅ Material awarded', {
+            userId: session.userId,
+            materialId: material.material_id,
+            styleName: material.style_name,
+          });
+        } catch (error) {
+          logger.warn('Failed to award material', {
+            userId: session.userId,
+            materialId: material.material_id,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+
+      // Persist items to player's inventory
+      for (const item of baseRewards.items) {
+        try {
+          await itemRepository.create({
+            user_id: session.userId,
+            item_type_id: item.item_type_id,
+            level: session.combatLevel,
+          });
+          logger.info('✅ Item awarded', {
+            userId: session.userId,
+            itemTypeId: item.item_type_id,
+            itemName: item.name,
+            styleName: item.style_name,
+          });
+        } catch (error) {
+          logger.warn('Failed to award item', {
+            userId: session.userId,
+            itemTypeId: item.item_type_id,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+
+      const victoryRewards = {
         result,
         currencies: baseRewards.currencies,
         materials: baseRewards.materials,
@@ -671,13 +718,31 @@ export class CombatService {
         experience: baseRewards.experience,
         combat_history: combatHistory,
       };
+      logger.info('🎉 Victory rewards prepared for return', {
+        sessionId,
+        result,
+        goldAmount: baseRewards.currencies.gold,
+        materialsCount: baseRewards.materials.length,
+        itemsCount: baseRewards.items.length,
+        experience: baseRewards.experience,
+        combatHistoryStats: { victories: combatHistory.victories, defeats: combatHistory.defeats }
+      });
+      return victoryRewards;
     }
 
     // Defeat case - no rewards, only combat history
-    return {
+    const defeatRewards = {
       result,
+      currencies: {
+        gold: 0,
+      },
       combat_history: combatHistory,
     };
+    logger.info('💀 Defeat - no rewards', {
+      sessionId,
+      combatHistoryStats: { victories: combatHistory.victories, defeats: combatHistory.defeats }
+    });
+    return defeatRewards;
   }
 
   /**
@@ -1316,14 +1381,25 @@ export class CombatService {
     experience: number;
   }> {
     try {
+      logger.debug('🎁 generateLoot START', { locationId, combatLevel, enemyTypeId });
+
       // Get enemy style for inheritance
       const enemy = await this.enemyRepository.findEnemyTypeById(enemyTypeId);
       const enemyStyleId = enemy?.style_id ?? 'normal';
+      logger.debug('👾 Enemy loaded', { enemyTypeId, enemyStyleId, enemyName: enemy?.name });
 
       // Get matching loot pools
       const lootPoolIds = await locationService.getMatchingLootPools(locationId, combatLevel);
+      logger.debug('📦 Loot pools query result', {
+        locationId,
+        combatLevel,
+        poolsFound: lootPoolIds?.length ?? 0,
+        poolIds: lootPoolIds
+      });
+
       if (!lootPoolIds || lootPoolIds.length === 0) {
         // No loot pools, return base rewards
+        logger.warn('⚠️ No loot pools matched, returning empty drops', { locationId, combatLevel });
         return {
           currencies: {
             gold: Math.floor(Math.random() * 20) + 5, // 5-25 gold
@@ -1336,9 +1412,10 @@ export class CombatService {
 
       // Use the fallback method which supports both materials and items
       // The database view approach only supports materials, so we'll delegate to the more comprehensive fallback
+      logger.debug('🎁 generateLoot → delegating to generateLootFallback', { lootPoolIds });
       return this.generateLootFallback(locationId, combatLevel, enemyStyleId);
     } catch (error) {
-      logger.warn('Loot generation failed, using fallback', { error: error instanceof Error ? error.message : String(error) });
+      logger.warn('⚠️ Loot generation failed, using fallback', { error: error instanceof Error ? error.message : String(error) });
       // Get enemy style for fallback
       const enemy = await this.enemyRepository.findEnemyTypeById(enemyTypeId);
       return this.generateLootFallback(locationId, combatLevel, enemy?.style_id ?? 'normal');
@@ -1370,6 +1447,11 @@ export class CombatService {
     try {
       const lootPoolIds = await locationService.getMatchingLootPools(locationId, combatLevel);
       if (!lootPoolIds || lootPoolIds.length === 0) {
+        logger.warn('💰 No loot pools found for location/level', {
+          locationId,
+          combatLevel,
+          enemyTypeId: enemyStyleId,
+        });
         return {
           currencies: {
             gold: Math.floor(Math.random() * 20) + 5,
@@ -1383,36 +1465,99 @@ export class CombatService {
       // Get loot pool entries and tier weights
       const poolEntries = await locationService.getLootPoolEntries(lootPoolIds);
       const tierWeights = await locationService.getLootPoolTierWeights(lootPoolIds);
+      logger.debug('📊 Loot pool entries loaded', {
+        poolIds: lootPoolIds,
+        poolEntriesCount: poolEntries?.length ?? 0,
+        tierWeights: tierWeights
+      });
 
       // Select random loot with style inheritance
+      const dropCount = Math.floor(Math.random() * 3) + 1; // 1-3 drops
+      logger.debug('🎲 Selecting random loot', {
+        poolEntriesCount: poolEntries?.length,
+        dropCount,
+        enemyStyleId
+      });
       const lootDrops = locationService.selectRandomLoot(
         poolEntries,
         tierWeights,
         enemyStyleId,
-        Math.floor(Math.random() * 3) + 1 // 1-3 drops
+        dropCount
       );
+      logger.debug('🎲 Loot drops selected', {
+        dropsCount: lootDrops?.length ?? 0,
+        drops: lootDrops?.map((d: any) => ({ type: d.type, material_id: d.material_id, item_type_id: d.item_type_id }))
+      });
 
       // Fetch style name for the enemy style
       const styleName = await locationService.getStyleName(enemyStyleId);
 
-      // Separate materials and items from lootDrops
-      const materials = lootDrops
+      // Extract material and item type IDs for batch fetching
+      const materialIds = lootDrops
         .filter((drop: any) => drop.type === 'material' && drop.material_id)
-        .map((drop: any) => ({
-          material_id: drop.material_id,
-          name: drop.material_name,
-          style_id: drop.style_id,
-          style_name: styleName,
-        }));
+        .map((drop: any) => drop.material_id);
 
-      // Extract item type IDs for batch fetching
       const itemTypeIds = lootDrops
         .filter((drop: any) => drop.type === 'item' && drop.item_type_id)
         .map((drop: any) => drop.item_type_id);
 
-      // Batch fetch ItemType details
+      // Batch fetch material details
+      let materialMap = new Map();
+      if (materialIds.length > 0) {
+        const { data: materials_data, error } = await supabase
+          .from('materials')
+          .select('id, name, description, stat_modifiers')
+          .in('id', materialIds);
+
+        if (error) {
+          throw new Error(`Failed to fetch materials: ${error.message}`);
+        }
+
+        materialMap = new Map((materials_data || []).map((m: any) => [m.id, m]));
+
+        logger.debug('🧱 Materials batch fetched', {
+          requestedCount: materialIds.length,
+          foundCount: materials_data?.length ?? 0,
+          materials: (materials_data || []).map((m: any) => ({ id: m.id, name: m.name }))
+        });
+      }
+
+      // Build materials array with full data
+      const materials = lootDrops
+        .filter((drop: any) => drop.type === 'material' && drop.material_id)
+        .map((drop: any) => {
+          const material = materialMap.get(drop.material_id);
+          if (!material) {
+            throw new Error(`Material ${drop.material_id} not found in database for loot drop`);
+          }
+          return {
+            material_id: drop.material_id,
+            name: material.name,
+            description: material.description || undefined,
+            stat_modifiers: material.stat_modifiers || undefined,
+            style_id: drop.style_id,
+            style_name: styleName,
+          };
+        });
+
+      // Batch fetch ItemType details with all fields
       const itemTypes = itemTypeIds.length > 0 ? await this.itemTypeRepository.findByIds(itemTypeIds) : [];
       const itemTypeMap = new Map(itemTypes.map(it => [it.id, it]));
+
+      logger.debug('📦 ItemTypes batch fetched', {
+        requestedCount: itemTypeIds.length,
+        foundCount: itemTypes.length,
+        itemTypes: itemTypes.map(it => ({ id: it.id, name: it.name, rarity: it.rarity, hasAppearanceData: !!it.appearance_data }))
+      });
+
+      // Diagnostic logging for ItemType lookup
+      const missingIds = itemTypeIds.filter(id => !itemTypeMap.has(id));
+      logger.info('🔍 ItemType batch lookup results', {
+        requestedIds: itemTypeIds,
+        foundCount: itemTypes.length,
+        foundIds: itemTypes.map(it => it.id),
+        missingIds: missingIds.length > 0 ? missingIds : undefined,
+      });
 
       // Process items with ItemType details
       const items = lootDrops
@@ -1420,19 +1565,33 @@ export class CombatService {
         .map((drop: any) => {
           const itemType = itemTypeMap.get(drop.item_type_id);
           if (!itemType) {
-            logger.warn(`ItemType ${drop.item_type_id} not found, skipping item drop`);
-            return null;
+            // ERROR: Missing ItemType data - don't hide this issue
+            throw new Error(`ItemType ${drop.item_type_id} not found in database for loot drop`);
           }
           return {
             item_type_id: drop.item_type_id,
             name: itemType.name,
             category: itemType.category,
             rarity: itemType.rarity,
+            description: itemType.description || undefined,
+            base_stats: itemType.base_stats_normalized || undefined,
+            appearance_data: itemType.appearance_data || undefined,
             style_id: drop.style_id, // Inherit enemy's style
             style_name: styleName,
           };
-        })
-        .filter((item): item is NonNullable<typeof item> => item !== null);
+        });
+
+      // Diagnostic logging for loot generation summary
+      logger.info('💰 Loot generation summary', {
+        locationId,
+        combatLevel,
+        lootPoolsMatched: lootPoolIds.length,
+        totalDropsGenerated: lootDrops.length,
+        materialDrops: materials.length,
+        itemDropsSelected: lootDrops.filter((d: any) => d.type === 'item').length,
+        itemsAfterFiltering: items.length,
+        goldAmount: Math.floor(Math.random() * 30) + 10,
+      });
 
       return {
         currencies: {
