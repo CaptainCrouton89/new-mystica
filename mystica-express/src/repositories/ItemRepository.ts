@@ -94,6 +94,17 @@ export class ItemRepository extends BaseRepository<ItemRow> {
    * @throws DatabaseError on creation failure
    */
   async create(itemData: CreateItemData): Promise<ItemRow> {
+    // First, fetch the base_image_url from ItemTypes
+    const itemType = await this.findItemTypeById(itemData.item_type_id);
+    if (!itemType) {
+      throw new DatabaseError(`ItemType not found: ${itemData.item_type_id}`);
+    }
+
+    // Use base_image_url if available and not empty, otherwise null
+    const baseImageUrl = itemType.base_image_url && itemType.base_image_url.trim() !== ''
+      ? itemType.base_image_url
+      : null;
+
     const insertData: ItemInsert = {
       user_id: itemData.user_id,
       item_type_id: itemData.item_type_id,
@@ -101,7 +112,7 @@ export class ItemRepository extends BaseRepository<ItemRow> {
       is_styled: false,
       current_stats: null,
       material_combo_hash: null,
-      generated_image_url: null,
+      generated_image_url: baseImageUrl,
       image_generation_status: null
     };
 

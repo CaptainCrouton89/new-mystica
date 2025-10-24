@@ -134,6 +134,7 @@ export interface MaterialStackDetailed {
   user_id: string;
   material_id: string;
   style_id: string;
+  style_name?: string;
   quantity: number;
   material: Material;
 }

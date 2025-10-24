@@ -6,6 +6,7 @@ import { ItemRepository } from '../repositories/ItemRepository.js';
 import { ImageGenerationService } from './ImageGenerationService.js';
 import { MaterialInstance, CreateImageCacheData } from '../types/repository.types.js';
 import { computeComboHash } from '../utils/hash.js';
+import { getMaterialImageUrl } from '../utils/image-url.js';
 import { economyService } from './EconomyService.js';
 import { statsService } from './StatsService.js';
 
@@ -41,38 +42,34 @@ export class MaterialService {
     // Add computed R2 image URLs
     return materials.map(m => ({
       ...m,
-      image_url: this.getMaterialImageUrl(m.name)
+      image_url: getMaterialImageUrl(m.name)
     }));
   }
   /**
    * Get user's material inventory
    * - Fetches all material stacks owned by user
    * - Groups by material type and style
-   * - Returns stackable inventory data
+   * - Returns stackable inventory data with style names
    */
   async getMaterialInventory(userId: string): Promise<MaterialStackDetailed[]> {
-    // TODO: Implement material inventory retrieval
-    // 1. Query MaterialStacks table for user_id
-    // 2. Join with Materials for base data
-    // 3. Return grouped stacks with quantities
+    // Get all material stacks for the user with joined style data
+    const stacksWithDetails = await this.materialRepository.findStacksByUserWithDetails(userId);
 
-    // Get all material stacks for the user
-    const stacks = await this.materialRepository.findAllStacksByUser(userId);
-
-    // For each stack, fetch the material template data
+    // Build detailed stacks with full material information
     const stacksWithMaterials: MaterialStackDetailed[] = [];
 
-    for (const stack of stacks) {
+    for (const stack of stacksWithDetails) {
       const material = await this.materialRepository.findMaterialById(stack.material_id);
       if (!material) {
         continue; // Skip stacks with invalid material references
       }
 
       stacksWithMaterials.push({
-        id: stack.user_id + ':' + stack.material_id + ':' + stack.style_id, // Composite key
-        user_id: stack.user_id,
+        id: stack.material_id + ':' + stack.style_id, // Composite key
+        user_id: userId,
         material_id: stack.material_id,
         style_id: stack.style_id,
+        style_name: stack.styledefinitions?.style_name,
         quantity: stack.quantity,
         material: {
           id: material.id,
@@ -80,7 +77,7 @@ export class MaterialService {
           stat_modifiers: material.stat_modifiers,
           description: material.description || undefined,
           base_drop_weight: material.base_drop_weight,
-          image_url: this.getMaterialImageUrl(material.name)
+          image_url: getMaterialImageUrl(material.name)
         }
       });
     }
@@ -473,16 +470,6 @@ export class MaterialService {
       },
       message: `Replaced material in slot ${slotIndex} (cost: ${goldCost} gold)`
     };
-  }
-
-  /**
-   * Compute R2 image URL for a material based on its name
-   * Materials are stored at: materials/{lowercase_name_with_underscores}.png
-   */
-  private getMaterialImageUrl(materialName: string): string {
-    const R2_PUBLIC_URL = 'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev';
-    const normalizedName = materialName.toLowerCase().replace(/\s+/g, '_');
-    return `${R2_PUBLIC_URL}/materials/${normalizedName}.png`;
   }
 
   /**

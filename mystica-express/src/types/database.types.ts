@@ -874,7 +874,7 @@ export type Database = {
       }
       itemtypes: {
         Row: {
-          appearance_data: Json | null
+          base_image_url: string
           base_stats_normalized: Json
           category: string
           created_at: string
@@ -884,7 +884,7 @@ export type Database = {
           rarity: Database["public"]["Enums"]["rarity"]
         }
         Insert: {
-          appearance_data?: Json | null
+          base_image_url?: string
           base_stats_normalized: Json
           category: string
           created_at?: string
@@ -894,7 +894,7 @@ export type Database = {
           rarity: Database["public"]["Enums"]["rarity"]
         }
         Update: {
-          appearance_data?: Json | null
+          base_image_url?: string
           base_stats_normalized?: Json
           category?: string
           created_at?: string
@@ -3153,7 +3153,7 @@ export type Database = {
       unlockrows: { Args: { "": string }; Returns: number }
       update_combat_history: {
         Args: { p_location_id: string; p_result: string; p_user_id: string }
-        Returns: Json
+        Returns: undefined
       }
       updategeometrysrid: {
         Args: {

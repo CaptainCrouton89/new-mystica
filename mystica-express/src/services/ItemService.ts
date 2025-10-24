@@ -893,6 +893,13 @@ export class ItemService {
           imageUrl = cacheEntry.image_url;
         }
         // Note: Not generating new images on removal - that's handled by apply/replace operations
+      } else {
+        // No materials remain - reset to base image from ItemType
+        const itemType = await this.itemTypeRepository.findById(updatedItem.item_type_id);
+        if (itemType?.base_image_url && itemType.base_image_url.trim() !== '') {
+          imageUrl = itemType.base_image_url;
+        }
+        // If no base_image_url, imageUrl remains null (same as before)
       }
 
       // 11. Update item with new hash and image URL

@@ -65,6 +65,31 @@ export class MaterialRepository extends BaseRepository<MaterialRow> {
   }
 
   /**
+   * Find multiple materials by IDs
+   * Used for batch fetching during loot generation
+   *
+   * @param ids - Array of material IDs to find
+   * @returns Array of materials found (may be fewer than requested if some IDs don't exist)
+   * @throws DatabaseError on query failure
+   */
+  async findByIds(ids: string[]): Promise<Material[]> {
+    if (ids.length === 0) {
+      return [];
+    }
+
+    const { data, error } = await this.client
+      .from('materials')
+      .select('*')
+      .in('id', ids);
+
+    if (error) {
+      throw mapSupabaseError(error);
+    }
+
+    return (data || []) as Material[];
+  }
+
+  /**
    * Find all material templates
    */
   async findAllMaterials(): Promise<Material[]> {
@@ -182,13 +207,12 @@ export class MaterialRepository extends BaseRepository<MaterialRow> {
         material_id,
         style_id,
         quantity,
-        materials!inner(name),
-        styledefinitions!inner(style_name)
+        materials(name),
+        styledefinitions(style_name)
       `)
       .eq('user_id', userId)
       .gt('quantity', 0)
-      .order('materials.name')
-      .order('styledefinitions.style_name');
+      .order('material_id');
 
     if (error) {
       throw mapSupabaseError(error);

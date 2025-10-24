@@ -23,6 +23,7 @@ import {
   ValidationError
 } from '../utils/errors.js';
 import { locationService } from './LocationService.js';
+import { getMaterialImageUrl } from '../utils/image-url.js';
 import { logger } from '../utils/logger.js';
 
 // Default repository instances (can be overridden for testing)
@@ -138,6 +139,8 @@ export interface CombatRewards {
   }>;
   /** Item drops from loot pools with full item details (only present for victory) */
   items?: Array<{
+    /** Created item UUID from Items table */
+    id: string;
     /** Item type UUID from ItemTypes table */
     item_type_id: string;
     /** Display name of the item */
@@ -150,6 +153,8 @@ export interface CombatRewards {
     style_id: string;
     /** Display name of the style */
     style_name: string;
+    /** Generated image URL from R2 storage (null if not yet generated) */
+    generated_image_url: string | null;
   }>;
   /** Experience points earned from combat (only present for victory) */
   experience?: number;
@@ -687,19 +692,32 @@ export class CombatService {
         }
       }
 
-      // Persist items to player's inventory
+      // Persist items to player's inventory and capture created items
+      const createdItems = [];
       for (const item of baseRewards.items) {
         try {
-          await itemRepository.create({
+          const createdItem = await itemRepository.create({
             user_id: session.userId,
             item_type_id: item.item_type_id,
             level: session.combatLevel,
           });
+          createdItems.push({
+            id: createdItem.id,
+            item_type_id: createdItem.item_type_id,
+            name: item.name,
+            category: item.category,
+            rarity: item.rarity,
+            style_id: item.style_id,
+            style_name: item.style_name,
+            generated_image_url: createdItem.generated_image_url,
+          });
           logger.info('✅ Item awarded', {
             userId: session.userId,
+            itemId: createdItem.id,
             itemTypeId: item.item_type_id,
             itemName: item.name,
             styleName: item.style_name,
+            imageUrl: createdItem.generated_image_url,
           });
         } catch (error) {
           logger.warn('Failed to award item', {
@@ -714,7 +732,7 @@ export class CombatService {
         result,
         currencies: baseRewards.currencies,
         materials: baseRewards.materials,
-        items: baseRewards.items,
+        items: createdItems,
         experience: baseRewards.experience,
         combat_history: combatHistory,
       };
@@ -1369,6 +1387,7 @@ export class CombatService {
       name: string;
       style_id: string;
       style_name: string;
+      image_url: string;
     }>;
     items: Array<{
       item_type_id: string;
@@ -1433,6 +1452,7 @@ export class CombatService {
       name: string;
       style_id: string;
       style_name: string;
+      image_url: string;
     }>;
     items: Array<{
       item_type_id: string;
@@ -1501,26 +1521,15 @@ export class CombatService {
         .filter((drop: any) => drop.type === 'item' && drop.item_type_id)
         .map((drop: any) => drop.item_type_id);
 
-      // Batch fetch material details
-      let materialMap = new Map();
-      if (materialIds.length > 0) {
-        const { data: materials_data, error } = await supabase
-          .from('materials')
-          .select('id, name, description, stat_modifiers')
-          .in('id', materialIds);
+      // Batch fetch Material details
+      const fetchedMaterials = materialIds.length > 0 ? await this.materialRepository.findByIds(materialIds) : [];
+      const materialMap = new Map(fetchedMaterials.map(m => [m.id, m]));
 
-        if (error) {
-          throw new Error(`Failed to fetch materials: ${error.message}`);
-        }
-
-        materialMap = new Map((materials_data || []).map((m: any) => [m.id, m]));
-
-        logger.debug('🧱 Materials batch fetched', {
-          requestedCount: materialIds.length,
-          foundCount: materials_data?.length ?? 0,
-          materials: (materials_data || []).map((m: any) => ({ id: m.id, name: m.name }))
-        });
-      }
+      logger.debug('🧱 Materials batch fetched', {
+        requestedCount: materialIds.length,
+        foundCount: fetchedMaterials.length,
+        materials: fetchedMaterials.map(m => ({ id: m.id, name: m.name }))
+      });
 
       // Build materials array with full data
       const materials = lootDrops
@@ -1537,6 +1546,7 @@ export class CombatService {
             stat_modifiers: material.stat_modifiers || undefined,
             style_id: drop.style_id,
             style_name: styleName,
+            image_url: getMaterialImageUrl(material.name),
           };
         });
 
@@ -1547,7 +1557,7 @@ export class CombatService {
       logger.debug('📦 ItemTypes batch fetched', {
         requestedCount: itemTypeIds.length,
         foundCount: itemTypes.length,
-        itemTypes: itemTypes.map(it => ({ id: it.id, name: it.name, rarity: it.rarity, hasAppearanceData: !!it.appearance_data }))
+        itemTypes: itemTypes.map(it => ({ id: it.id, name: it.name, rarity: it.rarity, hasBaseImage: !!it.base_image_url }))
       });
 
       // Diagnostic logging for ItemType lookup
@@ -1575,7 +1585,7 @@ export class CombatService {
             rarity: itemType.rarity,
             description: itemType.description || undefined,
             base_stats: itemType.base_stats_normalized || undefined,
-            appearance_data: itemType.appearance_data || undefined,
+            base_image_url: itemType.base_image_url || undefined,
             style_id: drop.style_id, // Inherit enemy's style
             style_name: styleName,
           };
