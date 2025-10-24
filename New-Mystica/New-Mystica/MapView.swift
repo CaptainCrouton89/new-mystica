@@ -80,7 +80,7 @@ struct MapView: View, NavigableView {
                     UserAnnotation()
 
                     ForEach(locations, id: \.id) { location in
-                        Annotation("", coordinate: CLLocationCoordinate2D(latitude: location.lat, longitude: location.lng)) {
+                        Annotation(location.name, coordinate: CLLocationCoordinate2D(latitude: location.lat, longitude: location.lng)) {
                             LocationMarkerView(
                                 location: location,
                                 userLocation: viewModel.userLocation,

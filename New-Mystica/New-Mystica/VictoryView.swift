@@ -84,7 +84,7 @@ struct VictoryView: View {
                     VStack(spacing: 16) {
                         // Continue Button (Primary)
                         TextButton("Continue") {
-                            navigationManager.navigateTo(.map)
+                            navigationManager.resetToMap()
                         }
                         .slideInFromBottom(delay: 1.2)
 
@@ -104,6 +104,24 @@ struct VictoryView: View {
         .navigationBarHidden(true)
         .navigationBarBackButtonHidden(true)
         .onAppear {
+            // DEBUG: Log reward data for diagnosis
+            print("🎉 VictoryView appeared")
+            if let rewards = appState.combatRewards {
+                print("✅ Rewards received:")
+                print("  - Gold: \(rewards.currencies.gold)")
+                print("  - Items count: \(rewards.items.count)")
+                print("  - Materials count: \(rewards.materials.count)")
+                print("  - Experience: \(rewards.experience)")
+                if !rewards.items.isEmpty {
+                    print("  - Items: \(rewards.items.map { $0.name }.joined(separator: ", "))")
+                }
+                if !rewards.materials.isEmpty {
+                    print("  - Materials: \(rewards.materials.map { $0.name }.joined(separator: ", "))")
+                }
+            } else {
+                print("❌ No rewards in appState.combatRewards!")
+            }
+
             // Trigger celebrations and reward display
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
                 showCelebration = true
