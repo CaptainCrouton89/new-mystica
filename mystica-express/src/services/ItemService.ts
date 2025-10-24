@@ -12,7 +12,8 @@ import {
   PaginationParams,
   Rarity,
   Stats,
-  UpgradeResult
+  UpgradeResult,
+  EquipmentSlot
 } from '../types/api.types';
 import { Database } from '../types/database.types.js';
 import {
@@ -118,9 +119,29 @@ export class ItemService {
         throw new NotFoundError(`Item ${itemId}`);
       }
 
-      const materials = itemWithDetails.materials || [];
+      if (!itemWithDetails.materials) {
+        throw new ValidationError('Item materials data is missing for item: ' + itemId);
+      }
+      const materials = itemWithDetails.materials;
+
+      if (!itemWithDetails.item_type) {
+        throw new ValidationError('Item type is missing for item: ' + itemId);
+      }
       const baseStats = itemWithDetails.item_type.base_stats_normalized;
+
+      if (!baseStats) {
+        throw new ValidationError('Base stats are missing for item type: ' + itemWithDetails.item_type.id);
+      }
+
       const shouldRecompute = materials.length > 0 || itemWithDetails.level > 1;
+
+      if (!itemWithDetails.id || !itemWithDetails.user_id || !itemWithDetails.item_type_id) {
+        throw new ValidationError('Missing required base item identifiers');
+      }
+
+      // Map category to EquipmentSlot (accessory becomes accessory_1 for slot purposes)
+      const category = itemWithDetails.item_type.category as 'weapon' | 'offhand' | 'head' | 'armor' | 'feet' | 'accessory' | 'pet';
+      const equipmentSlot: EquipmentSlot = category === 'accessory' ? 'accessory_1' : category;
 
       const item: Item = {
         id: itemWithDetails.id,
@@ -129,14 +150,14 @@ export class ItemService {
         level: itemWithDetails.level,
         base_stats: baseStats,
         current_stats: baseStats,
-        material_combo_hash: itemWithDetails.material_combo_hash || undefined,
-        image_url: itemWithDetails.generated_image_url || undefined,
+        material_combo_hash: itemWithDetails.material_combo_hash!,
+        image_url: itemWithDetails.generated_image_url!,
         materials,
         item_type: {
           id: itemWithDetails.item_type.id,
           name: itemWithDetails.item_type.name,
-          category: itemWithDetails.item_type.category as 'weapon' | 'offhand' | 'head' | 'armor' | 'feet' | 'accessory' | 'pet',
-          equipment_slot: itemWithDetails.item_type.category as any,
+          category: category,
+          equipment_slot: equipmentSlot,
           base_stats: baseStats,
           rarity: itemWithDetails.item_type.rarity,
           description: itemWithDetails.item_type.description
@@ -146,10 +167,22 @@ export class ItemService {
       };
 
       if (shouldRecompute) {
-        const statsInput = {
-          ...item,
-          materials
-        } as any;
+        if (!item) {
+          throw new ValidationError('Item data is missing during stats computation');
+        }
+
+        if (!itemWithDetails.level) {
+          throw new ValidationError('Item level is missing or invalid');
+        }
+
+        // computeItemStatsForLevel expects item_type with base_stats_normalized and rarity
+        const statsInput: { item_type: { base_stats_normalized: Stats; rarity: string } } = {
+          item_type: {
+            base_stats_normalized: baseStats,
+            rarity: itemWithDetails.item_type.rarity
+          }
+        };
+
         item.current_stats = statsService.computeItemStatsForLevel(statsInput, itemWithDetails.level);
       }
 
@@ -282,7 +315,7 @@ export class ItemService {
         current_stats: statsAfter,
         material_combo_hash: item.material_combo_hash || undefined,
         image_url: item.generated_image_url || undefined,
-        materials: item.materials || [],
+        materials: item.materials ?? [],
         item_type: {
           id: item.item_type.id,
           name: item.item_type.name,
@@ -537,7 +570,7 @@ export class ItemService {
         level: item.level,
         base_stats: itemType.base_stats_normalized,
         current_stats: itemType.base_stats_normalized,
-        materials: materials || [],
+        materials: materials ?? [],
         item_type: {
           id: itemType.id,
           name: itemType.name,
@@ -865,7 +898,10 @@ export class ItemService {
         throw new NotFoundError('Item', itemId);
       }
 
-      const remainingMaterials = updatedItem.materials || [];
+      if (!updatedItem.materials) {
+        throw new ValidationError('Updated item materials data is missing');
+      }
+      const remainingMaterials = updatedItem.materials;
       const shouldRecompute = remainingMaterials.length > 0 || updatedItem.level > 1;
 
       const baseStats = updatedItem.item_type.base_stats_normalized;
@@ -1113,8 +1149,8 @@ export class ItemService {
       base_stats: itemData.item_type.base_stats_normalized,
       current_stats: itemData.current_stats || itemData.item_type.base_stats_normalized,
       material_combo_hash: itemData.material_combo_hash || undefined,
-      image_url: itemData.generated_image_url || undefined,
-      materials: itemData.materials || [],
+      image_url: itemData.generated_image_url!,
+      materials: itemData.materials ?? [],
       item_type: {
         id: itemData.item_type.id,
         name: itemData.item_type.name,
@@ -1129,7 +1165,14 @@ export class ItemService {
     };
   }
 
-  private normalizeInventoryItem(itemData: any): Item {
+  private normalizeInventoryItem(itemData: ItemWithDetails | Record<string, unknown>): Item {
+    if (!itemData) {
+      throw new ValidationError('Empty item data provided');
+    }
+
+    // Type assertion to allow property access on dynamic database result
+    const data = itemData as any;
+
     const defaultStats: Stats = {
       atkPower: 0,
       atkAccuracy: 0,
@@ -1137,41 +1180,80 @@ export class ItemService {
       defAccuracy: 0
     };
 
-    const baseStats: Stats =
-      itemData.base_stats ||
-      itemData.item_type?.base_stats_normalized ||
-      itemData.current_stats ||
-      itemData.current_stats ||
-      defaultStats;
+    // Strict validation of base stats
+    const baseStats: Stats = (() => {
+      if (data.base_stats && typeof data.base_stats === 'object') {
+        return data.base_stats as Stats;
+      }
+      if (data.item_type?.base_stats_normalized && typeof data.item_type.base_stats_normalized === 'object') {
+        return data.item_type.base_stats_normalized as Stats;
+      }
+      if (data.current_stats && typeof data.current_stats === 'object') {
+        return data.current_stats as Stats;
+      }
+      return defaultStats;
+    })();
 
-    const currentStats: Stats = itemData.current_stats || itemData.current_stats || baseStats;
-    const materials = itemData.materials || [];
-    const itemType = itemData.item_type
-      ? {
-          id: itemData.item_type.id,
-          name: itemData.item_type.name,
-          category: itemData.item_type.category as any,
-          equipment_slot: itemData.item_type.equipment_slot ?? itemData.item_type.category,
-          base_stats: itemData.item_type.base_stats_normalized || baseStats,
-          rarity: itemData.item_type.rarity,
-          description: itemData.item_type.description
-        }
-      : undefined;
+    // Validate current_stats
+    const currentStats: Stats = (() => {
+      if (data.current_stats && typeof data.current_stats === 'object') {
+        return data.current_stats as Stats;
+      }
+      return baseStats;
+    })();
+
+    const materials = Array.isArray(data.materials) ? data.materials : [];
+
+    // Validate and create item_type
+    const itemType = data.item_type ? (() => {
+      if (!data.item_type.id) {
+        throw new ValidationError('Missing item type ID');
+      }
+      if (!data.item_type.name) {
+        throw new ValidationError('Missing item type name');
+      }
+
+      // Map category to EquipmentSlot
+      const category = data.item_type.category as 'weapon' | 'offhand' | 'head' | 'armor' | 'feet' | 'accessory' | 'pet';
+      const equipmentSlot: EquipmentSlot = category === 'accessory' ? 'accessory_1' : category;
+
+      return {
+        id: data.item_type.id,
+        name: data.item_type.name,
+        category: category,
+        equipment_slot: (data.item_type.equipment_slot as EquipmentSlot | undefined) ?? equipmentSlot,
+        base_stats: (data.item_type.base_stats_normalized as Stats | undefined) || baseStats,
+        rarity: data.item_type.rarity as Rarity,
+        description: data.item_type.description as string | undefined
+      };
+    })() : undefined;
+
+    // Validate required base fields
+    if (!data.id || !data.user_id || !data.item_type_id) {
+      throw new ValidationError('Missing critical item identifiers');
+    }
+
+    if (data.level === null || data.level === undefined) {
+      throw new ValidationError('Missing item level');
+    }
+    if (!data.created_at) {
+      throw new ValidationError('Missing created_at timestamp');
+    }
 
     return {
-      id: itemData.id,
-      user_id: itemData.user_id,
-      item_type_id: itemData.item_type_id,
-      level: itemData.level,
+      id: data.id as string,
+      user_id: data.user_id as string,
+      item_type_id: data.item_type_id as string,
+      level: data.level as number,
       base_stats: baseStats,
       current_stats: currentStats,
-      material_combo_hash: itemData.material_combo_hash ?? undefined,
-      image_url: itemData.generated_image_url ?? itemData.image_url ?? undefined,
-      is_styled: itemData.is_styled ?? false,
+      material_combo_hash: (data.material_combo_hash as string | null | undefined) || undefined,
+      image_url: (data.generated_image_url as string | null | undefined) || (data.image_url as string | null | undefined) || undefined,
+      is_styled: (data.is_styled as boolean | undefined) || false,
       materials,
       item_type: itemType,
-      created_at: itemData.created_at,
-      updated_at: itemData.updated_at ?? itemData.created_at
+      created_at: data.created_at as string,
+      updated_at: (data.updated_at as string | undefined) || (data.created_at as string)
     };
   }
 }

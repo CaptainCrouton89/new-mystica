@@ -61,7 +61,9 @@ export class ItemController {
       // Transform Item to PlayerItem format for frontend compatibility
       const playerItem = {
         id: result.updated_item.id,
-        base_type: result.updated_item.item_type?.name || 'Unknown',
+        base_type: result.updated_item.name || result.updated_item.item_type?.name || 'Unknown',
+        description: result.updated_item.description || result.updated_item.item_type?.description || null,
+        name: result.updated_item.name || null,
         item_type_id: result.updated_item.item_type_id,
         category: result.updated_item.item_type?.category || 'misc',
         level: result.updated_item.level,
