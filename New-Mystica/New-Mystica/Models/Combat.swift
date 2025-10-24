@@ -200,13 +200,15 @@ enum CombatActionType: String, Codable, CaseIterable {
 
 // MARK: - Combat Rewards Model (matches enhanced backend response)
 struct CombatRewards: APIModel {
+    let result: String // "victory" or "defeat"
     let currencies: Currencies
-    let items: [ItemDrop]
-    let materials: [MaterialDrop]
-    let experience: Int
+    let items: [ItemDrop]?
+    let materials: [MaterialDrop]?
+    let experience: Int?
     let combatHistory: CombatHistory
 
     enum CodingKeys: String, CodingKey {
+        case result
         case currencies
         case items
         case materials

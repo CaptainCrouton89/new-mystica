@@ -27,7 +27,7 @@ struct EquipResult: Codable {
 // MARK: - Material Application Result
 struct ApplyMaterialResult: Codable {
     let success: Bool
-    let updatedItem: PlayerItem
+    let updatedItem: EnhancedPlayerItem
     let isFirstCraft: Bool
     let craftCount: Int
     let imageUrl: String
