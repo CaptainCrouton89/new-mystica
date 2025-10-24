@@ -10,18 +10,14 @@ import Foundation
 struct Material: Codable, Sendable {
     let id: UUID
     let name: String
-    let rarity: String
     let statModifiers: ItemStats
-    let theme: String
     let imageUrl: String?
     let description: String?
 
     enum CodingKeys: String, CodingKey {
         case id
         case name
-        case rarity
         case statModifiers = "stat_modifiers"
-        case theme
         case imageUrl = "image_url"
         case description
     }

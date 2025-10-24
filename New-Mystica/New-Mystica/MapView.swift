@@ -69,28 +69,25 @@ struct MapView: View, NavigableView {
             Group {
                 if showLocationPopup, let location = selectedLocation {
                     locationDetailPopup(location: location)
+                } else if showLevelSelection, let location = selectedLocationForCombat {
+                    let recommendedLevel = max(1, min(10, appState.userProfile.value?.vanityLevel ?? 1))
+
+                    CombatLevelSelectionView(
+                        locationId: location.id,
+                        recommendedLevel: recommendedLevel,
+                        onDismiss: {
+                            showLevelSelection = false
+                            selectedLocationForCombat = nil
+                        },
+                        onLevelSelected: { level in
+                            showLevelSelection = false
+                            navigationManager.navigateToBattle(with: location.name, locationId: location.id, selectedLevel: level)
+                            selectedLocationForCombat = nil
+                        }
+                    )
                 }
             }
         )
-        .sheet(isPresented: $showLevelSelection) {
-            if let location = selectedLocationForCombat {
-                let recommendedLevel = max(1, min(10, appState.userProfile.value?.vanityLevel ?? 1))
-
-                CombatLevelSelectionView(
-                    locationId: location.id,
-                    recommendedLevel: recommendedLevel,
-                    onDismiss: {
-                        showLevelSelection = false
-                        selectedLocationForCombat = nil
-                    },
-                    onLevelSelected: { level in
-                        showLevelSelection = false
-                        navigationManager.navigateToBattle(with: location.name, locationId: location.id, selectedLevel: level)
-                        selectedLocationForCombat = nil
-                    }
-                )
-            }
-        }
     }
 
 

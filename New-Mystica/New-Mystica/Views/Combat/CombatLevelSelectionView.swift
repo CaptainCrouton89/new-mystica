@@ -29,22 +29,13 @@ struct CombatLevelSelectionView: View {
 
             // Modal card
             VStack(spacing: 20) {
-                // Header with title and close button
-                ZStack {
-                    HStack {
-                        Spacer()
-                        IconButton(icon: "xmark", size: 40) {
-                            onDismiss()
-                        }
-                    }
+                // Header with title
+                VStack(spacing: 8) {
+                    TitleText("Select Combat Level")
+                        .foregroundColor(Color.textPrimary)
 
-                    VStack(spacing: 8) {
-                        TitleText("Select Combat Level")
-                            .foregroundColor(Color.textPrimary)
-
-                        NormalText("Choose your challenge")
-                            .foregroundColor(Color.textSecondary)
-                    }
+                    NormalText("Choose your challenge")
+                        .foregroundColor(Color.textSecondary)
                 }
 
                 // Recommended level indicator
