@@ -218,6 +218,15 @@ export class LocationService {
 
     return locationRepository.getAggregatedLootPools(locationId, combatLevel);
   }
+
+  /**
+   * Get style name by style ID
+   * - Fetches style display name from database
+   * - Returns 'normal' if style not found
+   */
+  async getStyleName(styleId: string): Promise<string> {
+    return locationRepository.getStyleName(styleId);
+  }
 }
 
 export const locationService = new LocationService();

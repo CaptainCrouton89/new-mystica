@@ -219,14 +219,30 @@ export class LocationRepository extends BaseRepository<Location> {
 
     const { data, error } = await this.client
       .from('lootpoolentries')
-      .select('loot_pool_id, lootable_type, lootable_id, drop_weight')
+      .select(`
+        loot_pool_id,
+        lootable_type,
+        lootable_id,
+        drop_weight,
+        materials:materials!lootpoolentries_lootable_id_fkey(name),
+        item_types:itemtypes!lootpoolentries_lootable_id_fkey(name)
+      `)
       .in('loot_pool_id', poolIds);
 
     if (error) {
       throw new DatabaseError(`Failed to fetch loot pool entries: ${error.message}`);
     }
 
-    return data || [];
+    // Transform the data to include the names directly in the entry
+    return (data || []).map((entry: any) => ({
+      loot_pool_id: entry.loot_pool_id,
+      lootable_type: entry.lootable_type,
+      lootable_id: entry.lootable_id,
+      drop_weight: entry.drop_weight,
+      lootable_name: entry.lootable_type === 'material'
+        ? entry.materials?.name
+        : entry.item_types?.name
+    }));
   }
 
   /**
@@ -253,7 +269,7 @@ export class LocationRepository extends BaseRepository<Location> {
    * Returns array of loot drops with style inheritance from enemy
    */
   selectRandomLoot(
-    poolEntries: LootPoolEntry[],
+    poolEntries: any[],
     tierWeights: LootPoolTierWeight[],
     enemyStyleId: string = 'normal',
     dropCount: number = 1
@@ -303,8 +319,10 @@ export class LocationRepository extends BaseRepository<Location> {
 
           if (entry.lootable_type === 'material') {
             drop.material_id = entry.lootable_id;
+            drop.material_name = entry.lootable_name;
           } else {
             drop.item_type_id = entry.lootable_id;
+            drop.item_type_name = entry.lootable_name;
           }
 
           drops.push(drop);
@@ -314,6 +332,23 @@ export class LocationRepository extends BaseRepository<Location> {
     }
 
     return drops;
+  }
+
+  /**
+   * Get style name by style ID
+   */
+  async getStyleName(styleId: string): Promise<string> {
+    const { data, error } = await this.client
+      .from('styles')
+      .select('name')
+      .eq('id', styleId)
+      .single();
+
+    if (error || !data) {
+      return 'normal'; // Fallback to 'normal' style if not found
+    }
+
+    return data.name;
   }
 
   // ============================================================================

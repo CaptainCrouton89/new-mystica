@@ -889,22 +889,22 @@ export class CombatService {
     rewards: CombatRewards
   ): Promise<void> {
     try {
-      if (rewards.result === 'victory' && rewards.rewards) {
+      if (rewards.result === 'victory' && rewards.currencies) {
         logger.info('Applying victory rewards atomically', {
           userId,
           sessionId,
-          gold: rewards.rewards.currencies.gold,
-          materials: rewards.rewards.materials.length,
-          items: rewards.rewards.items.length,
-          experience: rewards.rewards.experience
+          gold: rewards.currencies.gold,
+          materials: rewards.materials?.length ?? 0,
+          items: rewards.items?.length ?? 0,
+          experience: rewards.experience ?? 0
         });
 
         // 1. Apply gold currency
-        if (rewards.rewards.currencies.gold > 0) {
+        if (rewards.currencies.gold > 0) {
           await this.profileRepository.addCurrency(
             userId,
             'GOLD',
-            rewards.rewards.currencies.gold,
+            rewards.currencies.gold,
             'combat_victory',
             sessionId,
             { sessionId, combatType: 'victory' }
@@ -912,36 +912,40 @@ export class CombatService {
         }
 
         // 2. Apply materials (upsert MaterialStacks)
-        for (const material of rewards.rewards.materials) {
-          await this.materialRepository.incrementStack(
-            userId,
-            material.material_id,
-            material.style_id,
-            1 // Always 1 unit per material drop
-          );
+        if (rewards.materials) {
+          for (const material of rewards.materials) {
+            await this.materialRepository.incrementStack(
+              userId,
+              material.material_id,
+              material.style_id,
+              1 // Always 1 unit per material drop
+            );
+          }
         }
 
         // 3. Apply items (create PlayerItems + unlock ItemTypes)
-        for (const item of rewards.rewards.items) {
-          // Create the player item
-          await this.itemRepository.create({
-            user_id: userId,
-            item_type_id: item.item_type_id,
-            level: 1, // Items drop at level 1
-          });
+        if (rewards.items) {
+          for (const item of rewards.items) {
+            // Create the player item
+            await this.itemRepository.create({
+              user_id: userId,
+              item_type_id: item.item_type_id,
+              level: 1, // Items drop at level 1
+            });
 
-          // TODO: Unlock item type if not already unlocked
-          // This requires implementing unlockItemType method in ProfileRepository
-          // For now, items are created without explicit unlocking
-          logger.debug('Item created without unlocking ItemType', {
-            userId,
-            itemTypeId: item.item_type_id
-          });
+            // TODO: Unlock item type if not already unlocked
+            // This requires implementing unlockItemType method in ProfileRepository
+            // For now, items are created without explicit unlocking
+            logger.debug('Item created without unlocking ItemType', {
+              userId,
+              itemTypeId: item.item_type_id
+            });
+          }
         }
 
         // 4. Apply experience points
-        if (rewards.rewards.experience > 0) {
-          await this.profileRepository.addXP(userId, rewards.rewards.experience);
+        if (rewards.experience && rewards.experience > 0) {
+          await this.profileRepository.addXP(userId, rewards.experience);
         }
 
         // 5. Combat history is already updated by completeSession in CombatRepository
@@ -1293,7 +1297,24 @@ export class CombatService {
    * Generate loot from applied loot pools with style inheritance using database views
    * Returns base reward data without combat_history (added by completeCombat method)
    */
-  private async generateLoot(locationId: string, combatLevel: number, enemyTypeId: string): Promise<Omit<NonNullable<CombatRewards['rewards']>, 'combat_history'>> {
+  private async generateLoot(locationId: string, combatLevel: number, enemyTypeId: string): Promise<{
+    currencies: { gold: number };
+    materials: Array<{
+      material_id: string;
+      name: string;
+      style_id: string;
+      style_name: string;
+    }>;
+    items: Array<{
+      item_type_id: string;
+      name: string;
+      category: string;
+      rarity: string;
+      style_id: string;
+      style_name: string;
+    }>;
+    experience: number;
+  }> {
     try {
       // Get enemy style for inheritance
       const enemy = await this.enemyRepository.findEnemyTypeById(enemyTypeId);
@@ -1328,7 +1349,24 @@ export class CombatService {
    * Fallback loot generation using existing location service methods
    * Returns base reward data without combat_history (added by completeCombat method)
    */
-  private async generateLootFallback(locationId: string, combatLevel: number, enemyStyleId: string): Promise<Omit<NonNullable<CombatRewards['rewards']>, 'combat_history'>> {
+  private async generateLootFallback(locationId: string, combatLevel: number, enemyStyleId: string): Promise<{
+    currencies: { gold: number };
+    materials: Array<{
+      material_id: string;
+      name: string;
+      style_id: string;
+      style_name: string;
+    }>;
+    items: Array<{
+      item_type_id: string;
+      name: string;
+      category: string;
+      rarity: string;
+      style_id: string;
+      style_name: string;
+    }>;
+    experience: number;
+  }> {
     try {
       const lootPoolIds = await locationService.getMatchingLootPools(locationId, combatLevel);
       if (!lootPoolIds || lootPoolIds.length === 0) {
@@ -1354,6 +1392,9 @@ export class CombatService {
         Math.floor(Math.random() * 3) + 1 // 1-3 drops
       );
 
+      // Fetch style name for the enemy style
+      const styleName = await locationService.getStyleName(enemyStyleId);
+
       // Separate materials and items from lootDrops
       const materials = lootDrops
         .filter((drop: any) => drop.type === 'material' && drop.material_id)
@@ -1361,7 +1402,7 @@ export class CombatService {
           material_id: drop.material_id,
           name: drop.material_name,
           style_id: drop.style_id,
-          style_name: drop.style_name,
+          style_name: styleName,
         }));
 
       // Extract item type IDs for batch fetching
@@ -1388,7 +1429,7 @@ export class CombatService {
             category: itemType.category,
             rarity: itemType.rarity,
             style_id: drop.style_id, // Inherit enemy's style
-            style_name: drop.style_name,
+            style_name: styleName,
           };
         })
         .filter((item): item is NonNullable<typeof item> => item !== null);
