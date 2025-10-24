@@ -1,6 +1,7 @@
 # Code Smells Master Document
 
 **Generated:** 2025-10-23
+**Last Updated:** 2025-10-24
 **Project:** New Mystica
 **Scope:** Backend (mystica-express/), Frontend (New-Mystica/), AI Pipeline (scripts/)
 
@@ -8,17 +9,18 @@
 
 ## Executive Summary
 
-**Critical Issues:** 8
-**High Priority:** 10
+**Critical Issues:** 6 (was 8, ✅ 2 fixed)
+**High Priority:** 9 (was 10, ✅ 1 partially fixed)
 **Medium Priority:** 15
 **Low Priority:** 10+
 
 **Key Findings:**
 - 69 `any` type violations in backend
-- 8 force unwrapping instances (3 critical crash risks) in frontend
-- 147 generic throw statements, 733 console.log calls
+- ~~8 force unwrapping instances (3 critical crash risks)~~ ✅ **FIXED** - All 3 critical force unwraps resolved
+- 147 generic throw statements, ~~733~~ ~700 console.log calls (✅ ~30 replaced with winston)
 - 6 massive files requiring refactoring (500-1,182 lines)
 - Error infrastructure exists but is underutilized
+- ~~Silent fallbacks in config~~ ✅ **FIXED** - All silent fallbacks removed from AI pipeline & frontend
 
 ---
 
@@ -49,21 +51,18 @@ equipment_slot: itemWithDetails.item_type.category as any,
 
 ---
 
-### 2. Force Unwrapping - Frontend
-**Severity:** Critical
+### 2. Force Unwrapping - Frontend ✅ **FIXED**
+**Severity:** ~~Critical~~ **RESOLVED**
+**Status:** ✅ Complete (2025-10-24)
 **Impact:** App crashes at runtime during startup/session restoration
-**Scope:** 8 instances, 3 critical crash risks
 
-**Critical Locations (High Risk):**
-- `ImageCacheManager.swift:15` - `URLSession!` accessed before initialization complete
-- `State/AppState.swift:176` - `deviceId!` after nil check (redundant)
-- `State/AppState.swift:180` - `.data(using: .utf8)!` can fail
-
-**Medium Risk:**
-- `BackgroundImageManager.swift:33,67` - Placeholder URL force unwraps
+**Fixed Locations:**
+- ✅ `ImageCacheManager.swift:15` - Changed to proper initialization in `init()`, removed implicitly unwrapped optional
+- ✅ `State/AppState.swift:173,184` - Replaced `deviceId!` with optional map and `.data(using: .utf8)!` with guard statement
+- ✅ `BackgroundImageManager.swift:20,56` - Replaced placeholder URL fallbacks with `fatalError()` for invalid configs
 
 **Investigation:** [Frontend Force Unwrapping Investigation](../investigations/frontend-force-unwrapping-investigation.md)
-**Effort:** 2-3 hours total
+**Actual Effort:** ~7 minutes (agent_605012)
 
 ---
 
@@ -123,22 +122,31 @@ equipment_slot: itemWithDetails.item_type.category as any,
 
 ## High Priority Issues
 
-### 6. Console Logging - Backend
+### 6. Console Logging - Backend 🔄 **IN PROGRESS**
 **Severity:** High
 **Impact:** Performance degradation, information leakage, no production monitoring
-**Scope:** 733+ instances
+**Scope:** ~~733+~~ ~700 instances (✅ ~30 replaced so far)
+
+**Progress (2025-10-24):**
+- ✅ `middleware/auth.ts` - 15 console statements replaced with winston logger
+- ✅ `controllers/CombatController.ts` - 3 console statements replaced
+- ✅ `services/CombatService.ts` - 5 console.warn statements replaced
+- 🔄 **Remaining:** ~700 instances across other controllers, services, repositories
 
 **Examples:**
 ```typescript
-// controllers/CombatController.ts:101
+// BEFORE:
 console.log('🎯 [getActiveSession] Returning recovery data:', JSON.stringify(recoveryData, null, 2));
 
-// middleware/auth.ts:48
-console.log('🔒 [AUTH] Authenticating request:', {...});
+// AFTER:
+logger.info('🎯 [getActiveSession] Returning recovery data', {
+  sessionId: recoveryData.session_id,
+  playerId: recoveryData.player_id
+});
 ```
 
 **Investigation:** [Error Handling Patterns Investigation](../investigations/error-handling-patterns.md)
-**Effort:** TBD
+**Effort:** ~23 instances replaced per 7 minutes (agent_624116), estimate ~3-4 hours total
 
 ### 7. Code Duplication - All Components
 **Severity:** High
@@ -164,22 +172,26 @@ console.log('🔒 [AUTH] Authenticating request:', {...});
 
 ---
 
-### 8. Hardcoded Configuration - Frontend & AI Pipeline
-**Severity:** High
+### 8. Hardcoded Configuration - Frontend & AI Pipeline ✅ **FIXED**
+**Severity:** ~~High~~ **RESOLVED**
+**Status:** ✅ Complete (2025-10-24)
 **Impact:** Difficult maintenance, environment-specific values in code
 
-**Frontend:**
-- `BackgroundImageManager.swift:18-27` - Hardcoded R2 URLs
-- `ImageCacheManager.swift:24-25` - Magic numbers (128MB, 512MB)
-- `AuthService.swift:194` - Hardcoded HTTP status range (200...299)
+**Frontend (✅ Fixed):**
+- ✅ `BackgroundImageManager.swift:18-27` - Moved to `Config.backgroundImageURLs`
+- ✅ `ImageCacheManager.swift:24-25` - Moved to `Config.imageCacheMemoryCapacity/imageCacheDiskCapacity`
+- ✅ `AuthService.swift:194` - Moved to `Config.successStatusCodes`
+- ✅ Removed all silent fallbacks - now throws `fatalError()` for invalid configs
 
-**AI Pipeline:**
-- `generate-raw-image.ts:41-52` - Hardcoded reference image URLs
-- `populate-item-images.ts:32` - R2_PUBLIC_URL hardcoded
-- `r2-service.ts:10` - `bucket: 'mystica-assets'` hardcoded
+**AI Pipeline (✅ Fixed):**
+- ✅ `generate-raw-image.ts:41-52` - Now uses `REPLICATE_MODEL` and `REFERENCE_IMAGE_URLS` env vars (REQUIRED)
+- ✅ `populate-item-images.ts:32` - Now uses `R2_PUBLIC_URL` and `R2_BUCKET_NAME` env vars (REQUIRED)
+- ✅ `r2-service.ts:10` - Now uses `R2_BUCKET_NAME` and `R2_PUBLIC_URL` env vars (REQUIRED)
+- ✅ All fallbacks removed - scripts throw errors if env vars missing
+- ✅ `.env.example` updated with all new required variables
 
-**Investigation:** Needs investigation
-**Effort:** TBD
+**Investigation:** Completed during implementation (agent_217966, agent_047858)
+**Actual Effort:** ~7 minutes per component
 
 ---
 
@@ -294,17 +306,18 @@ console.log('🔒 [AUTH] Authenticating request:', {...});
 
 ## Recommended Action Plan
 
-### Phase 1: Critical (Week 1)
+### Phase 1: Critical (Week 1) - 🔄 IN PROGRESS
 1. Remove 69 `any` types from backend
-2. Fix 3 critical force unwrapping crash risks in frontend
+2. ✅ ~~Fix 3 critical force unwrapping crash risks in frontend~~ **COMPLETE (2025-10-24)**
 3. Replace 147 generic errors with custom error classes
-4. Replace 733 console.log statements with winston logging
+4. 🔄 Replace ~700 console.log statements with winston logging (~30/700 done)
 5. Add retry logic to AI pipeline external API calls
+6. ✅ ~~Remove all silent fallbacks from config~~ **COMPLETE (2025-10-24)**
 
 ### Phase 2: High Priority (Weeks 2-3)
 6. Refactor 6 massive files (500-1,182 lines each)
 7. Extract duplicated error handling and transform logic
-8. Move hardcoded config to environment variables
+8. ✅ ~~Move hardcoded config to environment variables~~ **COMPLETE (2025-10-24)**
 9. Add resource cleanup to AI pipeline
 
 ### Phase 3: Medium Priority (Weeks 4-5)
@@ -356,5 +369,37 @@ console.log('🔒 [AUTH] Authenticating request:', {...});
 
 ---
 
-**Last Updated:** 2025-10-23
+## Recent Fixes (2025-10-24)
+
+### Completed by Junior Engineer Agents
+
+**agent_605012 - Force Unwrapping Fixes (✅ ~7 min)**
+- Fixed 3 critical crash risks in frontend Swift code
+- Removed all force unwraps with proper optional handling
+- Build verified successful
+
+**agent_624116 - Console Logging (~30 instances, ✅ ~7 min)**
+- Replaced console.log/console.error with winston in auth.ts, CombatController.ts, CombatService.ts
+- Maintained emoji prefixes and message content
+- ~700 instances remaining
+
+**agent_217966 - Frontend Config Extraction (✅ ~7 min)**
+- Created Config.swift with centralized configuration
+- Moved all hardcoded values (R2 URLs, cache sizes, status codes)
+- Removed all silent fallbacks
+
+**agent_047858 - AI Pipeline Config Extraction (✅ ~7 min)**
+- Moved all hardcoded values to required env vars
+- Removed all `||` fallback operators
+- Updated .env.example with documentation
+- Added runtime validation
+
+**Manual Fixes**
+- Removed remaining silent fallbacks from Config.swift
+- Fixed AppState.getCurrencyBalance() to return Int? instead of 0 fallback
+- Updated InventoryView to handle nil currency balance explicitly
+
+---
+
+**Last Updated:** 2025-10-24
 **Next Review:** After Phase 1 completion
