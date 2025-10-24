@@ -45,7 +45,7 @@ struct ItemRow: View {
             .clipShape(RoundedRectangle(cornerRadius: 8))
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color.accentSecondary, lineWidth: 2)
+                    .stroke(colorForRarity(item.rarity), lineWidth: 2)
             )
             .overlay(
                 // Equipped indicator overlay
@@ -142,10 +142,10 @@ struct ItemRow: View {
         .padding(.horizontal, 16)
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(Color.backgroundCard)
+                .fill(colorForRarity(item.rarity).opacity(0.1))
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.borderSubtle, lineWidth: 1)
+                        .stroke(colorForRarity(item.rarity), lineWidth: 1)
                 )
         )
     }
@@ -173,23 +173,20 @@ struct ItemRow: View {
         }
     }
 
-    private func getRarityColor() -> Color {
-        // Enhanced rarity border system based on level and styling
-        if item.isEquipped {
-            // Equipped items get accent color border
-            return Color.accent
-        } else if item.isStyled {
-            // Styled items get secondary accent color
-            return Color.accentSecondary
-        } else if item.level >= 10 {
-            // High level items get orange/legendary color
-            return Color.orange
-        } else if item.level >= 5 {
-            // Mid level items get blue/rare color
-            return Color.blue
-        } else {
-            // Low level items get subtle border
-            return Color.borderSubtle
+    private func colorForRarity(_ rarity: String) -> Color {
+        switch rarity.lowercased() {
+        case "common":
+            return .gray
+        case "uncommon":
+            return .green
+        case "rare":
+            return .blue
+        case "epic":
+            return .purple
+        case "legendary":
+            return .orange
+        default:
+            return .gray
         }
     }
 

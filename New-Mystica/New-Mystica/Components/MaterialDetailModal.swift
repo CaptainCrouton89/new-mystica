@@ -40,7 +40,7 @@ struct MaterialDetailModal: View {
                 .padding(.vertical, 16)
             }
             .background(Color.backgroundPrimary)
-            .navigationTitle("Material Details")
+            .navigationTitle(material.name.capitalized)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -104,8 +104,6 @@ struct MaterialDetailModal: View {
 
     private var materialMetadataView: some View {
         VStack(spacing: 12) {
-            TitleText(material.name.capitalized, size: 24)
-
             HStack(spacing: 16) {
                 // Quantity badge
                 Badge(
@@ -117,7 +115,7 @@ struct MaterialDetailModal: View {
                 // Style badge
                 Badge(
                     label: "Style",
-                    value: formatStyleName(material.styleId),
+                    value: material.styleName ?? formatStyleName(material.styleId),
                     color: getStyleBorderColor()
                 )
 
@@ -130,20 +128,6 @@ struct MaterialDetailModal: View {
                     )
                 }
             }
-
-            // Drop weight indicator
-            HStack {
-                Image(systemName: "cube.fill")
-                    .font(.system(size: 14))
-                SmallText("Drop Weight: \(material.material.baseDropWeight)")
-            }
-            .foregroundColor(Color.textSecondary)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
-            .background(
-                RoundedRectangle(cornerRadius: 8)
-                    .fill(Color.backgroundSecondary)
-            )
         }
     }
 
@@ -428,7 +412,8 @@ private struct StatModifierRow: View {
         theme: "mystical",
         statModifiers: StatModifier(atkPower: 1.2, atkAccuracy: 1.1, defPower: 1.0, defAccuracy: 1.05),
         imageUrl: mockMaterialDetail.imageUrl,
-        material: mockMaterialDetail
+        material: mockMaterialDetail,
+        styleName: "Holographic"
     )
 
     return MaterialDetailModal(

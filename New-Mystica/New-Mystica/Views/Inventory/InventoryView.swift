@@ -124,41 +124,32 @@ struct InventoryView: View {
 
     private var mainContentView: some View {
         BaseView(title: "Inventory") {
-            VStack(spacing: 0) {
-                HStack {
-                    Spacer()
-                    if let goldBalance = appState.getCurrencyBalance(for: .gold) {
-                        GoldBalanceView(amount: goldBalance)
-                            .padding(.trailing, 16)
-                            .padding(.top, 8)
-                    } else {
-                        // Currencies not loaded - show loading state
-                        Text("Loading...")
-                            .foregroundColor(.secondary)
-                            .padding(.trailing, 16)
-                            .padding(.top, 8)
+            ScrollView {
+                VStack(spacing: 20) {
+                    LoadableView(viewModel.items) { items in
+                        itemsSection(items: items)
+                    } retry: {
+                        Task { await viewModel.loadInventory() }
+                    }
+
+
+                    LoadableView(viewModel.materialInventory) { materials in
+                        materialsSection(materials: materials)
+                    } retry: {
+                        Task { await viewModel.loadInventory() }
                     }
                 }
-                .padding(.bottom, 8)
-
-                ScrollView {
-                    VStack(spacing: 20) {
-                        LoadableView(viewModel.items) { items in
-                            itemsSection(items: items)
-                        } retry: {
-                            Task { await viewModel.loadInventory() }
-                        }
-
-
-                        LoadableView(viewModel.materialInventory) { materials in
-                            materialsSection(materials: materials)
-                        } retry: {
-                            Task { await viewModel.loadInventory() }
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+            }
+        } trailingView: {
+            if let goldBalance = appState.getCurrencyBalance(for: .gold) {
+                GoldBalanceView(amount: goldBalance)
+            } else {
+                // Currencies not loaded - show loading state
+                Text("Loading...")
+                    .foregroundColor(.secondary)
+                    .font(FontManager.caption)
             }
         }
     }

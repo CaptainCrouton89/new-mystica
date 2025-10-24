@@ -44,7 +44,7 @@ struct InventoryItemDetailModal: View {
                 .padding(.vertical, 16)
             }
             .background(Color.backgroundPrimary)
-            .navigationTitle("Item Details")
+            .navigationTitle(item.baseType.capitalized)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
@@ -106,8 +106,6 @@ struct InventoryItemDetailModal: View {
     // MARK: - Item Metadata View
     private var itemMetadataView: some View {
         VStack(spacing: 12) {
-            TitleText(item.baseType.capitalized, size: 24)
-
             HStack(spacing: 16) {
                 // Level badge
                 Badge(label: "Level", value: "\(item.level)", color: Color.accentSecondary)

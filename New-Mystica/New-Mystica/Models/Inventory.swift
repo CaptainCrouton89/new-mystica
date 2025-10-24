@@ -184,6 +184,7 @@ struct MaterialInventoryStack: APIModel, Hashable, Sendable {
     let materialId: String
     let name: String
     let styleId: String
+    let styleName: String?
     let quantity: Int
     let theme: String
     let statModifiers: StatModifier
@@ -213,6 +214,7 @@ struct MaterialInventoryStack: APIModel, Hashable, Sendable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         materialId = try container.decode(String.self, forKey: .materialId)
         styleId = try container.decode(String.self, forKey: .styleId)
+        styleName = try container.decodeIfPresent(String.self, forKey: .styleName)
         quantity = try container.decode(Int.self, forKey: .quantity)
 
         // Decode nested material object
@@ -228,10 +230,11 @@ struct MaterialInventoryStack: APIModel, Hashable, Sendable {
     }
 
     // Manual init for testing/previews
-    init(materialId: String, name: String, styleId: String, quantity: Int, theme: String, statModifiers: StatModifier, imageUrl: String?, material: MaterialDetail) {
+    init(materialId: String, name: String, styleId: String, quantity: Int, theme: String, statModifiers: StatModifier, imageUrl: String?, material: MaterialDetail, styleName: String? = nil) {
         self.materialId = materialId
         self.name = name
         self.styleId = styleId
+        self.styleName = styleName
         self.quantity = quantity
         self.theme = theme
         self.statModifiers = statModifiers
@@ -243,6 +246,7 @@ struct MaterialInventoryStack: APIModel, Hashable, Sendable {
         case materialId = "material_id"
         case name
         case styleId = "style_id"
+        case styleName = "style_name"
         case quantity
         case theme
         case statModifiers = "stat_modifiers"
