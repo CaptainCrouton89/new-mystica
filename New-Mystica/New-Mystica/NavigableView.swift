@@ -65,7 +65,7 @@ struct BaseView<Content: View, TrailingView: View>: View {
 
     @ViewBuilder
     private var headerView: some View {
-        HStack {
+        HStack(alignment: .center, spacing: 0) {
             BackButton {
                 if let customAction = customBackAction {
                     customAction()
@@ -73,27 +73,28 @@ struct BaseView<Content: View, TrailingView: View>: View {
                     navigationManager.navigateBack()
                 }
             }
-            .padding(.top, 16)
             .padding(.leading, 16)
 
             Spacer()
 
             TitleText(navigationTitle, size: 24)
-                .padding(.top, 16)
+                .lineLimit(1)
+                .fixedSize(horizontal: false, vertical: true)
 
             Spacer()
 
             if let trailing = trailingView {
                 trailing
-                    .padding(.top, 16)
                     .padding(.trailing, 16)
             } else {
                 // Dummy spacer to balance layout when no trailing view
                 Color.clear
-                    .frame(width: 60)
+                    .frame(width: 60, height: 1)
             }
         }
-        .padding(.bottom, 16)
+        .frame(height: 44)
+        .padding(.top, 8)
+        .padding(.bottom, 8)
     }
 }
 
