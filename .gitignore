@@ -46,3 +46,13 @@ supabase/
 
 New-Mystica/build/
 docs/investigations/
+
+# Temporary investigation files
+*_INVESTIGATION.md
+*_QUICK_REFERENCE.md
+*SCHEMA.md
+
+# Temporary utility scripts
+apply-migration*.js
+check-itemtypes.js
+populate-base-images.js
