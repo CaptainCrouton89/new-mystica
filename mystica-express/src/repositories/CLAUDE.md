@@ -35,10 +35,10 @@ export class ItemRepository extends BaseRepository<Item> {
 ## Domain-Specific Repositories
 
 ### Core Game Entities
-- **ItemRepository** - Player inventory, item CRUD, equipped state queries
+- **ItemRepository** - Player inventory, item CRUD, equipped state queries, image generation metadata, nested queries for materials and stats
 - **ItemTypeRepository** - Base item types, stats, rarity definitions
 - **EquipmentRepository** - Equipment slots, equipped items per slot
-- **MaterialRepository** - Materials, stacks, instances, application logic
+- **MaterialRepository** - Materials, stacks (composite PK), instances, application logic, atomic transactions
 - **WeaponRepository** - Weapon-specific queries and stat calculations
 
 ### Combat & Progression
@@ -60,17 +60,87 @@ export class ItemRepository extends BaseRepository<Item> {
 
 ## Common Patterns
 
-### RPC Queries
-Complex transactional operations use Supabase RPC functions:
+### N+1 Prevention with Nested Queries
+ItemRepository and MaterialRepository use nested Supabase queries to fetch related data in a single request:
+
 ```typescript
-async equipItem(userId: string, itemId: string, slot: EquipmentSlot) {
-  const { data, error } = await this.rpc('equip_item_transaction', {
+// ItemRepository - Single query fetches item + type + materials + material templates
+async findWithMaterials(itemId: string): Promise<ItemWithDetails> {
+  const { data } = await this.client
+    .from('items')
+    .select(`
+      *,
+      itemtypes(*),
+      itemmaterials(
+        *,
+        materialinstances:material_instance_id(
+          *,
+          materials(*)
+        )
+      )
+    `)
+    .eq('id', itemId)
+    .single();
+}
+```
+
+### MaterialStack Composite Primary Key (user_id, material_id, style_id)
+MaterialRepository handles 3-column composite keys with manual WHERE clauses (no native PK support in Supabase):
+
+```typescript
+// Styles stack separately - same material with different style_id = different row
+async findStackByUser(userId: string, materialId: string, styleId: string) {
+  return await this.client
+    .from('materialstacks')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('material_id', materialId)
+    .eq('style_id', styleId)
+    .single();
+}
+```
+
+**Key insight:** `incrementStack()` performs upserts by checking if composite key exists, then inserting or updating accordingly.
+
+### Image Generation Metadata
+ItemRepository tracks material combo images across three fields:
+
+```typescript
+item.material_combo_hash;       // Hash of applied material IDs + style IDs
+item.generated_image_url;       // URL to generated image (or base if no materials)
+item.image_generation_status;   // 'pending' | 'generating' | 'complete' | 'failed'
+```
+
+Methods: `updateImageData(itemId, userId, comboHash, imageUrl, status)`
+
+### RPC Transactions
+Atomic multi-table operations use Supabase RPC functions. Examples:
+
+```typescript
+// ItemRepository - process_item_upgrade RPC
+async processUpgrade(userId, itemId, goldCost, newLevel, newStats) {
+  return this.rpc('process_item_upgrade', {
     p_user_id: userId,
     p_item_id: itemId,
-    p_slot: slot
+    p_gold_cost: goldCost,
+    p_new_level: newLevel,
+    p_new_stats: newStats
+  });
+}
+
+// MaterialRepository - apply_material_to_item RPC
+async applyMaterialToItemAtomic(userId, itemId, materialId, styleId, slotIndex) {
+  return this.rpc('apply_material_to_item', {
+    p_user_id: userId,
+    p_item_id: itemId,
+    p_material_id: materialId,
+    p_style_id: styleId,
+    p_slot_index: slotIndex
   });
 }
 ```
+
+**MaterialRepository atomic operations:** `applyMaterialToItemAtomic()`, `removeMaterialFromItemAtomic()`, `replaceMaterialOnItemAtomic()`
 
 ### LocationRepository Pool Systems
 Two complementary systems for combat enemy selection and loot drops:
@@ -114,12 +184,37 @@ findMany(
 )
 ```
 
+### Batch Operations (for Combat Loot Distribution)
+MaterialRepository provides batch increment for distributing loot rewards to players:
+
+```typescript
+async batchIncrementStacks(updates: Array<{
+  userId: string;
+  materialId: string;
+  styleId: string;
+  quantity: number;
+}>): Promise<MaterialStackRow[]>
+```
+
+Useful for loot distribution after combat encounters.
+
+### Item History Tracking
+ItemRepository maintains audit trail of item events:
+
+```typescript
+async addHistoryEvent(itemId, userId, eventType, eventData);
+async getItemHistory(itemId, userId): Promise<ItemHistoryEvent[]>
+```
+
+Supported event types: `'level_up'`, `'material_applied'`, `'equipped'`, etc.
+
 ### Error Handling
 Throw custom errors from `src/utils/errors.ts`:
 - `NotFoundError` - Entity doesn't exist
 - `ValidationError` - Data invalid
 - `UnauthorizedError` - User lacks permission
 - `DatabaseError` - Supabase query failed
+- `BusinessLogicError` - Invalid operation (insufficient materials, occupied slot, etc.)
 
 ## Testing
 - Unit tests: `tests/unit/repositories/{Entity}Repository.test.ts`
