@@ -368,7 +368,9 @@ export interface PlayerCombatHistoryData {
 export interface LootDrop {
   type: 'material' | 'item' | 'gold';
   material_id?: string;
+  material_name?: string;
   item_type_id?: string;
+  item_type_name?: string;
   gold_amount?: number;
   style_id?: string; // inherited from enemy
   quantity?: number;

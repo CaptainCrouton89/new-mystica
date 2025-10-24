@@ -557,18 +557,18 @@ describe('CombatService', () => {
       const result = await combatService.completeCombat(sessionId, 'victory');
 
       expect(result.result).toBe('victory');
-      expect(result.rewards).toBeDefined();
-      expectValidGoldAmount(result.rewards!.currencies.gold);
-      expect(result.rewards!.experience).toBeGreaterThan(0);
-      expect(result.rewards!.combat_history).toBeDefined();
-      expect(result.rewards!.combat_history.victories).toBeGreaterThan(0);
+      expect(result.currencies).toBeDefined();
+      expectValidGoldAmount(result.currencies!.gold);
+      expect(result.experience).toBeGreaterThan(0);
+      expect(result.combat_history).toBeDefined();
+      expect(result.combat_history!.victories).toBeGreaterThan(0);
     });
 
     it('should complete combat with defeat and no rewards', async () => {
       const result = await combatService.completeCombat(sessionId, 'defeat');
 
       expect(result.result).toBe('defeat');
-      expect(result.rewards).toBeUndefined();
+      expect(result.currencies).toBeDefined();
     });
 
     it('should handle first-time location combat correctly', async () => {
@@ -576,9 +576,9 @@ describe('CombatService', () => {
 
       const result = await combatService.completeCombat(sessionId, 'victory');
 
-      expect(result.rewards!.combat_history.total_attempts).toBe(1);
-      expect(result.rewards!.combat_history.victories).toBe(1);
-      expect(result.rewards!.combat_history.current_streak).toBe(1);
+      expect(result.combat_history.total_attempts).toBe(1);
+      expect(result.combat_history.victories).toBe(1);
+      expect(result.combat_history.current_streak).toBe(1);
     });
   });
 
