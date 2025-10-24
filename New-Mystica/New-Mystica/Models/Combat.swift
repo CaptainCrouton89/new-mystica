@@ -28,8 +28,8 @@ struct CombatSession: APIModel {
     // Runtime state fields for ongoing combat (updated via combat actions)
     let turnNumber: Int?
     let currentTurnOwner: String?
-    let playerHp: Double?
-    let enemyHp: Double?
+    let playerHp: Double  // Always present - backend returns initial HP on start
+    let enemyHp: Double   // Always present - backend returns initial HP on start
     let expiresAt: String?
 
     enum CodingKeys: String, CodingKey {

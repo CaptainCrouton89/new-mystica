@@ -6,19 +6,18 @@
  * from initialization through completion with proper pool-based enemy/loot selection.
  */
 
-import { CombatRepository, CombatSessionData, CombatLogEventData, PlayerCombatHistoryData } from '../repositories/CombatRepository.js';
+import { CombatRepository, CombatSessionData } from '../repositories/CombatRepository.js';
 import { EnemyRepository } from '../repositories/EnemyRepository.js';
 import { EquipmentRepository } from '../repositories/EquipmentRepository.js';
-import { WeaponRepository } from '../repositories/WeaponRepository.js';
 import { MaterialRepository } from '../repositories/MaterialRepository.js';
+import { WeaponRepository } from '../repositories/WeaponRepository.js';
+import { Stats } from '../types/api.types.js';
 import { Database } from '../types/database.types.js';
 import { AdjustedBands } from '../types/repository.types.js';
-import { Stats } from '../types/api.types.js';
 import {
   ConflictError,
   NotFoundError,
-  ValidationError,
-  mapSupabaseError
+  ValidationError
 } from '../utils/errors.js';
 import { locationService } from './LocationService.js';
 
@@ -52,6 +51,8 @@ export interface CombatSession {
   player_id: string;
   enemy_id: string;
   status: 'active';
+  player_hp: number;
+  enemy_hp: number;
   enemy: {
     id: string;
     type: string;
@@ -233,6 +234,8 @@ export class CombatService {
       player_id: userId,
       enemy_id: enemy.id,
       status: 'active',
+      player_hp: playerStats.hp,
+      enemy_hp: enemy.hp,
       enemy,
       player_stats: playerStats,
       weapon_config: weaponConfig,

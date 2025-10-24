@@ -250,17 +250,21 @@ final class CombatViewModel {
     }
 
     var playerHPPercentage: Double {
-        guard let session = getCurrentSession(),
-              let currentHP = session.playerHp,
-              let maxHP = getPlayerMaxHP(session: session) else { return 0.0 }
-        return currentHP / maxHP
+        guard let session = getCurrentSession() else { return 0.0 }
+        guard let maxHP = getPlayerMaxHP(session: session) else {
+            assertionFailure("Player max HP should always be available")
+            return 0.0
+        }
+        return session.playerHp / maxHP
     }
 
     var enemyHPPercentage: Double {
-        guard let session = getCurrentSession(),
-              let currentHP = session.enemyHp,
-              let maxHP = getEnemyMaxHP(session: session) else { return 0.0 }
-        return currentHP / maxHP
+        guard let session = getCurrentSession() else { return 0.0 }
+        guard let maxHP = getEnemyMaxHP(session: session) else {
+            assertionFailure("Enemy max HP should always be available")
+            return 0.0
+        }
+        return session.enemyHp / maxHP
     }
 
     private func getCurrentSession() -> CombatSession? {
@@ -281,19 +285,17 @@ final class CombatViewModel {
     // MARK: - Computed Properties for HP
 
     var currentHP: Int {
-        guard let session = getCurrentSession(),
-              let hp = session.playerHp else {
+        guard let session = getCurrentSession() else {
             return 0
         }
-        return Int(hp)
+        return Int(session.playerHp)
     }
 
     var enemyHP: Int {
-        guard let session = getCurrentSession(),
-              let hp = session.enemyHp else {
+        guard let session = getCurrentSession() else {
             return 0
         }
-        return Int(hp)
+        return Int(session.enemyHp)
     }
 
     var isLoading: Bool {
