@@ -235,7 +235,11 @@ export class EquipmentService {
       pet: { atkPower: 0.3, atkAccuracy: 0.2, defPower: 0.2, defAccuracy: 0.3 }
     };
 
-    return normalizedStats[category] || { atkPower: 0.25, atkAccuracy: 0.25, defPower: 0.25, defAccuracy: 0.25 };
+    const stats = normalizedStats[category];
+    if (!stats) {
+      throw new Error(`Unknown item category for stats calculation: ${category}`);
+    }
+    return stats;
   }
 
   /**
@@ -307,9 +311,9 @@ export class EquipmentService {
       rarity: repositoryItem.item_type.rarity,
       applied_materials: appliedMaterials,
       computed_stats: computedStats,
-      material_combo_hash: repositoryItem.material_combo_hash || null,
-      generated_image_url: repositoryItem.generated_image_url || '',
-      image_generation_status: repositoryItem.image_generation_status || null,
+      material_combo_hash: repositoryItem.material_combo_hash ?? null,
+      generated_image_url: repositoryItem.generated_image_url ?? `https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/items/default_${repositoryItem.item_type.category}.png`,
+      image_generation_status: repositoryItem.image_generation_status ?? null,
       craft_count: 0, // TODO: Query from ItemImageCache
       is_styled: repositoryItem.is_styled || false,
       is_equipped: isEquipped,

@@ -226,26 +226,47 @@ export class CombatRepository extends BaseRepository<CombatSession> {
    * @returns Active session data or null
    */
   async getUserActiveSession(userId: string): Promise<CombatSessionData | null> {
+    const ttlThreshold = new Date(Date.now() - COMBAT_SESSION_TTL * 1000).toISOString();
+
+    console.log('🔍 [getUserActiveSession]', {
+      userId,
+      ttlThreshold,
+      ttlSeconds: COMBAT_SESSION_TTL
+    });
+
     const { data, error } = await this.client
       .from('combatsessions')
       .select('*')
       .eq('user_id', userId)
       .is('outcome', null) // Only incomplete sessions
-      .gte('created_at', new Date(Date.now() - COMBAT_SESSION_TTL * 1000).toISOString()) // Within TTL
+      .gte('created_at', ttlThreshold) // Within TTL
       .order('created_at', { ascending: false })
       .limit(1)
       .single();
 
+    console.log('📊 [getUserActiveSession] Query result:', {
+      hasData: !!data,
+      hasError: !!error,
+      errorCode: error?.code,
+      errorMessage: error?.message,
+      sessionId: data?.id,
+      createdAt: data?.created_at
+    });
+
     if (error) {
       if (error.code === 'PGRST116') {
+        console.log('ℹ️  [getUserActiveSession] No session found (PGRST116)');
         return null; // No active session found
       }
       throw new ValidationError(`Failed to get user active session: ${error.message}`);
     }
 
     if (!data) {
+      console.log('ℹ️  [getUserActiveSession] No data returned');
       return null; // No active session found
     }
+
+    console.log('✅ [getUserActiveSession] Found active session:', data.id);
 
     return {
       id: data.id,
@@ -389,7 +410,10 @@ export class CombatRepository extends BaseRepository<CombatSession> {
       throw new ValidationError(`Failed to cleanup expired sessions: ${error.message}`);
     }
 
-    return data?.length || 0;
+    if (data === null || data === undefined) {
+      throw new ValidationError('Failed to cleanup expired sessions: query returned no data');
+    }
+    return data.length;
   }
 
   // ========================================
@@ -440,7 +464,11 @@ export class CombatRepository extends BaseRepository<CombatSession> {
       throw new ValidationError(`Failed to get combat log events: ${error.message}`);
     }
 
-    return (data || []).map(event => ({
+    if (!data) {
+      throw new ValidationError('Failed to get combat log events: query returned no data');
+    }
+
+    return data.map(event => ({
       combatId: event.combat_id,
       seq: event.seq,
       ts: new Date(event.ts),
@@ -470,7 +498,11 @@ export class CombatRepository extends BaseRepository<CombatSession> {
       throw new ValidationError(`Failed to get combat log events by actor: ${error.message}`);
     }
 
-    return (data || []).map(event => ({
+    if (!data) {
+      throw new ValidationError('Failed to get combat log events by actor: query returned no data');
+    }
+
+    return data.map(event => ({
       combatId: event.combat_id,
       seq: event.seq,
       ts: new Date(event.ts),
@@ -684,7 +716,11 @@ export class CombatRepository extends BaseRepository<CombatSession> {
       throw new ValidationError(`Failed to get top locations: ${error.message}`);
     }
 
-    return (data || []).map(row => ({
+    if (!data) {
+      throw new ValidationError('Failed to get top locations: query returned no data');
+    }
+
+    return data.map(row => ({
       locationId: row.location_id,
       totalAttempts: row.total_attempts,
       victories: row.victories,
@@ -753,7 +789,7 @@ export class CombatRepository extends BaseRepository<CombatSession> {
   async calculateCombatRating(atk: number, def: number, hp: number): Promise<number> {
     const { data, error } = await this.client.rpc('combat_rating', {
       atk: atk,
-      def: def,
+      defense: def,
       hp: hp
     });
 
@@ -761,7 +797,10 @@ export class CombatRepository extends BaseRepository<CombatSession> {
       throw mapSupabaseError(error);
     }
 
-    return Number(data) || 0;
+    if (data === null || data === undefined) {
+      throw mapSupabaseError(new Error('Failed to calculate combat rating: query returned no data'));
+    }
+    return Number(data);
   }
 
   // ========================================

@@ -367,8 +367,7 @@ export class ItemService {
         is_styled: stack.styledefinitions.style_name !== 'normal'
       }));
     } catch (error) {
-      console.warn('Failed to get material stacks:', error);
-      return []; // Return empty array on error, don't break inventory
+      throw new Error(`Failed to get material stacks: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -395,9 +394,7 @@ export class ItemService {
         materials_max: hasStorageUpgrade ? 2000 : 200
       };
     } catch (error) {
-      console.warn('Failed to get storage limits:', error);
-      // Return defaults on error
-      return { items_max: 100, materials_max: 200 };
+      throw new Error(`Failed to get storage limits: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -1066,10 +1063,7 @@ export class ItemService {
       const equippedItems = await this.itemRepository.findEquippedByUser(userId);
       return equippedItems.some(item => item.id === itemId);
     } catch (error) {
-      // If there's an error checking equipment status, assume not equipped
-      // This is safer than blocking the discard operation
-      console.warn('Failed to check equipment status for item', itemId, error);
-      return false;
+      throw new Error(`Failed to check equipment status for item ${itemId}: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 

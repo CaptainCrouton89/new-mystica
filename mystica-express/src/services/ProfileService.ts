@@ -84,7 +84,7 @@ export class ProfileService {
     try {
       // 1. Get base user data
       const user = await this.profileRepository.findUserById(userId);
-      if (!user) throw new NotFoundError('User not found');
+      if (!user) throw new NotFoundError('User', userId);
 
       // 2. Get currency balances
       const balances = await this.profileRepository.getAllCurrencyBalances(userId);

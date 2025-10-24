@@ -117,7 +117,11 @@ export class ProfileRepository extends BaseRepository<User> {
       throw this.mapError(error);
     }
 
-    return (data as any)?.users || null;
+    const user = (data as any)?.users;
+    if (!user) {
+      throw new Error(`User not found for device token: ${deviceToken}`);
+    }
+    return user;
   }
 
   /**

@@ -450,8 +450,8 @@ Composition & Background
       }));
 
       return `${this.R2_PUBLIC_URL}/${key}`;
-    } catch {
-      return null;
+    } catch (error) {
+      throw new Error(`Failed to upload image to R2: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 

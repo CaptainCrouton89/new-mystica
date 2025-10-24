@@ -377,9 +377,7 @@ export class ChatterService {
       };
 
     } catch (error) {
-      // Log error but don't fail chatter generation
-      console.warn('Failed to get equipped pet:', error);
-      return null;
+      throw new Error(`Failed to get equipped pet: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 

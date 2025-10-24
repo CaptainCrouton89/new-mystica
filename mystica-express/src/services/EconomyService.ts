@@ -160,7 +160,10 @@ export class EconomyService {
   async getCurrencyBalance(userId: string, currency: 'GOLD' | 'GEMS'): Promise<number> {
     try {
       const balance = await this.profileRepository.getCurrencyBalance(userId, currency);
-      return balance || 0; // Return 0 if no balance record exists
+      if (balance === null || balance === undefined) {
+        throw new DatabaseError(`User balance not found for currency ${currency}`);
+      }
+      return balance;
     } catch (error) {
       throw new DatabaseError(`Failed to get ${currency} balance: ${(error as Error).message}`);
     }

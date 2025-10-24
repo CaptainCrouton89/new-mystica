@@ -49,6 +49,9 @@ const MAX_CRIT_BONUS = 1.0; // 0-100% additional multiplier
 // Combat interfaces matching the spec
 export interface CombatSession {
   session_id: string;
+  player_id: string;
+  enemy_id: string;
+  status: 'active';
   enemy: {
     id: string;
     type: string;
@@ -210,13 +213,6 @@ export class CombatService {
     // Capture player equipment snapshot
     const playerEquippedItemsSnapshot = await this.captureEquipmentSnapshot(userId);
 
-    // Calculate combat ratings
-    const playerRating = await this.calculateCombatRating(playerStats.atkPower, playerStats.defPower, playerStats.hp);
-    const enemyRating = await this.calculateCombatRating(enemy.atk, enemy.def, enemy.hp);
-
-    // Calculate win probability using Elo-style formula
-    const winProbEst = this.calculateWinProbability(playerRating, enemyRating);
-
     // Create session in database
     const sessionData: Omit<CombatSessionData, 'id' | 'createdAt' | 'updatedAt'> = {
       userId,
@@ -226,9 +222,7 @@ export class CombatService {
       appliedEnemyPools,
       appliedLootPools,
       playerEquippedItemsSnapshot,
-      playerRating,
-      enemyRating,
-      winProbEst,
+      // Analytics disabled for MVP - optional fields omitted
       combatLog: [],
     };
 
@@ -568,14 +562,36 @@ export class CombatService {
    */
   async getCombatSessionForRecovery(sessionId: string, userId: string): Promise<{
     session_id: string;
+    player_id: string;
+    enemy_id: string;
+    turn_number: number;
+    current_turn_owner: 'player' | 'enemy';
+    status: 'active';
     player_hp: number;
     enemy_hp: number;
-    turn_count: number;
-    whose_turn: 'player' | 'enemy';
+    player_stats: {
+      atkPower: number;
+      atkAccuracy: number;
+      defPower: number;
+      defAccuracy: number;
+      hp: number;
+    };
+    weapon_config: {
+      pattern: string;
+      spin_deg_per_s: number;
+      adjusted_bands: {
+        deg_injure: number;
+        deg_miss: number;
+        deg_graze: number;
+        deg_normal: number;
+        deg_crit: number;
+      };
+    };
     enemy: {
       id: string;
       type: string;
       name: string;
+      level: number;
       atk: number;
       def: number;
       hp: number;
@@ -602,6 +618,9 @@ export class CombatService {
     const playerStats = await this.calculatePlayerStats(session.userId);
     const enemyStats = await this.calculateEnemyStats(session.enemyTypeId);
 
+    // Get weapon configuration for timing dial
+    const weaponConfig = await this.getWeaponConfig(session.userId, playerStats.atkAccuracy);
+
     // Get enemy details
     const enemyType = await this.enemyRepository.findEnemyTypeById(session.enemyTypeId);
     if (!enemyType) {
@@ -621,14 +640,26 @@ export class CombatService {
 
     return {
       session_id: sessionId,
+      player_id: session.userId,
+      enemy_id: session.enemyTypeId,
+      turn_number: currentLog.length,
+      current_turn_owner: whoseTurn,
+      status: 'active' as const,
       player_hp: currentPlayerHP,
       enemy_hp: currentEnemyHP,
-      turn_count: currentLog.length,
-      whose_turn: whoseTurn,
+      player_stats: {
+        atkPower: playerStats.atkPower,
+        atkAccuracy: playerStats.atkAccuracy,
+        defPower: playerStats.defPower,
+        defAccuracy: playerStats.defAccuracy,
+        hp: playerStats.hp,
+      },
+      weapon_config: weaponConfig,
       enemy: {
         id: enemyType.id,
         type: enemyType.name,
         name: enemyType.name,
+        level: session.combatLevel,
         atk: enemyStats.atk,
         def: enemyStats.def,
         hp: enemyStats.hp,
@@ -898,8 +929,7 @@ export class CombatService {
     try {
       return await this.weaponRepository.getExpectedDamageMultiplier(weaponId, accuracy);
     } catch (error) {
-      console.warn('Expected damage multiplier calculation failed:', error);
-      return 1.0; // Fallback to base multiplier
+      throw new Error(`Expected damage multiplier calculation failed: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -1079,13 +1109,7 @@ export class CombatService {
    * Calculate combat rating using database power-law formula
    */
   private async calculateCombatRating(atk: number, def: number, hp: number): Promise<number> {
-    try {
-      return await this.combatRepository.calculateCombatRating(atk, def, hp);
-    } catch (error) {
-      // Fallback to simple calculation if DB function fails
-      console.warn('Database combat_rating function failed, using fallback:', error);
-      return Math.floor(atk * 2 + def * 1.5 + hp * 0.5);
-    }
+    return await this.combatRepository.calculateCombatRating(atk, def, hp);
   }
 
 

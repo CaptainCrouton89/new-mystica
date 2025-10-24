@@ -40,7 +40,11 @@ export class StyleRepository {
         throw mapSupabaseError(error);
       }
 
-      return data || [];
+      if (!data) {
+        throw new DatabaseError('Failed to fetch style definitions: query returned no data');
+      }
+
+      return data;
     } catch (error) {
       if (error instanceof DatabaseError) {
         throw error;
@@ -64,7 +68,10 @@ export class StyleRepository {
         throw mapSupabaseError(error);
       }
 
-      return data || null;
+      if (!data) {
+        throw new DatabaseError(`Style definition not found for ID: ${styleId}`);
+      }
+      return data;
     } catch (error) {
       if (error instanceof DatabaseError) {
         throw error;
@@ -91,7 +98,10 @@ export class StyleRepository {
         throw mapSupabaseError(error);
       }
 
-      return data || null;
+      if (!data) {
+        throw new DatabaseError(`Style definition not found for name: ${styleName}`);
+      }
+      return data;
     } catch (error) {
       if (error instanceof DatabaseError) {
         throw error;

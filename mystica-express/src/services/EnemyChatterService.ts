@@ -303,7 +303,11 @@ Generate appropriate dialogue for this situation.`;
       victory: "Victory is mine!"
     };
 
-    return genericTaunts[eventType] || "...";
+    const taunt = genericTaunts[eventType];
+    if (!taunt) {
+      throw new Error(`No generic taunt available for event type: ${eventType}`);
+    }
+    return taunt;
   }
 
   /**

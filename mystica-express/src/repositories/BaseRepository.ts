@@ -181,7 +181,10 @@ export abstract class BaseRepository<T> {
       throw mapSupabaseError(error);
     }
 
-    return (count || 0) > 0;
+    if (count === null || count === undefined) {
+      throw new DatabaseError('Failed to delete entity: count returned no data');
+    }
+    return count > 0;
   }
 
   /**
@@ -204,7 +207,10 @@ export abstract class BaseRepository<T> {
       throw mapSupabaseError(error);
     }
 
-    return count || 0;
+    if (count === null || count === undefined) {
+      throw new DatabaseError('Failed to count entities: query returned no data');
+    }
+    return count;
   }
 
   /**
@@ -224,7 +230,10 @@ export abstract class BaseRepository<T> {
       throw mapSupabaseError(error);
     }
 
-    return (count || 0) > 0;
+    if (count === null || count === undefined) {
+      throw new DatabaseError('Failed to check entity existence: count returned no data');
+    }
+    return count > 0;
   }
 
   /**
@@ -332,6 +341,9 @@ export abstract class BaseRepository<T> {
       throw mapSupabaseError(error);
     }
 
-    return count || 0;
+    if (count === null || count === undefined) {
+      throw new DatabaseError('Failed to delete entities: count returned no data');
+    }
+    return count;
   }
 }

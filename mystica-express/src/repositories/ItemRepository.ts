@@ -312,7 +312,11 @@ export class ItemRepository extends BaseRepository<ItemRow> {
       throw new DatabaseError(`Failed to fetch equipped items for user: ${userId}`, error);
     }
 
-    return (data || []).map(item => this.transformToItemWithDetails(item, false));
+    if (!data) {
+      throw new DatabaseError(`Failed to fetch equipped items for user: query returned no data`);
+    }
+
+    return data.map(item => this.transformToItemWithDetails(item, false));
   }
 
   /**
@@ -451,7 +455,11 @@ export class ItemRepository extends BaseRepository<ItemRow> {
       throw new DatabaseError(`Failed to fetch item history: ${itemId}`, error);
     }
 
-    return (data || []) as ItemHistoryEvent[];
+    if (!data) {
+      throw new DatabaseError(`Failed to fetch item history: query returned no data`);
+    }
+
+    return data as ItemHistoryEvent[];
   }
 
   // ============================================================================
@@ -522,7 +530,11 @@ export class ItemRepository extends BaseRepository<ItemRow> {
       throw new DatabaseError('Failed to fetch multiple items with details', error);
     }
 
-    return (data || []).map(item => this.transformToItemWithDetails(item));
+    if (!data) {
+      throw new DatabaseError('Failed to fetch multiple items with details: query returned no data');
+    }
+
+    return data.map(item => this.transformToItemWithDetails(item));
   }
 
   /**
@@ -657,7 +669,11 @@ export class ItemRepository extends BaseRepository<ItemRow> {
       throw new DatabaseError(`Failed to fetch item types by rarity: ${rarity}`, error);
     }
 
-    return (data || []) as ItemTypeRow[];
+    if (!data) {
+      throw new DatabaseError(`Failed to fetch item types by rarity: query returned no data`);
+    }
+
+    return data as ItemTypeRow[];
   }
 
   // ============================================================================

@@ -163,7 +163,10 @@ export class ItemTypeRepository extends BaseRepository<ItemTypeRow> {
       throw mapSupabaseError(error);
     }
 
-    return count || 0;
+    if (count === null || count === undefined) {
+      throw new DatabaseError('Failed to count item types by rarity: query returned no data');
+    }
+    return count;
   }
 
   /**
