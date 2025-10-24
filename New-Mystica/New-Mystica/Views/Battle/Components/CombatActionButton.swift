@@ -2,8 +2,8 @@
 //  CombatActionButton.swift
 //  New-Mystica
 //
-//  Combat action button component for battle interface
-//  Extracted from BattleView.swift for better maintainability
+//  Simple combat action button for MVP0 battle interface
+//  Basic button component with no timing mechanics - honest UI representation
 //
 
 import SwiftUI

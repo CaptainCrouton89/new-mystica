@@ -95,7 +95,15 @@ export class CombatController {
 
       const session = await combatService.getUserActiveSession(userId);
 
-      res.json({ session });
+      // If session exists, fetch full recovery data for client
+      if (session) {
+        const recoveryData = await combatService.getCombatSessionForRecovery(session.id, userId);
+        console.log('🎯 [getActiveSession] Returning recovery data:', JSON.stringify(recoveryData, null, 2));
+        res.json({ session: recoveryData });
+      } else {
+        console.log('ℹ️  [getActiveSession] No active session, returning null');
+        res.json({ session: null });
+      }
 
     } catch (error) {
       next(error);

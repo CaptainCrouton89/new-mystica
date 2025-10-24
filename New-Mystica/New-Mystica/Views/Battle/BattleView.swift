@@ -1,21 +1,58 @@
 import SwiftUI
 import SpriteKit
 
+/**
+ * BattleView: Combat Interface Implementation Status
+ *
+ * CURRENT STATUS: "Correctly Incomplete" - Basic functionality working, advanced features documented as placeholders
+ *
+ * ✅ WORKING:
+ *   - Auto-resume existing combat sessions from AppState
+ *   - Basic attack/defend actions with backend integration
+ *   - Real-time HP tracking and combat status updates
+ *   - Combat rewards display and claiming
+ *   - Turn history tracking (UI-only)
+ *   - Clean session lifecycle management
+ *
+ * 🚧 INCOMPLETE (Documented Placeholders):
+ *   - Timing system: TimingDialView shows "coming soon" message, uses hardcoded 0.8 scores
+ *   - Dynamic HP calculation: Uses simplified defPower * 10 formula instead of backend max HP
+ *   - Advanced combat mechanics: No critical hits, status effects, or complex interactions
+ *   - UI Polish: Basic attack/defend buttons without timing-based interactions
+ *
+ * ❌ REMOVED (Was Non-Functional):
+ *   - Interactive timing dial (was static, appeared functional but did nothing)
+ *   - Dynamic timing score calculation (was always hardcoded)
+ *   - Misleading "Click for timing bonus!" UI text
+ *
+ * ARCHITECTURAL NOTES:
+ *   - Models now align with backend API contracts (no manual conversion)
+ *   - Session state consistent between frontend and backend
+ *   - All placeholders clearly documented with TODO comments
+ *   - MVP0 simplifications explicitly noted for future enhancement
+ */
 struct BattleView: View {
     @Environment(\.navigationManager) private var navigationManager
     @Environment(\.audioManager) private var audioManager
     @Environment(AppState.self) private var appState
     @State private var viewModel = CombatViewModel()
 
+    // MARK: - Combat Balance Placeholders
+    // TODO: Replace with dynamic timing-based scoring when timing system implemented
+    private static let DEFAULT_TIMING_SCORE = 0.8 // 80% success rate for MVP0 simplification
 
-    // Animation states
+    // TODO: Replace with proper stat-based HP calculation from backend specs
+    private static let HP_MULTIPLIER = 10 // Simplified formula: defPower * 10 for MVP0
+
+
+    // Simple animation states for MVP0 visual feedback
     @State private var playerScale: CGFloat = 1.0
     @State private var enemyScale: CGFloat = 1.0
 
-    // Location ID passed from map
-    let locationId: String
+    // Location ID passed from map (optional for auto-resume scenarios)
+    let locationId: String?
 
-    init(locationId: String) {
+    init(locationId: String? = nil) {
         self.locationId = locationId
     }
     
@@ -27,7 +64,7 @@ struct BattleView: View {
                     combatContentView(session: session)
                 } retry: {
                     Task {
-                        await viewModel.startCombat(locationId: locationId)
+                        await viewModel.initializeOrResumeCombat(locationId: locationId)
                     }
                 }
 
@@ -38,18 +75,19 @@ struct BattleView: View {
             }
         }
         .task {
-            // Check if there's an active session from AppState first (auto-resume flow)
+            // Use backend auto-resume flow - AppState should have already checked for active sessions
+            // If AppState has a session, use it; otherwise try to create new combat or auto-resume
             if case .loaded(let session) = appState.activeCombatSession,
                let activeSession = session {
-                // Resume existing session
-                await viewModel.resumeCombat(session: activeSession)
+                // Resume existing session loaded by AppState
+                viewModel.resumeCombat(session: activeSession)
             } else {
-                // Start new combat session
-                await viewModel.startCombat(locationId: locationId)
+                // Try to resume existing session or create new one if locationId provided
+                await viewModel.initializeOrResumeCombat(locationId: locationId)
 
-                // Update AppState with the new session
+                // Update AppState with whatever session we got from backend
                 if case .loaded(let session) = viewModel.combatState {
-                    appState.activeCombatSession = .loaded(session)
+                    appState.setCombatSession(session)
                 }
             }
         }
@@ -59,7 +97,7 @@ struct BattleView: View {
     private func combatContentView(session: CombatSession) -> some View {
         VStack(spacing: 0) {
             // Enemy Section
-            enemySection(enemy: session.enemy, hp: Double(viewModel.enemyHP))
+            enemySection(enemy: convertCombatEnemyToEnemy(session.enemy), hp: Double(viewModel.enemyHP))
                 .frame(maxHeight: .infinity)
 
             Spacer(minLength: 20)
@@ -138,7 +176,7 @@ struct BattleView: View {
                 HStack {
                     Image(systemName: "dollarsign.circle.fill")
                         .foregroundColor(Color.accent)
-                    NormalText("Gold: \(rewards.goldEarned)")
+                    NormalText("Gold: \(rewards.rewards?.gold ?? 0)")
                         .foregroundColor(Color.textSecondary)
                     Spacer()
                 }
@@ -146,12 +184,12 @@ struct BattleView: View {
                 HStack {
                     Image(systemName: "star.fill")
                         .foregroundColor(Color.accentSecondary)
-                    NormalText("Experience: \(rewards.experienceEarned)")
+                    NormalText("Experience: \(rewards.rewards?.experience ?? 0)")
                         .foregroundColor(Color.textSecondary)
                     Spacer()
                 }
 
-                if !rewards.itemsDropped.isEmpty {
+                if let items = rewards.rewards?.materials, !items.isEmpty {
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
                             Image(systemName: "gift.fill")
@@ -161,9 +199,9 @@ struct BattleView: View {
                             Spacer()
                         }
 
-                        ForEach(Array(rewards.itemsDropped.enumerated()), id: \.element.id) { _, item in
+                        ForEach(Array((rewards.rewards?.materials ?? []).enumerated()), id: \.element.materialId) { _, item in
                             HStack {
-                                SmallText("• \(item.baseType) [Level \(item.level)]")
+                                SmallText("• \(item.name) [Level \(1)]")
                                     .foregroundColor(Color.textSecondary)
                                 Spacer()
                             }
@@ -172,7 +210,7 @@ struct BattleView: View {
                     }
                 }
 
-                if !rewards.materialsDropped.isEmpty {
+                if let materials = rewards.rewards?.materials, !materials.isEmpty {
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
                             Image(systemName: "cube.fill")
@@ -182,9 +220,9 @@ struct BattleView: View {
                             Spacer()
                         }
 
-                        ForEach(rewards.materialsDropped, id: \.materialId) { material in
+                        ForEach(Array(materials.enumerated()), id: \.element.materialId) { _, material in
                             HStack {
-                                SmallText("• \(material.name) x\(material.quantity ?? 1)")
+                                SmallText("• \(material.name) [\(material.styleName)]")
                                     .foregroundColor(Color.textSecondary)
                                 Spacer()
                             }
@@ -209,12 +247,26 @@ struct BattleView: View {
     }
 
     // MARK: - Enemy Section
+    // Helper function to convert CombatEnemy to Enemy for compatibility
+    private func convertCombatEnemyToEnemy(_ combatEnemy: CombatEnemy) -> Enemy {
+        return Enemy(
+            id: combatEnemy.id,
+            name: combatEnemy.name,
+            level: combatEnemy.level,
+            stats: combatEnemy.stats,
+            specialAbilities: combatEnemy.personalityTraits,
+            goldMin: 0,
+            goldMax: 0,
+            materialDropPool: []
+        )
+    }
+
     private func enemySection(enemy: Enemy, hp: Double) -> some View {
         VStack(spacing: 16) {
             // Enemy Health Bar
             HealthBarView(
                 currentHealth: hp,
-                maxHealth: Double(enemy.stats.defPower * 10), // Max HP calculation
+                maxHealth: enemy.stats.defPower * Double(Self.HP_MULTIPLIER), // TODO: Get actual max HP from backend
                 label: enemy.name ?? "Unknown Enemy",
                 isPlayer: false
             )
@@ -303,7 +355,7 @@ struct BattleView: View {
             // Player Health Bar
             HealthBarView(
                 currentHealth: Double(viewModel.currentHP),
-                maxHealth: session.playerHp ?? Double(session.playerStats.defPower * 10),
+                maxHealth: session.playerHp ?? (session.playerStats.defPower * Double(Self.HP_MULTIPLIER)), // TODO: Get actual max HP from backend
                 label: "You",
                 isPlayer: true
             )
@@ -354,9 +406,9 @@ struct BattleView: View {
             }
 
             if !viewModel.combatEnded {
-                // Combat actions
+                // Simple combat actions - MVP0 with fixed scoring (no timing mechanics)
                 HStack(spacing: 20) {
-                    // Attack Button
+                    // Basic Attack - uses fixed success rate
                     CombatActionButton(
                         title: "Attack",
                         icon: "hammer.fill",
@@ -364,11 +416,12 @@ struct BattleView: View {
                         isDisabled: !viewModel.canAct
                     ) {
                         Task {
-                            await viewModel.attack(timingScore: 0.8) // Use default timing for now
+                            // MVP0: Fixed timing score - no user interaction required
+                            await viewModel.attack(timingScore: Self.DEFAULT_TIMING_SCORE)
                         }
                     }
 
-                    // Defend Button
+                    // Basic Defend - uses fixed success rate
                     CombatActionButton(
                         title: "Defend",
                         icon: "shield.fill",
@@ -376,10 +429,18 @@ struct BattleView: View {
                         isDisabled: !viewModel.canAct
                     ) {
                         Task {
-                            await viewModel.defend(timingScore: 0.8) // Use default timing for now
+                            // MVP0: Fixed timing score - no user interaction required
+                            await viewModel.defend(timingScore: Self.DEFAULT_TIMING_SCORE)
                         }
                     }
                 }
+
+                // Clear MVP0 notice - no misleading timing elements
+                SmallText("⚡ MVP0: Basic combat - timing mechanics coming later", size: 11)
+                    .foregroundColor(Color.textSecondary.opacity(0.8))
+                    .multilineTextAlignment(.center)
+                    .padding(.top, 8)
+
             } else {
                 // Combat ended - show retreat option or wait for rewards
                 if case .idle = viewModel.rewards {
@@ -392,14 +453,8 @@ struct BattleView: View {
                 }
             }
 
-            // Timing dial (only show during active combat)
-            if viewModel.isInCombat && !viewModel.combatEnded {
-                TimingDialView(
-                    dialRotation: .constant(0),
-                    isDialSpinning: .constant(false),
-                    onTap: {}
-                )
-            }
+            // Note: Timing dial removed to avoid misleading users
+            // It will be re-added when fully functional timing mechanics are implemented
         }
     }
 
@@ -409,7 +464,7 @@ struct BattleView: View {
     // MARK: - Helper Functions
     
     private func startIdleAnimations() {
-        // Player idle animation
+        // Simple idle animations for MVP0 - basic visual feedback only
         withAnimation(
             .easeInOut(duration: 2.0)
             .repeatForever(autoreverses: true)
@@ -417,7 +472,7 @@ struct BattleView: View {
             playerScale = 1.05
         }
 
-        // Enemy idle animation (offset by 1 second) - using Task instead of DispatchQueue
+        // Enemy idle animation (offset for visual variety)
         Task {
             try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
             await MainActor.run {

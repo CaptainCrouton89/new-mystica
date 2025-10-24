@@ -2,47 +2,48 @@
 //  TimingDialView.swift
 //  New-Mystica
 //
-//  Timing dial component for battle interface
-//  Extracted from BattleView.swift for better maintainability
+//  Placeholder component indicating timing feature not yet implemented
+//  Prevents misleading users with non-functional UI elements
 //
 
 import SwiftUI
 
 struct TimingDialView: View {
+    // Note: Parameters kept for compatibility but not used
     @Binding var dialRotation: Double
     @Binding var isDialSpinning: Bool
     let onTap: () -> Void
 
     var body: some View {
         VStack(spacing: 8) {
-            SmallText("Click for timing bonus!", size: 12)
+            SmallText("Timing system coming soon", size: 12)
                 .foregroundColor(Color.textSecondary)
 
             ZStack {
-                // Dial background circle
+                // Grayed-out dial background - clearly disabled
                 Circle()
-                    .fill(Color.backgroundCard)
+                    .fill(Color.backgroundSecondary.opacity(0.3))
                     .frame(width: 60, height: 60)
                     .overlay(
                         Circle()
-                            .stroke(Color.accentSecondary, lineWidth: 2)
+                            .stroke(Color.textSecondary.opacity(0.3), lineWidth: 2)
                     )
-                    .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
 
-                // Dial pointer
+                // Static pointer - no rotation, clearly non-functional
                 Rectangle()
-                    .fill(Color.accentSecondary)
+                    .fill(Color.textSecondary.opacity(0.3))
                     .frame(width: 2, height: 20)
                     .offset(y: -10)
-                    .rotationEffect(.degrees(dialRotation))
 
-                // Center dot
+                // Grayed center dot
                 Circle()
-                    .fill(Color.accentSecondary)
+                    .fill(Color.textSecondary.opacity(0.3))
                     .frame(width: 6, height: 6)
-            }
-            .onTapGesture {
-                onTap()
+
+                // "Coming Soon" overlay
+                Image(systemName: "clock.badge.questionmark")
+                    .foregroundColor(Color.textSecondary.opacity(0.6))
+                    .font(.system(size: 16))
             }
         }
     }

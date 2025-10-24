@@ -7,27 +7,27 @@
 
 import Foundation
 
-// MARK: - Combat Status Enum
+// MARK: - Combat Status Enum (matches backend CombatStatus type)
 enum CombatStatus: String, Codable, CaseIterable {
     case active = "active"
-    case playerWon = "player_won"
-    case enemyWon = "enemy_won"
-    case retreated = "retreated"
-    case ongoing = "ongoing"
     case victory = "victory"
     case defeat = "defeat"
+    case abandoned = "abandoned"
 }
 
-// MARK: - Combat Session Model
+// MARK: - Combat Session Model (matches backend startCombat response)
 struct CombatSession: APIModel {
     let sessionId: String
     let playerId: String
     let enemyId: String
-    let turnNumber: Int
-    let currentTurnOwner: String
     let status: CombatStatus
-    let enemy: Enemy
-    let playerStats: ItemStats
+    let enemy: CombatEnemy
+    let playerStats: CombatPlayerStats
+    let weaponConfig: WeaponConfig
+
+    // Runtime state fields for ongoing combat (updated via combat actions)
+    let turnNumber: Int?
+    let currentTurnOwner: String?
     let playerHp: Double?
     let enemyHp: Double?
     let expiresAt: String?
@@ -36,31 +36,21 @@ struct CombatSession: APIModel {
         case sessionId = "session_id"
         case playerId = "player_id"
         case enemyId = "enemy_id"
-        case turnNumber = "turn_number"
-        case currentTurnOwner = "current_turn_owner"
         case status
         case enemy
         case playerStats = "player_stats"
+        case weaponConfig = "weapon_config"
+        case turnNumber = "turn_number"
+        case currentTurnOwner = "current_turn_owner"
         case playerHp = "player_hp"
         case enemyHp = "enemy_hp"
         case expiresAt = "expires_at"
     }
 }
 
-// MARK: - Combat Start Response
-struct CombatStartResponse: APIModel {
-    let sessionId: String
-    let enemy: CombatEnemy
-    let playerStats: CombatPlayerStats
-    let weaponConfig: WeaponConfig
-
-    enum CodingKeys: String, CodingKey {
-        case sessionId = "session_id"
-        case enemy
-        case playerStats = "player_stats"
-        case weaponConfig = "weapon_config"
-    }
-}
+// MARK: - Combat Start Response (deprecated - use CombatSession directly)
+// This type is no longer needed as CombatSession now matches the backend response
+typealias CombatStartResponse = CombatSession
 
 // MARK: - Combat Enemy Model
 struct CombatEnemy: APIModel {
@@ -87,15 +77,33 @@ struct CombatEnemy: APIModel {
         case dialogueTone = "dialogue_tone"
         case personalityTraits = "personality_traits"
     }
+
+    // Computed property to convert to legacy Enemy format for compatibility
+    var stats: ItemStats {
+        return ItemStats(
+            atkPower: Double(atk),
+            atkAccuracy: 0, // Not provided in combat enemy response
+            defPower: Double(def),
+            defAccuracy: 0  // Not provided in combat enemy response
+        )
+    }
 }
 
-// MARK: - Combat Player Stats
+// MARK: - Combat Player Stats (matches backend player_stats format)
 struct CombatPlayerStats: APIModel {
     let atkPower: Double
     let atkAccuracy: Double
     let defPower: Double
     let defAccuracy: Double
     let hp: Double
+
+    enum CodingKeys: String, CodingKey {
+        case atkPower
+        case atkAccuracy
+        case defPower
+        case defAccuracy
+        case hp
+    }
 }
 
 // MARK: - Weapon Config
@@ -111,14 +119,13 @@ struct WeaponConfig: APIModel {
     }
 }
 
-// MARK: - Adjusted Bands
+// MARK: - Adjusted Bands (matches backend adjusted_bands format)
 struct AdjustedBands: APIModel {
     let degInjure: Double
     let degMiss: Double
     let degGraze: Double
     let degNormal: Double
     let degCrit: Double
-    let totalDegrees: Double
 
     enum CodingKeys: String, CodingKey {
         case degInjure = "deg_injure"
@@ -126,7 +133,6 @@ struct AdjustedBands: APIModel {
         case degGraze = "deg_graze"
         case degNormal = "deg_normal"
         case degCrit = "deg_crit"
-        case totalDegrees = "total_degrees"
     }
 }
 
@@ -175,18 +181,40 @@ enum CombatActionType: String, Codable, CaseIterable {
     case special = "special"
 }
 
-// MARK: - Combat Rewards Model
+// MARK: - Combat Rewards Model (matches backend completeCombat response)
 struct CombatRewards: APIModel {
-    let goldEarned: Int
-    let experienceEarned: Int
-    let itemsDropped: [EnhancedPlayerItem]
-    let materialsDropped: [MaterialDrop]
+    let result: String
+    let rewards: CombatRewardDetails?
+    let playerCombatHistory: PlayerCombatHistory
 
     enum CodingKeys: String, CodingKey {
-        case goldEarned = "gold_earned"
-        case experienceEarned = "experience_earned"
-        case itemsDropped = "items_dropped"
-        case materialsDropped = "materials_dropped"
+        case result
+        case rewards
+        case playerCombatHistory = "player_combat_history"
+    }
+}
+
+struct CombatRewardDetails: APIModel {
+    let materials: [MaterialDrop]
+    let gold: Int
+    let experience: Int
+}
+
+struct PlayerCombatHistory: APIModel {
+    let locationId: String
+    let totalAttempts: Int
+    let victories: Int
+    let defeats: Int
+    let currentStreak: Int
+    let longestStreak: Int
+
+    enum CodingKeys: String, CodingKey {
+        case locationId = "location_id"
+        case totalAttempts = "total_attempts"
+        case victories
+        case defeats
+        case currentStreak = "current_streak"
+        case longestStreak = "longest_streak"
     }
 }
 
@@ -195,28 +223,38 @@ struct MaterialDrop: APIModel {
     let materialId: String
     let name: String
     let styleId: String
-    let quantity: Int?
+    let styleName: String
 
     enum CodingKeys: String, CodingKey {
         case materialId = "material_id"
         case name
         case styleId = "style_id"
-        case quantity
+        case styleName = "style_name"
     }
 }
 
 // MARK: - Combat Action Result Models
 struct AttackResult: APIModel {
+    let hitZone: String
+    let baseMultiplier: Double
+    let critBonusMultiplier: Double?
     let damageDealt: Double
     let playerHpRemaining: Double
     let enemyHpRemaining: Double
-    let combatStatus: CombatStatus
+    let enemyDamage: Double
+    let combatStatus: String
+    let turnNumber: Int
 
     enum CodingKeys: String, CodingKey {
+        case hitZone = "hit_zone"
+        case baseMultiplier = "base_multiplier"
+        case critBonusMultiplier = "crit_bonus_multiplier"
         case damageDealt = "damage_dealt"
         case playerHpRemaining = "player_hp_remaining"
         case enemyHpRemaining = "enemy_hp_remaining"
+        case enemyDamage = "enemy_damage"
         case combatStatus = "combat_status"
+        case turnNumber = "turn_number"
     }
 }
 
@@ -224,7 +262,7 @@ struct DefenseResult: APIModel {
     let damageBlocked: Double
     let damageTaken: Double
     let playerHpRemaining: Double
-    let combatStatus: CombatStatus
+    let combatStatus: String
 
     enum CodingKeys: String, CodingKey {
         case damageBlocked = "damage_blocked"
