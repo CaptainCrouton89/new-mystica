@@ -33,7 +33,7 @@ struct ContentView: View {
             ProfileView()
         case .battle:
             // locationId is optional - supports both new battles (from map) and auto-resume (from AppState)
-            BattleView(locationId: navigationManager.currentBattleLocation)
+            BattleView(locationId: navigationManager.currentBattleLocation, selectedLevel: navigationManager.selectedCombatLevel)
         case .victory:
             VictoryView()
         case .defeat:

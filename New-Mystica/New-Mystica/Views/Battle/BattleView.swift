@@ -91,9 +91,11 @@ struct BattleView: View {
 
     // Location ID passed from map (optional for auto-resume scenarios)
     let locationId: String?
+    let selectedLevel: Int
 
-    init(locationId: String? = nil) {
+    init(locationId: String? = nil, selectedLevel: Int = 1) {
         self.locationId = locationId
+        self.selectedLevel = selectedLevel
     }
 
     var body: some View {
@@ -111,7 +113,7 @@ struct BattleView: View {
                             .foregroundColor(.textSecondary)
                         TextButton("Retry") {
                             Task {
-                                await viewModel.initializeOrResumeCombat(locationId: locationId)
+                                await viewModel.initializeOrResumeCombat(locationId: locationId, selectedLevel: selectedLevel)
                             }
                         }
                     }
@@ -189,7 +191,7 @@ struct BattleView: View {
                 viewModel.resumeCombat(session: activeSession)
             } else {
                 // Try to resume existing session or create new one if locationId provided
-                await viewModel.initializeOrResumeCombat(locationId: locationId)
+                await viewModel.initializeOrResumeCombat(locationId: locationId, selectedLevel: selectedLevel)
 
                 // Update AppState with whatever session we got from backend
                 if case .loaded(let session) = viewModel.combatState {

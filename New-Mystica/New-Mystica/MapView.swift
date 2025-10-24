@@ -6,10 +6,13 @@ import SwiftData
 struct MapView: View, NavigableView {
     @Environment(\.navigationManager) private var navigationManager
     @Environment(\.audioManager) private var audioManager
+    @Environment(AppState.self) private var appState
     @State private var viewModel = MapViewModel()
     @State private var position: MapCameraPosition = .automatic
     @State private var showLocationPopup = false
     @State private var selectedLocation: Location?
+    @State private var showLevelSelection = false
+    @State private var selectedLocationForCombat: Location?
 
     var navigationTitle: String { "Map" }
 
@@ -69,6 +72,25 @@ struct MapView: View, NavigableView {
                 }
             }
         )
+        .sheet(isPresented: $showLevelSelection) {
+            if let location = selectedLocationForCombat {
+                let recommendedLevel = max(1, min(10, appState.userProfile.value?.vanityLevel ?? 1))
+
+                CombatLevelSelectionView(
+                    locationId: location.id,
+                    recommendedLevel: recommendedLevel,
+                    onDismiss: {
+                        showLevelSelection = false
+                        selectedLocationForCombat = nil
+                    },
+                    onLevelSelected: { level in
+                        showLevelSelection = false
+                        navigationManager.navigateToBattle(with: location.name, locationId: location.id, selectedLevel: level)
+                        selectedLocationForCombat = nil
+                    }
+                )
+            }
+        }
     }
 
 
@@ -215,8 +237,10 @@ struct MapView: View, NavigableView {
                     if viewModel.isWithinRange(location: location) {
                         TextButton("Start Battle") {
                             audioManager.playMenuButtonClick()
+                            showLocationPopup = false
                             selectedLocation = nil
-                            navigationManager.navigateToBattle(with: location.name, locationId: location.id)
+                            selectedLocationForCombat = location
+                            showLevelSelection = true
                         }
                     } else {
                         NormalText("Move closer to battle")
@@ -227,6 +251,7 @@ struct MapView: View, NavigableView {
                     TextButton("Close", height: 40) {
                         audioManager.playMenuButtonClick()
                         selectedLocation = nil
+                        showLocationPopup = false
                     }
                 }
             }

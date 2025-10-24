@@ -98,6 +98,7 @@ class NavigationManager: ObservableObject {
     @Published var navigationPath: [NavigationDestination] = []
     @Published var currentBattleEnemy: String = "Shadow Wolf"
     @Published var currentBattleLocation: String?
+    @Published var selectedCombatLevel: Int = 1
 
     var currentDestination: NavigationDestination {
         navigationPath.last ?? .mainMenu
@@ -123,9 +124,10 @@ class NavigationManager: ObservableObject {
         FileLogger.shared.log("🗂️ New path count: \(navigationPath.count)", level: .debug, category: "Navigation")
     }
     
-    func navigateToBattle(with enemyType: String, locationId: String) {
+    func navigateToBattle(with enemyType: String, locationId: String, selectedLevel: Int) {
         currentBattleEnemy = enemyType
         currentBattleLocation = locationId
+        selectedCombatLevel = selectedLevel
         navigateTo(.battle)
     }
     
