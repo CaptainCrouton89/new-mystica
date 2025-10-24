@@ -55,6 +55,31 @@ export class ItemTypeRepository extends BaseRepository<ItemTypeRow> {
   }
 
   /**
+   * Find multiple item types by IDs
+   * Used for batch fetching during loot generation
+   *
+   * @param ids - Array of item type IDs to find
+   * @returns Array of item types found (may be fewer than requested if some IDs don't exist)
+   * @throws DatabaseError on query failure
+   */
+  async findByIds(ids: string[]): Promise<ItemTypeRow[]> {
+    if (ids.length === 0) {
+      return [];
+    }
+
+    const { data, error } = await this.client
+      .from('itemtypes')
+      .select('*')
+      .in('id', ids);
+
+    if (error) {
+      throw mapSupabaseError(error);
+    }
+
+    return (data || []) as ItemTypeRow[];
+  }
+
+  /**
    * Find item types by rarity with optional limit
    * Used for starter inventory generation and loot tables
    *

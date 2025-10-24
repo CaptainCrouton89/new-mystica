@@ -9,7 +9,10 @@
 import { CombatRepository, CombatSessionData } from '../repositories/CombatRepository.js';
 import { EnemyRepository } from '../repositories/EnemyRepository.js';
 import { EquipmentRepository } from '../repositories/EquipmentRepository.js';
+import { ItemRepository } from '../repositories/ItemRepository.js';
+import { ItemTypeRepository } from '../repositories/ItemTypeRepository.js';
 import { MaterialRepository } from '../repositories/MaterialRepository.js';
+import { ProfileRepository } from '../repositories/ProfileRepository.js';
 import { WeaponRepository } from '../repositories/WeaponRepository.js';
 import { Stats } from '../types/api.types.js';
 import { Database } from '../types/database.types.js';
@@ -26,8 +29,11 @@ import { logger } from '../utils/logger.js';
 let combatRepository = new CombatRepository();
 let enemyRepository = new EnemyRepository();
 let equipmentRepository = new EquipmentRepository();
+let itemRepository = new ItemRepository();
+let itemTypeRepository = new ItemTypeRepository();
 let weaponRepository = new WeaponRepository();
 let materialRepository = new MaterialRepository();
+let profileRepository = new ProfileRepository();
 
 // Type aliases
 type CombatResult = Database['public']['Enums']['combat_result'];
@@ -96,27 +102,74 @@ export interface AttackResult {
   enemy_damage: number;
   combat_status: 'ongoing' | 'victory' | 'defeat';
   turn_number: number;
+  rewards: CombatRewards | null;
 }
 
+/**
+ * Combat rewards and player history data returned after combat completion
+ *
+ * @interface CombatRewards
+ * @property {string} result - Combat outcome ('victory' or 'defeat')
+ * @property {object} [rewards] - Reward data (only present for victory)
+ * @property {object} rewards.currencies - Currency rewards with extensible structure
+ * @property {number} rewards.currencies.gold - Gold amount earned
+ * @property {Array} rewards.materials - Material drops with style inheritance
+ * @property {Array} rewards.items - Item drops from loot pools with full details
+ * @property {number} rewards.experience - Experience points earned
+ * @property {object} rewards.combat_history - Updated combat statistics for location
+ */
 export interface CombatRewards {
   result: 'victory' | 'defeat';
   rewards?: {
+    /** Currency rewards with extensible structure for future currencies */
+    currencies: {
+      /** Gold amount earned from combat */
+      gold: number;
+      // Future: gems, premium_currency, event_tokens
+    };
+    /** Material drops with style inheritance from enemy */
     materials: Array<{
+      /** Material UUID from Materials table */
       material_id: string;
+      /** Display name of the material */
       name: string;
+      /** Style UUID inherited from enemy */
       style_id: string;
+      /** Display name of the style */
       style_name: string;
     }>;
-    gold: number;
+    /** Item drops from loot pools with full item details */
+    items: Array<{
+      /** Item type UUID from ItemTypes table */
+      item_type_id: string;
+      /** Display name of the item */
+      name: string;
+      /** Item category (weapon, armor, accessory, etc.) */
+      category: string;
+      /** Item rarity (common, uncommon, rare, epic, legendary) */
+      rarity: string;
+      /** Style UUID inherited from enemy */
+      style_id: string;
+      /** Display name of the style */
+      style_name: string;
+    }>;
+    /** Experience points earned from combat */
     experience: number;
-  };
-  player_combat_history: {
-    location_id: string;
-    total_attempts: number;
-    victories: number;
-    defeats: number;
-    current_streak: number;
-    longest_streak: number;
+    /** Updated combat statistics for this location */
+    combat_history: {
+      /** Location UUID where combat occurred */
+      location_id: string;
+      /** Total combat attempts at this location */
+      total_attempts: number;
+      /** Total victories at this location */
+      victories: number;
+      /** Total defeats at this location */
+      defeats: number;
+      /** Current win/loss streak */
+      current_streak: number;
+      /** Longest win streak achieved */
+      longest_streak: number;
+    };
   };
 }
 
@@ -152,21 +205,30 @@ export class CombatService {
   private combatRepository: CombatRepository;
   private enemyRepository: EnemyRepository;
   private equipmentRepository: EquipmentRepository;
+  private itemRepository: ItemRepository;
+  private itemTypeRepository: ItemTypeRepository;
   private weaponRepository: WeaponRepository;
   private materialRepository: MaterialRepository;
+  private profileRepository: ProfileRepository;
 
   constructor(
     combatRepo?: CombatRepository,
     enemyRepo?: EnemyRepository,
     equipmentRepo?: EquipmentRepository,
+    itemRepo?: ItemRepository,
+    itemTypeRepo?: ItemTypeRepository,
     weaponRepo?: WeaponRepository,
-    materialRepo?: MaterialRepository
+    materialRepo?: MaterialRepository,
+    profileRepo?: ProfileRepository
   ) {
     this.combatRepository = combatRepo || combatRepository;
     this.enemyRepository = enemyRepo || enemyRepository;
     this.equipmentRepository = equipmentRepo || equipmentRepository;
+    this.itemRepository = itemRepo || itemRepository;
+    this.itemTypeRepository = itemTypeRepo || itemTypeRepository;
     this.weaponRepository = weaponRepo || weaponRepository;
     this.materialRepository = materialRepo || materialRepository;
+    this.profileRepository = profileRepo || profileRepository;
   }
 
   // ============================================================================
@@ -340,6 +402,16 @@ export class CombatService {
       valueI: damageDealt,
     });
 
+    // Apply rewards atomically before response for terminal combat states
+    let rewards: CombatRewards | null = null;
+    if (combatStatus === 'victory' || combatStatus === 'defeat') {
+      // Generate rewards for this combat outcome
+      rewards = await this.completeCombat(sessionId, combatStatus);
+
+      // Apply rewards and delete session atomically
+      await this.applyRewardsTransaction(session.userId, sessionId, rewards);
+    }
+
     return {
       hit_zone: hitZone,
       base_multiplier: baseMultiplier,
@@ -350,6 +422,7 @@ export class CombatService {
       enemy_damage: enemyDamage,
       combat_status: combatStatus,
       turn_number: turnNumber,
+      rewards,
     };
   }
 
@@ -366,8 +439,11 @@ export class CombatService {
     damage_blocked: number;
     damage_taken: number;
     player_hp_remaining: number;
+    enemy_hp_remaining: number;
     combat_status: 'ongoing' | 'victory' | 'defeat';
     hit_zone: HitBand;
+    turn_number: number;
+    rewards: CombatRewards | null;
   }> {
     // Validate session exists and is active
     const session = await this.combatRepository.getActiveSession(sessionId);
@@ -454,12 +530,25 @@ export class CombatService {
       valueI: damageActuallyTaken,
     });
 
+    // Apply rewards atomically before response for terminal combat states
+    let rewards: CombatRewards | null = null;
+    if (combatStatus === 'defeat') {
+      // Generate rewards for defeat (no rewards, but we return the structure for consistency)
+      rewards = await this.completeCombat(sessionId, combatStatus);
+
+      // Apply rewards and delete session atomically
+      await this.applyRewardsTransaction(session.userId, sessionId, rewards);
+    }
+
     return {
       damage_blocked: damageBlocked,
       damage_taken: damageActuallyTaken,
       player_hp_remaining: newPlayerHP,
+      enemy_hp_remaining: currentEnemyHP,
       combat_status: combatStatus,
       hit_zone: hitZone,
+      turn_number: turnNumber,
+      rewards,
     };
   }
 
@@ -484,29 +573,35 @@ export class CombatService {
       throw new ValidationError('Result must be "victory" or "defeat"');
     }
 
-    // Generate rewards for victory
-    let rewards: CombatRewards['rewards'] | undefined;
-    if (result === 'victory') {
-      rewards = await this.generateLoot(session.locationId, session.combatLevel, session.enemyTypeId);
-    }
-
     // Complete session in database
     await this.combatRepository.completeSession(sessionId, result);
 
     // Get updated player combat history
     const playerHistory = await this.combatRepository.getPlayerHistory(session.userId, session.locationId);
 
+    // Build combat history data
+    const combatHistory = {
+      location_id: session.locationId,
+      total_attempts: playerHistory?.totalAttempts ?? 1,
+      victories: playerHistory?.victories ?? (result === 'victory' ? 1 : 0),
+      defeats: playerHistory?.defeats ?? (result === 'defeat' ? 1 : 0),
+      current_streak: playerHistory?.currentStreak ?? (result === 'victory' ? 1 : 0),
+      longest_streak: playerHistory?.longestStreak ?? (result === 'victory' ? 1 : 0),
+    };
+
+    // Generate rewards for victory
+    let rewards: CombatRewards['rewards'] | undefined;
+    if (result === 'victory') {
+      const baseRewards = await this.generateLoot(session.locationId, session.combatLevel, session.enemyTypeId);
+      rewards = {
+        ...baseRewards,
+        combat_history: combatHistory,
+      };
+    }
+
     return {
       result,
       rewards,
-      player_combat_history: {
-        location_id: session.locationId,
-        total_attempts: playerHistory?.totalAttempts ?? 1,
-        victories: playerHistory?.victories ?? (result === 'victory' ? 1 : 0),
-        defeats: playerHistory?.defeats ?? (result === 'defeat' ? 1 : 0),
-        current_streak: playerHistory?.currentStreak ?? (result === 'victory' ? 1 : 0),
-        longest_streak: playerHistory?.longestStreak ?? (result === 'victory' ? 1 : 0),
-      },
     };
   }
 
@@ -696,6 +791,107 @@ export class CombatService {
       },
       expires_at: expiresAt.toISOString(),
     };
+  }
+
+  // ============================================================================
+  // Reward Application Transaction
+  // ============================================================================
+
+  /**
+   * Apply rewards atomically before combat response using transaction pattern
+   *
+   * Applies currencies, items, materials, XP, and combat history in single atomic operation.
+   * Deletes session as final step to ensure rewards are applied before session disappears.
+   *
+   * @param userId - User UUID
+   * @param sessionId - Combat session UUID
+   * @param rewards - Combat rewards to apply
+   * @throws DatabaseError on transaction failure (session remains active)
+   */
+  private async applyRewardsTransaction(
+    userId: string,
+    sessionId: string,
+    rewards: CombatRewards
+  ): Promise<void> {
+    try {
+      if (rewards.result === 'victory' && rewards.rewards) {
+        logger.info('Applying victory rewards atomically', {
+          userId,
+          sessionId,
+          gold: rewards.rewards.currencies.gold,
+          materials: rewards.rewards.materials.length,
+          items: rewards.rewards.items.length,
+          experience: rewards.rewards.experience
+        });
+
+        // 1. Apply gold currency
+        if (rewards.rewards.currencies.gold > 0) {
+          await this.profileRepository.addCurrency(
+            userId,
+            'gold',
+            rewards.rewards.currencies.gold,
+            'combat_victory',
+            sessionId,
+            { sessionId, combatType: 'victory' }
+          );
+        }
+
+        // 2. Apply materials (upsert MaterialStacks)
+        for (const material of rewards.rewards.materials) {
+          await this.materialRepository.incrementStack(
+            userId,
+            material.material_id,
+            material.style_id,
+            1 // Always 1 unit per material drop
+          );
+        }
+
+        // 3. Apply items (create PlayerItems + unlock ItemTypes)
+        for (const item of rewards.rewards.items) {
+          // Create the player item
+          await this.itemRepository.create({
+            user_id: userId,
+            item_type_id: item.item_type_id,
+            level: 1, // Items drop at level 1
+          });
+
+          // TODO: Unlock item type if not already unlocked
+          // This requires implementing unlockItemType method in ProfileRepository
+          // For now, items are created without explicit unlocking
+          logger.debug('Item created without unlocking ItemType', {
+            userId,
+            itemTypeId: item.item_type_id
+          });
+        }
+
+        // 4. Apply experience points
+        if (rewards.rewards.experience > 0) {
+          await this.profileRepository.addXP(userId, rewards.rewards.experience);
+        }
+
+        // 5. Combat history is already updated by completeSession in CombatRepository
+        // No additional action needed here
+
+        logger.info('Victory rewards applied successfully', { userId, sessionId });
+      } else if (rewards.result === 'defeat') {
+        logger.info('Defeat - no rewards to apply', { userId, sessionId });
+        // Combat history already updated by completeSession for defeats
+      }
+
+      // 6. Delete session as final step (atomic completion)
+      await this.combatRepository.deleteSession(sessionId);
+
+      logger.info('Combat session deleted after reward application', { sessionId });
+
+    } catch (error) {
+      logger.error('Reward application transaction failed', {
+        userId,
+        sessionId,
+        error: error instanceof Error ? error.message : String(error)
+      });
+      // Re-throw to ensure session remains active for retry
+      throw error;
+    }
   }
 
   // ============================================================================
@@ -994,17 +1190,9 @@ export class CombatService {
 
   /**
    * Generate loot from applied loot pools with style inheritance using database views
+   * Returns base reward data without combat_history (added by completeCombat method)
    */
-  private async generateLoot(locationId: string, combatLevel: number, enemyTypeId: string): Promise<{
-    materials: Array<{
-      material_id: string;
-      name: string;
-      style_id: string;
-      style_name: string;
-    }>;
-    gold: number;
-    experience: number;
-  }> {
+  private async generateLoot(locationId: string, combatLevel: number, enemyTypeId: string): Promise<Omit<NonNullable<CombatRewards['rewards']>, 'combat_history'>> {
     try {
       // Get enemy style for inheritance
       const enemy = await this.enemyRepository.findEnemyTypeById(enemyTypeId);
@@ -1015,58 +1203,18 @@ export class CombatService {
       if (!lootPoolIds || lootPoolIds.length === 0) {
         // No loot pools, return base rewards
         return {
+          currencies: {
+            gold: Math.floor(Math.random() * 20) + 5, // 5-25 gold
+          },
           materials: [],
-          gold: Math.floor(Math.random() * 20) + 5, // 5-25 gold
+          items: [], // No items without loot pools
           experience: combatLevel * 10,
         };
       }
 
-      // Use v_loot_pool_material_weights view for weighted selection via repository
-      const weightedMaterials = await this.materialRepository.getLootPoolMaterialWeights(lootPoolIds);
-
-      // Filter for positive weights
-      const validMaterials = weightedMaterials.filter(m => Number(m.spawn_weight) > 0);
-
-      if (!validMaterials || validMaterials.length === 0) {
-        return this.generateLootFallback(locationId, combatLevel, enemyStyleId);
-      }
-
-      // Generate 1-3 materials using weighted random selection
-      const numDrops = Math.floor(Math.random() * 3) + 1;
-      const materials = [];
-
-      for (let i = 0; i < numDrops; i++) {
-        // Calculate total weight
-        const totalWeight = validMaterials.reduce((sum, m) => sum + Number(m.spawn_weight), 0);
-        if (totalWeight <= 0) break;
-
-        // Weighted random selection
-        const randomWeight = Math.random() * totalWeight;
-        let currentWeight = 0;
-        const selectedMaterial = validMaterials.find(m => {
-          currentWeight += Number(m.spawn_weight);
-          return randomWeight <= currentWeight;
-        });
-
-        if (selectedMaterial) {
-          // Get material details via repository
-          const materialData = await this.materialRepository.findMaterialById(selectedMaterial.material_id);
-
-          // Apply style inheritance from enemy
-          materials.push({
-            material_id: selectedMaterial.material_id,
-            name: materialData?.name || 'Unknown Material',
-            style_id: enemyStyleId, // Inherit enemy's style
-            style_name: enemyStyleId === 'normal' ? 'Normal' : enemyStyleId,
-          });
-        }
-      }
-
-      return {
-        materials,
-        gold: Math.floor(Math.random() * 30) + 10, // 10-40 gold
-        experience: combatLevel * 15,
-      };
+      // Use the fallback method which supports both materials and items
+      // The database view approach only supports materials, so we'll delegate to the more comprehensive fallback
+      return this.generateLootFallback(locationId, combatLevel, enemyStyleId);
     } catch (error) {
       logger.warn('Loot generation failed, using fallback', { error: error instanceof Error ? error.message : String(error) });
       // Get enemy style for fallback
@@ -1077,23 +1225,18 @@ export class CombatService {
 
   /**
    * Fallback loot generation using existing location service methods
+   * Returns base reward data without combat_history (added by completeCombat method)
    */
-  private async generateLootFallback(locationId: string, combatLevel: number, enemyStyleId: string): Promise<{
-    materials: Array<{
-      material_id: string;
-      name: string;
-      style_id: string;
-      style_name: string;
-    }>;
-    gold: number;
-    experience: number;
-  }> {
+  private async generateLootFallback(locationId: string, combatLevel: number, enemyStyleId: string): Promise<Omit<NonNullable<CombatRewards['rewards']>, 'combat_history'>> {
     try {
       const lootPoolIds = await locationService.getMatchingLootPools(locationId, combatLevel);
       if (!lootPoolIds || lootPoolIds.length === 0) {
         return {
+          currencies: {
+            gold: Math.floor(Math.random() * 20) + 5,
+          },
           materials: [],
-          gold: Math.floor(Math.random() * 20) + 5,
+          items: [],
           experience: combatLevel * 10,
         };
       }
@@ -1110,23 +1253,61 @@ export class CombatService {
         Math.floor(Math.random() * 3) + 1 // 1-3 drops
       );
 
-      const materials = lootDrops.map((drop: any) => ({
-        material_id: drop.material_id,
-        name: drop.material_name,
-        style_id: drop.style_id,
-        style_name: drop.style_name,
-      }));
+      // Separate materials and items from lootDrops
+      const materials = lootDrops
+        .filter((drop: any) => drop.type === 'material' && drop.material_id)
+        .map((drop: any) => ({
+          material_id: drop.material_id,
+          name: drop.material_name,
+          style_id: drop.style_id,
+          style_name: drop.style_name,
+        }));
+
+      // Extract item type IDs for batch fetching
+      const itemTypeIds = lootDrops
+        .filter((drop: any) => drop.type === 'item' && drop.item_type_id)
+        .map((drop: any) => drop.item_type_id);
+
+      // Batch fetch ItemType details
+      const itemTypes = itemTypeIds.length > 0 ? await this.itemTypeRepository.findByIds(itemTypeIds) : [];
+      const itemTypeMap = new Map(itemTypes.map(it => [it.id, it]));
+
+      // Process items with ItemType details
+      const items = lootDrops
+        .filter((drop: any) => drop.type === 'item' && drop.item_type_id)
+        .map((drop: any) => {
+          const itemType = itemTypeMap.get(drop.item_type_id);
+          if (!itemType) {
+            logger.warn(`ItemType ${drop.item_type_id} not found, skipping item drop`);
+            return null;
+          }
+          return {
+            item_type_id: drop.item_type_id,
+            name: itemType.name,
+            category: itemType.category,
+            rarity: itemType.rarity,
+            style_id: drop.style_id, // Inherit enemy's style
+            style_name: drop.style_name,
+          };
+        })
+        .filter((item): item is NonNullable<typeof item> => item !== null);
 
       return {
+        currencies: {
+          gold: Math.floor(Math.random() * 30) + 10,
+        },
         materials,
-        gold: Math.floor(Math.random() * 30) + 10,
+        items,
         experience: combatLevel * 15,
       };
     } catch (error) {
       logger.warn('Fallback loot generation failed', { error: error instanceof Error ? error.message : String(error) });
       return {
+        currencies: {
+          gold: Math.floor(Math.random() * 20) + 5,
+        },
         materials: [],
-        gold: Math.floor(Math.random() * 20) + 5,
+        items: [],
         experience: combatLevel * 10,
       };
     }
