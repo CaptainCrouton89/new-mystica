@@ -76,17 +76,16 @@ final class CombatViewModel {
         turnHistory = [] // Could load action history from server in future
     }
 
-    func attack(timingScore: Double) async {
+    func attack(tapPositionDegrees: Float) async {
         guard case .loaded(let session) = combatState else { return }
         guard !isLoading else { return }
 
         combatState = .loading
-        // TODO: Remove timingScore parameter when timing system is implemented
 
         do {
             let action = try await repository.performAttack(
                 sessionId: session.sessionId,
-                timingScore: timingScore
+                tapPositionDegrees: tapPositionDegrees
             )
 
             // Add to turn history for UI display
@@ -108,17 +107,16 @@ final class CombatViewModel {
         }
     }
 
-    func defend(timingScore: Double) async {
+    func defend(tapPositionDegrees: Float) async {
         guard case .loaded(let session) = combatState else { return }
         guard !isLoading else { return }
 
         combatState = .loading
-        // TODO: Remove timingScore parameter when timing system is implemented
 
         do {
             let action = try await repository.performDefense(
                 sessionId: session.sessionId,
-                timingScore: timingScore
+                tapPositionDegrees: tapPositionDegrees
             )
 
             // Add to turn history for UI display
