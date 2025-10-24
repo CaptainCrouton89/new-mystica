@@ -136,24 +136,61 @@ final class AppState {
 
         self.authSession = .loading
 
-        // For MVP0: Trust token existence = authenticated
-        // Create a stub user since we only have token in keychain
-        // Note: In production, we'd validate the token with the server
-        let stubData = """
-        {
-            "id": "00000000-0000-0000-0000-000000000000",
-            "account_type": "anonymous",
-            "created_at": "\(ISO8601DateFormatter().string(from: Date()))"
-        }
-        """.data(using: .utf8)!
-
         do {
-            let stubUser = try JSONDecoder().decode(User.self, from: stubData)
-            self.authSession = .loaded((user: stubUser, token: token))
+            // Decode JWT to extract user ID and device_id
+            // JWT format: header.payload.signature
+            // Payload is base64-encoded JSON with: {sub: user_id, device_id: device_id, ...}
+            let parts = token.split(separator: ".")
+            guard parts.count == 3 else {
+                throw AppError.invalidData("Invalid JWT format: expected 3 parts, got \(parts.count)")
+            }
+
+            let payloadBase64 = String(parts[1])
+            // Add padding if needed for base64 decoding
+            let paddedPayload = payloadBase64.padding(toLength: ((payloadBase64.count + 3) / 4) * 4, withPad: "=", startingAt: 0)
+
+            guard let payloadData = Data(base64Encoded: paddedPayload) else {
+                throw AppError.invalidData("Failed to decode JWT payload from base64")
+            }
+
+            guard let payloadJSON = try JSONSerialization.jsonObject(with: payloadData) as? [String: Any] else {
+                throw AppError.invalidData("JWT payload is not valid JSON")
+            }
+
+            guard let userId = payloadJSON["sub"] as? String else {
+                throw AppError.invalidData("Missing 'sub' (user ID) claim in JWT")
+            }
+
+            guard UUID(uuidString: userId) != nil else {
+                throw AppError.invalidData("Invalid user ID format in JWT: '\(userId)' is not a valid UUID")
+            }
+
+            // Extract optional fields from JWT
+            let deviceId = payloadJSON["device_id"] as? String
+            let accountType = payloadJSON["account_type"] as? String ?? "anonymous"
+
+            // Create user from JWT claims
+            let stubData = """
+            {
+                "id": "\(userId)",
+                "device_id": \(deviceId != nil ? "\"\(deviceId!)\"" : "null"),
+                "account_type": "\(accountType)",
+                "created_at": "\(ISO8601DateFormatter().string(from: Date()))"
+            }
+            """.data(using: .utf8)!
+
+            let user = try JSONDecoder().decode(User.self, from: stubData)
+            self.authSession = .loaded((user: user, token: token))
         } catch {
-            // If decoding fails, clear the stored token and start fresh
+            print("❌ [AppState] Session restoration failed: \(error)")
+            print("❌ [AppState] Clearing invalid token and requiring re-authentication")
+
+            // Clear invalid token
             try? KeychainService.deleteAccessToken()
-            self.authSession = .idle
+
+            // Set error state so UI can show what went wrong
+            let appError = error as? AppError ?? AppError.invalidData("Session restoration failed: \(error.localizedDescription)")
+            self.authSession = .error(appError)
         }
     }
 

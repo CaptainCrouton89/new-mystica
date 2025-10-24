@@ -8,7 +8,9 @@ struct EquipmentSlotView: View {
     let onTap: (PlayerItem?) -> Void
 
     var body: some View {
-        Button(action: { onTap(item) }) {
+        Button {
+            onTap(item)
+        } label: {
             ZStack {
                 // Slot background
                 RoundedRectangle(cornerRadius: 12)
@@ -19,34 +21,22 @@ struct EquipmentSlotView: View {
                             .stroke(item != nil ? Color.accentSecondary : Color.borderSubtle, lineWidth: 2)
                     )
 
-                if let item = item {
-                    // Equipped item
-                    if let imageUrl = item.generatedImageUrl, !imageUrl.isEmpty {
-                        CachedAsyncImage(
-                            url: URL(string: imageUrl),
-                            content: { image in
-                                image
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fill)
-                                    .frame(width: 80, height: 80)
-                                    .clipped()
-                            },
-                            placeholder: {
-                                ProgressView()
-                                    .frame(width: 80, height: 80)
-                            }
-                        )
-                    } else {
-                        // Fallback for missing image
-                        ZStack {
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(Color.backgroundSecondary)
-                            Image(systemName: getSlotIcon())
-                                .font(.system(size: 24, weight: .medium))
-                                .foregroundColor(Color.textSecondary)
+                if let item = item, let imageUrl = item.generatedImageUrl, !imageUrl.isEmpty {
+                    // Equipped item with valid image URL
+                    CachedAsyncImage(
+                        url: URL(string: imageUrl),
+                        content: { image in
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .frame(width: 80, height: 80)
+                                .clipped()
+                        },
+                        placeholder: {
+                            ProgressView()
+                                .frame(width: 80, height: 80)
                         }
-                        .frame(width: 80, height: 80)
-                    }
+                    )
                 } else {
                     // Empty slot placeholder
                     VStack(spacing: 4) {

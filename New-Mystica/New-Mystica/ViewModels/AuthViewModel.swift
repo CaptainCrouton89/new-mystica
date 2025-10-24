@@ -46,31 +46,22 @@ final class AuthViewModel {
             return
         }
 
-        // For MVP0: Trust token existence = authenticated
-        // Create a stub user since we only have token in keychain
-        // Note: In production, we'd fetch the user profile with the token
-        let stubJSON = """
-        {
-            "id": "00000000-0000-0000-0000-000000000000",
-            "account_type": "anonymous",
-            "created_at": "\(ISO8601DateFormatter().string(from: Date()))"
-        }
-        """
+        appState.setAuthenticating()
 
-        guard let stubData = stubJSON.data(using: .utf8) else {
-            appState.setAuthError(AppError.invalidData("Failed to encode stub user JSON"))
-            return
-        }
-
-        let stubUser: User
         do {
-            stubUser = try JSONDecoder().decode(User.self, from: stubData)
+            // Fetch the real user profile from /auth/me endpoint
+            let user = try await repository.getCurrentUser(token: token)
+            appState.setAuthenticated(user, token: token)
+        } catch let error as AppError {
+            // Token is invalid or expired - clear it and force re-registration
+            print("❌ [AUTH] Bootstrap failed, clearing invalid token:", error.localizedDescription)
+            KeychainService.clearAll()
+            appState.setAuthError(error)
         } catch {
-            appState.setAuthError(AppError.decodingError("Failed to decode stub user: \(error.localizedDescription)"))
-            return
+            print("❌ [AUTH] Bootstrap failed:", error.localizedDescription)
+            KeychainService.clearAll()
+            appState.setAuthError(.unknown(error))
         }
-
-        appState.setAuthenticated(stubUser, token: token)
     }
 
     func logout() async {

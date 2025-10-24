@@ -32,12 +32,8 @@ struct ContentView: View {
         case .profile:
             ProfileView()
         case .battle:
-            if let locationId = navigationManager.currentBattleLocation {
-                BattleView(locationId: locationId)
-            } else {
-                    Text("Error: No location selected for battle")
-                    .foregroundColor(.red)
-            }
+            // locationId is optional - supports both new battles (from map) and auto-resume (from AppState)
+            BattleView(locationId: navigationManager.currentBattleLocation)
         case .victory:
             VictoryView()
         case .defeat:

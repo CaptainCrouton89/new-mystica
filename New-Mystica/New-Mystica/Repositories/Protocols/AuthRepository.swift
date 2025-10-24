@@ -10,5 +10,6 @@ import Foundation
 
 protocol AuthRepository {
     func registerDevice(deviceId: String) async throws -> (user: User, token: String)
+    func getCurrentUser(token: String) async throws -> User
     func logout() async throws
 }

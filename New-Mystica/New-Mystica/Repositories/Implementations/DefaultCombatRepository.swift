@@ -33,46 +33,13 @@ final class DefaultCombatRepository: CombatRepository {
             selectedLevel: selectedLevel
         )
 
-        let response: CombatStartResponse = try await apiClient.post(
+        // Direct response mapping - no conversion needed
+        let response: CombatSession = try await apiClient.post(
             endpoint: "/combat/start",
             body: request
         )
 
-        // Convert CombatStartResponse to CombatSession
-        // For now, create a basic session with the data we have
-        // TODO: Update CombatSession model or protocol to better match API responses
-        return CombatSession(
-            sessionId: response.sessionId,
-            playerId: "", // Not provided in start response
-            enemyId: response.enemy.id,
-            turnNumber: 0,
-            currentTurnOwner: "player",
-            status: .active,
-            enemy: Enemy(
-                id: response.enemy.id,
-                name: response.enemy.name,
-                level: response.enemy.level,
-                stats: ItemStats(
-                    atkPower: Double(response.enemy.atk),
-                    atkAccuracy: 0, // Not provided in combat enemy
-                    defPower: Double(response.enemy.def),
-                    defAccuracy: 0 // Not provided in combat enemy
-                ),
-                specialAbilities: [],
-                goldMin: 0,
-                goldMax: 0,
-                materialDropPool: []
-            ),
-            playerStats: ItemStats(
-                atkPower: response.playerStats.atkPower,
-                atkAccuracy: response.playerStats.atkAccuracy,
-                defPower: response.playerStats.defPower,
-                defAccuracy: response.playerStats.defAccuracy
-            ),
-            playerHp: response.playerStats.hp,
-            enemyHp: Double(response.enemy.hp),
-            expiresAt: nil
-        )
+        return response
     }
 
     func performAttack(sessionId: String, timingScore: Double) async throws -> CombatAction {
@@ -83,20 +50,6 @@ final class DefaultCombatRepository: CombatRepository {
             enum CodingKeys: String, CodingKey {
                 case sessionId = "session_id"
                 case attackAccuracy = "attack_accuracy"
-            }
-        }
-
-        struct AttackResponse: Decodable {
-            let damageDealt: Double
-            let playerHpRemaining: Double
-            let enemyHpRemaining: Double
-            let combatStatus: String
-
-            enum CodingKeys: String, CodingKey {
-                case damageDealt = "damage_dealt"
-                case playerHpRemaining = "player_hp_remaining"
-                case enemyHpRemaining = "enemy_hp_remaining"
-                case combatStatus = "combat_status"
             }
         }
 
@@ -114,7 +67,7 @@ final class DefaultCombatRepository: CombatRepository {
             type: .attack,
             performerId: "player",
             damageDealt: response.damageDealt,
-            result: response.combatStatus.rawValue
+            result: response.combatStatus
         )
     }
 
@@ -126,20 +79,6 @@ final class DefaultCombatRepository: CombatRepository {
             enum CodingKeys: String, CodingKey {
                 case sessionId = "session_id"
                 case defenseAccuracy = "defense_accuracy"
-            }
-        }
-
-        struct DefenseResponse: Decodable {
-            let damageBlocked: Double
-            let damageTaken: Double
-            let playerHpRemaining: Double
-            let combatStatus: String
-
-            enum CodingKeys: String, CodingKey {
-                case damageBlocked = "damage_blocked"
-                case damageTaken = "damage_taken"
-                case playerHpRemaining = "player_hp_remaining"
-                case combatStatus = "combat_status"
             }
         }
 
@@ -157,7 +96,7 @@ final class DefaultCombatRepository: CombatRepository {
             type: .defend,
             performerId: "player",
             damageDealt: response.damageTaken,
-            result: response.combatStatus.rawValue
+            result: response.combatStatus
         )
     }
 
@@ -172,34 +111,18 @@ final class DefaultCombatRepository: CombatRepository {
             }
         }
 
-        struct CompleteCombatResponse: Decodable {
-            let result: String
-            let rewards: CombatRewards
-            let updatedBalance: UpdatedBalance
-
-            enum CodingKeys: String, CodingKey {
-                case result
-                case rewards
-                case updatedBalance = "updated_balance"
-            }
-        }
-
-        struct UpdatedBalance: Decodable {
-            let gold: Int
-            let materials: [MaterialInventoryStack]
-        }
-
         let request = CompleteCombatRequest(
             sessionId: sessionId,
             result: won ? "victory" : "defeat"
         )
 
-        let response: CompleteCombatResponse = try await apiClient.post(
+        // Direct response mapping - CombatRewards now matches backend response
+        let response: CombatRewards = try await apiClient.post(
             endpoint: "/combat/complete",
             body: request
         )
 
-        return response.rewards
+        return response
     }
 
     func fetchCombatSession(sessionId: String) async throws -> CombatSession {

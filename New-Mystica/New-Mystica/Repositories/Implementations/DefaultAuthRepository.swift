@@ -61,6 +61,21 @@ final class DefaultAuthRepository: AuthRepository {
         return (user: response.user, token: response.session.accessToken)
     }
 
+    func getCurrentUser(token: String) async throws -> User {
+        // Set token temporarily for this request
+        apiClient.setAuthToken(token: token)
+
+        // The /auth/me endpoint returns:
+        // { success: true, data: { user: User }, timestamp: "..." }
+        // APIClient unwraps to: { user: User }
+        struct AuthMeData: Decodable {
+            let user: User
+        }
+
+        let data: AuthMeData = try await apiClient.get(endpoint: "/auth/me")
+        return data.user
+    }
+
     func logout() async throws {
         struct LogoutResponse: Decodable {
             let message: String

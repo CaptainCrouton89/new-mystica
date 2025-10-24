@@ -76,6 +76,12 @@ struct SplashScreenView: View {
                                             await authViewModel.registerDevice()
                                         } else {
                                             await authViewModel.bootstrapSession()
+
+                                            // If bootstrap failed, try registering as new device
+                                            if !appState.isAuthenticated {
+                                                print("⚠️  [SPLASH] Bootstrap failed on retry, registering new device...")
+                                                await authViewModel.registerDevice()
+                                            }
                                         }
 
                                         // Check if auth succeeded
@@ -164,6 +170,12 @@ struct SplashScreenView: View {
                     } else {
                         print("🔄 [SPLASH] Token found, bootstrapping session...")
                         await authViewModel.bootstrapSession()
+
+                        // If bootstrap failed, try registering as new device
+                        if !appState.isAuthenticated {
+                            print("⚠️  [SPLASH] Bootstrap failed, token was invalid. Registering new device...")
+                            await authViewModel.registerDevice()
+                        }
                     }
 
                     // Check if auth succeeded
