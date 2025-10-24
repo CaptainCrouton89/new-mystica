@@ -218,7 +218,7 @@ struct BattleView: View {
             showDefensePrompt = false
 
         case .attackTransition:
-            dialVisible = false
+            dialVisible = true
             isDialSpinning = false
             enemyGlowing = false
             showDefensePrompt = false
@@ -232,7 +232,7 @@ struct BattleView: View {
             }
 
         case .defensePrompt:
-            dialVisible = false
+            dialVisible = true
             isDialSpinning = false
             enemyGlowing = true
 
@@ -273,25 +273,22 @@ struct BattleView: View {
                 // Perform attack with tap position degrees
                 await viewModel.attack(tapPositionDegrees: Float(degrees))
 
-                // Get the last action for visual feedback
-                if let lastAction = viewModel.recentActions.last,
-                   lastAction.type == .attack {
-                    await MainActor.run {
+                // CRITICAL: Run all state updates together on MainActor to avoid race conditions
+                await MainActor.run {
+                    // Get the last action for visual feedback
+                    if let lastAction = viewModel.recentActions.last,
+                       lastAction.type == .attack {
                         showAttackFeedback(action: lastAction)
                     }
-                }
 
-                // Check if combat ended
-                if viewModel.combatEnded {
-                    await MainActor.run {
+                    // Check if combat ended
+                    if viewModel.combatEnded {
                         dialVisible = false
                         isDialSpinning = false
                         // Trigger combat end audio
                         triggerCombatEndAudio(won: viewModel.playerWon, audioManager: audioManager)
-                    }
-                } else {
-                    // Transition to defense phase
-                    await MainActor.run {
+                    } else {
+                        // Transition to defense phase
                         startCombatPhase(.attackTransition)
                     }
                 }
@@ -306,25 +303,23 @@ struct BattleView: View {
                 // Perform defense with tap position degrees
                 await viewModel.defend(tapPositionDegrees: Float(degrees))
 
-                // Get the last action for visual feedback
-                if let lastAction = viewModel.recentActions.last,
-                   lastAction.type == .defend {
-                    await MainActor.run {
+                // CRITICAL: Run all state updates together on MainActor to avoid race conditions
+                await MainActor.run {
+                    // Get the last action for visual feedback
+                    if let lastAction = viewModel.recentActions.last,
+                       lastAction.type == .defend {
                         showDefenseFeedback(action: lastAction)
                     }
-                }
 
-                // Check if combat ended
-                if viewModel.combatEnded {
-                    await MainActor.run {
+                    // Check if combat ended
+                    if viewModel.combatEnded {
                         dialVisible = false
                         isDialSpinning = false
                         // Trigger combat end audio
                         triggerCombatEndAudio(won: viewModel.playerWon, audioManager: audioManager)
-                    }
-                } else {
-                    // Return to attack phase for next turn
-                    await MainActor.run {
+                    } else {
+                        // Return to attack phase for next turn
+                        // Explicitly ensure dial is visible when transitioning to attack
                         startCombatPhase(.playerAttack)
                     }
                 }

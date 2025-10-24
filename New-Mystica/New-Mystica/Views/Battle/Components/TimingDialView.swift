@@ -50,7 +50,7 @@ struct TimingDialView: View {
             }
             .frame(width: 200, height: 200)
             .scaleEffect(dialScale)
-            .onTapGesture { location in
+            .onTapGesture {
                 if let onTap = onTap {
                     // Visual feedback: scale animation
                     withAnimation(.spring(response: 0.2, dampingFraction: 0.6)) {
@@ -61,9 +61,9 @@ struct TimingDialView: View {
                     let generator = UIImpactFeedbackGenerator(style: .medium)
                     generator.impactOccurred()
 
-                    let center = CGPoint(x: 100, y: 100) // Half of frame size (200x200)
-                    let degrees = tapToAngle(location: location, center: center)
-                    onTap(degrees)
+                    // Use current needle position, not tap location
+                    print("📍 Needle position: \(dialRotation)°")
+                    onTap(dialRotation)
 
                     // Return to normal scale
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
@@ -85,15 +85,18 @@ struct TimingDialView: View {
     /// - Parameters:
     ///   - location: Tap location in view coordinates
     ///   - center: Center point of the dial
-    /// - Returns: Angle in degrees (0-360), where 0° is pointing up (12 o'clock)
+    /// - Returns: Angle in degrees (0-360), where 0° = north (12 o'clock) clockwise
     private func tapToAngle(location: CGPoint, center: CGPoint) -> Double {
         let dx = location.x - center.x
         let dy = location.y - center.y
 
-        // atan2 gives us angle from positive x-axis, but we want from positive y-axis (12 o'clock)
-        // Also need to flip y because SwiftUI has origin at top-left
-        let radians = atan2(dx, -dy)
-        let degrees = radians * 180 / .pi
+        // atan2 gives angle from positive x-axis (east = 0°)
+        // In SwiftUI, y increases downward, so tapping above center gives negative dy
+        let radians = atan2(dy, dx)
+        var degrees = radians * 180 / .pi
+
+        // Convert from east=0° to north=0° by adding 90° (rotating coordinate system)
+        degrees += 90
 
         // Normalize to 0-360 range
         return degrees < 0 ? degrees + 360 : degrees
@@ -191,13 +194,13 @@ struct TimingDialView: View {
 struct FiveZoneDialShape: View {
     let adjustedBands: AdjustedBands
 
-    // Zone colors from requirements (outer to inner)
+    // Zone colors - REVERSED ORDER (crit -> injure, indices 4->0)
     private let zoneColors: [Color] = [
-        Color(red: 1.0, green: 0.27, blue: 0.27), // Red (injure) - #FF4444
-        Color.orange,                              // Orange (miss)
-        Color(red: 1.0, green: 0.67, blue: 0.27), // Yellow (graze) - #FFAA44
-        Color(red: 0.27, green: 1.0, blue: 0.27), // Bright green (normal) - #44FF44
-        Color(red: 0.2, green: 0.8, blue: 0.3)    // Dark green (crit)
+        Color(red: 0.2, green: 0.8, blue: 0.3),    // Dark green (crit) - index 0
+        Color(red: 0.6, green: 1.0, blue: 0.2),    // Lime/yellow-green (normal) - index 1
+        Color(red: 1.0, green: 0.9, blue: 0.2),    // Yellow (graze) - index 2
+        Color.orange,                              // Orange (miss) - index 3
+        Color(red: 1.0, green: 0.27, blue: 0.27)   // Red (injure) - index 4
     ]
 
     var body: some View {
@@ -221,11 +224,11 @@ struct ZoneArcShape: Shape {
 
     private var zoneDegrees: [Double] {
         [
-            adjustedBands.degInjure,  // 0: Red (outer)
-            adjustedBands.degMiss,    // 1: Orange
+            adjustedBands.degCrit,    // 0: Dark green (REVERSED ORDER)
+            adjustedBands.degNormal,  // 1: Bright green
             adjustedBands.degGraze,   // 2: Yellow
-            adjustedBands.degNormal,  // 3: Bright green
-            adjustedBands.degCrit     // 4: Dark green (inner)
+            adjustedBands.degMiss,    // 3: Orange
+            adjustedBands.degInjure   // 4: Red
         ]
     }
 
