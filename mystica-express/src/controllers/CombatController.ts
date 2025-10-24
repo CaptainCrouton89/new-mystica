@@ -40,9 +40,9 @@ export class CombatController {
    */
   attack = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const { session_id, attack_accuracy } = req.body as AttackRequest;
+      const { session_id, tap_position_degrees } = req.body as AttackRequest;
 
-      const attackResult = await combatService.executeAttack(session_id, attack_accuracy);
+      const attackResult = await combatService.executeAttack(session_id, tap_position_degrees);
 
       res.json(attackResult);
 
@@ -116,9 +116,9 @@ export class CombatController {
    */
   defend = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const { session_id, defense_accuracy } = req.body as DefenseRequest;
+      const { session_id, tap_position_degrees } = req.body as DefenseRequest;
 
-      const defenseResult = await combatService.executeDefense(session_id, defense_accuracy);
+      const defenseResult = await combatService.executeDefense(session_id, tap_position_degrees);
 
       res.json(defenseResult);
 

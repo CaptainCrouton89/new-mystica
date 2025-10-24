@@ -125,20 +125,20 @@ describe('Combat API Endpoints', () => {
         .post('/api/v1/combat/attack')
         .send({
           session_id: validSessionId,
-          attack_accuracy: 0.5
+          tap_position_degrees: 180
         });
 
       expect(response.status).toBe(401);
       expect(response.body.error.code).toBe('missing_token');
     });
 
-    it('should validate attack_accuracy range (0.0-1.0)', async () => {
+    it('should validate tap_position_degrees range (0-360)', async () => {
       const response = await request(app)
         .post('/api/v1/combat/attack')
         .set('Authorization', 'Bearer valid-token')
         .send({
           session_id: validSessionId,
-          attack_accuracy: 1.5
+          tap_position_degrees: 361
         });
 
       expect(response.status).toBe(400);
@@ -146,20 +146,20 @@ describe('Combat API Endpoints', () => {
       expect(response.body.error.details).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
-            field: 'body.attack_accuracy',
-            message: 'Attack accuracy must be between 0.0 and 1.0'
+            field: 'body.tap_position_degrees',
+            message: 'Tap position must be between 0 and 360 degrees'
           })
         ])
       );
     });
 
-    it('should reject negative attack_accuracy', async () => {
+    it('should reject negative tap_position_degrees', async () => {
       const response = await request(app)
         .post('/api/v1/combat/attack')
         .set('Authorization', 'Bearer valid-token')
         .send({
           session_id: validSessionId,
-          attack_accuracy: -0.1
+          tap_position_degrees: -1
         });
 
       expect(response.status).toBe(400);
@@ -172,33 +172,33 @@ describe('Combat API Endpoints', () => {
         .set('Authorization', 'Bearer valid-token')
         .send({
           session_id: 'not-a-uuid',
-          attack_accuracy: 0.5
+          tap_position_degrees: 180
         });
 
       expect(response.status).toBe(400);
       expect(response.body.error.code).toBe('VALIDATION_ERROR');
     });
 
-    it('should accept valid attack accuracy at 0.0', async () => {
+    it('should accept valid tap position at 0 degrees', async () => {
       const response = await request(app)
         .post('/api/v1/combat/attack')
         .set('Authorization', 'Bearer valid-token')
         .send({
           session_id: validSessionId,
-          attack_accuracy: 0.0
+          tap_position_degrees: 0
         });
 
       // Will fail due to unmocked services, but validation passed
       expect(response.status).not.toBe(400);
     });
 
-    it('should accept valid attack accuracy at 1.0', async () => {
+    it('should accept valid tap position at 360 degrees', async () => {
       const response = await request(app)
         .post('/api/v1/combat/attack')
         .set('Authorization', 'Bearer valid-token')
         .send({
           session_id: validSessionId,
-          attack_accuracy: 1.0
+          tap_position_degrees: 360
         });
 
       // Will fail due to unmocked services, but validation passed
@@ -212,20 +212,20 @@ describe('Combat API Endpoints', () => {
         .post('/api/v1/combat/defend')
         .send({
           session_id: validSessionId,
-          defense_accuracy: 0.8
+          tap_position_degrees: 270
         });
 
       expect(response.status).toBe(401);
       expect(response.body.error.code).toBe('missing_token');
     });
 
-    it('should validate defense_accuracy range (0-1)', async () => {
+    it('should validate tap_position_degrees range (0-360)', async () => {
       const response = await request(app)
         .post('/api/v1/combat/defend')
         .set('Authorization', 'Bearer valid-token')
         .send({
           session_id: validSessionId,
-          defense_accuracy: 1.5
+          tap_position_degrees: 361
         });
 
       expect(response.status).toBe(400);
@@ -233,46 +233,46 @@ describe('Combat API Endpoints', () => {
       expect(response.body.error.details).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
-            field: 'body.defense_accuracy',
-            message: 'Defense accuracy must be between 0 and 1'
+            field: 'body.tap_position_degrees',
+            message: 'Tap position must be between 0 and 360 degrees'
           })
         ])
       );
     });
 
-    it('should reject negative defense_accuracy', async () => {
+    it('should reject negative tap_position_degrees', async () => {
       const response = await request(app)
         .post('/api/v1/combat/defend')
         .set('Authorization', 'Bearer valid-token')
         .send({
           session_id: validSessionId,
-          defense_accuracy: -0.1
+          tap_position_degrees: -1
         });
 
       expect(response.status).toBe(400);
       expect(response.body.error.code).toBe('VALIDATION_ERROR');
     });
 
-    it('should accept perfect defense accuracy (1.0)', async () => {
+    it('should accept valid tap position at 360 degrees', async () => {
       const response = await request(app)
         .post('/api/v1/combat/defend')
         .set('Authorization', 'Bearer valid-token')
         .send({
           session_id: validSessionId,
-          defense_accuracy: 1.0
+          tap_position_degrees: 360
         });
 
       // Will fail due to unmocked services, but validation passed
       expect(response.status).not.toBe(400);
     });
 
-    it('should accept zero defense accuracy', async () => {
+    it('should accept valid tap position at 0 degrees', async () => {
       const response = await request(app)
         .post('/api/v1/combat/defend')
         .set('Authorization', 'Bearer valid-token')
         .send({
           session_id: validSessionId,
-          defense_accuracy: 0
+          tap_position_degrees: 0
         });
 
       // Will fail due to unmocked services, but validation passed

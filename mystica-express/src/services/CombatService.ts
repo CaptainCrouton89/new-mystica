@@ -248,16 +248,16 @@ export class CombatService {
    * @throws NotFoundError if session not found or expired
    * @throws ValidationError if invalid attack accuracy
    */
-  async executeAttack(sessionId: string, attackAccuracy: number): Promise<AttackResult> {
+  async executeAttack(sessionId: string, tapPositionDegrees: number): Promise<AttackResult> {
     // Validate session exists and is active
     const session = await this.combatRepository.getActiveSession(sessionId);
     if (!session) {
       throw new NotFoundError('Combat session', sessionId);
     }
 
-    // Validate attack accuracy
-    if (attackAccuracy < 0.0 || attackAccuracy > 1.0) {
-      throw new ValidationError('Attack accuracy must be between 0.0 and 1.0');
+    // Validate tap position degrees
+    if (tapPositionDegrees < 0 || tapPositionDegrees > 360) {
+      throw new ValidationError('Tap position must be between 0 and 360 degrees');
     }
 
     // Get current combat state from session
@@ -273,8 +273,8 @@ export class CombatService {
     // Get weapon bands for hit zone determination
     const weaponConfig = await this.getWeaponConfig(session.userId, playerStats.atkAccuracy);
 
-    // Determine hit zone based on attack accuracy (0.0-1.0)
-    const hitZone = this.determineHitZoneFromAccuracy(attackAccuracy);
+    // Determine hit zone based on tap position (0-360 degrees)
+    const hitZone = this.determineHitZone(tapPositionDegrees, weaponConfig.adjusted_bands);
 
     // Calculate damage based on hit zone
     const { damage: damageDealt, baseMultiplier, critBonus } = this.calculateDamage(
@@ -310,7 +310,7 @@ export class CombatService {
     const newLogEntry = {
       turn: turnNumber,
       action: 'attack',
-      attackAccuracy: attackAccuracy,
+      tapPositionDegrees: tapPositionDegrees,
       hitZone,
       damageDealt,
       enemyDamage,
@@ -329,7 +329,7 @@ export class CombatService {
       ts: new Date(),
       actor: 'player',
       eventType: 'attack',
-      payload: { hitZone, damageDealt, attackAccuracy },
+      payload: { hitZone, damageDealt, tapPositionDegrees },
       valueI: damageDealt,
     });
 
@@ -355,11 +355,12 @@ export class CombatService {
    * @throws NotFoundError if session not found or expired
    * @throws ValidationError if invalid defense accuracy
    */
-  async executeDefense(sessionId: string, defenseAccuracy: number): Promise<{
+  async executeDefense(sessionId: string, tapPositionDegrees: number): Promise<{
     damage_blocked: number;
     damage_taken: number;
     player_hp_remaining: number;
     combat_status: 'ongoing' | 'victory' | 'defeat';
+    hit_zone: HitBand;
   }> {
     // Validate session exists and is active
     const session = await this.combatRepository.getActiveSession(sessionId);
@@ -367,9 +368,9 @@ export class CombatService {
       throw new NotFoundError('Combat session', sessionId);
     }
 
-    // Validate defense accuracy
-    if (defenseAccuracy < 0 || defenseAccuracy > 1) {
-      throw new ValidationError('Defense accuracy must be between 0.0 and 1.0');
+    // Validate tap position degrees
+    if (tapPositionDegrees < 0 || tapPositionDegrees > 360) {
+      throw new ValidationError('Tap position must be between 0 and 360 degrees');
     }
 
     // Get current combat state from session
@@ -382,12 +383,24 @@ export class CombatService {
     const currentPlayerHP = lastLogEntry?.playerHP ?? playerStats.hp;
     const currentEnemyHP = lastLogEntry?.enemyHP ?? enemyStats.hp;
 
+    // Get weapon bands for hit zone determination
+    const weaponConfig = await this.getWeaponConfig(session.userId, playerStats.atkAccuracy);
+
+    // Determine hit zone based on tap position (0-360 degrees)
+    const hitZone = this.determineHitZone(tapPositionDegrees, weaponConfig.adjusted_bands);
+
     // Calculate base enemy damage
     const baseEnemyDamage = Math.max(MIN_DAMAGE, enemyStats.atk - playerStats.defPower);
 
-    // Defense mechanics: accuracy determines damage reduction
-    // Perfect defense (1.0) blocks 80% damage, poor defense (0.0) blocks 20%
-    const defenseEffectiveness = 0.2 + (defenseAccuracy * 0.6); // 0.2 to 0.8 range
+    // Defense mechanics: hit zone determines damage reduction
+    const zoneMultipliers: Record<HitBand, number> = {
+      'injure': 0.0,   // Self-injury, no block
+      'miss': 0.2,     // Minimal block
+      'graze': 0.4,    // Partial block
+      'normal': 0.6,   // Good block
+      'crit': 0.8      // Excellent block
+    };
+    const defenseEffectiveness = zoneMultipliers[hitZone];
     const damageBlocked = Math.floor(baseEnemyDamage * defenseEffectiveness);
     const damageActuallyTaken = Math.max(MIN_DAMAGE, baseEnemyDamage - damageBlocked);
 
@@ -406,7 +419,8 @@ export class CombatService {
     const newLogEntry = {
       turn: turnNumber,
       action: 'defend',
-      defenseAccuracy,
+      tapPositionDegrees,
+      hitZone,
       damageBlocked,
       damageActuallyTaken,
       playerHP: newPlayerHP,
@@ -424,7 +438,7 @@ export class CombatService {
       ts: new Date(),
       actor: 'player',
       eventType: 'defend',
-      payload: { defenseAccuracy, damageBlocked, damageActuallyTaken },
+      payload: { hitZone, damageBlocked, damageActuallyTaken, tapPositionDegrees },
       valueI: damageActuallyTaken,
     });
 
@@ -433,6 +447,7 @@ export class CombatService {
       damage_taken: damageActuallyTaken,
       player_hp_remaining: newPlayerHP,
       combat_status: combatStatus,
+      hit_zone: hitZone,
     };
   }
 

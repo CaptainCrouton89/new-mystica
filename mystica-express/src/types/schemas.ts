@@ -93,12 +93,12 @@ export const StartCombatSchema = z.object({
 
 export const AttackSchema = z.object({
   session_id: UUIDSchema,
-  attack_accuracy: z.number().min(0.0, 'Attack accuracy must be between 0.0 and 1.0').max(1.0, 'Attack accuracy must be between 0.0 and 1.0')
+  tap_position_degrees: z.number().min(0, 'Tap position must be between 0 and 360 degrees').max(360, 'Tap position must be between 0 and 360 degrees')
 });
 
 export const DefenseSchema = z.object({
   session_id: UUIDSchema,
-  defense_accuracy: z.number().min(0).max(1, 'Defense accuracy must be between 0 and 1')
+  tap_position_degrees: z.number().min(0, 'Tap position must be between 0 and 360 degrees').max(360, 'Tap position must be between 0 and 360 degrees')
 });
 
 export const CompleteCombatSchema = z.object({
