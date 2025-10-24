@@ -1,33 +1,39 @@
-# Models Directory
+# Models Directory CLAUDE.md
 
-SwiftData models for the New-Mystica app. All models use `@Model` macro for persistence.
+Core data models for the New-Mystica SwiftUI app using SwiftData and API integration.
 
-## Core Models
+## Structure
 
-- **Item**: Inventory items with rarity, combat stats (attack, defense, crit). Links to Material via `materialID`.
-- **Material**: Crafting components with visual properties (image_url, color_hex, description).
-- **Character**: Player character with stats (health, stamina, mana), equipped items, inventory.
-- **Combat**: Battle state including turn order, current combatant, enemy, and action history.
-- **CombatAction**: Individual combat actions (attack, defend, spell) with damage/targets. Links to Combat via `combatID`.
+- **Core Models** (17 files): Domain entities for players, items, combat, inventory, and UI state
+- **Protocols/** - `APIModel`: Base protocol for API-serializable types
+- **Enums**: Error types, item statuses, UI states, and domain enums
 
-## Patterns & Conventions
+## Key Patterns
 
-- All models are `@Model` for SwiftData persistence
-- Relationships use `@Relationship(deleteRule: .cascade)` for cleanup
-- Optional fields for nullable database columns
-- Enums for status/type fields (CombatActionType, ItemRarity)
-- Use UUIDs for relationships between models
+**Codable + Sendable**: All models conform to both for thread-safety and JSON serialization.
 
-## SwiftUI Preview Setup
+**APIModel Protocol** (`Protocols/APIModel.swift`): Base conformance for API response decoding; applied to `User`, `Profile`, `Location`, `Loadable<T>`, etc.
 
-Models in previews require:
+**SwiftData Integration**: Models use `@Model` macro where needed for persistence; ensure previews include:
 ```swift
 .modelContainer(for: Item.self, inMemory: true)
 .environmentObject(NavigationManager())
 ```
 
-## Backend Sync
+**Error Handling**: Centralized in `AppError.swift` with domain-specific cases (api, validation, persistence).
 
-- Models mirror Supabase schema (see `docs/ai-docs/database.md`)
-- After schema changes, run `pnpm supabase:types` in backend to update types
-- SwiftData types generated manually (no auto-generation from DB)
+## File Organization
+
+- **User/Auth**: `User.swift`, `UserProfile.swift`, `Profile.swift`
+- **Items**: `PlayerItem.swift`, `Equipment.swift`, `Material.swift`, `Inventory.swift`
+- **Combat**: `Combat.swift`, `Stats.swift`
+- **API/Network**: `APIResponses.swift`, `Loadable.swift`
+- **Location**: `Location.swift`, `Pagination.swift`
+- **UI State**: `DisplayBorders.swift`, `Enums.swift`
+
+## Conventions
+
+- Use zero-indexed enum cases for database compatibility
+- Rename decoded fields via `@SerialName` when API schema differs
+- Apply computed properties for derived data (e.g., `computedStats`)
+- Keep models lean; move business logic to services/managers
