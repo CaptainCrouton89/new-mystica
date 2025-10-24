@@ -62,14 +62,14 @@ struct VictoryView: View {
                             }
 
                             // Items Section
-                            if !rewards.items.isEmpty {
-                                ItemsSection(items: rewards.items)
+                            if let items = rewards.items, !items.isEmpty {
+                                ItemsSection(items: items)
                                     .slideInFromBottom(delay: 0.8)
                             }
 
                             // Materials Section
-                            if !rewards.materials.isEmpty {
-                                MaterialsSection(materials: rewards.materials)
+                            if let materials = rewards.materials, !materials.isEmpty {
+                                MaterialsSection(materials: materials)
                                     .slideInFromBottom(delay: 1.0)
                             }
                         }
@@ -108,15 +108,16 @@ struct VictoryView: View {
             print("🎉 VictoryView appeared")
             if let rewards = appState.combatRewards {
                 print("✅ Rewards received:")
+                print("  - Result: \(rewards.result)")
                 print("  - Gold: \(rewards.currencies.gold)")
-                print("  - Items count: \(rewards.items.count)")
-                print("  - Materials count: \(rewards.materials.count)")
-                print("  - Experience: \(rewards.experience)")
-                if !rewards.items.isEmpty {
-                    print("  - Items: \(rewards.items.map { $0.name }.joined(separator: ", "))")
+                print("  - Items count: \(rewards.items?.count ?? 0)")
+                print("  - Materials count: \(rewards.materials?.count ?? 0)")
+                print("  - Experience: \(rewards.experience ?? 0)")
+                if let items = rewards.items, !items.isEmpty {
+                    print("  - Items: \(items.map { $0.name }.joined(separator: ", "))")
                 }
-                if !rewards.materials.isEmpty {
-                    print("  - Materials: \(rewards.materials.map { $0.name }.joined(separator: ", "))")
+                if let materials = rewards.materials, !materials.isEmpty {
+                    print("  - Materials: \(materials.map { $0.name }.joined(separator: ", "))")
                 }
             } else {
                 print("❌ No rewards in appState.combatRewards!")

@@ -345,6 +345,28 @@ struct CraftingView: View {
                 TitleText("Material Applied!", size: 26)
                     .foregroundColor(Color.textPrimary)
 
+                if viewModel.isFirstCraft {
+                    HStack(spacing: 8) {
+                        Image(systemName: "trophy.fill")
+                            .font(.system(size: 16))
+                            .foregroundColor(Color.yellow)
+
+                        SmallText("First Crafter!")
+                            .foregroundColor(Color.yellow)
+                            .bold()
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(Color.yellow.opacity(0.2))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color.yellow, lineWidth: 1)
+                            )
+                    )
+                }
+
                 VStack(spacing: 12) {
                     if let imageUrl = item.generatedImageUrl, let url = URL(string: imageUrl) {
                         CachedAsyncImage(

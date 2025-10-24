@@ -110,15 +110,17 @@ extension BattleView {
                     Spacer()
                 }
 
-                HStack {
-                    Image(systemName: "star.fill")
-                        .foregroundColor(Color.accentSecondary)
-                    NormalText("Experience: \(rewards.experience)")
-                        .foregroundColor(Color.textSecondary)
-                    Spacer()
+                if let experience = rewards.experience {
+                    HStack {
+                        Image(systemName: "star.fill")
+                            .foregroundColor(Color.accentSecondary)
+                        NormalText("Experience: \(experience)")
+                            .foregroundColor(Color.textSecondary)
+                        Spacer()
+                    }
                 }
 
-                if !rewards.materials.isEmpty {
+                if let items = rewards.items, !items.isEmpty {
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
                             Image(systemName: "gift.fill")
@@ -128,9 +130,9 @@ extension BattleView {
                             Spacer()
                         }
 
-                        ForEach(Array(rewards.materials.enumerated()), id: \.element.materialId) { _, item in
+                        ForEach(Array(items.enumerated()), id: \.element.id) { _, item in
                             HStack {
-                                SmallText("• \(item.name) [Level \(1)]")
+                                SmallText("• \(item.name)")
                                     .foregroundColor(Color.textSecondary)
                                 Spacer()
                             }
@@ -139,7 +141,7 @@ extension BattleView {
                     }
                 }
 
-                if !rewards.materials.isEmpty {
+                if let materials = rewards.materials, !materials.isEmpty {
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
                             Image(systemName: "cube.fill")
@@ -149,7 +151,7 @@ extension BattleView {
                             Spacer()
                         }
 
-                        ForEach(Array(rewards.materials.enumerated()), id: \.element.materialId) { _, material in
+                        ForEach(Array(materials.enumerated()), id: \.element.materialId) { _, material in
                             HStack {
                                 SmallText("• \(material.name) [\(material.styleName)]")
                                     .foregroundColor(Color.textSecondary)

@@ -258,8 +258,6 @@ struct EquipmentView: View {
                     },
                     onCraft: {
                         audioManager.playMenuButtonClick()
-                        viewModel.showingItemDetailModal = false
-                        // Prepare the item in inventoryViewModel so handleCraftAction can find it
                         viewModel.prepareItemForInventoryAction()
                         Task {
                             await viewModel.inventoryViewModel.handleCraftAction()
@@ -335,6 +333,10 @@ struct EquipmentView: View {
             await viewModel.fetchEquipment()
             await viewModel.inventoryViewModel.loadInventory()
             print("📱 [EQUIPMENT VIEW] Loading complete. Inventory state: \(viewModel.inventoryViewModel.items)")
+        }
+        .onAppear {
+            // Set navigation manager on inventory view model for craft/upgrade navigation
+            viewModel.inventoryViewModel.navigationManager = navigationManager
         }
     }
 
