@@ -152,13 +152,7 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
       error: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined
     });
-    res.status(401).json({
-      error: {
-        code: 'auth_error',
-        message: 'Failed to authenticate request',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      }
-    });
+    next(error); // Let global error handler manage the response
   }
 };
 
@@ -188,12 +182,8 @@ export const authenticateInternal = async (req: Request, res: Response, next: Ne
 
     next();
   } catch (error) {
-    res.status(401).json({
-      error: {
-        code: 'INTERNAL_AUTH_ERROR',
-        message: 'Failed to authenticate internal service request'
-      }
-    });
+    console.log('❌ [AUTH] Internal service authentication error:', error);
+    next(error); // Let global error handler manage the response
   }
 };
 

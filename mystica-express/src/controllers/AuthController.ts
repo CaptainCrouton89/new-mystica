@@ -297,7 +297,8 @@ export class AuthController {
 
       const result = await authService.registerDevice({ device_id });
 
-      const statusCode = result.message.includes('registered') ? 201 : 409;
+      // Return 201 for new registration, 200 for existing device login
+      const statusCode = result.message.includes('registered') ? 201 : 200;
       res.status(statusCode).json(result);
     } catch (error) {
       if (error instanceof ValidationError) {
