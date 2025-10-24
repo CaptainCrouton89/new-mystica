@@ -46,7 +46,7 @@ final class DefaultInventoryRepository: InventoryRepository {
         return response.materials
     }
 
-    func applyMaterial(itemId: String, materialId: String, styleId: String, slotIndex: Int) async throws -> EnhancedPlayerItem {
+    func applyMaterial(itemId: String, materialId: String, styleId: String, slotIndex: Int) async throws -> ApplyMaterialResult {
         struct ApplyMaterialRequest: Encodable {
             let materialId: String
             let styleId: String
@@ -59,31 +59,18 @@ final class DefaultInventoryRepository: InventoryRepository {
             }
         }
 
-        struct ApplyMaterialResponse: Decodable {
-            let item: EnhancedPlayerItem
-
-            enum CodingKeys: String, CodingKey {
-                case item
-            }
-
-            init(from decoder: Decoder) throws {
-                let container = try decoder.container(keyedBy: CodingKeys.self)
-                self.item = try container.decode(EnhancedPlayerItem.self, forKey: .item)
-            }
-        }
-
         let request = ApplyMaterialRequest(
             materialId: materialId,
             styleId: styleId,
             slotIndex: slotIndex
         )
 
-        let response: ApplyMaterialResponse = try await apiClient.post(
+        let result: ApplyMaterialResult = try await apiClient.post(
             endpoint: "/items/\(itemId)/materials/apply",
             body: request
         )
 
-        return response.item
+        return result
     }
 
     func removeMaterial(itemId: String, slotIndex: Int) async throws -> EnhancedPlayerItem {

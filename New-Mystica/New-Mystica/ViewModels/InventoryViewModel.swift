@@ -214,7 +214,7 @@ final class InventoryViewModel {
         defer { applyingMaterial = false }
 
         do {
-            let updatedItem = try await repository.applyMaterial(
+            let result = try await repository.applyMaterial(
                 itemId: itemId,
                 materialId: materialId,
                 styleId: styleId,
@@ -224,9 +224,9 @@ final class InventoryViewModel {
             // Update the item in our local state
             if case .loaded(var currentItems) = items {
                 if let index = currentItems.firstIndex(where: { $0.id == itemId }) {
-                    currentItems[index] = updatedItem
+                    currentItems[index] = result.updatedItem
                     items = .loaded(currentItems)
-                    selectedItem = updatedItem
+                    selectedItem = result.updatedItem
                 }
             }
 

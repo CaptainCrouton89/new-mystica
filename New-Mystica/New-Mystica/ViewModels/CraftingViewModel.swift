@@ -161,16 +161,16 @@ final class CraftingViewModel {
                 throw AppError.businessLogic("Item already has maximum 3 materials applied")
             }
 
-            let response = try await inventoryRepository.applyMaterial(
+            let result = try await inventoryRepository.applyMaterial(
                 itemId: item.id,
                 materialId: material.materialId,
                 styleId: material.styleId,
                 slotIndex: slotIndex
             )
 
-            craftedItem = response
-            craftCount = response.appliedMaterials.count  // Use materials count as proxy
-            isFirstCraft = response.appliedMaterials.contains { $0.material?.id == material.materialId && $0.material?.styleId == material.styleId }
+            craftedItem = result.updatedItem
+            craftCount = result.craftCount
+            isFirstCraft = result.isFirstCraft
 
             craftingState = .results
 

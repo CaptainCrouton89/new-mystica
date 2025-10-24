@@ -26,8 +26,8 @@ protocol InventoryRepository {
     ///   - materialId: Material template ID from seed data
     ///   - styleId: Style ID from StyleDefinitions table
     ///   - slotIndex: Material slot (0-2) to fill
-    /// - Returns: Updated player item with applied material
-    func applyMaterial(itemId: String, materialId: String, styleId: String, slotIndex: Int) async throws -> EnhancedPlayerItem
+    /// - Returns: Apply material result with updated item, first craft status, and craft count
+    func applyMaterial(itemId: String, materialId: String, styleId: String, slotIndex: Int) async throws -> ApplyMaterialResult
 
     /// Remove material from item slot - returns material to inventory
     /// - Parameters:
