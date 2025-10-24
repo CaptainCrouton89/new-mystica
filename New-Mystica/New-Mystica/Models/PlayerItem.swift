@@ -9,6 +9,8 @@ import Foundation
 
 struct PlayerItem: Codable, Sendable {
     let id: String
+    let name: String
+    let description: String?
     let baseType: String
     let itemTypeId: String
     let category: String
@@ -22,6 +24,8 @@ struct PlayerItem: Codable, Sendable {
 
     enum CodingKeys: String, CodingKey {
         case id
+        case name = "name"
+        case description = "description"
         case baseType = "base_type"
         case itemTypeId = "item_type_id"
         case category
@@ -32,6 +36,57 @@ struct PlayerItem: Codable, Sendable {
         case computedStats = "computed_stats"
         case isEquipped = "is_equipped"
         case generatedImageUrl = "generated_image_url"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        id = try container.decode(String.self, forKey: .id)
+        baseType = try container.decode(String.self, forKey: .baseType)
+        itemTypeId = try container.decode(String.self, forKey: .itemTypeId)
+        category = try container.decode(String.self, forKey: .category)
+        level = try container.decode(Int.self, forKey: .level)
+        rarity = try container.decode(String.self, forKey: .rarity)
+        appliedMaterials = try container.decode([String].self, forKey: .appliedMaterials)
+        isStyled = try container.decode(Bool.self, forKey: .isStyled)
+        computedStats = try container.decode(ItemStats.self, forKey: .computedStats)
+        isEquipped = try container.decode(Bool.self, forKey: .isEquipped)
+        generatedImageUrl = try container.decodeIfPresent(String.self, forKey: .generatedImageUrl)
+
+        // Name is now required
+        name = try container.decode(String.self, forKey: .name)
+        description = try container.decodeIfPresent(String.self, forKey: .description)
+    }
+
+    // Convenience initializer for backward compatibility with existing code
+    init(
+        id: String,
+        baseType: String,
+        itemTypeId: String,
+        category: String,
+        level: Int,
+        rarity: String,
+        appliedMaterials: [String],
+        isStyled: Bool,
+        computedStats: ItemStats,
+        isEquipped: Bool,
+        generatedImageUrl: String?,
+        name: String,
+        description: String? = nil
+    ) {
+        self.id = id
+        self.name = name
+        self.description = description
+        self.baseType = baseType
+        self.itemTypeId = itemTypeId
+        self.category = category
+        self.level = level
+        self.rarity = rarity
+        self.appliedMaterials = appliedMaterials
+        self.isStyled = isStyled
+        self.computedStats = computedStats
+        self.isEquipped = isEquipped
+        self.generatedImageUrl = generatedImageUrl
     }
 }
 
@@ -80,12 +135,25 @@ extension ItemStats {
     }
 
     /// Create ItemStats from dictionary after applying material modifiers
-    static func fromDictionary(_ dict: [String: Double]) -> ItemStats {
+    static func fromDictionary(_ dict: [String: Double]) throws -> ItemStats {
+        guard let atkPower = dict["atkPower"] else {
+            throw DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: "Missing atkPower"))
+        }
+        guard let atkAccuracy = dict["atkAccuracy"] else {
+            throw DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: "Missing atkAccuracy"))
+        }
+        guard let defPower = dict["defPower"] else {
+            throw DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: "Missing defPower"))
+        }
+        guard let defAccuracy = dict["defAccuracy"] else {
+            throw DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: "Missing defAccuracy"))
+        }
+
         return ItemStats(
-            atkPower: dict["atkPower"] ?? 0.0,
-            atkAccuracy: dict["atkAccuracy"] ?? 0.0,
-            defPower: dict["defPower"] ?? 0.0,
-            defAccuracy: dict["defAccuracy"] ?? 0.0
+            atkPower: atkPower,
+            atkAccuracy: atkAccuracy,
+            defPower: defPower,
+            defAccuracy: defAccuracy
         )
     }
 }
