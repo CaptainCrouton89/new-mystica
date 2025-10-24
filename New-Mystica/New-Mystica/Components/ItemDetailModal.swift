@@ -73,7 +73,7 @@ struct ItemDetailModal: View {
             }
             Button("Cancel", role: .cancel) { }
         } message: {
-            Text("Remove \(item.baseType) from \(slot.displayName) slot?")
+            Text("Remove \(item.name) from \(slot.displayName) slot?")
         }
     }
 
@@ -123,7 +123,10 @@ struct ItemDetailModal: View {
     // MARK: - Item Metadata View
     private var itemMetadataView: some View {
         VStack(spacing: 12) {
-            TitleText(item.baseType.capitalized, size: 24)
+            TitleText(item.name, size: 24)
+                .lineLimit(2)
+                .truncationMode(.tail)
+                .multilineTextAlignment(.center)
 
             HStack(spacing: 16) {
                 // Level badge
@@ -154,6 +157,13 @@ struct ItemDetailModal: View {
                                 .stroke(Color.accent, lineWidth: 1)
                         )
                 )
+            }
+
+            // Description
+            if let description = item.description, !description.isEmpty {
+                NormalText(description)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 12)
             }
         }
     }
@@ -474,7 +484,9 @@ private struct StatDetailRow: View {
                 defAccuracy: 0.60
             ),
             isEquipped: true,
-            generatedImageUrl: nil
+            generatedImageUrl: nil,
+            name: "Magic Sword",
+            description: "A powerful magical sword"
         ),
         slot: .weapon,
         onUnequip: {

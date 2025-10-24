@@ -125,7 +125,11 @@ final class CraftingViewModel {
             previewStatDict[statName] = currentValue + modifier
         }
 
-        previewStats = ItemStats.fromDictionary(previewStatDict)
+        do {
+            previewStats = try ItemStats.fromDictionary(previewStatDict)
+        } catch {
+            previewStats = ItemStats(atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0)
+        }
     }
 
     func applyMaterial() async {

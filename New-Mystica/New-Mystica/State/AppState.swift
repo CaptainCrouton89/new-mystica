@@ -184,7 +184,9 @@ final class AppState {
 
             // Extract optional fields from JWT
             let deviceId = payloadJSON["device_id"] as? String
-            let accountType = payloadJSON["account_type"] as? String ?? "anonymous"
+            guard let accountType = payloadJSON["account_type"] as? String else {
+                throw AppError.invalidData("Missing account_type in JWT payload: \(payloadJSON)")
+            }
 
             // Create user from JWT claims
             let deviceIdString = deviceId.map { "\"\($0)\"" } ?? "null"
@@ -212,7 +214,12 @@ final class AppState {
             try? KeychainService.deleteAccessToken()
 
             // Set error state so UI can show what went wrong
-            let appError = error as? AppError ?? AppError.invalidData("Session restoration failed: \(error.localizedDescription)")
+            let appError: AppError
+if let typedError = error as? AppError {
+                appError = typedError
+            } else {
+                appError = AppError.invalidData("Session restoration failed: \(error.localizedDescription)")
+            }
             self.authSession = .error(appError)
         }
     }

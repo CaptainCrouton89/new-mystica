@@ -12,134 +12,143 @@ struct ItemRow: View {
     let item: EnhancedPlayerItem
 
     var body: some View {
-        HStack(spacing: 12) {
-            // Item Image
-            Group {
-                if let imageUrl = item.generatedImageUrl, let url = URL(string: imageUrl) {
-                    CachedAsyncImage(
-                        url: url,
-                        content: { image in
-                            image
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                                .frame(width: 50, height: 50)
-                                .clipped()
-                        },
-                        placeholder: {
-                            ProgressView()
-                                .frame(width: 50, height: 50)
-                        }
-                    )
-                } else {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(Color.backgroundSecondary)
-                            .frame(width: 50, height: 50)
+        VStack(alignment: .leading, spacing: 8) {
+            // Header: Item Name and Level
+            HStack {
+                NormalText(item.name, size: 16)
+                    .foregroundColor(Color.textPrimary)
+                    .bold()
+                    .lineLimit(1)
+                    .truncationMode(.tail)
 
-                        Image(systemName: getItemIcon())
-                            .font(.system(size: 24, weight: .medium))
-                            .foregroundColor(Color.textSecondary)
-                    }
-                }
+                Spacer()
+
+                NormalText("Lv. \(item.level)")
+                    .foregroundColor(Color.textSecondary)
             }
-            .clipShape(RoundedRectangle(cornerRadius: 8))
-            .overlay(
-                RoundedRectangle(cornerRadius: 8)
-                    .stroke(colorForRarity(item.rarity), lineWidth: 2)
-            )
-            .overlay(
-                // Equipped indicator overlay
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+
+            // Main Content Row
+            HStack(spacing: 12) {
+                // Item Image
                 Group {
-                    if item.isEquipped {
-                        VStack {
-                            HStack {
-                                Spacer()
-                                Image(systemName: "checkmark.circle.fill")
-                                    .font(.system(size: 16, weight: .bold))
-                                    .foregroundColor(Color.accent)
-                                    .background(Color.backgroundPrimary)
-                                    .clipShape(Circle())
+                    if let imageUrl = item.generatedImageUrl, let url = URL(string: imageUrl) {
+                        CachedAsyncImage(
+                            url: url,
+                            content: { image in
+                                image
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fill)
+                                    .frame(width: 50, height: 50)
+                                    .clipped()
+                            },
+                            placeholder: {
+                                ProgressView()
+                                    .frame(width: 50, height: 50)
                             }
-                            Spacer()
-                        }
-                        .padding(2)
-                    }
-                }
-            )
-
-            // Item Details
-            VStack(alignment: .leading, spacing: 4) {
-                // Item Name and Level
-                HStack {
-                    NormalText(item.baseType.capitalized, size: 16)
-                        .foregroundColor(Color.textPrimary)
-                        .bold()
-
-                    Spacer()
-
-                    NormalText("Lv. \(item.level)")
-                        .foregroundColor(Color.textSecondary)
-                }
-
-                // Stats Preview
-                HStack(spacing: 16) {
-                    StatValueView(
-                        label: "ATK",
-                        value: String(format: "%.0f", item.computedStats.atkPower),
-                        color: Color.accent
-                    )
-
-                    StatValueView(
-                        label: "DEF",
-                        value: String(format: "%.0f", item.computedStats.defPower),
-                        color: Color.accentSecondary
-                    )
-
-                    Spacer()
-                }
-
-                // Styling Status
-                HStack {
-                    if item.isStyled {
-                        SmallText("Styled (\(item.appliedMaterials.count)/3)")
-                            .foregroundColor(Color.accent)
+                        )
                     } else {
-                        SmallText("Unstyled")
-                            .foregroundColor(Color.textSecondary)
-                    }
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color.backgroundSecondary)
+                                .frame(width: 50, height: 50)
 
-                    if item.craftCount > 0 {
-                        SmallText("• Crafted \(item.craftCount)x")
-                            .foregroundColor(Color.textSecondary)
+                            Image(systemName: getItemIcon())
+                                .font(.system(size: 24, weight: .medium))
+                                .foregroundColor(Color.textSecondary)
+                        }
                     }
-
-                    Spacer()
                 }
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(colorForRarity(item.rarity), lineWidth: 2)
+                )
+                .overlay(
+                    // Equipped indicator overlay
+                    Group {
+                        if item.isEquipped {
+                            VStack {
+                                HStack {
+                                    Spacer()
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .font(.system(size: 16, weight: .bold))
+                                        .foregroundColor(Color.accent)
+                                        .background(Color.backgroundPrimary)
+                                        .clipShape(Circle())
+                                }
+                                Spacer()
+                            }
+                            .padding(2)
+                        }
+                    }
+                )
 
-                // Equipped Status Badge
-                if item.isEquipped, let equippedSlot = item.equippedSlot {
-                    HStack(spacing: 4) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundColor(Color.accent)
+                // Item Details
+                VStack(alignment: .leading, spacing: 4) {
+                    // Stats Preview
+                    HStack(spacing: 16) {
+                        StatValueView(
+                            label: "ATK",
+                            value: String(format: "%.0f", item.computedStats.atkPower),
+                            color: Color.accent
+                        )
 
-                        SmallText("Equipped: \(formatSlotName(equippedSlot))")
-                            .foregroundColor(Color.accent)
-                            .bold()
+                        StatValueView(
+                            label: "DEF",
+                            value: String(format: "%.0f", item.computedStats.defPower),
+                            color: Color.accentSecondary
+                        )
 
                         Spacer()
                     }
-                    .padding(.top, 2)
-                }
-            }
 
-            // Chevron Indicator
-            Image(systemName: "chevron.right")
-                .font(.system(size: 14, weight: .medium))
-                .foregroundColor(Color.borderSubtle)
+                    // Styling Status
+                    HStack {
+                        if item.isStyled, let firstMaterial = item.appliedMaterials.first {
+                            let styleName = firstMaterial.material?.styleName ?? formatStyleName(firstMaterial.styleId)
+                            SmallText(styleName)
+                                .foregroundColor(Color.accent)
+                        } else {
+                            SmallText("Normal")
+                                .foregroundColor(Color.textSecondary)
+                        }
+
+                        if item.craftCount > 0 {
+                            SmallText("• Crafted \(item.craftCount)x")
+                                .foregroundColor(Color.textSecondary)
+                        }
+
+                        Spacer()
+                    }
+
+                    // Equipped Status Badge
+                    if item.isEquipped, let equippedSlot = item.equippedSlot {
+                        HStack(spacing: 4) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundColor(Color.accent)
+
+                            SmallText("Equipped: \(formatSlotName(equippedSlot))")
+                                .foregroundColor(Color.accent)
+                                .bold()
+
+                            Spacer()
+                        }
+                        .padding(.top, 2)
+                    }
+                }
+
+                // Chevron Indicator
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundColor(Color.borderSubtle)
+            }
+            .padding(.horizontal, 16)
+
+            .padding(.bottom, 8)
         }
-        .padding(.vertical, 8)
-        .padding(.horizontal, 16)
         .background(
             RoundedRectangle(cornerRadius: 12)
                 .fill(colorForRarity(item.rarity).opacity(0.1))
@@ -212,6 +221,26 @@ struct ItemRow: View {
             return slotName.capitalized
         }
     }
+
+    private func formatStyleName(_ styleId: String) -> String {
+        // Map style IDs to their display names
+        switch styleId.lowercased() {
+        case "rustic":
+            return "Rustic"
+        case "pixelated", "pixel_art", "pixel":
+            return "Pixelated"
+        case "ethereal":
+            return "Ethereal"
+        case "holographic":
+            return "Holographic"
+        case "magical":
+            return "Magical"
+        case "natural":
+            return "Natural"
+        default:
+            return ""
+        }
+    }
 }
 
 #Preview {
@@ -262,6 +291,7 @@ private let mockItemStyled = EnhancedPlayerItem(
                 name: "Wood",
                 description: nil,
                 styleId: "rustic",
+                styleName: "Rustic",
                 statModifiers: StatModifier(atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0),
                 imageUrl: nil
             )

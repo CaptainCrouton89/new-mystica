@@ -22,6 +22,44 @@ struct SplashScreenView: View {
     @Environment(\.backgroundImageManager) private var backgroundImageManager
     @Environment(AppState.self) private var appState
 
+    private func logUserInfo() -> String {
+        guard let user = appState.currentUser else {
+            return "No user context available"
+        }
+
+        let usernameDescription: String
+        if let username = user.username {
+            let trimmed = username.trimmingCharacters(in: .whitespaces)
+            if !trimmed.isEmpty {
+                usernameDescription = "Username: \(trimmed)"
+            } else {
+                usernameDescription = "Username: Unspecified"
+            }
+        } else {
+            usernameDescription = "Username: Unspecified"
+        }
+
+        let userInfoParts = [
+            "User ID: \(user.id.uuidString)",
+            usernameDescription
+        ]
+
+        return userInfoParts.joined(separator: ", ")
+    }
+
+    private func logErrorDetails(_ error: Error, context: String) -> String {
+        let errorDescription = String(describing: error)
+        let errorReflection = String(reflecting: error)
+        let userInfo = logUserInfo()
+
+        return """
+        \(context)
+        User Context: \(userInfo)
+        Error Description: \(errorDescription)
+        Detailed Error: \(errorReflection)
+        """
+    }
+
     init() {
         // Initialize will be deferred until navigationManager is available from environment
     }
@@ -116,7 +154,7 @@ struct SplashScreenView: View {
                                             isActive = true
                                         }
                                     } catch {
-                                        print("❌ [SPLASH] Retry failed:", error.localizedDescription)
+                                        print("❌ [SPLASH] Retry failed: \(String(describing: error))\nError details: \(String(reflecting: error))")
                                         errorMessage = "Unable to load player data. Please check your connection."
                                     }
                                 }
@@ -181,27 +219,41 @@ struct SplashScreenView: View {
                     // Check if auth succeeded
                     guard appState.isAuthenticated else {
                         if case .error(let error) = appState.authSession {
-                            print("❌ [SPLASH] Authentication failed [deviceId: \(deviceId), userId: \(appState.currentUser?.id.uuidString ?? "nil")]: \(error.localizedDescription)")
+                            let userIdDescription: String
+                            if let userId = appState.currentUser?.id.uuidString {
+                                userIdDescription = "User ID: \(userId)"
+                            } else {
+                                userIdDescription = "No user ID available"
+                            }
+                            print("❌ [SPLASH] Authentication failed [deviceId: \(deviceId), \(userIdDescription)]: \(String(describing: error))")
+                            print("Error details: \(String(reflecting: error))")
                             errorMessage = error.localizedDescription
                         } else {
-                            print("❌ [SPLASH] Authentication failed [deviceId: \(deviceId), userId: \(appState.currentUser?.id.uuidString ?? "nil")]")
+                            let userIdDescription: String
+                            if let userId = appState.currentUser?.id.uuidString {
+                                userIdDescription = "User ID: \(userId)"
+                            } else {
+                                userIdDescription = "No user ID available"
+                            }
+                            print("❌ [SPLASH] Authentication failed [deviceId: \(deviceId), \(userIdDescription)]")
                             errorMessage = "Authentication failed"
                         }
                         return
                     }
 
-                    print("✅ [SPLASH] Authentication successful [deviceId: \(deviceId), userId: \(appState.currentUser?.id.uuidString ?? "nil")]")
+                    let userInfo = logUserInfo()
+                    print("✅ [SPLASH] Authentication successful [deviceId: \(deviceId), \(userInfo)]")
 
                     // Data loading phase
                     loadingText = "Loading player data..."
-                    print("⚔️ [SPLASH] Loading equipment data... [deviceId: \(deviceId), userId: \(appState.currentUser?.id.uuidString ?? "nil")]")
+                    print("⚔️ [SPLASH] Loading equipment data... [deviceId: \(deviceId), \(userInfo)]")
 
                     // Load profile and currencies (required for gold balance display)
-                    print("💰 [SPLASH] Loading profile and currencies... [deviceId: \(deviceId), userId: \(appState.currentUser?.id.uuidString ?? "nil")]")
+                    print("💰 [SPLASH] Loading profile and currencies... [deviceId: \(deviceId), \(userInfo)]")
                     await profileController.loadProfileAndCurrencies()
 
                     // Check for active combat session (auto-resume flow)
-                    print("🎮 [SPLASH] Checking for active combat session... [deviceId: \(deviceId), userId: \(appState.currentUser?.id.uuidString ?? "nil")]")
+                    print("🎮 [SPLASH] Checking for active combat session... [deviceId: \(deviceId), \(userInfo)]")
                     await appState.checkActiveCombatSession(repository: DefaultCombatRepository())
 
                     // Attempt to load equipment, but don't fail splash if it errors
@@ -215,10 +267,12 @@ struct SplashScreenView: View {
                     // Check if we need to auto-resume combat
                     if case .loaded(let session) = appState.activeCombatSession,
                        let activeSession = session {
-                        print("⚔️ [SPLASH] Active combat session found, navigating to battle... [deviceId: \(deviceId), userId: \(appState.currentUser?.id.uuidString ?? "nil"), sessionId: \(activeSession.sessionId)]")
+                        let userInfo = logUserInfo()
+print("⚔️ [SPLASH] Active combat session found, navigating to battle... [deviceId: \(deviceId), \(userInfo), sessionId: \(activeSession.sessionId)]")
                         navigationManager.navigateTo(.battle)
                     } else {
-                        print("✅ [SPLASH] No active combat, transitioning to main menu [deviceId: \(deviceId), userId: \(appState.currentUser?.id.uuidString ?? "nil")]")
+                        let userInfo = logUserInfo()
+print("✅ [SPLASH] No active combat, transitioning to main menu [deviceId: \(deviceId), \(userInfo)]")
                     }
 
                     // Transition to ContentView
@@ -226,7 +280,14 @@ struct SplashScreenView: View {
                         isActive = true
                     }
                 } catch {
-                    print("❌ [SPLASH] Initialization failed [deviceId: \(deviceId), userId: \(appState.currentUser?.id.uuidString ?? "nil")]: \(error.localizedDescription)")
+                    let userIdDescription: String
+                    if let userId = appState.currentUser?.id.uuidString {
+                        userIdDescription = userId
+                    } else {
+                        userIdDescription = "UNKNOWN"
+                    }
+                    print("❌ [SPLASH] Initialization failed [deviceId: \(deviceId), userId: \(userIdDescription)]: \(String(describing: error))")
+                    print("Error details: \(String(reflecting: error))")
                     errorMessage = "Unable to load player data. Please check your connection."
                 }
             }
