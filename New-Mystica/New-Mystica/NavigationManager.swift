@@ -11,6 +11,7 @@ enum NavigationDestination: Hashable {
     case battle
     case victory
     case defeat
+    case testAnimations
     case crafting(
         preselectedItem: EnhancedPlayerItem? = nil,
         preselectedMaterial: MaterialInventoryStack? = nil
@@ -83,6 +84,8 @@ enum NavigationDestination: Hashable {
             return "Victory"
         case .defeat:
             return "Defeat"
+        case .testAnimations:
+            return "Test Animations"
         case .crafting:
             return "Crafting"
         case .upgradePreview:

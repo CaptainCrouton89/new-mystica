@@ -8,6 +8,7 @@ import AppKit
 #if canImport(SwiftUI)
 import SwiftUI
 #endif
+import Combine
 
 class SpriteAnimationGenerator {
     
@@ -123,11 +124,11 @@ class SpriteAnimationGenerator {
         }
     }
     
-    private static func loadImage(from path: String) -> Any? {
+    private static func loadImage(from imagePath: String) -> Any? {
         #if canImport(UIKit)
-        return UIImage(contentsOfFile: path)
+        return UIImage(contentsOfFile: imagePath)
         #elseif canImport(AppKit)
-        return NSImage(contentsOfFile: path)
+        return NSImage(contentsOfFile: imagePath)
         #else
         return nil
         #endif
@@ -151,40 +152,92 @@ class SpriteAnimationGenerator {
 }
 
 
-#if canImport(SwiftUI)
-struct AnimatedSpriteView: View {
-    let folderPath: String
+// MARK: - Dynamic Frame Detection SwiftUI View
+
+struct DynamicAtlasAnimatedSpriteView: View {
+    let atlasURL: URL
     let frameRate: Double
     let size: CGSize
+    @State private var skView: SKView?
+    @State private var isLoading = true
+    @State private var hasError = false
+    @State private var detectedFrameCount = 0
     
     init(
-        folderPath: String,
+        atlasURL: URL,
         frameRate: Double = 12.0,
         size: CGSize = CGSize(width: 100, height: 100)
     ) {
-        self.folderPath = folderPath
+        self.atlasURL = atlasURL
         self.frameRate = frameRate
         self.size = size
     }
     
     var body: some View {
-        SpriteView(scene: createScene())
-            .frame(width: size.width, height: size.height)
+        ZStack {
+            if isLoading {
+                VStack(spacing: 8) {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                    Text("Detecting frames...")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    if detectedFrameCount > 0 {
+                        Text("Found \(detectedFrameCount) frames")
+                            .font(.caption2)
+                            .foregroundColor(.blue)
+                    }
+                }
+                .frame(width: size.width, height: size.height)
+            } else if hasError {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.red.opacity(0.1))
+                    .frame(width: size.width, height: size.height)
+                    .overlay(
+                        VStack(spacing: 4) {
+                            Text("Failed to load animation")
+                                .foregroundColor(.red)
+                                .font(.caption)
+                            if detectedFrameCount > 0 {
+                                Text("Detected \(detectedFrameCount) frames")
+                                    .foregroundColor(.orange)
+                                    .font(.caption2)
+                            }
+                        }
+                    )
+            } else if let skView = skView, let scene = skView.scene {
+                SpriteView(scene: scene)
+                    .frame(width: size.width, height: size.height)
+            }
+        }
+        .onAppear {
+            loadAtlasAnimationWithDetection()
+        }
     }
     
-    private func createScene() -> SKScene {
-        let scene = SKScene(size: size)
-        scene.backgroundColor = .clear
-        
-        if let animatedSprite = SpriteAnimationGenerator.createAnimatedSprite(
-            from: folderPath,
-            frameRate: frameRate
-        ) {
-            animatedSprite.position = CGPoint(x: size.width / 2, y: size.height / 2)
-            scene.addChild(animatedSprite)
+    private func loadAtlasAnimationWithDetection() {
+        SpriteAnimationGenerator.createAnimatedSprite(
+            source: .atlasWithDetection(atlasURL),
+            frameRate: frameRate,
+            targetSize: size
+        ) { spriteNode in
+            DispatchQueue.main.async {
+                isLoading = false
+                if let spriteNode = spriteNode {
+                    let skView = SKView(frame: CGRect(origin: .zero, size: size))
+                    let scene = SKScene(size: size)
+                    scene.backgroundColor = .clear
+                    
+                    spriteNode.position = CGPoint(x: size.width / 2, y: size.height / 2)
+                    scene.addChild(spriteNode)
+                    
+                    skView.presentScene(scene)
+                    self.skView = skView
+                } else {
+                    hasError = true
+                }
+            }
         }
-        
-        return scene
     }
 }
-#endif
+
