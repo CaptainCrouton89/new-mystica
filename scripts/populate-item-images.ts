@@ -15,6 +15,27 @@ import * as path from 'path';
 // Load environment variables
 dotenv.config({ path: path.join(__dirname, '..', '.env.local'), override: true });
 
+// Runtime validation for required env vars
+function validateRequiredEnvVars(): void {
+  const required = [
+    'SUPABASE_URL',
+    'SUPABASE_SERVICE_ROLE_KEY',
+    'CLOUDFLARE_ACCOUNT_ID',
+    'R2_ACCESS_KEY_ID',
+    'R2_SECRET_ACCESS_KEY',
+    'R2_PUBLIC_URL',
+    'R2_BUCKET_NAME'
+  ];
+  const missing = required.filter(key => !process.env[key]);
+
+  if (missing.length > 0) {
+    throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
+  }
+}
+
+// Validate environment variables on startup
+validateRequiredEnvVars();
+
 const supabase = createClient(
   process.env.SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -29,8 +50,8 @@ const r2Client = new S3Client({
   },
 });
 
-const R2_PUBLIC_URL = 'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev';
-const BUCKET = 'mystica-assets';
+const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL!;
+const BUCKET = process.env.R2_BUCKET_NAME!;
 
 /**
  * Normalize name to snake_case for R2 file lookup

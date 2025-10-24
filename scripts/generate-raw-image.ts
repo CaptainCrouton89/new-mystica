@@ -33,23 +33,30 @@ import { uploadToR2 } from './r2-service';
 // Load environment variables from .env.local
 dotenv.config({ path: '.env.local', override: true });
 
-// Hardcoded configuration
+// Runtime validation for required env vars
+function validateRequiredEnvVars(): void {
+  const required = [
+    'REPLICATE_API_TOKEN',
+    'OPENAI_API_KEY',
+    'REPLICATE_MODEL',
+    'REFERENCE_IMAGE_URLS'
+  ];
+  const missing = required.filter(key => !process.env[key]);
+
+  if (missing.length > 0) {
+    throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
+  }
+}
+
+// Validate required env vars on module load
+validateRequiredEnvVars();
+
+// Configuration with environment variables (NO FALLBACKS)
 const CONFIG = {
   aspectRatio: '1:1' as const,
   provider: 'gemini' as const,
-  model: 'google/nano-banana',
-  defaultReferenceImages: [
-    'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/bubble-wrap-vest.png',
-    'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/fuzzy-slippers.png',
-    'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/gatling-gun.png',
-    'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/jar-of-jelly.png',
-    'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/poop-emoji.png',
-    'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/lava.png',
-    'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/metal-scraps.png',
-    'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/rainbow.png',
-    'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/slime.png',
-    'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/sword.png'
-  ]
+  model: process.env.REPLICATE_MODEL!,
+  defaultReferenceImages: process.env.REFERENCE_IMAGE_URLS!.split(',').map(url => url.trim())
 };
 
 interface GenerateRawImageOptions {
@@ -468,8 +475,8 @@ Options:
 
 Configuration:
   Aspect Ratio:     1:1 (hardcoded)
-  Provider:         Gemini (Nano Banana) (hardcoded)
-  Reference Images: 10 R2-hosted images (hardcoded)
+  Provider:         Gemini (Nano Banana) (configurable via REPLICATE_MODEL)
+  Reference Images: Configurable via REFERENCE_IMAGE_URLS (comma-separated URLs)
 
 Examples:
   # Single generation
@@ -504,6 +511,12 @@ Environment Variables Required:
   CLOUDFLARE_ACCOUNT_ID    Cloudflare account ID
   R2_ACCESS_KEY_ID         R2 API token with read/write access
   R2_SECRET_ACCESS_KEY     R2 API token secret
+
+  Optional Configuration:
+  REPLICATE_MODEL          Model for image generation (default: google/nano-banana)
+  REFERENCE_IMAGE_URLS     Comma-separated reference image URLs
+  R2_BUCKET_NAME           R2 bucket name (default: mystica-assets)
+  R2_PUBLIC_URL            R2 public URL (default: hardcoded value)
 
 Cost Estimates:
   Single image: ~$0.002-0.01 per generation (Replicate per-second billing)

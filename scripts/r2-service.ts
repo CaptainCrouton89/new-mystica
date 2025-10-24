@@ -6,12 +6,37 @@ import * as fs from 'fs';
 // Load environment variables from parent directory
 dotenv.config({ path: path.join('..', '.env.local'), override: true });
 
+// Runtime validation for required env vars
+function validateR2EnvVars(): void {
+  const required = [
+    'CLOUDFLARE_ACCOUNT_ID',
+    'R2_ACCESS_KEY_ID',
+    'R2_SECRET_ACCESS_KEY'
+  ];
+  const missing = required.filter(key => !process.env[key]);
+
+  if (missing.length > 0) {
+    throw new Error(`Missing required R2 environment variables: ${missing.join(', ')}`);
+  }
+}
+
+// Validate R2 configuration env vars
+validateR2EnvVars();
+
+if (!process.env.R2_BUCKET_NAME) {
+  throw new Error('R2_BUCKET_NAME environment variable is required');
+}
+
+if (!process.env.R2_PUBLIC_URL) {
+  throw new Error('R2_PUBLIC_URL environment variable is required');
+}
+
 const R2_CONFIG = {
-  bucket: 'mystica-assets',
-  publicUrl: 'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev',
-  accountId: process.env.CLOUDFLARE_ACCOUNT_ID,
-  accessKeyId: process.env.R2_ACCESS_KEY_ID,
-  secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+  bucket: process.env.R2_BUCKET_NAME,
+  publicUrl: process.env.R2_PUBLIC_URL,
+  accountId: process.env.CLOUDFLARE_ACCOUNT_ID!,
+  accessKeyId: process.env.R2_ACCESS_KEY_ID!,
+  secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
 };
 
 interface R2ClientConfig {
@@ -22,18 +47,6 @@ interface R2ClientConfig {
 
 function createR2Client(): S3Client {
   const { accountId, accessKeyId, secretAccessKey } = R2_CONFIG;
-
-  if (!accountId) {
-    throw new Error('CLOUDFLARE_ACCOUNT_ID not found in .env.local');
-  }
-
-  if (!accessKeyId) {
-    throw new Error('R2_ACCESS_KEY_ID not found in .env.local');
-  }
-
-  if (!secretAccessKey) {
-    throw new Error('R2_SECRET_ACCESS_KEY not found in .env.local');
-  }
 
   return new S3Client({
     region: 'auto',
