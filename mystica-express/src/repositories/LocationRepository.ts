@@ -217,15 +217,14 @@ export class LocationRepository extends BaseRepository<Location> {
   async getLootPoolEntries(poolIds: string[]): Promise<LootPoolEntry[]> {
     if (poolIds.length === 0) return [];
 
+    // Fetch loot pool entries without trying to join (polymorphic foreign key)
     const { data, error } = await this.client
       .from('lootpoolentries')
       .select(`
         loot_pool_id,
         lootable_type,
         lootable_id,
-        drop_weight,
-        materials:materials!lootpoolentries_lootable_id_fkey(name),
-        item_types:itemtypes!lootpoolentries_lootable_id_fkey(name)
+        drop_weight
       `)
       .in('loot_pool_id', poolIds);
 
@@ -233,15 +232,55 @@ export class LocationRepository extends BaseRepository<Location> {
       throw new DatabaseError(`Failed to fetch loot pool entries: ${error.message}`);
     }
 
-    // Transform the data to include the names directly in the entry
+    // Get all material IDs and item type IDs from the entries
+    const materialIds = (data || [])
+      .filter((e: any) => e.lootable_type === 'material')
+      .map((e: any) => e.lootable_id);
+
+    const itemTypeIds = (data || [])
+      .filter((e: any) => e.lootable_type === 'item_type')
+      .map((e: any) => e.lootable_id);
+
+    // Fetch materials and item types in parallel
+    const materialQuery = materialIds.length > 0
+      ? this.client
+          .from('materials')
+          .select('id, name')
+          .in('id', materialIds)
+      : Promise.resolve({ data: [] as any[] });
+
+    const itemTypeQuery = itemTypeIds.length > 0
+      ? this.client
+          .from('itemtypes')
+          .select('id, name')
+          .in('id', itemTypeIds)
+      : Promise.resolve({ data: [] as any[] });
+
+    const [materialsData, itemTypesData] = await Promise.all([
+      materialQuery,
+      itemTypeQuery
+    ]);
+
+    if ('error' in materialsData && materialsData.error) {
+      throw new DatabaseError(`Failed to fetch materials: ${materialsData.error.message}`);
+    }
+    if ('error' in itemTypesData && itemTypesData.error) {
+      throw new DatabaseError(`Failed to fetch item types: ${itemTypesData.error.message}`);
+    }
+
+    // Create lookup maps
+    const materialMap = new Map((materialsData.data || []).map((m: any) => [m.id, m.name]));
+    const itemTypeMap = new Map((itemTypesData.data || []).map((it: any) => [it.id, it.name]));
+
+    // Transform the data to include the names
     return (data || []).map((entry: any) => ({
       loot_pool_id: entry.loot_pool_id,
       lootable_type: entry.lootable_type,
       lootable_id: entry.lootable_id,
       drop_weight: entry.drop_weight,
       lootable_name: entry.lootable_type === 'material'
-        ? entry.materials?.name
-        : entry.item_types?.name
+        ? materialMap.get(entry.lootable_id)
+        : itemTypeMap.get(entry.lootable_id)
     }));
   }
 
