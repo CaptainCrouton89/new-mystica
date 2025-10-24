@@ -18,18 +18,23 @@ final class CombatViewModel {
     // TODO: Replace with proper stat-based HP calculation from backend specs
     private static let HP_MULTIPLIER = 10 // Simplified formula: defPower * 10 for MVP0
     let repository: CombatRepository
+    weak var navigationManager: NavigationManager?
+    weak var appState: AppState?
 
     // MARK: - State
     var combatState: Loadable<CombatSession> = .idle
     var rewards: Loadable<CombatRewards> = .idle
+    var isProcessingAction: Bool = false
 
     // MARK: - UI-Only State (not from server)
     var turnHistory: [CombatAction] = [] // Local UI history for display
     var selectedAction: CombatActionType?
     // NOTE: timingScore removed - timing system not yet implemented
 
-    init(repository: CombatRepository = DefaultCombatRepository()) {
+    init(repository: CombatRepository = DefaultCombatRepository(), navigationManager: NavigationManager? = nil, appState: AppState? = nil) {
         self.repository = repository
+        self.navigationManager = navigationManager
+        self.appState = appState
     }
 
     // MARK: - Public Methods
@@ -80,30 +85,41 @@ final class CombatViewModel {
         guard case .loaded(let session) = combatState else { return }
         guard !isLoading else { return }
 
-        combatState = .loading
+        // Store session before setting to loading
+        let currentSession = session
+        isProcessingAction = true
 
         do {
             let action = try await repository.performAttack(
-                sessionId: session.sessionId,
+                sessionId: currentSession.sessionId,
                 tapPositionDegrees: tapPositionDegrees
             )
 
             // Add to turn history for UI display
             turnHistory.append(action)
 
-            // Refetch combat state to get updated HP values
-            let updatedSession = try await repository.fetchCombatSession(sessionId: session.sessionId)
-            combatState = .loaded(updatedSession)
+            // Update combat state from action response (eliminates session refetch)
+            updateCombatStateFromAction(action, previousSession: currentSession)
 
-            // Check if combat ended and trigger rewards
-            if updatedSession.status != .active {
-                await fetchRewards(sessionId: session.sessionId, won: playerWon)
+            // Handle combat completion with direct navigation
+            if action.combatStatus == .victory {
+                appState?.setCombatSession(nil) // Clear active session
+                appState?.setCombatRewards(action.rewards) // Store rewards for VictoryView
+                navigationManager?.navigateTo(.victory)
+            } else if action.combatStatus == .defeat {
+                appState?.setCombatSession(nil) // Clear active session
+                appState?.clearCombatRewards() // Clear any previous rewards
+                navigationManager?.navigateTo(.defeat)
             }
+            // If ongoing, state already updated - stay on battle view
 
+            isProcessingAction = false
         } catch let error as AppError {
             combatState = .error(error)
+            isProcessingAction = false
         } catch {
             combatState = .error(.unknown(error))
+            isProcessingAction = false
         }
     }
 
@@ -111,30 +127,41 @@ final class CombatViewModel {
         guard case .loaded(let session) = combatState else { return }
         guard !isLoading else { return }
 
-        combatState = .loading
+        // Store session before setting to loading
+        let currentSession = session
+        isProcessingAction = true
 
         do {
             let action = try await repository.performDefense(
-                sessionId: session.sessionId,
+                sessionId: currentSession.sessionId,
                 tapPositionDegrees: tapPositionDegrees
             )
 
             // Add to turn history for UI display
             turnHistory.append(action)
 
-            // Refetch combat state to get updated HP values
-            let updatedSession = try await repository.fetchCombatSession(sessionId: session.sessionId)
-            combatState = .loaded(updatedSession)
+            // Update combat state from action response (eliminates session refetch)
+            updateCombatStateFromAction(action, previousSession: currentSession)
 
-            // Check if combat ended and trigger rewards
-            if updatedSession.status != .active {
-                await fetchRewards(sessionId: session.sessionId, won: playerWon)
+            // Handle combat completion with direct navigation
+            if action.combatStatus == .victory {
+                appState?.setCombatSession(nil) // Clear active session
+                appState?.setCombatRewards(action.rewards) // Store rewards for VictoryView
+                navigationManager?.navigateTo(.victory)
+            } else if action.combatStatus == .defeat {
+                appState?.setCombatSession(nil) // Clear active session
+                appState?.clearCombatRewards() // Clear any previous rewards
+                navigationManager?.navigateTo(.defeat)
             }
+            // If ongoing, state already updated - stay on battle view
 
+            isProcessingAction = false
         } catch let error as AppError {
             combatState = .error(error)
+            isProcessingAction = false
         } catch {
             combatState = .error(.unknown(error))
+            isProcessingAction = false
         }
     }
 
@@ -299,10 +326,31 @@ final class CombatViewModel {
     }
 
     var isLoading: Bool {
-        return combatState.isLoading || rewards.isLoading
+        return combatState.isLoading || rewards.isLoading || isProcessingAction
     }
 
     // MARK: - Helper Methods
+
+    /// Update combat session state from action response data (eliminates session refetch)
+    private func updateCombatStateFromAction(_ action: CombatAction, previousSession: CombatSession) {
+        // Create new session with updated values from action response
+        let updatedSession = CombatSession(
+            sessionId: previousSession.sessionId,
+            playerId: previousSession.playerId,
+            enemyId: previousSession.enemyId,
+            status: action.combatStatus,
+            enemy: previousSession.enemy,
+            playerStats: previousSession.playerStats,
+            weaponConfig: previousSession.weaponConfig,
+            turnNumber: action.turnNumber ?? previousSession.turnNumber,
+            currentTurnOwner: previousSession.currentTurnOwner,
+            playerHp: action.playerHpRemaining ?? previousSession.playerHp,
+            enemyHp: action.enemyHpRemaining ?? previousSession.enemyHp,
+            expiresAt: previousSession.expiresAt
+        )
+
+        combatState = .loaded(updatedSession)
+    }
 
     private func getPlayerMaxHP(session: CombatSession) -> Double? {
         // TODO: Store actual max HP in session from backend instead of recalculating

@@ -13,8 +13,15 @@ class APIClient {
 
     private let baseURL = APIConfig.baseURL
     private var authToken: String?
+    private let urlSession: URLSession
 
     private init() {
+        // Configure URLSession with proper timeouts
+        let configuration = URLSessionConfiguration.default
+        configuration.timeoutIntervalForRequest = 30    // 30s request timeout
+        configuration.timeoutIntervalForResource = 60   // 60s total timeout
+        self.urlSession = URLSession(configuration: configuration)
+
         self.authToken = KeychainService.get(key: "mystica_access_token")
 
         print("🌐 APIClient DEBUG: baseURL = '\(baseURL)'")
@@ -99,7 +106,7 @@ class APIClient {
                 print("📤 [\(request.httpMethod ?? "GET")] \(request.url?.absoluteString ?? "unknown")")
             }
 
-            let (data, response) = try await URLSession.shared.data(for: request)
+            let (data, response) = try await urlSession.data(for: request)
 
             guard let httpResponse = response as? HTTPURLResponse else {
                 throw AppError.invalidResponse

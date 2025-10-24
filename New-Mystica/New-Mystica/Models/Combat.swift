@@ -10,6 +10,7 @@ import Foundation
 // MARK: - Combat Status Enum (matches backend CombatStatus type)
 enum CombatStatus: String, Codable, CaseIterable {
     case active = "active"
+    case ongoing = "ongoing"  // NEW: for enhanced combat action responses
     case victory = "victory"
     case defeat = "defeat"
     case abandoned = "abandoned"
@@ -168,6 +169,13 @@ struct CombatAction: APIModel {
     let hitZone: String? // For tracking zone hit for haptic/audio feedback
     let damageBlocked: Double? // For defense tracking
 
+    // NEW: Enhanced response fields for optimized combat flow
+    let playerHpRemaining: Double?
+    let enemyHpRemaining: Double?
+    let combatStatus: CombatStatus
+    let turnNumber: Int?
+    let rewards: CombatRewards?
+
     enum CodingKeys: String, CodingKey {
         case type
         case performerId = "performer_id"
@@ -175,6 +183,11 @@ struct CombatAction: APIModel {
         case result
         case hitZone = "hit_zone"
         case damageBlocked = "damage_blocked"
+        case playerHpRemaining = "player_hp_remaining"
+        case enemyHpRemaining = "enemy_hp_remaining"
+        case combatStatus = "combat_status"
+        case turnNumber = "turn_number"
+        case rewards
     }
 }
 
@@ -185,26 +198,49 @@ enum CombatActionType: String, Codable, CaseIterable {
     case special = "special"
 }
 
-// MARK: - Combat Rewards Model (matches backend completeCombat response)
+// MARK: - Combat Rewards Model (matches enhanced backend response)
 struct CombatRewards: APIModel {
-    let result: String
-    let rewards: CombatRewardDetails?
-    let playerCombatHistory: PlayerCombatHistory
+    let currencies: Currencies
+    let items: [ItemDrop]
+    let materials: [MaterialDrop]
+    let experience: Int
+    let combatHistory: CombatHistory
 
     enum CodingKeys: String, CodingKey {
-        case result
-        case rewards
-        case playerCombatHistory = "player_combat_history"
+        case currencies
+        case items
+        case materials
+        case experience
+        case combatHistory = "combat_history"
     }
 }
 
-struct CombatRewardDetails: APIModel {
-    let materials: [MaterialDrop]
+// MARK: - Currencies Model
+struct Currencies: APIModel {
     let gold: Int
-    let experience: Int
 }
 
-struct PlayerCombatHistory: APIModel {
+// MARK: - Item Drop Model
+struct ItemDrop: APIModel {
+    let itemTypeId: String
+    let name: String
+    let category: String
+    let rarity: String
+    let styleId: String
+    let styleName: String
+
+    enum CodingKeys: String, CodingKey {
+        case itemTypeId = "item_type_id"
+        case name
+        case category
+        case rarity
+        case styleId = "style_id"
+        case styleName = "style_name"
+    }
+}
+
+// MARK: - Combat History Model
+struct CombatHistory: APIModel {
     let locationId: String
     let totalAttempts: Int
     let victories: Int
@@ -221,6 +257,9 @@ struct PlayerCombatHistory: APIModel {
         case longestStreak = "longest_streak"
     }
 }
+
+// MARK: - Legacy Combat History (keep for backward compatibility)
+typealias PlayerCombatHistory = CombatHistory
 
 // MARK: - Material Drop Model
 struct MaterialDrop: APIModel {
@@ -248,6 +287,7 @@ struct AttackResult: APIModel {
     let enemyDamage: Double
     let combatStatus: String
     let turnNumber: Int
+    let rewards: CombatRewards?  // NEW: rewards included in attack response
 
     enum CodingKeys: String, CodingKey {
         case hitZone = "hit_zone"
@@ -259,6 +299,7 @@ struct AttackResult: APIModel {
         case enemyDamage = "enemy_damage"
         case combatStatus = "combat_status"
         case turnNumber = "turn_number"
+        case rewards
     }
 }
 
@@ -266,12 +307,20 @@ struct DefenseResult: APIModel {
     let damageBlocked: Double
     let damageTaken: Double
     let playerHpRemaining: Double
+    let enemyHpRemaining: Double  // NEW: enemy HP consistency with AttackResult
     let combatStatus: String
+    let hitZone: String  // NEW: hit zone for consistency
+    let turnNumber: Int  // NEW: turn number for consistency
+    let rewards: CombatRewards?  // NEW: rewards included in defense response
 
     enum CodingKeys: String, CodingKey {
         case damageBlocked = "damage_blocked"
         case damageTaken = "damage_taken"
         case playerHpRemaining = "player_hp_remaining"
+        case enemyHpRemaining = "enemy_hp_remaining"
         case combatStatus = "combat_status"
+        case hitZone = "hit_zone"
+        case turnNumber = "turn_number"
+        case rewards
     }
 }

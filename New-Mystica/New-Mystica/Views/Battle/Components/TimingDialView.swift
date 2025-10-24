@@ -19,6 +19,7 @@ struct TimingDialView: View {
     // Animation state
     @State private var currentRotation: Double = 0
     @State private var zoneFlashOpacity: Double = 0
+    @State private var dialScale: CGFloat = 1.0
 
     // Timer for 60fps animation (16.67ms ≈ 1/60 second)
     private let animationTimer = Timer.publish(every: 0.016667, on: .main, in: .common).autoconnect()
@@ -48,11 +49,28 @@ struct TimingDialView: View {
                     .shadow(color: .black.opacity(0.3), radius: 1)
             }
             .frame(width: 200, height: 200)
+            .scaleEffect(dialScale)
             .onTapGesture { location in
                 if let onTap = onTap {
+                    // Visual feedback: scale animation
+                    withAnimation(.spring(response: 0.2, dampingFraction: 0.6)) {
+                        dialScale = 0.95
+                    }
+
+                    // Haptic feedback
+                    let generator = UIImpactFeedbackGenerator(style: .medium)
+                    generator.impactOccurred()
+
                     let center = CGPoint(x: 100, y: 100) // Half of frame size (200x200)
                     let degrees = tapToAngle(location: location, center: center)
                     onTap(degrees)
+
+                    // Return to normal scale
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        withAnimation(.spring(response: 0.2, dampingFraction: 0.6)) {
+                            dialScale = 1.0
+                        }
+                    }
                 }
             }
             .onReceive(animationTimer) { _ in

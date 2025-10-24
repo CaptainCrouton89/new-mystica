@@ -1,102 +1,185 @@
-import SwiftUI
+//
+//  DefeatView.swift
+//  New-Mystica
+//
+//  Combat defeat screen with encouragement and basic stats
+//
 
-struct DefeatView: View, NavigableView {
-    @Environment(\.navigationManager) private var navigationManager
-    @Environment(\.audioManager) private var audioManager
-    
-    var navigationTitle: String { "Defeat" }
-    var showBackButton: Bool { false } // Cannot go back to battle
-    
-    var body: some View {
-        BaseView(title: navigationTitle, showBackButton: showBackButton) {
-            VStack(spacing: 0) {
-                Spacer()
-                
-                // Defeat Content
-                defeatContent
-                
-                Spacer()
-                
-                // Home Button Footer
-                homeButtonFooter
-            }
-        }
-        .onAppear {
-            audioManager.playDefeat()
-        }
+import SwiftUI
+import SwiftData
+
+struct DefeatView: View {
+    @EnvironmentObject private var navigationManager: NavigationManager
+
+    // Combat stats passed from previous combat session
+    let totalDamageDealt: Double
+    let turnsSurvived: Int
+    let highestMultiplier: Double
+
+    init(
+        totalDamageDealt: Double = 0,
+        turnsSurvived: Int = 0,
+        highestMultiplier: Double = 1.0
+    ) {
+        self.totalDamageDealt = totalDamageDealt
+        self.turnsSurvived = turnsSurvived
+        self.highestMultiplier = highestMultiplier
     }
-    
-    // MARK: - Defeat Content
-    @ViewBuilder
-    private var defeatContent: some View {
-        VStack(spacing: 32) {
-            // Defeat Icon
-            ZStack {
-                Circle()
-                    .fill(Color.red.opacity(0.2))
-                    .frame(width: 120, height: 120)
-                    .overlay(
-                        Circle()
-                            .stroke(Color.red, lineWidth: 3)
-                    )
-                    .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 4)
-                
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 48, weight: .medium))
-                    .foregroundColor(Color.red)
-            }
-            .popup(delay: 0.0)
-            
-            // Defeat Text
-            VStack(spacing: 16) {
-                TitleText("Defeat", size: 32)
-                    .foregroundColor(Color.red)
-                    .slideInFromBottom(delay: 0.1)
-                
-                VStack(spacing: 12) {
-                    NormalText("You have been defeated in battle.", size: 18)
-                        .foregroundColor(Color.textPrimary)
-                        .multilineTextAlignment(.center)
-                        .slideInFromBottom(delay: 0.2)
-                    
-                    NormalText("Don't give up! Every defeat is a lesson learned.", size: 16)
-                        .foregroundColor(Color.textSecondary)
-                        .multilineTextAlignment(.center)
-                        .slideInFromBottom(delay: 0.3)
-                    
-                    NormalText("Return to the map to try again or explore other areas.", size: 14)
-                        .foregroundColor(Color.textSecondary)
-                        .multilineTextAlignment(.center)
-                        .slideInFromBottom(delay: 0.4)
+
+    var body: some View {
+        ZStack {
+            // Background
+            Color.backgroundPrimary
+                .ignoresSafeArea()
+
+            ScrollView {
+                VStack(spacing: 32) {
+                    Spacer()
+                        .frame(height: 60)
+
+                    // Header Section
+                    VStack(spacing: 16) {
+                        // Warning Triangle Icon
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 64, weight: .bold))
+                            .foregroundColor(.alert)
+                            .popup(delay: 0.2)
+
+                        // Defeat Title
+                        TitleText("Defeat")
+                            .foregroundColor(.alert)
+                            .slideInFromBottom(delay: 0.4)
+                    }
+
+                    // Encouragement Message
+                    VStack(spacing: 12) {
+                        NormalText("Every defeat is a lesson learned.")
+                            .slideInFromBottom(delay: 0.6)
+                            .multilineTextAlignment(.center)
+
+                        NormalText("Study your enemy's patterns and try again!")
+                            .slideInFromBottom(delay: 0.8)
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding(.horizontal, 24)
+
+                    // Combat Stats Section
+                    VStack(spacing: 20) {
+                        TitleText("Your Performance", size: 22)
+                            .slideInFromBottom(delay: 1.0)
+
+                        VStack(spacing: 16) {
+                            // Total Damage Dealt
+                            StatCard(
+                                icon: "sword.fill",
+                                title: "Damage Dealt",
+                                value: String(format: "%.0f", totalDamageDealt),
+                                color: .accentSecondary
+                            )
+                            .slideInFromBottom(delay: 1.2)
+
+                            // Turns Survived
+                            StatCard(
+                                icon: "shield.fill",
+                                title: "Turns Survived",
+                                value: "\(turnsSurvived)",
+                                color: .success
+                            )
+                            .slideInFromBottom(delay: 1.4)
+
+                            // Highest Multiplier
+                            StatCard(
+                                icon: "star.fill",
+                                title: "Best Hit",
+                                value: String(format: "%.1fx", highestMultiplier),
+                                color: .warning
+                            )
+                            .slideInFromBottom(delay: 1.6)
+                        }
+                    }
+                    .padding(.horizontal, 24)
+
+                    Spacer()
+                        .frame(height: 40)
+
+                    // Action Buttons
+                    VStack(spacing: 16) {
+                        // Try Again Button (Primary)
+                        TextButton("Try Again") {
+                            navigationManager.navigateTo(.map)
+                        }
+                        .slideInFromBottom(delay: 1.8)
+
+                        // Home Button (Secondary)
+                        TextButton("Home") {
+                            navigationManager.resetToMainMenu()
+                        }
+                        .slideInFromBottom(delay: 2.0)
+                    }
+                    .padding(.horizontal, 24)
+
+                    Spacer()
+                        .frame(height: 60)
                 }
             }
-            
         }
-        .padding(.horizontal, 40)
-    }
-    
-    
-    // MARK: - Home Button Footer
-    @ViewBuilder
-    private var homeButtonFooter: some View {
-        VStack(spacing: 0) {
-            Divider()
-                .background(Color.borderSubtle)
-            
-            TextButton("Home", height: 56) {
-                audioManager.playMenuButtonClick()
-                navigationManager.resetToMainMenu()
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 16)
-            .slideInFromBottom(delay: 0.2)
-        }
-        .background(Color.backgroundPrimary)
+        .navigationBarHidden(true)
+        .navigationBarBackButtonHidden(true)
     }
 }
 
+// MARK: - Stat Card Component
+private struct StatCard: View {
+    let icon: String
+    let title: String
+    let value: String
+    let color: Color
+
+    var body: some View {
+        HStack(spacing: 16) {
+            // Icon
+            Image(systemName: icon)
+                .font(.system(size: 24, weight: .medium))
+                .foregroundColor(color)
+                .frame(width: 40, height: 40)
+                .background(
+                    Circle()
+                        .fill(color.opacity(0.2))
+                )
+
+            // Text Content
+            VStack(alignment: .leading, spacing: 4) {
+                SmallText(title)
+                    .foregroundColor(.textSecondary)
+
+                Text(value)
+                    .font(FontManager.title)
+                    .foregroundColor(.textPrimary)
+                    .kerning(0.5)
+            }
+
+            Spacer()
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 16)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(Color.backgroundCard)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(color.opacity(0.3), lineWidth: 1)
+                )
+        )
+    }
+}
+
+// MARK: - Preview
 #Preview {
-    DefeatView()
-        .environmentObject(NavigationManager())
-        .environmentObject(AudioManager.shared)
+    DefeatView(
+        totalDamageDealt: 127.5,
+        turnsSurvived: 8,
+        highestMultiplier: 2.3
+    )
+    .modelContainer(for: Item.self, inMemory: true)
+    .environmentObject(NavigationManager())
 }

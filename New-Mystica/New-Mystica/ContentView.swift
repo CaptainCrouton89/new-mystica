@@ -35,7 +35,8 @@ struct ContentView: View {
             // locationId is optional - supports both new battles (from map) and auto-resume (from AppState)
             BattleView(locationId: navigationManager.currentBattleLocation)
         case .victory:
-            VictoryView()
+            // TODO: VictoryView() - will be implemented separately
+            Text("Victory! (View coming soon)")
         case .defeat:
             DefeatView()
         case .crafting(let preselectedItem, let preselectedMaterial):

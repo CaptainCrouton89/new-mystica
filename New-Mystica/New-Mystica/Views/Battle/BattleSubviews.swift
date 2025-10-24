@@ -7,14 +7,24 @@ extension BattleView {
     // MARK: - Combat Content View
     func combatContentView(session: CombatSession) -> some View {
         VStack(spacing: 0) {
+            // Header with turn counter
+            HStack {
+                Spacer()
+                Text("Turn \(viewModel.turnNumber)")
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(Color.textPrimary)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(Color.backgroundCard)
+                    .cornerRadius(8)
+                Spacer()
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
+
             // Enemy Section
             enemySection(enemy: convertCombatEnemyToEnemy(session.enemy), hp: Double(viewModel.enemyHP), maxHP: session.enemy.hp)
                 .frame(maxHeight: .infinity)
-
-            Spacer(minLength: 20)
-
-            // Combat Info Center
-            combatInfoSection(session: session)
 
             Spacer(minLength: 20)
 
@@ -29,7 +39,7 @@ extension BattleView {
                 .frame(height: 160)
         }
         .padding(.horizontal, 20)
-        .padding(.vertical, 20)
+        .padding(.bottom, 20)
         .onAppear {
             startIdleAnimations()
         }
@@ -95,7 +105,7 @@ extension BattleView {
                 HStack {
                     Image(systemName: "dollarsign.circle.fill")
                         .foregroundColor(Color.accent)
-                    NormalText("Gold: \(rewards.rewards?.gold ?? 0)")
+                    NormalText("Gold: \(rewards.currencies.gold)")
                         .foregroundColor(Color.textSecondary)
                     Spacer()
                 }
@@ -103,12 +113,12 @@ extension BattleView {
                 HStack {
                     Image(systemName: "star.fill")
                         .foregroundColor(Color.accentSecondary)
-                    NormalText("Experience: \(rewards.rewards?.experience ?? 0)")
+                    NormalText("Experience: \(rewards.experience)")
                         .foregroundColor(Color.textSecondary)
                     Spacer()
                 }
 
-                if let items = rewards.rewards?.materials, !items.isEmpty {
+                if !rewards.materials.isEmpty {
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
                             Image(systemName: "gift.fill")
@@ -118,7 +128,7 @@ extension BattleView {
                             Spacer()
                         }
 
-                        ForEach(Array((rewards.rewards?.materials ?? []).enumerated()), id: \.element.materialId) { _, item in
+                        ForEach(Array(rewards.materials.enumerated()), id: \.element.materialId) { _, item in
                             HStack {
                                 SmallText("• \(item.name) [Level \(1)]")
                                     .foregroundColor(Color.textSecondary)
@@ -129,7 +139,7 @@ extension BattleView {
                     }
                 }
 
-                if let materials = rewards.rewards?.materials, !materials.isEmpty {
+                if !rewards.materials.isEmpty {
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
                             Image(systemName: "cube.fill")
@@ -139,7 +149,7 @@ extension BattleView {
                             Spacer()
                         }
 
-                        ForEach(Array(materials.enumerated()), id: \.element.materialId) { _, material in
+                        ForEach(Array(rewards.materials.enumerated()), id: \.element.materialId) { _, material in
                             HStack {
                                 SmallText("• \(material.name) [\(material.styleName)]")
                                     .foregroundColor(Color.textSecondary)
@@ -192,30 +202,6 @@ extension BattleView {
         }
     }
 
-    // MARK: - Combat Info Section
-    func combatInfoSection(session: CombatSession) -> some View {
-        VStack(spacing: 12) {
-            // Turn Counter
-            ZStack {
-                Circle()
-                    .fill(Color.backgroundCard)
-                    .frame(width: 60, height: 60)
-                    .overlay(
-                        Circle()
-                            .stroke(Color.accentSecondary, lineWidth: 2)
-                    )
-                    .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
-
-                VStack(spacing: 2) {
-                    SmallText("Turn", size: 10)
-                        .foregroundColor(Color.textSecondary)
-                    NormalText("\(viewModel.turnNumber)", size: 16)
-                        .foregroundColor(Color.accentSecondary)
-                        .bold()
-                }
-            }
-        }
-    }
 
     // MARK: - Player Section
     func playerSection(session: CombatSession) -> some View {
@@ -244,33 +230,6 @@ extension BattleView {
                 label: "You",
                 isPlayer: true
             )
-
-            // Player Stats Summary
-            HStack(spacing: 20) {
-                VStack(spacing: 2) {
-                    SmallText("ATK", size: 10)
-                        .foregroundColor(Color.textSecondary)
-                    NormalText("\(Int(session.playerStats.atkPower))", size: 14)
-                        .foregroundColor(Color.accent)
-                        .bold()
-                }
-
-                VStack(spacing: 2) {
-                    SmallText("DEF", size: 10)
-                        .foregroundColor(Color.textSecondary)
-                    NormalText("\(Int(session.playerStats.defPower))", size: 14)
-                        .foregroundColor(Color.accentSecondary)
-                        .bold()
-                }
-
-                VStack(spacing: 2) {
-                    SmallText("ACC", size: 10)
-                        .foregroundColor(Color.textSecondary)
-                    NormalText("\(Int(session.playerStats.atkAccuracy))", size: 14)
-                        .foregroundColor(Color.textPrimary)
-                        .bold()
-                }
-            }
         }
     }
 
@@ -342,8 +301,8 @@ extension BattleView {
     // MARK: - Combat Phase View
     func combatPhaseView(session: CombatSession) -> some View {
         VStack(spacing: 16) {
-            // Show timing dial based on phase
-            if dialVisible && (currentPhase == .playerAttack || currentPhase == .playerDefense) {
+            // Show timing dial when dialVisible is true (removed phase condition that caused disappearance)
+            if dialVisible {
                 // Get zone sizing based on phase
                 let adjustedBands = getAdjustedBands(for: currentPhase, session: session)
 

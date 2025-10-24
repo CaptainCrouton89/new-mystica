@@ -25,6 +25,9 @@ final class AppState {
     // MARK: - Combat Session State
     var activeCombatSession: Loadable<CombatSession?> = .idle
 
+    // MARK: - Combat Rewards State
+    var combatRewards: CombatRewards? = nil
+
     init() {}
 
     // MARK: - Computed Properties
@@ -69,6 +72,7 @@ final class AppState {
         self.userProfile = .idle
         self.currencies = .idle
         self.activeCombatSession = .idle
+        self.combatRewards = nil
     }
 
     // MARK: - Profile Methods
@@ -126,6 +130,16 @@ final class AppState {
 
     func clearCombatSession() {
         self.activeCombatSession = .idle
+    }
+
+    // MARK: - Combat Rewards Methods
+
+    func setCombatRewards(_ rewards: CombatRewards?) {
+        self.combatRewards = rewards
+    }
+
+    func clearCombatRewards() {
+        self.combatRewards = nil
     }
 
     // MARK: - Session Restoration

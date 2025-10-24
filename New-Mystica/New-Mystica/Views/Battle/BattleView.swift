@@ -128,14 +128,19 @@ struct BattleView: View {
                     }
                 }
 
-                // Background loading overlay during actions
-                if viewModel.isLoading, case .loaded = viewModel.combatState {
-                    Color.black.opacity(0.3)
-                        .edgesIgnoringSafeArea(.all)
-
-                    ProgressView()
-                        .scaleEffect(1.5)
-                        .tint(.accent)
+                // Subtle loading indicator (non-blocking) - only show when processing action
+                if viewModel.isProcessingAction {
+                    VStack {
+                        HStack {
+                            Spacer()
+                            ProgressView()
+                                .padding()
+                                .background(Color.black.opacity(0.7))
+                                .cornerRadius(8)
+                                .padding()
+                        }
+                        Spacer()
+                    }
                 }
 
                 // Rewards overlay
@@ -147,6 +152,10 @@ struct BattleView: View {
         .floatingText()
         .environmentObject(floatingTextManager)
         .task {
+            // Connect environment dependencies to viewModel
+            viewModel.navigationManager = navigationManager
+            viewModel.appState = appState
+
             // Use backend auto-resume flow - AppState should have already checked for active sessions
             // If AppState has a session, use it; otherwise try to create new combat or auto-resume
             if case .loaded(let session) = appState.activeCombatSession,

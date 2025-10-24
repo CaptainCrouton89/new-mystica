@@ -69,7 +69,12 @@ final class DefaultCombatRepository: CombatRepository {
             damageDealt: response.damageDealt,
             result: response.combatStatus,
             hitZone: response.hitZone,
-            damageBlocked: nil
+            damageBlocked: nil,
+            playerHpRemaining: response.playerHpRemaining,
+            enemyHpRemaining: response.enemyHpRemaining,
+            combatStatus: CombatStatus(rawValue: response.combatStatus) ?? .ongoing,
+            turnNumber: response.turnNumber,
+            rewards: response.rewards
         )
     }
 
@@ -99,8 +104,13 @@ final class DefaultCombatRepository: CombatRepository {
             performerId: "player",
             damageDealt: response.damageTaken,
             result: response.combatStatus,
-            hitZone: nil, // Defense doesn't have hit zones like attack
-            damageBlocked: response.damageBlocked
+            hitZone: response.hitZone,
+            damageBlocked: response.damageBlocked,
+            playerHpRemaining: response.playerHpRemaining,
+            enemyHpRemaining: response.enemyHpRemaining,
+            combatStatus: CombatStatus(rawValue: response.combatStatus) ?? .ongoing,
+            turnNumber: response.turnNumber,
+            rewards: response.rewards
         )
     }
 
