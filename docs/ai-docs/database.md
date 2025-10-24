@@ -19,6 +19,24 @@
 - **PostGIS function:** `get_nearby_locations(lat, lng, radius)` RPC for optimized proximity queries - Applied
 - **All development uses remote database** - No local Supabase stack
 
+## Database Tables (43 total)
+
+**Users & Progression:** users, playerprogression, usercurrencybalances, userlevelrewards
+
+**Inventory & Items:** playerinventory, userequipment, userunlockeditemtypes, items, itemtypes, itemimagecache, itemmaterials, itemhistory, weapons
+
+**Materials & Crafting:** materials, materialstacks, materialinstances, materialstrengthtiers, styledefinitions
+
+**Game Systems:** raritydefinitions, tiers, equipmentslots, loadouts, loadoutslots, currencies, economytransactions
+
+**Combat:** combatsessions, playercombathistory, combatlogevents, combatchatterlog, enemychatterlog, enemytypes, enemypools, enemypoolmembers
+
+**Loot:** lootpools, lootpoolentries, lootpooltierweights, levelrewards
+
+**World:** locations, spatial_ref_sys (PostGIS)
+
+**Other:** pets, petpersonalities, devicetokens, analyticsevents
+
 ## Environment Variables
 
 Required in `.env.local` (backend root or scripts/):
