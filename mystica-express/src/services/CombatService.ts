@@ -358,8 +358,19 @@ export class CombatService {
     const currentPlayerHP = lastLogEntry?.playerHP ?? playerStats.hp;
     const currentEnemyHP = lastLogEntry?.enemyHP ?? enemyStats.hp;
 
-    const newPlayerHP = currentPlayerHP; // Player HP unchanged during attack phase
-    const newEnemyHP = Math.max(0, currentEnemyHP - damageDealt);
+    // Handle self-injury vs enemy damage
+    let newPlayerHP = currentPlayerHP;
+    let newEnemyHP = currentEnemyHP;
+
+    if (hitZone === 'injure') {
+      // Self-injury: player takes damage instead of enemy
+      newPlayerHP = Math.max(0, currentPlayerHP - damageDealt);
+      newEnemyHP = currentEnemyHP; // Enemy HP unchanged
+    } else {
+      // Normal attack: enemy takes damage
+      newPlayerHP = currentPlayerHP; // Player HP unchanged
+      newEnemyHP = Math.max(0, currentEnemyHP - damageDealt);
+    }
 
     // Determine combat status
     let combatStatus: 'ongoing' | 'victory' | 'defeat' = 'ongoing';
@@ -1058,15 +1069,16 @@ export class CombatService {
 
     if (!equippedWeapon) {
       // Default weapon configuration for no equipped weapon
+      // Matches new database defaults: crit=10°, normal=20°, rest=110° each
       return {
         pattern: 'single_arc',
         spin_deg_per_s: 180,
         adjusted_bands: {
-          deg_injure: 30,
-          deg_miss: 60,
-          deg_graze: 90,
-          deg_normal: 150,
-          deg_crit: 30,
+          deg_crit: 10,
+          deg_normal: 20,
+          deg_graze: 110,
+          deg_miss: 110,
+          deg_injure: 110,
           total_degrees: 360,
         },
       };
@@ -1090,32 +1102,44 @@ export class CombatService {
 
   /**
    * Determine hit zone based on tap position and adjusted weapon bands
+   * REVERSED ORDER: crit -> normal -> graze -> miss -> injure (starting from 0°)
    */
   private determineHitZone(tapDegrees: number, adjustedBands: AdjustedBands): HitBand {
     let cumulativeDegrees = 0;
 
-    // Check each zone in order (bands are cumulative)
-    if (tapDegrees < adjustedBands.deg_injure) {
-      return 'injure';
-    }
-    cumulativeDegrees += adjustedBands.deg_injure;
+    logger.info(`🎯 HIT ZONE CALCULATION - Tap: ${tapDegrees}°, Bands:`, adjustedBands);
 
-    if (tapDegrees < cumulativeDegrees + adjustedBands.deg_miss) {
-      return 'miss';
+    // Check each zone in REVERSED order (bands are cumulative)
+    // Zone 1: Crit (dark green)
+    if (tapDegrees < adjustedBands.deg_crit) {
+      logger.info(`✅ Result: CRIT (0° - ${adjustedBands.deg_crit}°)`);
+      return 'crit';
     }
-    cumulativeDegrees += adjustedBands.deg_miss;
+    cumulativeDegrees += adjustedBands.deg_crit;
 
+    // Zone 2: Normal (bright green)
+    if (tapDegrees < cumulativeDegrees + adjustedBands.deg_normal) {
+      logger.info(`✅ Result: NORMAL (${cumulativeDegrees}° - ${cumulativeDegrees + adjustedBands.deg_normal}°)`);
+      return 'normal';
+    }
+    cumulativeDegrees += adjustedBands.deg_normal;
+
+    // Zone 3: Graze (yellow)
     if (tapDegrees < cumulativeDegrees + adjustedBands.deg_graze) {
+      logger.info(`✅ Result: GRAZE (${cumulativeDegrees}° - ${cumulativeDegrees + adjustedBands.deg_graze}°)`);
       return 'graze';
     }
     cumulativeDegrees += adjustedBands.deg_graze;
 
-    if (tapDegrees < cumulativeDegrees + adjustedBands.deg_normal) {
-      return 'normal';
+    // Zone 4: Miss (orange)
+    if (tapDegrees < cumulativeDegrees + adjustedBands.deg_miss) {
+      logger.info(`✅ Result: MISS (${cumulativeDegrees}° - ${cumulativeDegrees + adjustedBands.deg_miss}°)`);
+      return 'miss';
     }
 
-    // Remaining degrees are crit zone
-    return 'crit';
+    // Zone 5: Injure (red) - remaining degrees
+    logger.info(`✅ Result: INJURE (${cumulativeDegrees + adjustedBands.deg_miss}° - 360°)`);
+    return 'injure';
   }
 
   /**
@@ -1178,7 +1202,19 @@ export class CombatService {
       totalMultiplier += critBonus;
     }
 
-    // Apply damage formula: (ATK * multiplier) - DEF, minimum 1
+    // Special handling for injure zone (self-damage)
+    if (hitZone === 'injure') {
+      // Self-injury: calculate as percentage of player's own attack power (no defense reduction)
+      // Use absolute value of multiplier (0.5) to deal meaningful self-damage
+      const selfDamage = Math.max(MIN_DAMAGE, Math.floor(attackerAtk * Math.abs(totalMultiplier)));
+      return {
+        damage: selfDamage,
+        baseMultiplier,
+        critBonus,
+      };
+    }
+
+    // Normal damage: (ATK * multiplier) - DEF, minimum 1
     const damage = Math.max(MIN_DAMAGE, Math.floor(attackerAtk * totalMultiplier) - defenderDef);
 
     return {
