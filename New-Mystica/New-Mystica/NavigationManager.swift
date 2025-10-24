@@ -150,5 +150,12 @@ class NavigationManager: ObservableObject {
 
         FileLogger.shared.log("🔄 Reset to main menu", level: .info, category: "Navigation")
     }
+
+    func resetToMap() {
+        navigationPath = [.map]
+        currentBattleLocation = nil
+
+        FileLogger.shared.log("🔄 Reset to map", level: .info, category: "Navigation")
+    }
 }
 

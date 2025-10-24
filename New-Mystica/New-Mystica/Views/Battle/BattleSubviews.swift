@@ -75,7 +75,7 @@ extension BattleView {
                             await viewModel.claimRewards()
                             // Clear the active session from AppState
                             appState.activeCombatSession = .loaded(nil)
-                            navigationManager.navigateBack()
+                            navigationManager.resetToMap()
                         }
                     }
                     .frame(maxWidth: 200)
