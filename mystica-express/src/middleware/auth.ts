@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { createClient } from '@supabase/supabase-js';
 import { env } from '../config/env.js';
 import { verifyAnonymousToken } from '../utils/jwt.js';
+import { logger } from '../utils/logger.js';
 
 interface JWTClaims {
   sub: string;
@@ -45,7 +46,7 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
   try {
     const authHeader = req.headers.authorization;
 
-    console.log('🔒 [AUTH] Authenticating request:', {
+    logger.info('🔒 [AUTH] Authenticating request', {
       method: req.method,
       path: req.path,
       hasAuthHeader: !!authHeader,
@@ -53,7 +54,7 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
     });
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.log('❌ [AUTH] Missing or invalid auth header');
+      logger.warn('❌ [AUTH] Missing or invalid auth header');
       res.status(401).json({
         error: {
           code: 'missing_token',
@@ -66,7 +67,7 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
     const token = authHeader.substring(7); // Remove 'Bearer ' prefix
 
     if (!token.trim()) {
-      console.log('❌ [AUTH] Empty token');
+      logger.warn('❌ [AUTH] Empty token');
       res.status(401).json({
         error: {
           code: 'empty_token',
@@ -76,14 +77,14 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
       return;
     }
 
-    console.log('🔑 [AUTH] Token received (first 30 chars):', token.substring(0, 30) + '...');
+    logger.info('🔑 [AUTH] Token received (first 30 chars)', { tokenPrefix: token.substring(0, 30) + '...' });
 
     // Try to verify as anonymous token first (custom JWT)
-    console.log('🔍 [AUTH] Attempting anonymous token verification...');
+    logger.info('🔍 [AUTH] Attempting anonymous token verification...');
     const anonymousPayload = verifyAnonymousToken(token);
     if (anonymousPayload) {
       // Valid anonymous token
-      console.log('✅ [AUTH] Valid anonymous token:', {
+      logger.info('✅ [AUTH] Valid anonymous token', {
         userId: anonymousPayload.sub,
         deviceId: anonymousPayload.device_id
       });
@@ -97,13 +98,13 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
       return;
     }
 
-    console.log('⚠️  [AUTH] Not an anonymous token, trying Supabase validation...');
+    logger.info('⚠️  [AUTH] Not an anonymous token, trying Supabase validation...');
 
     // Not an anonymous token, try Supabase JWT validation
     const { data, error } = await supabaseAuth.auth.getClaims(token);
 
     if (error || !data) {
-      console.log('❌ [AUTH] Supabase token validation failed:', {
+      logger.warn('❌ [AUTH] Supabase token validation failed', {
         error: error?.message,
         hasData: !!data
       });
@@ -120,7 +121,7 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
     // Check token expiration for Supabase tokens
     const claims = data.claims as JWTClaims;
     if (claims.exp && claims.exp < Date.now() / 1000) {
-      console.log('❌ [AUTH] Token expired:', {
+      logger.warn('❌ [AUTH] Token expired', {
         exp: claims.exp,
         now: Date.now() / 1000
       });
@@ -133,7 +134,7 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
       return;
     }
 
-    console.log('✅ [AUTH] Valid Supabase token:', {
+    logger.info('✅ [AUTH] Valid Supabase token', {
       userId: claims.sub,
       email: claims.email
     });
@@ -148,7 +149,7 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
 
     next();
   } catch (error) {
-    console.log('❌ [AUTH] Authentication error:', {
+    logger.error('❌ [AUTH] Authentication error', {
       error: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined
     });
@@ -178,11 +179,11 @@ export const authenticateInternal = async (req: Request, res: Response, next: Ne
 
     // For now, accept any internal service header
     // TODO: Implement proper internal service authentication if needed
-    console.log('🔧 [AUTH] Internal service request from:', serviceHeader);
+    logger.info('🔧 [AUTH] Internal service request from', { serviceHeader });
 
     next();
   } catch (error) {
-    console.log('❌ [AUTH] Internal service authentication error:', error);
+    logger.error('❌ [AUTH] Internal service authentication error', { error });
     next(error); // Let global error handler manage the response
   }
 };

@@ -5,6 +5,7 @@ import { chatterService } from '../services/ChatterService.js';
 import { ValidationError, NotFoundError, ExternalAPIError, NotImplementedError } from '../utils/errors.js';
 import type { EnemyChatterRequest, StartCombatRequest, AttackRequest, CompleteCombatRequest, DefenseRequest, PetChatterRequest, AbandonCombatRequest } from '../types/schemas.js';
 import type { CombatEventDetails } from '../types/combat.types.js';
+import { logger } from '../utils/logger.js';
 
 /**
  * Combat Controller
@@ -98,10 +99,15 @@ export class CombatController {
       // If session exists, fetch full recovery data for client
       if (session) {
         const recoveryData = await combatService.getCombatSessionForRecovery(session.id, userId);
-        console.log('🎯 [getActiveSession] Returning recovery data:', JSON.stringify(recoveryData, null, 2));
+        logger.info('🎯 [getActiveSession] Returning recovery data', {
+          sessionId: recoveryData.session_id,
+          playerId: recoveryData.player_id,
+          enemyId: recoveryData.enemy_id,
+          turnNumber: recoveryData.turn_number
+        });
         res.json({ session: recoveryData });
       } else {
-        console.log('ℹ️  [getActiveSession] No active session, returning null');
+        logger.info('ℹ️  [getActiveSession] No active session, returning null');
         res.json({ session: null });
       }
 
