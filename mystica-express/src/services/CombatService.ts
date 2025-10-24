@@ -20,6 +20,7 @@ import {
   ValidationError
 } from '../utils/errors.js';
 import { locationService } from './LocationService.js';
+import { logger } from '../utils/logger.js';
 
 // Default repository instances (can be overridden for testing)
 let combatRepository = new CombatRepository();
@@ -286,10 +287,8 @@ export class CombatService {
       hitZone
     );
 
-    // Apply enemy counterattack (if player didn't hit injure zone)
-    const enemyDamage = hitZone !== 'injure'
-      ? Math.max(MIN_DAMAGE, enemyStats.atk - playerStats.defPower)
-      : 0;
+    // NO enemy counterattack during attack phase - enemy attacks during defense phase only
+    const enemyDamage = 0;
 
     // Update HP values (stored in session combatLog for now)
     const currentLog = session.combatLog || [];
@@ -297,7 +296,7 @@ export class CombatService {
     const currentPlayerHP = lastLogEntry?.playerHP ?? playerStats.hp;
     const currentEnemyHP = lastLogEntry?.enemyHP ?? enemyStats.hp;
 
-    const newPlayerHP = Math.max(0, currentPlayerHP - enemyDamage);
+    const newPlayerHP = currentPlayerHP; // Player HP unchanged during attack phase
     const newEnemyHP = Math.max(0, currentEnemyHP - damageDealt);
 
     // Determine combat status
@@ -325,6 +324,11 @@ export class CombatService {
     await this.combatRepository.updateSession(sessionId, {
       combatLog: [...currentLog, newLogEntry],
     });
+
+    // Auto-complete session if combat ended
+    if (combatStatus === 'victory' || combatStatus === 'defeat') {
+      await this.combatRepository.completeSession(sessionId, combatStatus);
+    }
 
     // Log combat event
     await this.combatRepository.addLogEvent(sessionId, {
@@ -434,6 +438,11 @@ export class CombatService {
     await this.combatRepository.updateSession(sessionId, {
       combatLog: [...currentLog, newLogEntry],
     });
+
+    // Auto-complete session if combat ended
+    if (combatStatus === 'defeat') {
+      await this.combatRepository.completeSession(sessionId, combatStatus);
+    }
 
     // Log combat event
     await this.combatRepository.addLogEvent(sessionId, {
@@ -721,7 +730,7 @@ export class CombatService {
         hp: powerStats.hp ?? 100,
       };
     } catch (error) {
-      console.warn('Database v_player_powerlevel query failed, using fallback:', error);
+      logger.warn('Database v_player_powerlevel query failed, using fallback', { error: error instanceof Error ? error.message : String(error) });
       // Fallback to equipment repository
       const stats = await this.equipmentRepository.computeTotalStats(userId);
       return {
@@ -763,7 +772,7 @@ export class CombatService {
           : [],
       };
     } catch (error) {
-      console.warn('Database v_enemy_realized_stats query failed, using fallback:', error);
+      logger.warn('Database v_enemy_realized_stats query failed, using fallback', { error: error instanceof Error ? error.message : String(error) });
       // Fallback to existing repository method
       const realizedStats = await this.enemyRepository.getEnemyRealizedStats(enemyTypeId);
       if (!realizedStats) {
@@ -1059,7 +1068,7 @@ export class CombatService {
         experience: combatLevel * 15,
       };
     } catch (error) {
-      console.warn('Loot generation failed, using fallback:', error);
+      logger.warn('Loot generation failed, using fallback', { error: error instanceof Error ? error.message : String(error) });
       // Get enemy style for fallback
       const enemy = await this.enemyRepository.findEnemyTypeById(enemyTypeId);
       return this.generateLootFallback(locationId, combatLevel, enemy?.style_id ?? 'normal');
@@ -1114,7 +1123,7 @@ export class CombatService {
         experience: combatLevel * 15,
       };
     } catch (error) {
-      console.warn('Fallback loot generation failed:', error);
+      logger.warn('Fallback loot generation failed', { error: error instanceof Error ? error.message : String(error) });
       return {
         materials: [],
         gold: Math.floor(Math.random() * 20) + 5,
@@ -1179,7 +1188,7 @@ export class CombatService {
         snapshot_timestamp: new Date().toISOString(),
       };
     } catch (error) {
-      console.warn('Failed to capture equipment snapshot:', error);
+      logger.warn('Failed to capture equipment snapshot', { error: error instanceof Error ? error.message : String(error) });
       // Return empty snapshot on failure
       return {
         total_stats: { atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0, hp: 100 },
