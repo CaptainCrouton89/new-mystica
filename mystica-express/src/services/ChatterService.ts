@@ -179,6 +179,14 @@ export class ChatterService {
     eventType: EnemyChatterEventType,
     eventDetails: CombatEventDetails
   ): Promise<EnemyChatterResponse> {
+    console.log('[CHATTER_SERVICE] Starting enemy chatter generation', {
+      sessionId,
+      eventType,
+      turnNumber: eventDetails.turn_number,
+      playerHpPct: eventDetails.player_hp_pct,
+      enemyHpPct: eventDetails.enemy_hp_pct
+    });
+
     // 1. Validate session and get enemy context
     const session = await this.combatRepository.getActiveSession(sessionId);
     if (!session) {
@@ -190,6 +198,12 @@ export class ChatterService {
       throw new EnemyTypeNotFoundError(`Enemy type ${session.enemyTypeId} not found`);
     }
 
+    console.log('[CHATTER_SERVICE] Found enemy type', {
+      sessionId,
+      enemyType: enemyType.name,
+      dialogueTone: enemyType.dialogue_tone
+    });
+
     // 2. Get player combat history for contextual taunts
     const playerHistory = await this.combatRepository.getPlayerHistory(session.userId, session.locationId);
 
@@ -200,6 +214,14 @@ export class ChatterService {
       defeats: playerHistory?.defeats ?? 0,
       current_streak: playerHistory?.currentStreak ?? 0
     };
+
+    console.log('[CHATTER_SERVICE] Player combat history', {
+      sessionId,
+      attempts: playerContext.attempts,
+      victories: playerContext.victories,
+      defeats: playerContext.defeats,
+      currentStreak: playerContext.current_streak
+    });
 
     // 3. Build AI prompt with enemy personality and player context
     const combatContext: CombatContext = {
@@ -213,6 +235,11 @@ export class ChatterService {
 
     const prompt = await this.buildEnemyPrompt(enemyType, playerContext, combatContext, eventDetails);
 
+    console.log('[CHATTER_SERVICE] Built AI prompt', {
+      sessionId,
+      promptLength: prompt.length
+    });
+
     // 4. Generate dialogue with timeout and fallback
     let dialogue: string;
     let wasAIGenerated = true;
@@ -220,7 +247,17 @@ export class ChatterService {
 
     try {
       dialogue = await this.callAIService(prompt, this.AI_TIMEOUT_MS);
+      console.log('[CHATTER_SERVICE] AI generation succeeded', {
+        sessionId,
+        dialogue,
+        generationTime: Date.now() - startTime
+      });
     } catch (error) {
+      console.error('[CHATTER_SERVICE] AI generation failed', {
+        sessionId,
+        error: error instanceof Error ? error.message : String(error),
+        generationTime: Date.now() - startTime
+      });
       // Re-throw AI generation errors - no fallbacks
       throw error;
     }
@@ -236,6 +273,13 @@ export class ChatterService {
       generationTime,
       playerContextUsed: playerContext,
       fallbackReason: !wasAIGenerated ? 'ai_timeout' : undefined
+    });
+
+    console.log('[CHATTER_SERVICE] Returning enemy chatter response', {
+      sessionId,
+      dialogueLength: dialogue.length,
+      generationTime,
+      wasAIGenerated
     });
 
     return {

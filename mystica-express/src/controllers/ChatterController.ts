@@ -51,6 +51,21 @@ export class ChatterController {
     try {
       const { session_id, event_type, event_details } = req.body as EnemyChatterRequest;
 
+      // Log incoming request payload
+      console.log('[ENEMY_CHATTER_REQUEST]', {
+        timestamp: new Date().toISOString(),
+        sessionId: session_id,
+        eventType: event_type,
+        eventDetails: {
+          turn_number: event_details.turn_number,
+          player_hp_pct: event_details.player_hp_pct,
+          enemy_hp_pct: event_details.enemy_hp_pct,
+          damage: event_details.damage,
+          accuracy: event_details.accuracy,
+          is_critical: event_details.is_critical
+        }
+      });
+
       const result = await chatterService.generateEnemyChatter(
         session_id,
         event_type,
@@ -64,8 +79,29 @@ export class ChatterController {
         }
       );
 
+      // Log outgoing response payload
+      console.log('[ENEMY_CHATTER_RESPONSE]', {
+        timestamp: new Date().toISOString(),
+        sessionId: session_id,
+        response: {
+          dialogue: result.dialogue,
+          enemy_type: result.enemy_type,
+          dialogue_tone: result.dialogue_tone,
+          generation_time_ms: result.generation_time_ms,
+          was_ai_generated: result.was_ai_generated
+        }
+      });
+
       res.json(result);
     } catch (error) {
+      // Log error with request context
+      console.error('[ENEMY_CHATTER_ERROR]', {
+        timestamp: new Date().toISOString(),
+        sessionId: req.body?.session_id,
+        eventType: req.body?.event_type,
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      });
       next(error);
     }
   };
