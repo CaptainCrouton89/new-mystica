@@ -17,7 +17,10 @@ The node engine is 24 (well supported as of October 2025).
 
 ## Build Context
 
-Railway uses the directory containing railway.json as the build context. Since railway.json is in mystica-express/, the Dockerfile must copy files relative to that directory, not the monorepo root.
+**IMPORTANT**: Railway prioritizes `railway.toml` over `railway.json`. The root-level `railway.toml` configures the build:
+- `dockerfilePath = "mystica-express/Dockerfile"` tells Railway where to find the Dockerfile
+- Build context is the monorepo root
+- Dockerfile is in `mystica-express/` and copies files relative to that directory
   
 ## Local Validation
 
