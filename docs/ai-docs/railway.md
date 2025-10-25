@@ -58,6 +58,7 @@ Production url is `https://mystica-express-production.up.railway.app`
 
 ## After Making Fixes
 
+- Don't verify locally—it takes too long
 - commit and push
 - run `railway redeploy -y` 
 

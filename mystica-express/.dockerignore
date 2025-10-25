@@ -5,9 +5,8 @@ dist
 .env.local
 *.log
 .DS_Store
-tests
-coverage
-.eslint*
-.prettier*
-jest.config.js
-nodemon.json
+New-Mystica
+scripts
+docs
+agent-responses
+.claude
