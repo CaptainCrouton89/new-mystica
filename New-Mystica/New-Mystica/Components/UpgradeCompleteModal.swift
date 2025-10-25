@@ -17,7 +17,6 @@ struct UpgradeModal: View {
     let onUpgrade: () -> Void
     let onReturnToInventory: () -> Void
 
-    @Environment(\.dismiss) private var dismiss
     @Environment(\.audioManager) private var audioManager
 
     var body: some View {
@@ -51,7 +50,7 @@ struct UpgradeModal: View {
 
             Button {
                 audioManager.playCancelClick()
-                dismissModal()
+                onReturnToInventory()
             } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 18, weight: .medium))
@@ -202,28 +201,52 @@ struct UpgradeModal: View {
 
     // MARK: - Gold Cost View
     private var goldSpentView: some View {
-        HStack {
-            Image(systemName: "minus.circle.fill")
-                .foregroundColor(Color.warning)
+        let oldBalance = newGoldBalance + goldCost
 
-            Text("\(goldCost) Gold")
-                .font(FontManager.impact(size: 16))
-                .foregroundColor(Color.warning)
+        return HStack(spacing: 12) {
+            // Gold icon
+            CachedAsyncImage(
+                url: URL(string: UIAssetURL.coinIcon),
+                content: { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 32, height: 32)
+                },
+                placeholder: {
+                    ProgressView()
+                        .frame(width: 32, height: 32)
+                }
+            )
+            .frame(width: 40)
 
             Spacer()
 
-            Text("Balance After: \(newGoldBalance)")
-                .font(FontManager.body)
-                .foregroundColor(Color.textSecondary)
+            // Balance before and after
+            HStack(spacing: 8) {
+                Text("\(oldBalance)")
+                    .font(FontManager.body)
+                    .foregroundColor(Color.alert)
+                    .bold()
+
+                Image(systemName: "arrow.right")
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundColor(Color.alert)
+
+                Text("\(newGoldBalance)")
+                    .font(FontManager.body)
+                    .foregroundColor(Color.alert)
+                    .bold()
+            }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
         .background(
             RoundedRectangle(cornerRadius: .cornerRadiusSmall)
-                .fill(Color.warning.opacity(0.15))
+                .fill(Color.alert.opacity(0.15))
                 .overlay(
                     RoundedRectangle(cornerRadius: .cornerRadiusSmall)
-                        .stroke(Color.warning, lineWidth: 1)
+                        .stroke(Color.alert, lineWidth: 1)
                 )
         )
         .padding(.horizontal, 20)
@@ -263,10 +286,6 @@ struct UpgradeModal: View {
     }
 
     // MARK: - Helper Methods
-
-    private func dismissModal() {
-        dismiss()
-    }
 
     private func getItemIcon() -> String {
         switch item.category.lowercased() {
