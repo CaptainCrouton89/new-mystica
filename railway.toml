@@ -1,6 +1,6 @@
 [build]
 builder = "DOCKERFILE"
-dockerfilePath = "Dockerfile"
+dockerfilePath = "mystica-express/Dockerfile"
 
 [deploy]
 healthcheckPath = "/api/v1/health"

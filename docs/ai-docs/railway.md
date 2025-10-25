@@ -6,12 +6,14 @@ The node engine is 24 (well supported as of October 2025).
 
 ## Files
 
-- **railway.json** - @mystica-express/railway.json (sets build context to mystica-express/ directory)
-- **Dockerfile** - Production build with Node.js 24, pnpm 8.x, TypeScript compilation (assumes mystica-express/ build context)
-- **railway.toml** - Deployment config (health checks, restart policy) - may not override UI
-- **.dockerignore** - Excludes unnecessary files from build context
-- **docs** - /Users/silasrhyneer/Code/new-mystica/docs/external/railway-nixpacks.md, /Users/silasrhyneer/Code/new-mystica/docs/external/railway-builder-config.md
-/Users/silasrhyneer/Code/new-mystica/docs/external/railway-dockerfile-monorepo.md
+- **railway.json** - @/Users/silasrhyneer/Code/new-mystica/mystica-express/railway.json (sets build context to mystica-express/ directory)
+- **Dockerfile** - @/Users/silasrhyneer/Code/new-mystica/Dockerfile - Production build with Node.js 24, pnpm 8.x, TypeScript compilation (assumes mystica-express/ build context)
+- **railway.toml** - @/Users/silasrhyneer/Code/new-mystica/railway.toml - Deployment config (health checks, restart policy) - may not override UI
+- **.dockerignore** - @/Users/silasrhyneer/Code/new-mystica/.dockerignore - Excludes unnecessary files from build context
+- **External References**:
+  - @/Users/silasrhyneer/Code/new-mystica/docs/external/railway-nixpacks.md
+  - @/Users/silasrhyneer/Code/new-mystica/docs/external/railway-builder-config.md
+  - @/Users/silasrhyneer/Code/new-mystica/docs/external/railway-dockerfile-monorepo.md
 
 ## Build Context
 
