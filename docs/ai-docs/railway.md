@@ -8,7 +8,7 @@ The node engine is 24 (well supported as of October 2025).
 
 - **railway.toml** - Root-level Railway configuration (TAKES PRECEDENCE over railway.json)
   - `builder = "DOCKERFILE"` - Use Dockerfile for builds
-  - `dockerfilePath = "Dockerfile"` - Use root Dockerfile
+  - `dockerfilePath = "../Dockerfile"` - Path to root Dockerfile relative to rootDirectory
   - `rootDirectory = "mystica-express"` - Set build context to mystica-express/ subdirectory
 - **Dockerfile** - Root-level Dockerfile optimized for mystica-express build context
   - Node.js 24-slim base image
@@ -24,9 +24,9 @@ Railway uses the monorepo root with `rootDirectory` set to `mystica-express`:
 1. Railway starts at monorepo root
 2. Reads `railway.toml` which sets `rootDirectory = "mystica-express"`
 3. Changes context to `mystica-express/` directory
-4. Finds `Dockerfile` at `../Dockerfile` (relative to root, specified as just "Dockerfile")
+4. Finds `Dockerfile` at `../Dockerfile` (relative to rootDirectory)
 5. Builds with `mystica-express/` as the build context
-6. Dockerfile copies files using relative paths (`. `= mystica-express/)
+6. Dockerfile copies files using relative paths (`.` = mystica-express/)
   
 ## Local Validation
 
@@ -58,7 +58,8 @@ Production url is `https://mystica-express-production.up.railway.app`
 
 ## After Making Fixes
 
-Commit and push changes. Railway will auto-deploy if you've configured webhooks.
+- commit and push
+- run `railway redeploy -y` 
 
 ## Editing This File
 
