@@ -1,8 +1,8 @@
 # Use official Node.js 24 image
 FROM node:24-slim
 
-# Install pnpm
-RUN npm install -g pnpm
+# Install pnpm 8.x to match lockfile version 6.0
+RUN npm install -g pnpm@8
 
 # Set working directory
 WORKDIR /app
@@ -13,7 +13,7 @@ COPY mystica-express ./mystica-express
 
 # Install dependencies
 WORKDIR /app/mystica-express
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile --force
 
 # Build TypeScript
 RUN pnpm build
