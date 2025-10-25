@@ -301,5 +301,92 @@ class AudioManager: ObservableObject {
         let clampedVolume = max(0.0, min(1.0, volume))
         battleMusicPlayer?.volume = clampedVolume
     }
+
+    // MARK: - Crossfade
+
+    /// Crossfade from background music to battle music
+    func crossfadeToBattleMusic(duration: TimeInterval = 2.0) {
+        guard isEnabled else {
+            print("⚠️ [AUDIO] Crossfade skipped - audio disabled")
+            return
+        }
+
+        guard let battlePlayer = battleMusicPlayer else {
+            print("❌ [AUDIO] Battle music player not initialized")
+            return
+        }
+
+        // Start battle music at 0 volume
+        battlePlayer.volume = 0.0
+        battlePlayer.play()
+
+        // Perform crossfade
+        let steps = 60
+        let stepDuration = duration / Double(steps)
+        let volumeIncrement = 0.5 / Float(steps) // Target volume: 0.5
+
+        Task {
+            for step in 0..<steps {
+                try? await Task.sleep(nanoseconds: UInt64(stepDuration * 1_000_000_000))
+                await MainActor.run {
+                    // Fade out background music
+                    if let bgPlayer = backgroundMusicPlayer {
+                        bgPlayer.volume = max(0.0, 0.5 - (Float(step + 1) * volumeIncrement))
+                    }
+                    // Fade in battle music
+                    battlePlayer.volume = Float(step + 1) * volumeIncrement
+                }
+            }
+
+            await MainActor.run {
+                backgroundMusicPlayer?.pause()
+                backgroundMusicPlayer?.volume = 0.5 // Reset for next time
+                print("✅ [AUDIO] Crossfade to battle music complete")
+            }
+        }
+    }
+
+    /// Crossfade from battle music to background music
+    func crossfadeToBackgroundMusic(duration: TimeInterval = 2.0) {
+        guard isEnabled else {
+            print("⚠️ [AUDIO] Crossfade skipped - audio disabled")
+            return
+        }
+
+        guard let bgPlayer = backgroundMusicPlayer else {
+            print("❌ [AUDIO] Background music player not initialized")
+            return
+        }
+
+        // Start background music at 0 volume
+        bgPlayer.volume = 0.0
+        bgPlayer.play()
+
+        // Perform crossfade
+        let steps = 60
+        let stepDuration = duration / Double(steps)
+        let volumeIncrement = 0.5 / Float(steps) // Target volume: 0.5
+
+        Task {
+            for step in 0..<steps {
+                try? await Task.sleep(nanoseconds: UInt64(stepDuration * 1_000_000_000))
+                await MainActor.run {
+                    // Fade out battle music
+                    if let battlePlayer = battleMusicPlayer {
+                        battlePlayer.volume = max(0.0, 0.5 - (Float(step + 1) * volumeIncrement))
+                    }
+                    // Fade in background music
+                    bgPlayer.volume = Float(step + 1) * volumeIncrement
+                }
+            }
+
+            await MainActor.run {
+                battleMusicPlayer?.stop()
+                battleMusicPlayer?.currentTime = 0
+                battleMusicPlayer?.volume = 0.5 // Reset for next time
+                print("✅ [AUDIO] Crossfade to background music complete")
+            }
+        }
+    }
 }
 

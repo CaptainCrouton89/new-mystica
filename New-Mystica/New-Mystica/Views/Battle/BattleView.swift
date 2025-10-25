@@ -201,9 +201,8 @@ struct BattleView: View {
             }
         }
         .task {
-            // Pause background music and play battle music when entering battle
-            audioManager.pauseBackgroundMusic()
-            audioManager.playBattleMusic()
+            // Crossfade from background to battle music when entering battle
+            audioManager.crossfadeToBattleMusic(duration: 1.5)
 
             // Connect environment dependencies to viewModel
             viewModel.navigationManager = navigationManager
@@ -226,9 +225,8 @@ struct BattleView: View {
             }
         }
         .onDisappear {
-            // Stop battle music and resume background music when leaving battle
-            audioManager.stopBattleMusic()
-            audioManager.playBackgroundMusic()
+            // Crossfade from battle to background music when leaving battle
+            audioManager.crossfadeToBackgroundMusic(duration: 1.5)
         }
     }
 
