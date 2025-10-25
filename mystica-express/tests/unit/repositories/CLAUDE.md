@@ -47,6 +47,39 @@ Test for:
 - `DatabaseError` for connection/RPC failures
 - Database constraint violations
 
+## EnemyRepository Pattern
+
+EnemyRepository demonstrates specialized patterns for enemy type, stats, and pool management:
+
+**JSON Personality Data Handling:**
+- `findEnemyTypeById()` returns enemies with `ai_personality_traits` (AI dialogue context)
+- May be stored as JSON string or object—test both with `.mockResolvedValue()`
+- Include test for invalid JSON parsing (graceful fallback to null)
+- Tests verify console warning on parse failure
+
+**Realized Stats View Queries:**
+- `getEnemyRealizedStats()` and `computeCombatRating()` query `v_enemy_realized_stats` view
+- Test against view table name, not `enemytypes`
+- Stats must be complete (all fields non-null)—throw on missing fields
+- Include test for missing enemy (null data with `PGRST116` error code)
+
+**Pool Management CRUD:**
+- `createEnemyPool()` / `addEnemyToPool()` / `removeEnemyFromPool()` for dynamic pool operations
+- Test optional fields (e.g., `spawn_weight` defaults, `filter_value` may be null)
+- `removeEnemyFromPool()` returns boolean (count-based success check)
+
+**Multi-Entity Queries with Sequential Mocks:**
+- `findEnemyPoolWithMembers()` queries pool first, then members in sequence
+- Use `.mockReturnValueOnce()` for first call, `.mockReturnValueOnce()` for second
+- Return combined object with `members` array
+- Test null pool case (return null, not error)
+
+**Tier and Style Lookups:**
+- `findTierById()`, `getAllTiers()` - Tier level definitions with stat bonuses
+- `findStyleById()`, `getAllStyles()`, `findStyleByName()` - Style definitions with spawn rates
+- `getStylesForEnemyType()` - Fetch available styles for specific enemy with weight multipliers
+- Throw `NotFoundError` if no styles exist (empty array case)
+
 ## LocationRepository Pattern
 
 LocationRepository demonstrates advanced patterns for complex game queries:
