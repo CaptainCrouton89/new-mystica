@@ -76,6 +76,20 @@ class MonsterAnimationLoader: ObservableObject {
             
             if APIConfig.enableNetworkLogging {
                 print("✅ [MonsterAnimationLoader] Successfully loaded animation for \(monsterId)/\(animationType)")
+                print("📊 [MonsterAnimationLoader] Animation data:")
+                print("   - Total frames: \(animationData?.meta.frameCount ?? 0)")
+                print("   - Sprite size: \(animationData?.meta.size.w ?? 0) x \(animationData?.meta.size.h ?? 0)")
+                print("   - Frame size: \(animationData?.meta.frameSize.w ?? 0) x \(animationData?.meta.frameSize.h ?? 0)")
+                print("   - Grid: \(animationData?.meta.cols ?? 0) cols x \(animationData?.meta.rows ?? 0) rows")
+                print("   - Image name: \(animationData?.meta.image ?? "unknown")")
+                
+                // Log first few frames for debugging
+                if let frames = animationData?.frames.prefix(3) {
+                    print("📋 [MonsterAnimationLoader] First 3 frames:")
+                    for frame in frames {
+                        print("   Frame \(frame.frame): x=\(frame.x), y=\(frame.y), w=\(frame.width), h=\(frame.height)")
+                    }
+                }
             }
             
         } catch {

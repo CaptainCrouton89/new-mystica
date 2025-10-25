@@ -66,6 +66,7 @@ struct TestAnimationsView: View {
     // Sprite animation settings
     @State private var currentFrame: Int = 0
     @State private var animationTimer: Timer?
+    @State private var isPlaying: Bool = false
     
     // Required initializer - no defaults
     init(frameRate: Double = 12.0) {
@@ -128,39 +129,113 @@ struct TestAnimationsView: View {
                         
                     } else if loader.isReady, let animationData = loader.animationData {
                         // Success state - show animation
-                        ZStack {
-                            // Display the loaded sprite image as background reference
-                            if let spriteImage = loader.spriteImage {
-                                Image(uiImage: spriteImage)
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fill)
-                                    .frame(width: animationData.meta.size.w, height: animationData.meta.size.h)
-                                    .opacity(0.1) // Make it very faint as background reference
-                            }
-                            
+                        VStack(spacing: 20) {                                
                             // Sprite animation using frame-specific coordinates
-                            if let currentFrameData = animationData.frames.first(where: { $0.frame == currentFrame }) {
+                            if currentFrame < animationData.frames.count {
+                                let currentFrameData = animationData.frames[currentFrame]
                                 Group {
                                     if let spriteImage = loader.spriteImage {
                                         // Use loaded UIImage
                                         Image(uiImage: spriteImage)
                                             .resizable()
                                             .aspectRatio(contentMode: .fill)
-                                            .frame(width: animationData.meta.size.w, height: animationData.meta.size.h)
-                                            .offset(
-                                                x: -currentFrameData.x,
-                                                y: -currentFrameData.y
+                                            .frame(
+                                                width: animationData.meta.size.w / 5,
+                                                height: animationData.meta.size.h / 5
                                             )
-                                            .frame(width: currentFrameData.width, height: currentFrameData.height)
+                                            .offset(
+                                                x: -(currentFrameData.x - (2 * animationData.meta.frameSize.w)) / 5,
+                                                y: -(currentFrameData.y - (2 * animationData.meta.frameSize.h)) / 5
+                                            )
+                                            .frame(
+                                                width: currentFrameData.width / 5,
+                                                height: currentFrameData.height / 5
+                                            )
                                             .clipped()
                                     } 
                                 }
-                                .onAppear {
-                                    startAnimation()
+                            }
+                            
+                            // Full sprite sheet image for debugging
+                            VStack(spacing: 8) {
+                                Text("Full Sprite Sheet")
+                                    .font(.headline)
+                                    .foregroundColor(.white)
+                                
+                                if let spriteImage = loader.spriteImage {
+                                    Image(uiImage: spriteImage)
+                                        .resizable()
+                                        .aspectRatio(contentMode: .fit)
+                                        .frame(maxWidth: 300, maxHeight: 200)
+                                        .border(Color.white, width: 2)
+                                        .cornerRadius(8)
                                 }
-                                .onDisappear {
-                                    stopAnimation()
+                                
+                                Text("Grid: \(animationData.meta.cols) × \(animationData.meta.rows)")
+                                    .font(.caption)
+                                    .foregroundColor(.white.opacity(0.8))
+                                
+                                Text("Size: \(Int(animationData.meta.size.w)) × \(Int(animationData.meta.size.h))")
+                                    .font(.caption)
+                                    .foregroundColor(.white.opacity(0.8))
+                            }
+                            .padding()
+                            .background(Color.black.opacity(0.3))
+                            .cornerRadius(12)
+
+                            
+                            // Frame controls
+                            VStack(spacing: 12) {
+                                // Frame info
+                                Text("Frame \(currentFrame + 1) of 4")
+                                    .font(.headline)
+                                    .foregroundColor(.white)
+                                
+                                // Frame stepping controls
+                                HStack(spacing: 20) {
+                                    Button(action: previousFrame) {
+                                        Image(systemName: "chevron.left")
+                                            .font(.title2)
+                                            .foregroundColor(.white)
+                                    }
+                                    .disabled(currentFrame <= 0)
+                                    
+                                    Button(action: togglePlayPause) {
+                                        Image(systemName: isPlaying ? "pause.fill" : "play.fill")
+                                            .font(.title2)
+                                            .foregroundColor(.white)
+                                    }
+                                    
+                                    Button(action: nextFrame) {
+                                        Image(systemName: "chevron.right")
+                                            .font(.title2)
+                                            .foregroundColor(.white)
+                                    }
+                                    .disabled(currentFrame >= 3)
                                 }
+                                .padding()
+                                .background(Color.black.opacity(0.3))
+                                .cornerRadius(12)
+                                
+                                // Frame slider
+                                VStack(spacing: 8) {
+                                    Text("Frame Position")
+                                        .font(.caption)
+                                        .foregroundColor(.white.opacity(0.8))
+                                    
+                                    Slider(
+                                        value: Binding(
+                                            get: { Double(currentFrame) },
+                                            set: { newValue in
+                                                currentFrame = Int(newValue)
+                                            }
+                                        ),
+                                        in: 0...3,
+                                        step: 1
+                                    )
+                                    .accentColor(.white)
+                                }
+                                .padding(.horizontal)
                             }
                         }
                         
@@ -218,6 +293,10 @@ struct TestAnimationsView: View {
                     }
                 }
             }
+            .onDisappear {
+                // Stop animation when leaving the view
+                stopAnimation()
+            }
         }
     }
     
@@ -228,10 +307,11 @@ struct TestAnimationsView: View {
         
         guard let animationData = loader.animationData else { return }
         
+        isPlaying = true
         animationTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / frameRate, repeats: true) { _ in
             DispatchQueue.main.async {
                 withAnimation(.linear(duration: 1.0 / frameRate)) {
-                    currentFrame = (currentFrame + 1) % animationData.meta.frameCount
+                    currentFrame = (currentFrame + 1) % 4
                 }
             }
         }
@@ -240,6 +320,27 @@ struct TestAnimationsView: View {
     private func stopAnimation() {
         animationTimer?.invalidate()
         animationTimer = nil
+        isPlaying = false
+    }
+    
+    private func togglePlayPause() {
+        if isPlaying {
+            stopAnimation()
+        } else {
+            startAnimation()
+        }
+    }
+    
+    private func nextFrame() {
+        if currentFrame < 3 {
+            currentFrame += 1
+        }
+    }
+    
+    private func previousFrame() {
+        if currentFrame > 0 {
+            currentFrame -= 1
+        }
     }
 }
 
