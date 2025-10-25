@@ -147,32 +147,6 @@ struct BattleView: View {
                             }
                         }
                     }
-                } else {
-                    // Loading state - show placeholder UI
-                    VStack(spacing: 20) {
-                        Spacer()
-                        ProgressView()
-                            .scaleEffect(1.5)
-                            .tint(.accent)
-                        SmallText("Preparing battle...")
-                            .foregroundColor(.textSecondary)
-                        Spacer()
-                    }
-                }
-
-                // Subtle loading indicator (non-blocking) - only show when processing action
-                if viewModel.isProcessingAction {
-                    VStack {
-                        HStack {
-                            Spacer()
-                            ProgressView()
-                                .padding()
-                                .background(Color.black.opacity(0.7))
-                                .cornerRadius(8)
-                                .padding()
-                        }
-                        Spacer()
-                    }
                 }
 
                 // Rewards overlay
@@ -206,7 +180,7 @@ struct BattleView: View {
             // Hide defense prompt after brief display
             if newPhase == .playerDefense {
                 Task {
-                    try? await Task.sleep(nanoseconds: 500_000_000)
+                    try? await Task.sleep(nanoseconds: 1_200_000_000) // 1.2 seconds for better visibility
                     await MainActor.run {
                         withAnimation(.easeOut(duration: 0.2)) {
                             showDefensePrompt = false

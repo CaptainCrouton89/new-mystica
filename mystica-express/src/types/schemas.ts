@@ -78,6 +78,14 @@ export const LocationParamsSchema = z.object({
   id: z.string().uuid('Invalid location ID format')
 });
 
+// Auto-generate location schema
+export const AutoGenerateLocationSchema = z.object({
+  lat: z.coerce.number().min(-90).max(90, 'Latitude must be between -90 and 90'),
+  lng: z.coerce.number().min(-180).max(180, 'Longitude must be between -180 and 180'),
+  state_code: z.string().optional(),
+  country_code: z.string().optional()
+});
+
 // Legacy schema for combat system
 export const LocationQuerySchema = z.object({
   lat: z.coerce.number().min(-90).max(90, 'Latitude must be between -90 and 90'),
@@ -210,6 +218,7 @@ export type EnemyChatterRequest = z.infer<typeof EnemyChatterRequestSchema>;
 export type NearbyLocationsQuery = z.infer<typeof NearbyLocationsQuerySchema>;
 export type LocationParams = z.infer<typeof LocationParamsSchema>;
 export type LocationIdParams = z.infer<typeof LocationIdParamsSchema>;
+export type AutoGenerateLocationRequest = z.infer<typeof AutoGenerateLocationSchema>;
 
 // Auth endpoints (F-07)
 export const RegisterDeviceBodySchema = z.object({

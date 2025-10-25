@@ -28,7 +28,7 @@ const seedDataPath = path.join('..', 'docs', 'seed-data-items.json');
 const seedData = JSON.parse(fs.readFileSync(seedDataPath, 'utf8'));
 
 // R2 base URL
-const R2_BASE_URL = 'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev';
+const R2_BASE_URL = process.env.R2_PUBLIC_URL;
 
 async function populateBaseImageUrls() {
   console.log('🔄 Populating base_image_url for all ItemTypes...');

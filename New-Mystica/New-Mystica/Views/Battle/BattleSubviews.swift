@@ -227,10 +227,7 @@ extension BattleView {
     // MARK: - Phase Status View
     func phaseStatusView(session: CombatSession) -> some View {
         VStack(spacing: 8) {
-            if viewModel.isLoading {
-                NormalText("Processing action...", size: 14)
-                    .foregroundColor(Color.textSecondary)
-            } else if viewModel.combatEnded {
+            if viewModel.combatEnded {
                 NormalText(viewModel.playerWon ? "Victory!" : "Defeat!", size: 16)
                     .foregroundColor(viewModel.playerWon ? Color.accent : Color.red)
                     .bold()
@@ -247,7 +244,7 @@ extension BattleView {
 
             // Defense prompt overlay
             if showDefensePrompt {
-                TitleText("DEFEND NOW!", size: 36)
+                TitleText("Defend!", size: 36)
                     .foregroundColor(Color.red)
                     .bold()
                     .transition(.asymmetric(

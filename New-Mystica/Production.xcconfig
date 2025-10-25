@@ -1,1 +1,8 @@
+// Production.xcconfig
+// Configuration for production/release builds
+
+<<<<<<< HEAD
 API_BASE_URL = https:/$()/mystica-express-production.up.railway.app/api/v1
+=======
+API_BASE_URL = https://mystica-express-production.up.railway.app/api/v1
+>>>>>>> 3491b951091f633fa5e373aacf0bccca3902bd42
