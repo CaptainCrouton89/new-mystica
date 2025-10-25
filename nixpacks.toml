@@ -1,5 +1,6 @@
-[phases.setup]
-nixPkgs = ["nodejs_24", "pnpm"]
+# Use Nixpacks providers instead of manual nixPkgs
+[providers]
+node = "24"
 
 [phases.install]
 cmds = [

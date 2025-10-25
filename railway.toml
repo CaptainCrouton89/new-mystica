@@ -1,9 +1,8 @@
 [build]
-builder = "NIXPACKS"
-buildCommand = "cd mystica-express && pnpm install --frozen-lockfile && pnpm build"
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "cd mystica-express && pnpm start"
 healthcheckPath = "/api/v1/health"
 healthcheckTimeout = 100
 restartPolicyType = "ON_FAILURE"
