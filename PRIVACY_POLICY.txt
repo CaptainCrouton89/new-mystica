@@ -31,7 +31,7 @@ Mystica is a location-based adventure game. We are committed to protecting your 
 4. DATA RETENTION
 - Location data: Deleted in real-time; never stored
 - Device data: Retained while app is installed
-- Game progress: Stored i
+- Game progress: Stored on our servers to synchronize your gameplay across sessions. No personal identifiable information is stored with your game progress.
 
 5. THIRD-PARTY SERVICES
 This app uses the following third-party services:
@@ -39,7 +39,10 @@ This app uses the following third-party services:
 - Cloudflare R2: For image/asset storage (anonymously)
 - Replicate/OpenAI: For AI image generation (your location is NOT sent to these services)
 
-6. YOUR RIGHTS
+6. LOCATION AND ADVERTISING
+Your location data is never used for advertising, tracking, or any purpose beyond determining nearby gameplay locations. We do not build profiles or track you across apps or services.
+
+7. YOUR RIGHTS
 - You can revoke location permissions at any time in Settings > Mystica > Location
 - You can delete your local game data by uninstalling the app
 - Location data is never stored, so there is no data to delete
@@ -51,7 +54,7 @@ Mystica does not knowingly collect information from children under 13. If we lea
 We implement appropriate technical measures to protect your data. However, no method of transmission over the internet is 100% secure.
 
 9. CONTACT US
-For privacy concerns, contact: [Your Contact Email]
+For privacy concerns, contact: thelabcook@protonmail.com
 
 10. CHANGES TO THIS POLICY
 We may update this policy periodically. We will notify you of significant changes by updating the "Last Updated" date above.

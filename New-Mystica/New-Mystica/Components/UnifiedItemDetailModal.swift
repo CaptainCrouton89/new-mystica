@@ -90,12 +90,20 @@ struct UnifiedItemDetailModal<Item: ItemDetailDisplayable, ActionButtons: View>:
     var body: some View {
         NavigationView {
             ScrollView {
-                VStack(spacing: 24) {
+                VStack(spacing: 16) {
                     // Large item image
                     itemImageView
 
+                    // Rarity bar
+                    rarityBarView
+
                     // Item metadata
-                    itemMetadataView
+                    if item.isStyled,
+                       let firstMaterial = item.formattedMaterials.first,
+                       let styleName = firstMaterial.styleName,
+                       styleName.lowercased() != "normal" {
+                        itemMetadataView
+                    }
 
                     // Stats display
                     itemStatsView
@@ -103,6 +111,11 @@ struct UnifiedItemDetailModal<Item: ItemDetailDisplayable, ActionButtons: View>:
                     // Materials section (if any)
                     if !item.formattedMaterials.isEmpty {
                         materialsView
+                    }
+
+                    // Description (if available)
+                    if let description = item.description, !description.isEmpty {
+                        descriptionView(description)
                     }
 
                     // Action buttons
@@ -132,34 +145,83 @@ struct UnifiedItemDetailModal<Item: ItemDetailDisplayable, ActionButtons: View>:
         }
     }
 
+    // MARK: - Rarity Bar View
+    private var rarityBarView: some View {
+        HStack(spacing: 12) {
+            SmallText("Lvl.\(item.level)", size: 12)
+                .bold()
+                .foregroundColor(getRarityColor())
+
+            Spacer()
+
+            SmallText(item.rarity.uppercased(), size: 12)
+                .bold()
+                .foregroundColor(getRarityColor())
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: .cornerRadiusStandard)
+                .fill(getRarityColor().opacity(0.15))
+                .overlay(
+                    RoundedRectangle(cornerRadius: .cornerRadiusStandard)
+                        .stroke(getRarityColor(), lineWidth: 1)
+                )
+        )
+    }
+
     // MARK: - Item Image View
     private var itemImageView: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 16)
-                .fill(Color.backgroundCard)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(getRarityColor(), lineWidth: 6)
-                )
+        ZStack(alignment: .topTrailing) {
+            ZStack {
+                RoundedRectangle(cornerRadius: .cornerRadiusStandard)
+                    .fill(Color.backgroundCard)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: .cornerRadiusStandard)
+                            .stroke(getRarityColor(), lineWidth: 6)
+                    )
 
-            if let imageUrl = item.generatedImageUrl, let url = URL(string: imageUrl) {
-                CachedAsyncImage(
-                    url: url,
-                    content: { image in
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .clipped()
-                    },
-                    placeholder: {
-                        ProgressView()
+                if let imageUrl = item.generatedImageUrl, let url = URL(string: imageUrl) {
+                    CachedAsyncImage(
+                        url: url,
+                        content: { image in
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .clipped()
+                        },
+                        placeholder: {
+                            ProgressView()
+                        }
+                    )
+                } else {
+                    fallbackItemIcon
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: .cornerRadiusStandard))
+
+            // Equipped badge overlay
+            if item.isEquipped {
+                VStack {
+                    HStack {
+                        Spacer()
+
+                        SmallText("EQUIPPED", size: 11)
+                            .foregroundColor(.white)
+                            .bold()
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(
+                                RoundedRectangle(cornerRadius: .cornerRadiusStandard)
+                                    .fill(Color.accent)
+                            )
+                            .padding(12)
                     }
-                )
-            } else {
-                fallbackItemIcon
+                    Spacer()
+                }
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: 16))
         .frame(maxWidth: .infinity)
         .aspectRatio(1, contentMode: .fit)
     }
@@ -178,40 +240,29 @@ struct UnifiedItemDetailModal<Item: ItemDetailDisplayable, ActionButtons: View>:
     // MARK: - Item Metadata View
     private var itemMetadataView: some View {
         VStack(spacing: 12) {
-            HStack(spacing: 16) {
-                ForEach(Array(badges.enumerated()), id: \.offset) { _, badge in
-                    badgeView(for: badge)
-                }
-            }
-
             // Styled indicator (hide if style is "normal")
             if item.isStyled,
                let firstMaterial = item.formattedMaterials.first,
                let styleName = firstMaterial.styleName,
                styleName.lowercased() != "normal" {
-                HStack {
+                HStack(spacing: 8) {
                     Image(systemName: "paintbrush.fill")
                         .font(.system(size: 14))
                     NormalText(styleName, size: 14)
+                    Spacer()
                 }
                 .foregroundColor(Color.accent)
+                .frame(maxWidth: .infinity)
                 .padding(.horizontal, 12)
                 .padding(.vertical, 6)
                 .background(
-                    RoundedRectangle(cornerRadius: 8)
+                    RoundedRectangle(cornerRadius: .cornerRadiusStandard)
                         .fill(Color.accent.opacity(0.15))
                         .overlay(
-                            RoundedRectangle(cornerRadius: 8)
+                            RoundedRectangle(cornerRadius: .cornerRadiusStandard)
                                 .stroke(Color.accent, lineWidth: 1)
                         )
                 )
-            }
-
-            // Description
-            if let description = item.description, !description.isEmpty {
-                NormalText(description)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 12)
             }
         }
     }
@@ -231,8 +282,6 @@ struct UnifiedItemDetailModal<Item: ItemDetailDisplayable, ActionButtons: View>:
     // MARK: - Item Stats View
     private var itemStatsView: some View {
         VStack(spacing: 12) {
-            TitleText("Stats", size: 20)
-
             VStack(spacing: 8) {
                 // Attack stats
                 HStack(spacing: 12) {
@@ -275,10 +324,10 @@ struct UnifiedItemDetailModal<Item: ItemDetailDisplayable, ActionButtons: View>:
         }
         .padding(16)
         .background(
-            RoundedRectangle(cornerRadius: 12)
+            RoundedRectangle(cornerRadius: .cornerRadiusStandard)
                 .fill(Color.backgroundCard)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 12)
+                    RoundedRectangle(cornerRadius: .cornerRadiusStandard)
                         .stroke(Color.borderSubtle, lineWidth: 1)
                 )
         )
@@ -306,16 +355,40 @@ struct UnifiedItemDetailModal<Item: ItemDetailDisplayable, ActionButtons: View>:
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
-                RoundedRectangle(cornerRadius: 8)
+                RoundedRectangle(cornerRadius: .cornerRadiusStandard)
                     .fill(Color.backgroundSecondary)
             )
         }
         .padding(16)
         .background(
-            RoundedRectangle(cornerRadius: 12)
+            RoundedRectangle(cornerRadius: .cornerRadiusStandard)
                 .fill(Color.backgroundCard)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 12)
+                    RoundedRectangle(cornerRadius: .cornerRadiusStandard)
+                        .stroke(Color.borderSubtle, lineWidth: 1)
+                )
+        )
+    }
+
+    // MARK: - Description View
+    private func descriptionView(_ description: String) -> some View {
+        VStack(spacing: 12) {
+            NormalText(description)
+                .foregroundColor(Color.textPrimary)
+                .multilineTextAlignment(.leading)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(12)
+                .background(
+                    RoundedRectangle(cornerRadius: .cornerRadiusStandard)
+                        .fill(Color.backgroundSecondary)
+                )
+        }
+        .padding(16)
+        .background(
+            RoundedRectangle(cornerRadius: .cornerRadiusStandard)
+                .fill(Color.backgroundCard)
+                .overlay(
+                    RoundedRectangle(cornerRadius: .cornerRadiusStandard)
                         .stroke(Color.borderSubtle, lineWidth: 1)
                 )
         )
@@ -397,7 +470,7 @@ private struct Badge: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
         .background(
-            RoundedRectangle(cornerRadius: 8)
+            RoundedRectangle(cornerRadius: .cornerRadiusStandard)
                 .fill(Color.backgroundSecondary)
         )
     }
@@ -443,7 +516,7 @@ private struct StatDetailRow: View {
         .frame(maxWidth: .infinity)
         .padding(12)
         .background(
-            RoundedRectangle(cornerRadius: 8)
+            RoundedRectangle(cornerRadius: .cornerRadiusStandard)
                 .fill(Color.backgroundSecondary)
         )
     }

@@ -35,7 +35,7 @@ pnpm supabase:types # Generate types from remote DB
 
 ### Frontend (New-Mystica/)
 ```bash
-./build.sh                          # Build for iOS Simulator. Run this when the user asks you to fix xcode build errors
+cd "/Users/silasrhyneer/Code/new-mystica/New-Mystica" && ./build.sh                          # Build for iOS Simulator. Run this when the user asks you to fix xcode build errors
 ```
 
 ### AI Image Generation (scripts/)
