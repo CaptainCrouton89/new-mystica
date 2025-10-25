@@ -2,7 +2,79 @@ import os
 import sys
 import subprocess
 import argparse
+import json
+import math
 from pathlib import Path
+from concurrent.futures import ProcessPoolExecutor, as_completed
+import multiprocessing
+
+def create_sprite_sheet(frames, output_path, json_path, compression_quality=75):
+    """
+    Create a sprite sheet from frames and save metadata as JSON
+
+    Args:
+        frames: List of PIL Image objects
+        output_path: Path to save sprite sheet PNG
+        json_path: Path to save metadata JSON
+        compression_quality: PNG compression quality 0-100
+    """
+    from PIL import Image
+
+    if not frames:
+        return False
+
+    # Get frame dimensions (assume all frames same size)
+    frame_width, frame_height = frames[0].size
+    num_frames = len(frames)
+
+    # Calculate grid layout (roughly square)
+    cols = math.ceil(math.sqrt(num_frames))
+    rows = math.ceil(num_frames / cols)
+
+    # Create sprite sheet
+    sheet_width = frame_width * cols
+    sheet_height = frame_height * rows
+    sprite_sheet = Image.new('RGBA', (sheet_width, sheet_height), (0, 0, 0, 0))
+
+    # Place frames in grid and build metadata
+    frame_metadata = []
+    for idx, frame in enumerate(frames):
+        col = idx % cols
+        row = idx // cols
+        x = col * frame_width
+        y = row * frame_height
+
+        sprite_sheet.paste(frame, (x, y))
+
+        frame_metadata.append({
+            "frame": idx,
+            "x": x,
+            "y": y,
+            "width": frame_width,
+            "height": frame_height
+        })
+
+    # Save sprite sheet
+    compress_level = int(9 - (compression_quality / 100) * 9)
+    sprite_sheet.save(output_path, 'PNG', compress_level=compress_level, optimize=True)
+
+    # Save metadata JSON
+    metadata = {
+        "frames": frame_metadata,
+        "meta": {
+            "image": output_path.name,
+            "size": {"w": sheet_width, "h": sheet_height},
+            "frameSize": {"w": frame_width, "h": frame_height},
+            "frameCount": num_frames,
+            "cols": cols,
+            "rows": rows
+        }
+    }
+
+    with open(json_path, 'w') as f:
+        json.dump(metadata, f, indent=2)
+
+    return True
 
 def trim_and_loop_video(input_path, output_path, duration=3.5, remove_greenscreen=False, sprite_output=False, fps=12, compression_quality=75):
     """
@@ -17,7 +89,7 @@ def trim_and_loop_video(input_path, output_path, duration=3.5, remove_greenscree
         print(f"Processing {input_path.name}...")
 
         # First, trim the video to the specified duration
-        temp_trimmed = output_path.parent / f"temp_trimmed_{output_path.name}"
+        temp_trimmed = output_path.parent / f"temp_trimmed_{output_path.stem}.mp4"
 
         # Build ffmpeg command - just trim for now, greenscreen removal happens during frame extraction
         print(f"  Trimming to {duration} seconds...")
@@ -48,21 +120,21 @@ def trim_and_loop_video(input_path, output_path, duration=3.5, remove_greenscree
             return False
 
         if sprite_output:
-            # For sprite output, always remove greenscreen and create .atlas for Xcode
+            # For sprite output, always remove greenscreen and create sprite sheet
             print(f"  Extracting frames for sprite sheet ({fps} fps)...")
-
-            # Create .atlas folder for Xcode (sprite atlas format)
-            atlas_dir = output_path.parent / f"{output_path.stem}.atlas"
-            atlas_dir.mkdir(exist_ok=True)
 
             frames_dir = output_path.parent / f"frames_{output_path.stem}"
             frames_dir.mkdir(exist_ok=True)
 
             # Extract frames with greenscreen removal (always enabled for sprites)
+            # Use chromakey with proper alpha channel output
+            # similarity=0.3, blend=0.1 for clean keying
             extract_cmd = [
                 'ffmpeg',
                 '-i', str(temp_trimmed),
-                '-vf', f'fps={fps},chromakey=0x00FF00:0.3:0.2',
+                '-vf', f'fps={fps},chromakey=0x00FF00:0.3:0.1,format=rgba',
+                '-pix_fmt', 'rgba',
+                '-y',
                 str(frames_dir / 'frame_%04d.png')
             ]
 
@@ -72,8 +144,8 @@ def trim_and_loop_video(input_path, output_path, duration=3.5, remove_greenscree
                 print(f"  Error extracting frames: {result.stderr}")
                 return False
 
-            # Optimize and compress frames, then move to .atlas folder
-            print(f"  Optimizing and compressing frames...")
+            # Load frames into memory
+            print(f"  Creating sprite sheet...")
             from PIL import Image
 
             # Get all frame files
@@ -83,28 +155,35 @@ def trim_and_loop_video(input_path, output_path, duration=3.5, remove_greenscree
                 print(f"  Error: No frames extracted")
                 return False
 
-            num_frames = len(frame_files)
+            # Load all frames
+            frames = [Image.open(f) for f in frame_files]
 
-            # Process each frame: optimize and save to .atlas folder
-            for idx, frame_file in enumerate(frame_files):
-                frame = Image.open(frame_file)
+            # Create sprite sheet PNG and JSON
+            sprite_png_path = output_path.with_suffix('.png')
+            sprite_json_path = output_path.with_suffix('.json')
 
-                # Save optimized frame to .atlas folder
-                # Use sequential naming for cleaner Xcode integration
-                atlas_frame_path = atlas_dir / f"frame_{idx:04d}.png"
+            success = create_sprite_sheet(frames, sprite_png_path, sprite_json_path, compression_quality)
 
-                # Apply compression and optimization
-                # compress_level: 0-9 (9 = max compression, slower)
-                # optimize: True = additional compression pass
-                compress_level = int(9 - (compression_quality / 100) * 9)  # Convert quality to compression level
-                frame.save(atlas_frame_path, 'PNG', compress_level=compress_level, optimize=True)
+            # Save first frame as base.png
+            if frames:
+                base_png_path = output_path.parent / 'base.png'
+                frames[0].save(base_png_path, 'PNG')
+                print(f"  Saved base frame: {base_png_path.name}")
+
+            # Close all frames
+            for frame in frames:
                 frame.close()
 
             # Clean up temp frames directory
             import shutil
             shutil.rmtree(frames_dir)
 
-            print(f"  Saved .atlas with {num_frames} optimized frames: {atlas_dir.name}")
+            if success:
+                print(f"  Saved sprite sheet: {sprite_png_path.name} ({len(frames)} frames)")
+                print(f"  Saved metadata: {sprite_json_path.name}")
+            else:
+                print(f"  Error creating sprite sheet")
+                return False
         else:
             # Loop the trimmed video
             print(f"  Looping video...")
@@ -148,16 +227,27 @@ def trim_and_loop_video(input_path, output_path, duration=3.5, remove_greenscree
         return False
 
 def main():
-    parser = argparse.ArgumentParser(description="Trim and loop videos, optionally remove greenscreen and create sprite atlases for Xcode")
-    parser.add_argument("input_folder", help="Input folder containing videos")
-    parser.add_argument("--output", "-o", help="Output folder name (default: input_folder-sprites or input_folder-looped)")
+    parser = argparse.ArgumentParser(description="Trim and loop videos, optionally remove greenscreen and create sprite sheets with JSON metadata")
+    parser.add_argument("input_folder", help="Input folder containing videos (e.g., character-animations/animated/batch_*)")
+    parser.add_argument("--output", "-o", help="Output folder (default: character-animations/character-sprites)")
     parser.add_argument("--duration", "-d", type=float, default=3.5, help="Duration to trim to (default: 3.5)")
     parser.add_argument("--remove-greenscreen", "-g", action="store_true", help="Remove greenscreen background (for videos only, sprites always remove greenscreen)")
-    parser.add_argument("--sprites", "-s", action="store_true", help="Output as .atlas sprite folders for Xcode")
+    parser.add_argument("--sprites", "-s", action="store_true", help="Output as sprite sheets (PNG + JSON metadata)")
     parser.add_argument("--fps", "-f", type=int, default=12, help="Frame rate for sprite extraction (default: 12)")
     parser.add_argument("--quality", "-q", type=int, default=75, help="Compression quality 0-100, higher=better (default: 75)")
+    parser.add_argument("--test", "-t", action="store_true", help="Test mode: lower quality and fps for faster processing")
+    parser.add_argument("--workers", "-w", type=int, default=None, help="Number of parallel workers (default: CPU count)")
 
     args = parser.parse_args()
+
+    # Test mode overrides
+    if args.test:
+        args.fps = 6  # Lower fps for faster processing
+        args.quality = 50  # Lower quality for faster processing
+        print("⚡ TEST MODE: Using fps=6, quality=50 for faster processing\n")
+
+    # Set worker count
+    num_workers = args.workers if args.workers else multiprocessing.cpu_count()
 
     input_folder = Path(args.input_folder)
 
@@ -167,10 +257,15 @@ def main():
 
     # Create output folder
     if args.output:
-        output_folder = input_folder.parent / args.output
+        output_folder = Path(args.output)
     else:
-        suffix = "-sprites" if args.sprites else "-looped"
-        output_folder = input_folder.parent / f"{input_folder.name}{suffix}"
+        if args.sprites:
+            # Default for sprites: character-animations/character-sprites
+            output_folder = Path("character-animations/character-sprites")
+        else:
+            # Default for looped videos: append -looped to input folder name
+            output_folder = input_folder.parent / f"{input_folder.name}-looped"
+
     output_folder.mkdir(parents=True, exist_ok=True)
 
     # Get all video files recursively
@@ -185,7 +280,7 @@ def main():
     print(f"Found {len(videos)} videos to process")
     print(f"Trimming to {args.duration} seconds")
     if args.sprites:
-        print(f"Outputting as .atlas sprite folders (Xcode format)")
+        print(f"Outputting as sprite sheets (PNG + JSON)")
         print(f"Frame rate: {args.fps} fps")
         print(f"Compression quality: {args.quality}/100")
         print("Greenscreen removal: Enabled (automatic for sprites)")
@@ -193,21 +288,62 @@ def main():
         print("Looping once")
         if args.remove_greenscreen:
             print("Removing greenscreen background")
-    print(f"Output folder: {output_folder}\n")
+    print(f"Output folder: {output_folder}")
+    print(f"Workers: {num_workers}\n")
 
+    # Prepare work items
+    work_items = []
+    for video in videos:
+        if args.sprites:
+            # Flatten structure for sprites: character-sprites/character_name/animation_sample.png
+            # Extract character name from path
+            relative_path = video.relative_to(input_folder)
+            path_parts = relative_path.parts
+
+            # Determine character name from path
+            if len(path_parts) >= 3:
+                # Full batch path: character_name/animation_type/video.mp4
+                character_name = path_parts[0]
+            elif len(path_parts) >= 2:
+                # Single character folder: animation_type/video.mp4
+                # Use input folder name as character name
+                character_name = input_folder.name
+            else:
+                # Fallback: use video stem
+                character_name = "unknown"
+
+            video_filename = video.stem  # e.g., idle_sample1
+
+            # Output: character-sprites/character_name/idle_sample1.png
+            output_path = output_folder / character_name / video_filename
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+        else:
+            # Preserve folder structure for videos
+            relative_path = video.relative_to(input_folder)
+            output_path = output_folder / relative_path
+            output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        work_items.append((video, output_path, args.duration, args.remove_greenscreen, args.sprites, args.fps, args.quality))
+
+    # Process in parallel
     success_count = 0
     failed_count = 0
 
-    for video in videos:
-        # Preserve folder structure
-        relative_path = video.relative_to(input_folder)
-        output_path = output_folder / relative_path
-        output_path.parent.mkdir(parents=True, exist_ok=True)
+    with ProcessPoolExecutor(max_workers=num_workers) as executor:
+        # Submit all jobs
+        futures = {executor.submit(trim_and_loop_video, *item): item[0] for item in work_items}
 
-        if trim_and_loop_video(video, output_path, args.duration, args.remove_greenscreen, args.sprites, args.fps, args.quality):
-            success_count += 1
-        else:
-            failed_count += 1
+        # Process as they complete
+        for future in as_completed(futures):
+            video = futures[future]
+            try:
+                if future.result():
+                    success_count += 1
+                else:
+                    failed_count += 1
+            except Exception as e:
+                print(f"  Error processing {video.name}: {str(e)}")
+                failed_count += 1
 
     print(f"\n{'='*60}")
     print(f"Complete! Processed {success_count}/{len(videos)} videos successfully")

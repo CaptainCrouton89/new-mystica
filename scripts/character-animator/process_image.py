@@ -69,10 +69,18 @@ def process_image(input_file, landscape=False):
     # Paste the image
     greenscreen.paste(skeleton, (x, y), skeleton)
 
-    # Save final result
+    # Save greenscreen version
     final_file = f"{base_name}-greenscreen.png"
     greenscreen.save(final_file)
     print(f"Saved {final_file}")
+
+    # Create transparent version
+    transparent = Image.new('RGBA', (target_width, target_height), (0, 0, 0, 0))
+    transparent.paste(skeleton, (x, y), skeleton)
+    transparent_file = f"{base_name}-transparent.png"
+    transparent.save(transparent_file)
+    print(f"Saved {transparent_file}")
+
     print("Done!")
 
 if __name__ == "__main__":
