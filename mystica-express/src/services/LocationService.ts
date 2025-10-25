@@ -1,6 +1,6 @@
 import { locationRepository } from '../repositories/LocationRepository.js';
-import { NotFoundError, ValidationError } from '../utils/errors.js';
 import type { Database } from '../types/database.types.js';
+import { NotFoundError, ValidationError } from '../utils/errors.js';
 
 type Location = Database['public']['Tables']['locations']['Row'];
 
@@ -141,6 +141,42 @@ export class LocationService {
 
   async getStyleName(styleId: string): Promise<string> {
     return locationRepository.getStyleName(styleId);
+  }
+
+  async autoGenerate(
+    lat: number,
+    lng: number,
+    stateCode?: string,
+    countryCode?: string
+  ): Promise<Location | null> {
+    // Validation
+    if (lat < -90 || lat > 90) {
+      throw new ValidationError('Latitude must be between -90 and 90');
+    }
+    if (lng < -180 || lng > 180) {
+      throw new ValidationError('Longitude must be between -180 and 180');
+    }
+
+    // Check for existing locations within 100m
+    const nearbyLocations = await locationRepository.findNearby(lat, lng, 100);
+
+    if (nearbyLocations.length > 0) {
+      // Locations exist within 100m, don't create new one
+      return null;
+    }
+
+    // Create "Goblin Den" at user's location
+    const newLocation = await locationRepository.create({
+      lat,
+      lng,
+      name: 'Goblin Den',
+      location_type: 'dungeon',
+      country_code: countryCode || null,
+      state_code: stateCode || null,
+      image_url: `${process.env.R2_PUBLIC_URL}/location-images/dungeon.png`
+    });
+
+    return newLocation;
   }
 }
 
