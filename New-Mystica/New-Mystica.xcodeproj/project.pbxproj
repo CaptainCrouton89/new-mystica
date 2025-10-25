@@ -18,6 +18,8 @@
 
 /* Begin PBXFileReference section */
 		2817BD1B2EA5FD3700468184 /* New-Mystica.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "New-Mystica.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		DEVXCFG0001001A /* Development.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Development.xcconfig; path = Development.xcconfig; sourceTree = "<group>"; };
+		PRODXCFG0002001B /* Production.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Production.xcconfig; path = Production.xcconfig; sourceTree = "<group>"; };
 		28AA65B22EA97A030072765F /* New-MysticaTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "New-MysticaTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		98EDADE22EA72B690033F76B /* Bungee-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "Bungee-Regular.ttf"; path = "New-Mystica/Fonts/Bungee/Bungee-Regular.ttf"; sourceTree = "<group>"; };
 		98EDADED2EA72E200033F76B /* Metamorphous-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "Metamorphous-Regular.ttf"; path = "New-Mystica/Fonts/Metamorphous/Metamorphous-Regular.ttf"; sourceTree = "<group>"; };
@@ -223,6 +225,7 @@
 /* Begin XCBuildConfiguration section */
 		2817BD262EA5FD3800468184 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = DEVXCFG0001001A /* Development.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -287,6 +290,7 @@
 		};
 		2817BD272EA5FD3800468184 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = PRODXCFG0002001B /* Production.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
@@ -344,6 +348,7 @@
 		};
 		2817BD292EA5FD3800468184 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = DEVXCFG0001001A /* Development.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -377,6 +382,7 @@
 		};
 		2817BD2A2EA5FD3800468184 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = PRODXCFG0002001B /* Production.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
@@ -410,6 +416,7 @@
 		};
 		28AA65B92EA97A030072765F /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = DEVXCFG0001001A /* Development.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
@@ -431,6 +438,7 @@
 		};
 		28AA65BA2EA97A030072765F /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = PRODXCFG0002001B /* Production.xcconfig */;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
