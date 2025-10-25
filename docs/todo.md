@@ -1,3 +1,3 @@
 todo:
-- fix ui of combat
-- fix defense calculations
+- Fix prod url
+- Upload images to make custom materials/items
