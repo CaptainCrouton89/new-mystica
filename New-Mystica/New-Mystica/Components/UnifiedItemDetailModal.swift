@@ -150,13 +150,11 @@ struct UnifiedItemDetailModal<Item: ItemDetailDisplayable, ActionButtons: View>:
         HStack(spacing: 12) {
             SmallText("Lvl.\(item.level)", size: 12)
                 .bold()
-                .foregroundColor(Color.rarityBorderColor(for: item.rarity))
 
             Spacer()
 
-            SmallText(item.rarity.uppercased(), size: 12)
+            SmallText(item.rarity.uppercased(), size: 12, color: Color.rarityBorderColor(for: item.rarity))
                 .bold()
-                .foregroundColor(Color.rarityBorderColor(for: item.rarity))
         }
         .frame(maxWidth: .infinity)
         .padding(.horizontal, 16)
