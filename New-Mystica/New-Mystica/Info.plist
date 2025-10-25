@@ -11,7 +11,5 @@
 	</array>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Mystica needs access to your location to show nearby battle locations and adventures. Your location data is used only for gameplay and is not stored or shared.</string>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Mystica needs access to your location to show nearby battle locations and adventures. Your location data is used only for gameplay and is not stored or shared.</string>
 </dict>
 </plist>
