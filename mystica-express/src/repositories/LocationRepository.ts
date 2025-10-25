@@ -55,13 +55,32 @@ export class LocationRepository extends BaseRepository<Location> {
    * - distance_meters: Returned from PostGIS RPC
    */
   async findNearby(lat: number, lng: number, radius: number): Promise<LocationWithDistance[]> {
-    const data = await this.rpc<LocationWithDistance[]>('get_nearby_locations', {
+    console.log('[LocationRepository] Calling get_nearby_locations RPC with params:', {
       user_lat: lat,
       user_lng: lng,
-      search_radius: radius,
+      search_radius: radius
     });
 
-    return data || [];
+    type RPCResult = Database['public']['Functions']['get_nearby_locations']['Returns'];
+
+    try {
+      const data = await this.rpc<RPCResult>('get_nearby_locations', {
+        user_lat: lat,
+        user_lng: lng,
+        search_radius: radius,
+      });
+
+      console.log('[LocationRepository] RPC returned data:', {
+        count: data?.length,
+        firstItem: data?.[0],
+        firstItemKeys: data?.[0] ? Object.keys(data[0]) : []
+      });
+
+      return data || [];
+    } catch (error) {
+      console.error('[LocationRepository] RPC error:', error);
+      throw error;
+    }
   }
 
   /**
