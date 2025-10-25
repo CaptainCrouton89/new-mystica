@@ -26,9 +26,6 @@ struct TimingDialView: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            SmallText("Combat Dial", size: 12)
-                .foregroundColor(Color.textPrimary)
-
             ZStack {
                 // 5-zone dial shape
                 FiveZoneDialShape(adjustedBands: adjustedBands)

@@ -165,6 +165,8 @@ struct BattleView: View {
                     rewardsOverlay(rewards: viewModel.rewards)
                 }
             }
+        } trailingView: {
+            TurnIndicatorView(turnNumber: viewModel.turnNumber)
         }
         .floatingText()
         .environmentObject(floatingTextManager)
@@ -347,67 +349,142 @@ struct BattleView: View {
 
     /// Show visual feedback for attack actions
     func showAttackFeedback(action: CombatAction) {
-        guard let damage = action.damageDealt,
-              let zone = action.hitZone else { return }
+        // Use new zone information if available, fallback to legacy
+        if let playerZone = action.playerDamage, let enemyZone = action.enemyDamage {
+            // Show player's attack damage
+            let playerColor = colorForZoneNumber(playerZone.zone)
+            let playerText = textForZoneHit(playerZone)
 
-        let color = colorForZone(zone)
-        let text = textForZone(zone, damage: damage)
+            floatingTextManager.showText(
+                playerText,
+                color: playerColor,
+                fontSize: playerZone.critOccurred ? 28 : 22,
+                fontWeight: playerZone.critOccurred ? .black : .bold,
+                duration: playerZone.critOccurred ? 0.8 : 0.5
+            )
 
-        // Show floating damage number
-        floatingTextManager.showText(
-            text,
-            color: color,
-            fontSize: zone.lowercased() == "crit" ? 24 : 20,
-            fontWeight: zone.lowercased() == "crit" ? .black : .bold,
-            duration: 0.5
-        )
+            // Enemy shake for good hits (zones 1-3)
+            if playerZone.zone <= 3 {
+                triggerEnemyShake()
+            }
 
-        // Enemy shake animation (only for successful hits)
-        if !["miss", "injure"].contains(zone.lowercased()) {
-            triggerEnemyShake()
+            // Show enemy's counterattack damage (smaller, below)
+            if enemyZone.finalDamage > 0 {
+                let enemyColor = Color.red
+                floatingTextManager.showText(
+                    "-\(Int(enemyZone.finalDamage))",
+                    color: enemyColor,
+                    fontSize: 18,
+                    fontWeight: .regular,
+                    duration: 0.4,
+                    offsetY: 40 // Position below main damage text
+                )
+
+                // Player shake if hit hard
+                if enemyZone.zone <= 2 {
+                    triggerPlayerShake()
+                }
+            }
+
+            // Trigger haptic and audio based on zone
+            triggerHapticForZone(playerZone.zone)
+            triggerAudioForZone(playerZone.zone, isCrit: playerZone.critOccurred)
+        } else if let damage = action.damageDealt, let zone = action.hitZone {
+            // Legacy fallback
+            let color = colorForZone(zone)
+            let text = textForZone(zone, damage: damage)
+
+            floatingTextManager.showText(
+                text,
+                color: color,
+                fontSize: zone.lowercased() == "crit" ? 24 : 20,
+                fontWeight: zone.lowercased() == "crit" ? .black : .bold,
+                duration: 0.5
+            )
+
+            if !["miss", "injure"].contains(zone.lowercased()) {
+                triggerEnemyShake()
+            }
+
+            triggerHapticFeedback(for: zone)
+            triggerAudioFeedback(for: action, audioManager: audioManager)
         }
-
-        // Trigger haptic and audio feedback
-        triggerHapticFeedback(for: zone)
-        triggerAudioFeedback(for: action, audioManager: audioManager)
     }
 
     /// Show visual feedback for defense actions
     func showDefenseFeedback(action: CombatAction) {
-        guard let damageTaken = action.damageDealt else { return }
+        // Use new zone information if available, fallback to legacy
+        if let playerZone = action.playerDamage, let enemyZone = action.enemyDamage {
+            // Show player's defense effectiveness (how well they reduced damage)
+            let defenseColor = colorForZoneNumber(playerZone.zone)
+            let defenseText = displayNameForZone(playerZone.zone)
 
-        // Show shield visual
-        let effectiveness = action.damageBlocked != nil && action.damageDealt != nil
-            ? getDefenseEffectiveness(blocked: action.damageBlocked!, taken: action.damageDealt!)
-            : 0.0
-        showShieldEffect(effectiveness: effectiveness)
-
-        // Show damage/blocked numbers
-        if let blocked = action.damageBlocked, blocked > 0 {
+            // Show damage reduction or mitigation
             floatingTextManager.showText(
-                "+\(Int(blocked)) blocked",
-                color: .green,
-                fontSize: 18,
-                fontWeight: .bold,
-                duration: 0.5
-            )
-        }
-
-        if damageTaken > 0 {
-            floatingTextManager.showText(
-                "-\(Int(damageTaken))",
-                color: .red,
+                defenseText,
+                color: defenseColor,
                 fontSize: 20,
                 fontWeight: .bold,
                 duration: 0.5
             )
-        }
 
-        // Trigger haptic and audio feedback
-        if let blocked = action.damageBlocked {
-            triggerDefenseHaptic(damageBlocked: blocked, damageTaken: damageTaken)
+            // Show enemy's attack damage (that got through)
+            if enemyZone.finalDamage > 0 {
+                floatingTextManager.showText(
+                    "-\(Int(enemyZone.finalDamage))",
+                    color: .red,
+                    fontSize: 22,
+                    fontWeight: .bold,
+                    duration: 0.5,
+                    offsetY: 35
+                )
+
+                // Player shake if took significant damage
+                if enemyZone.zone <= 2 || enemyZone.critOccurred {
+                    triggerPlayerShake()
+                }
+            }
+
+            // Shield effect based on player defense zone (better defense = better zone)
+            let shieldEffectiveness = Double(6 - playerZone.zone) / 5.0 // Zone 1 = 1.0, Zone 5 = 0.2
+            showShieldEffect(effectiveness: shieldEffectiveness)
+
+            // Trigger haptic based on defense quality
+            triggerHapticForZone(playerZone.zone)
+        } else {
+            // Legacy fallback
+            guard let damageTaken = action.damageDealt else { return }
+
+            let effectiveness = action.damageBlocked != nil && action.damageDealt != nil
+                ? getDefenseEffectiveness(blocked: action.damageBlocked!, taken: action.damageDealt!)
+                : 0.0
+            showShieldEffect(effectiveness: effectiveness)
+
+            if let blocked = action.damageBlocked, blocked > 0 {
+                floatingTextManager.showText(
+                    "+\(Int(blocked)) blocked",
+                    color: .green,
+                    fontSize: 18,
+                    fontWeight: .bold,
+                    duration: 0.5
+                )
+            }
+
+            if damageTaken > 0 {
+                floatingTextManager.showText(
+                    "-\(Int(damageTaken))",
+                    color: .red,
+                    fontSize: 20,
+                    fontWeight: .bold,
+                    duration: 0.5
+                )
+            }
+
+            if let blocked = action.damageBlocked {
+                triggerDefenseHaptic(damageBlocked: blocked, damageTaken: damageTaken)
+            }
+            triggerAudioFeedback(for: action, audioManager: audioManager)
         }
-        triggerAudioFeedback(for: action, audioManager: audioManager)
     }
 
     /// Trigger enemy shake animation
@@ -427,6 +504,28 @@ struct BattleView: View {
             await MainActor.run {
                 withAnimation(.easeInOut(duration: 0.1)) {
                     enemyOffset = .zero
+                }
+            }
+        }
+    }
+
+    /// Trigger player shake animation
+    func triggerPlayerShake() {
+        withAnimation(.easeInOut(duration: 0.15)) {
+            playerOffset = CGPoint(x: -4, y: 0)
+        }
+
+        Task {
+            try? await Task.sleep(nanoseconds: 75_000_000) // 0.075s
+            await MainActor.run {
+                withAnimation(.easeInOut(duration: 0.1)) {
+                    playerOffset = CGPoint(x: 4, y: 0)
+                }
+            }
+            try? await Task.sleep(nanoseconds: 75_000_000) // 0.075s
+            await MainActor.run {
+                withAnimation(.easeInOut(duration: 0.1)) {
+                    playerOffset = .zero
                 }
             }
         }
