@@ -177,7 +177,7 @@ extension BattleView {
             EnemyAvatarView(
                 enemy: enemy,
                 scale: enemyScale,
-                animationLoader: enemyAnimationLoader,
+                animationLoader: currentAnimationLoader,
                 currentFrame: enemyCurrentFrame
             )
             .offset(x: enemyOffset.x, y: enemyOffset.y)
@@ -191,23 +191,6 @@ extension BattleView {
     // MARK: - Player Section
     func playerSection(session: CombatSession) -> some View {
         VStack(spacing: 16) {
-            // Player Avatar with shield overlay
-            ZStack {
-                PlayerAvatarView(scale: playerScale)
-                    .offset(x: playerOffset.x, y: playerOffset.y)
-                    .animation(.easeInOut(duration: 0.2), value: playerOffset)
-
-                // Shield visual during defense
-                if showShield {
-                    Image(systemName: "shield.fill")
-                        .foregroundColor(shieldColor)
-                        .font(.system(size: 40))
-                        .scaleEffect(showShield ? 1.2 : 0.8)
-                        .opacity(showShield ? 0.8 : 0)
-                        .animation(.easeInOut(duration: 0.2), value: showShield)
-                }
-            }
-
             // Player Health Bar
             HealthBarView(
                 currentHealth: Double(viewModel.currentHP),

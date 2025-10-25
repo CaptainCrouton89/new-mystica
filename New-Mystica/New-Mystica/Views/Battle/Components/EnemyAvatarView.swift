@@ -15,22 +15,10 @@ struct EnemyAvatarView: View {
     let currentFrame: Int
 
     var body: some View {
-        ZStack {
-            // Avatar Background
-            Circle()
-                .fill(Color.backgroundCard)
-                .frame(width: 120, height: 120)
-                .overlay(
-                    Circle()
-                        .stroke(Color.accent, lineWidth: 3)
-                )
-                .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 4)
-
-            // Enemy Animation (animated sprite or fallback to static image)
-            enemyAnimationView
-                .frame(width: 80, height: 80)
-        }
-        .scaleEffect(scale)
+        // Enemy Animation (animated sprite or fallback to static image)
+        enemyAnimationView
+            .frame(width: 80, height: 80)
+            .scaleEffect(scale)
     }
 
     private var enemyAnimationView: some View {

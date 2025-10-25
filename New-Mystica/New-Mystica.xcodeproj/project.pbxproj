@@ -18,13 +18,13 @@
 
 /* Begin PBXFileReference section */
 		2817BD1B2EA5FD3700468184 /* New-Mystica.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "New-Mystica.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		DEVXCFG0001001A /* Development.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Development.xcconfig; path = Development.xcconfig; sourceTree = "<group>"; };
-		PRODXCFG0002001B /* Production.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Production.xcconfig; path = Production.xcconfig; sourceTree = "<group>"; };
 		28AA65B22EA97A030072765F /* New-MysticaTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "New-MysticaTests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
 		98EDADE22EA72B690033F76B /* Bungee-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "Bungee-Regular.ttf"; path = "New-Mystica/Fonts/Bungee/Bungee-Regular.ttf"; sourceTree = "<group>"; };
 		98EDADED2EA72E200033F76B /* Metamorphous-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "Metamorphous-Regular.ttf"; path = "New-Mystica/Fonts/Metamorphous/Metamorphous-Regular.ttf"; sourceTree = "<group>"; };
 		98EDADEE2EA72E8E0033F76B /* IMFellFrenchCanon-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "IMFellFrenchCanon-Regular.ttf"; path = "New-Mystica/Fonts/IM_Fell_French_Canon/IMFellFrenchCanon-Regular.ttf"; sourceTree = "<group>"; };
 		98EDADEF2EA72EA10033F76B /* CinzelDecorative-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; name = "CinzelDecorative-Regular.ttf"; path = "New-Mystica/Fonts/Cinzel_Decorative/CinzelDecorative-Regular.ttf"; sourceTree = "<group>"; };
+		DEVXCFG0001001A /* Development.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Development.xcconfig; sourceTree = "<group>"; };
+		PRODXCFG0002001B /* Production.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Production.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -81,6 +81,7 @@
 				2817BD1D2EA5FD3700468184 /* New-Mystica */,
 				28AA65B32EA97A030072765F /* New-MysticaTests */,
 				2817BD1C2EA5FD3700468184 /* Products */,
+				98085E102EAD4ACF00F4920A /* Recovered References */,
 			);
 			sourceTree = "<group>";
 		};
@@ -91,6 +92,15 @@
 				28AA65B22EA97A030072765F /* New-MysticaTests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		98085E102EAD4ACF00F4920A /* Recovered References */ = {
+			isa = PBXGroup;
+			children = (
+				DEVXCFG0001001A /* Development.xcconfig */,
+				PRODXCFG0002001B /* Production.xcconfig */,
+			);
+			name = "Recovered References";
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
