@@ -252,12 +252,6 @@ struct MapView: View, NavigableView {
                             .foregroundColor(Color.textSecondary)
                             .italic()
                     }
-
-                    TextButton("Close", height: 40) {
-                        audioManager.playMenuButtonClick()
-                        selectedLocation = nil
-                        showLocationPopup = false
-                    }
                 }
             }
             .padding(24)
@@ -270,6 +264,27 @@ struct MapView: View, NavigableView {
                     )
             )
             .shadow(color: Color.black.opacity(0.3), radius: 20, x: 0, y: 10)
+            .overlay(
+                // Cancel button positioned on the top-right corner of the modal
+                VStack {
+                    HStack {
+                        Spacer()
+                        Button {
+                            audioManager.playCancelClick()
+                            selectedLocation = nil
+                            showLocationPopup = false
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 24))
+                                .foregroundColor(Color.textSecondary)
+                        }
+                        .padding(.top, 8)
+                        .padding(.trailing, 8)
+                    }
+                    Spacer()
+                },
+                alignment: .topTrailing
+            )
             .padding(.horizontal, 40)
         }
     }
