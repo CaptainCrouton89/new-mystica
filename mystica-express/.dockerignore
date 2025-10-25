@@ -1,0 +1,13 @@
+node_modules
+dist
+.git
+.env
+.env.local
+*.log
+.DS_Store
+tests
+coverage
+.eslint*
+.prettier*
+jest.config.js
+nodemon.json

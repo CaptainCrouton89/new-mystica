@@ -4,33 +4,14 @@ The Railway app has all variables from @.env.local loaded (but NODE_ENV=producti
 
 The node engine is 24 (well supported as of October 2025).
 
-## Configuration Fixed ✅
-
-**Solution:** `mystica-express/railway.json` now specifies `"builder": "DOCKERFILE"`.
-
-### Builder Selection Precedence (from Railway docs)
-
-Railway chooses builders in this exact order:
-1. **Dockerfile present** → Always uses Dockerfile (highest priority)
-2. **railway.json `builder` field** → Overrides defaults (THIS IS WHAT WE USE)
-3. Service dashboard settings → UI configuration
-4. Railway default → Railpack/Nixpacks
-
-### Why railway.json in mystica-express/ ?
-
-Railway detects this as a monorepo and uses the service-specific `railway.json`. The root `railway.toml` is ignored when service-level config exists.
-
-### Why Not Nixpacks?
-
-- Railway's Nixpacks only supports Node.js 16, 18, 20, 22, 23 (no Node 24)
-- Node.js 24 requires the Dockerfile approach with `node:24-slim` base image
-
 ## Files
 
 - **Dockerfile** - Production build with Node.js 24, pnpm 8.x, TypeScript compilation
 - **railway.toml** - Deployment config (health checks, restart policy) - may not override UI
 - **.dockerignore** - Excludes unnecessary files from build context
-
+- **docs** - /Users/silasrhyneer/Code/new-mystica/docs/external/railway-nixpacks.md, /Users/silasrhyneer/Code/new-mystica/docs/external/railway-builder-config.md
+/Users/silasrhyneer/Code/new-mystica/docs/external/railway-dockerfile-monorepo.md
+  
 ## Local Validation
 
 The Dockerfile has been validated locally:
@@ -50,3 +31,8 @@ curl http://localhost:3001/api/v1/health
 ## After Making Fixes
 
 Commit and push changes. Railway will auto-deploy if you've configured webhooks.
+
+## Editing This File
+
+- Do not update this document unless the values contained within change. 
+- Do not include "updates or bug fix" logs
