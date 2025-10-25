@@ -34,6 +34,10 @@ curl http://localhost:3001/api/v1/health
 # Should return: {"success":true,"data":{"status":"healthy",...}}
 ```
 
+## Production
+
+Production url is `https://mystica-express-production.up.railway.app`
+
 ## After Making Fixes
 
 Commit and push changes. Railway will auto-deploy if you've configured webhooks.

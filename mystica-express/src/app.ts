@@ -25,7 +25,7 @@ app.use(morgan('combined'));
 // CORS configuration
 app.use(cors({
   origin: process.env.NODE_ENV === 'production'
-    ? ['https://mystica.app', 'https://www.mystica.app']
+    ? ['https://mystica.app', 'https://www.mystica.app', 'https://mystica-express-production.up.railway.app']
     : ['http://localhost:3000', 'http://localhost:8100'], // Allow SwiftUI preview
   credentials: true
 }));

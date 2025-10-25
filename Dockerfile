@@ -19,7 +19,7 @@ RUN pnpm install --frozen-lockfile --force
 # Build TypeScript
 RUN pnpm build
 
-# Expose port
+# Expose port 3000 (actual port determined by PORT env var at runtime)
 EXPOSE 3000
 
 # Start the server
