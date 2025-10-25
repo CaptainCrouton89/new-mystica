@@ -7,6 +7,7 @@
 //
 
 import SwiftUI
+import SpriteKit
 
 struct EnemyAvatarView: View {
     let enemy: Enemy
@@ -32,35 +33,36 @@ struct EnemyAvatarView: View {
     }
 
     private var enemyAnimationView: some View {
-        let animationPath = getEnemyAnimationPath(enemy)
+        let (monsterName, animationType) = getEnemyAnimationInfo(enemy)
 
-        return AnimatedSpriteView(
-            folderPath: animationPath,
+        return RemoteSpriteView(
+            monsterName: monsterName,
+            animationType: animationType,
             frameRate: 12.0,
             size: CGSize(width: 80, height: 80)
         )
     }
 
-    private func getEnemyAnimationPath(_ enemy: Enemy) -> String {
+    private func getEnemyAnimationInfo(_ enemy: Enemy) -> (monsterName: String, animationType: String) {
         guard let name = enemy.name?.lowercased() else {
-            return "sprites/enemies/bird man/attack"
+            return ("birdman", "idle")
         }
 
         switch name {
         case let n where n.contains("bird") || n.contains("birdman"):
-            return "sprites/enemies/bird man/attack"
+            return ("birdman", "idle")
         case let n where n.contains("wolf"):
-            return "sprites/enemies/bird man/attack" // Fallback for now
+            return ("birdman", "idle") // Fallback for now
         case let n where n.contains("golem"):
-            return "sprites/enemies/bird man/attack" // Fallback for now
+            return ("birdman", "idle") // Fallback for now
         case let n where n.contains("dragon"):
-            return "sprites/enemies/bird man/attack" // Fallback for now
+            return ("birdman", "idle") // Fallback for now
         case let n where n.contains("warrior"):
-            return "sprites/enemies/bird man/attack" // Fallback for now
+            return ("birdman", "idle") // Fallback for now
         case let n where n.contains("spirit"):
-            return "sprites/enemies/bird man/attack" // Fallback for now
+            return ("birdman", "idle") // Fallback for now
         default:
-            return "sprites/enemies/bird man/attack"
+            return ("birdman", "idle")
         }
     }
 }
@@ -97,3 +99,87 @@ private let mockEnemy = Enemy(
     goldMax: 50,
     materialDropPool: []
 )
+
+/**
+ * RemoteSpriteView - SwiftUI wrapper for remote sprite animations
+ * 
+ * Handles loading remote sprites from R2 storage using SimpleSpriteLoader
+ */
+struct RemoteSpriteView: View {
+    let monsterName: String
+    let animationType: String
+    let frameRate: Double
+    let size: CGSize
+    
+    @State private var skView: SKView?
+    @State private var isLoading = true
+    @State private var hasError = false
+    
+    var body: some View {
+        ZStack {
+            if isLoading {
+                VStack(spacing: 8) {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                    Text("Loading...")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .frame(width: size.width, height: size.height)
+            } else if hasError {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.red.opacity(0.1))
+                    .frame(width: size.width, height: size.height)
+                    .overlay(
+                        VStack(spacing: 4) {
+                            Image(systemName: "exclamationmark.triangle")
+                                .foregroundColor(.red)
+                            Text("Failed to load")
+                                .foregroundColor(.red)
+                                .font(.caption)
+                        }
+                    )
+            } else if let skView = skView, let scene = skView.scene {
+                SpriteView(scene: scene)
+                    .frame(width: size.width, height: size.height)
+                    .background(Color.clear)
+            }
+        }
+        .onAppear {
+            loadAnimation()
+        }
+    }
+    
+    private func loadAnimation() {
+        SimpleSpriteLoader.shared.loadAnimatedSprite(
+            monsterName: monsterName,
+            animationType: animationType,
+            frameRate: frameRate
+        ) { spriteNode in
+            DispatchQueue.main.async {
+                isLoading = false
+                if let spriteNode = spriteNode {
+                    createSpriteKitScene(with: spriteNode)
+                    hasError = false
+                } else {
+                    hasError = true
+                }
+            }
+        }
+    }
+    
+    private func createSpriteKitScene(with spriteNode: SKSpriteNode) {
+        let skView = SKView(frame: CGRect(origin: .zero, size: size))
+        skView.allowsTransparency = true
+        
+        let scene = SKScene(size: size)
+        scene.backgroundColor = .clear
+        scene.scaleMode = .aspectFit
+        
+        spriteNode.position = CGPoint(x: size.width / 2, y: size.height / 2)
+        scene.addChild(spriteNode)
+        
+        skView.presentScene(scene)
+        self.skView = skView
+    }
+}

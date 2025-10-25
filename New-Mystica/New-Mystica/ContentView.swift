@@ -39,7 +39,7 @@ struct ContentView: View {
         case .defeat:
             DefeatView()
         case .testAnimations:
-            TestAnimationsView()
+            SimpleAnimationTestView()
         case .crafting(let preselectedItem, let preselectedMaterial):
             CraftingView(preselectedItem: preselectedItem, preselectedMaterial: preselectedMaterial)
                 .onAppear {
