@@ -42,6 +42,13 @@ Services delegate data access to repositories extending `BaseRepository<T>`.
 
 ## Core Services
 
+**EnemyService** (✅ Fully Implemented)
+- Enemy/monster data retrieval with complete stat computation
+- Returns `MonsterData` interface with personality, dialogue, and sprite animations
+- Methods: `getMonsterById()`, `getMonstersByIds()`, `listMonsters()`
+- R2 sprite URL construction (UUID-based paths: `monsters/{uuid}/sprites/*`)
+- Personality trait extraction from `ai_personality_traits` JSON
+
 **CombatService** (✅ Fully Implemented)
 - Combat session lifecycle and turn execution using modular subdirectory structure
 - Subdirectories: `combat/types.ts`, `combat/constants.ts`, `combat/calculations.ts`, `combat/session.ts`, `combat/loot.ts`, `combat/rewards.ts`, `combat/combat-log.ts`, `combat/turn-execution.ts`
