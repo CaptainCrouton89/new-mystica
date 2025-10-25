@@ -594,7 +594,7 @@ describe('ChatterService', () => {
 
         // Assert
         expect(result.was_ai_generated).toBe(false);
-        expect(enemyType.example_taunts).toContain(result.dialogue);
+        expect(result.dialogue).toBe("..."); // Default fallback when no taunts available
         expect(result.enemy_type).toBe('wizard');
         expect(result.dialogue_tone).toBe('chaotic');
 
@@ -852,8 +852,8 @@ describe('ChatterService', () => {
           expect(enemyType).toHaveProperty('display_name');
           expect(enemyType).toHaveProperty('personality_traits');
           expect(enemyType).toHaveProperty('dialogue_tone');
-          expect(enemyType).toHaveProperty('example_taunts');
-          expect(enemyType).toHaveProperty('verbosity');
+          expect(enemyType).toHaveProperty('tier_id');
+          expect(enemyType).toHaveProperty('style_id');
         });
       });
     });
@@ -921,7 +921,7 @@ describe('ChatterService', () => {
 
         // Assert
         expect(result.was_ai_generated).toBe(false);
-        expect(enemyType.example_taunts).toContain(result.dialogue);
+        expect(result.dialogue).toBe("..."); // Default fallback when no taunts available
       });
 
       it('should handle network connectivity issues', async () => {

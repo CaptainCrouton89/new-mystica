@@ -1,7 +1,7 @@
 import replicate
 import os
 import json
-import sys
+import argparse
 from pathlib import Path
 from dotenv import load_dotenv
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -10,7 +10,7 @@ from datetime import datetime
 # Load environment variables
 load_dotenv()
 
-def animate_image(image_path, animation_type, prompt, output_path, sample_num, use_last_frame=True, aspect_ratio="9:16"):
+def animate_image(image_path, animation_type, prompt, output_path, sample_num, use_last_frame=True, aspect_ratio="16:9"):
     """
     Animate a single image with Replicate Veo
     """
@@ -48,9 +48,12 @@ def animate_image(image_path, animation_type, prompt, output_path, sample_num, u
         print(f"[{animation_type}] Sample {sample_num} - Error: {str(e)}")
         return False
 
-def process_image(image_path, config, output_base):
+def process_image(image_path, config, output_base, force=False):
     """
     Process a single image with all animations
+
+    Args:
+        force: If True, regenerate all animations. If False, skip existing files.
     """
     image_name = image_path.stem
     image_output_dir = Path(output_base) / image_name
@@ -61,6 +64,7 @@ def process_image(image_path, config, output_base):
     print(f"{'='*60}")
 
     tasks = []
+    skipped = 0
 
     # Create tasks for each animation type
     for anim_type, anim_config in config['animations'].items():
@@ -81,6 +85,12 @@ def process_image(image_path, config, output_base):
 
             output_path = anim_dir / output_filename
 
+            # Skip if file exists and not forcing regeneration
+            if output_path.exists() and not force:
+                print(f"  ✓ Skipping {anim_type} sample {sample_num} (already exists)")
+                skipped += 1
+                continue
+
             tasks.append({
                 'image_path': image_path,
                 'animation_type': anim_type,
@@ -88,57 +98,138 @@ def process_image(image_path, config, output_base):
                 'output_path': output_path,
                 'sample_num': sample_num,
                 'use_last_frame': use_last_frame,
-                'aspect_ratio': config.get('aspect_ratio', '9:16')
+                'aspect_ratio': config.get('aspect_ratio', '16:9')
             })
+
+    if skipped > 0:
+        print(f"  Skipped {skipped} existing animations")
 
     return tasks
 
 def main():
-    if len(sys.argv) < 3:
-        print("Usage: python animate_characters.py <input_folder> <config.json>")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(description='Animate character images using Replicate Veo')
+    parser.add_argument('input_path', type=str, help='Input image file or folder containing images')
+    parser.add_argument('--config', type=str, help='JSON config file with animation settings')
+    parser.add_argument('--output-folder', type=str, help='Output folder for animations (overrides config)')
+    parser.add_argument('--animations', nargs='+', choices=['idle', 'attack', 'damage', 'death'],
+                       help='Animation types to generate (space-separated)')
+    parser.add_argument('--samples', type=int, default=2, help='Number of samples per animation (default: 2)')
+    parser.add_argument('--threads', type=int, default=2, help='Number of concurrent threads (default: 2)')
+    parser.add_argument('--aspect-ratio', type=str, default='16:9', help='Video aspect ratio (default: 16:9)')
+    parser.add_argument('--force', action='store_true', help='Force regenerate all animations, even if they exist')
+    parser.add_argument('--resume', type=str, help='Resume from existing batch folder (e.g., character-animations/animated/batch_20241024_134919)')
 
-    input_folder = Path(sys.argv[1])
-    config_file = Path(sys.argv[2])
+    args = parser.parse_args()
 
-    if not input_folder.exists():
-        print(f"Error: Input folder '{input_folder}' not found")
-        sys.exit(1)
+    input_path = Path(args.input_path)
 
-    if not config_file.exists():
-        print(f"Error: Config file '{config_file}' not found")
-        sys.exit(1)
+    if not input_path.exists():
+        print(f"Error: Input path '{input_path}' not found")
+        return
 
-    # Load config
-    with open(config_file, 'r') as f:
-        config = json.load(f)
+    # Build config from command-line args or load from file
+    if args.config:
+        config_file = Path(args.config)
+        if not config_file.exists():
+            print(f"Error: Config file '{config_file}' not found")
+            return
+        with open(config_file, 'r') as f:
+            config = json.load(f)
 
-    # Create output folder with timestamp
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_base = Path(config.get('output_folder', 'output')) / f"batch_{timestamp}"
+        # Override config values with command-line args if provided
+        if args.output_folder:
+            config['output_folder'] = args.output_folder
+        if args.threads:
+            config['max_concurrent'] = args.threads
+
+        # Aspect ratio always comes from command-line args (not config)
+        config['aspect_ratio'] = args.aspect_ratio
+    else:
+        # Build config from command-line arguments only
+        if not args.animations:
+            print("Error: Either --config or --animations must be specified")
+            return
+
+        # Default prompts for each animation type
+        default_prompts = {
+            'idle': 'Game animation: The character is idle, breathing gently and swaying slightly as if waiting.',
+            'attack': 'Make this character perform an in game attack animation.',
+            'damage': 'Make this character appear as if they are taking damage in game and in pain.',
+            'death': 'Make this character perform an in game death animation.'
+        }
+
+        config = {
+            'output_folder': args.output_folder or 'character-animations/animated',
+            'max_concurrent': args.threads,
+            'aspect_ratio': args.aspect_ratio,
+            'animations': {
+                anim_type: {
+                    'prompt': default_prompts[anim_type],
+                    'samples': args.samples
+                }
+                for anim_type in args.animations
+            }
+        }
+
+    # Determine output base path
+    if args.resume:
+        # Resume from existing batch folder
+        output_base = Path(args.resume)
+        if not output_base.exists():
+            print(f"Error: Resume folder '{output_base}' not found")
+            return
+        print(f"Resuming from existing batch: {output_base}")
+    else:
+        output_base = Path(config.get('output_folder', 'character-animations/animated'))
+
+        # If processing a folder, add timestamp to avoid conflicts
+        if input_path.is_dir():
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            output_base = output_base / f"batch_{timestamp}"
+
     output_base.mkdir(parents=True, exist_ok=True)
 
     print(f"Output folder: {output_base}")
+    print(f"Aspect ratio from config: {config.get('aspect_ratio', 'NOT SET')}")
 
-    # Get all images from input folder
+    # Get images to process
     image_extensions = {'.png', '.jpg', '.jpeg'}
-    images = [f for f in input_folder.iterdir() if f.suffix.lower() in image_extensions]
+    if input_path.is_file():
+        if input_path.suffix.lower() in image_extensions:
+            images = [input_path]
+        else:
+            print(f"Error: '{input_path}' is not a valid image file")
+            return
+    else:
+        images = [f for f in input_path.iterdir() if f.suffix.lower() in image_extensions]
+        if not images:
+            print(f"Error: No images found in '{input_path}'")
+            return
 
-    if not images:
-        print(f"Error: No images found in '{input_folder}'")
-        sys.exit(1)
-
-    print(f"Found {len(images)} images to process")
+    print(f"Found {len(images)} image(s) to process")
+    if args.force:
+        print("Force mode: Will regenerate all animations\n")
+    else:
+        print("Resume mode: Will skip existing animations\n")
 
     # Collect all tasks
     all_tasks = []
-    for image_path in images:
-        tasks = process_image(image_path, config, output_base)
+    for img_path in images:
+        tasks = process_image(img_path, config, output_base, force=args.force)
         all_tasks.extend(tasks)
 
     print(f"\n{'='*60}")
-    print(f"Total animations to generate: {len(all_tasks)}")
+    if args.force:
+        print(f"Total animations to generate: {len(all_tasks)}")
+    else:
+        print(f"Missing animations to generate: {len(all_tasks)}")
     print(f"{'='*60}\n")
+
+    # If no tasks to process, exit early
+    if len(all_tasks) == 0:
+        print("✓ All animations already exist! Nothing to generate.")
+        print("  Use --force to regenerate all animations.")
+        return
 
     # Get concurrency settings from config
     max_workers = config.get('max_concurrent', 10)

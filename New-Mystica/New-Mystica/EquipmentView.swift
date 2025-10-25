@@ -30,7 +30,7 @@ struct EquipmentSlotView: View {
                                 .resizable()
                                 .aspectRatio(contentMode: .fill)
                                 .frame(width: 80, height: 80)
-                                .clipped()
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
                         },
                         placeholder: {
                             ProgressView()
@@ -533,5 +533,7 @@ private let mockPlayerItem = PlayerItem(
     isStyled: false,
     computedStats: ItemStats(atkPower: 0.4, atkAccuracy: 0.25, defPower: 0.25, defAccuracy: 0.1),
     isEquipped: true,
-    generatedImageUrl: nil
+    generatedImageUrl: nil,
+    name: "Magic Sword",
+    description: "A powerful magical sword"
 )

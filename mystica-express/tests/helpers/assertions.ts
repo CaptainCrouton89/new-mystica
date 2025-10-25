@@ -77,11 +77,13 @@ export function expectValidItem(item: Item): void {
   expect(item.level).toBeGreaterThanOrEqual(1);
   expect(item.level).toBeLessThanOrEqual(100); // Reasonable max level
 
-  // Stats validation - check if Item has computed_stats, fallback to current_stats if needed
-  const statsToValidate = (item as any).computed_stats || (item as any).current_stats;
-  if (statsToValidate) {
-    expectValidComputedStats(statsToValidate);
+  // Stats validation - handle computed_stats for both Item and PlayerItem
+  // Type guard to ensure computed_stats exist
+  const computedStats = (item as unknown as PlayerItem).computed_stats;
+  if (!computedStats) {
+    throw new Error(`Test item missing computed_stats: ${JSON.stringify(item)}`);
   }
+  expectValidComputedStats(computedStats);
 
   // Materials constraint: 0-3 max
   if (item.materials) {

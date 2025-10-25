@@ -8,6 +8,49 @@
 
 import Foundation
 
+/// Represents a piece of dialogue with its associated tone
+struct DialogueData: Codable, Equatable {
+    let text: String
+    let tone: String
+}
+
+struct EnemyDialogueResponse: Codable {
+    let dialogue: String
+    let dialogueTone: String
+    let enemyType: String
+    let generationTimeMs: Int
+    let wasAiGenerated: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case dialogue
+        case dialogueTone = "dialogue_tone"
+        case enemyType = "enemy_type"
+        case generationTimeMs = "generation_time_ms"
+        case wasAiGenerated = "was_ai_generated"
+    }
+}
+
+/// Represents different types of events that can occur during combat
+enum CombatEventType: String, Codable {
+    case combatStart = "combat_start"
+    case playerHit = "player_hit"
+    case playerMiss = "player_miss"
+    case enemyHit = "enemy_hit"
+    case lowPlayerHP = "low_player_hp"
+    case nearVictory = "near_victory"
+    case victory
+    case defeat
+}
+
+/// Detailed information about a specific combat event
+struct CombatEventDetails: Codable {
+    let turnNumber: Int
+    let playerHpPct: Double
+    let enemyHpPct: Double
+    let damage: Int?
+    let isCritical: Bool?
+}
+
 protocol CombatRepository {
     /// Initiate combat encounter at location
     /// - Parameters:
@@ -54,4 +97,12 @@ protocol CombatRepository {
     /// Abandon combat session without rewards
     /// - Parameter sessionId: Combat session ID to abandon
     func abandonCombat(sessionId: String) async throws
+
+    /// Fetch enemy chatter for a specific combat event
+    /// - Parameters:
+    ///   - sessionId: Active combat session ID
+    ///   - eventType: Type of combat event triggering chatter
+    ///   - eventDetails: Detailed information about the combat event
+    /// - Returns: Enemy dialogue response for the given event
+    func fetchEnemyChatter(sessionId: String, eventType: String, eventDetails: CombatEventDetails) async throws -> EnemyDialogueResponse
 }

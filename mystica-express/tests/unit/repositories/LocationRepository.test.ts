@@ -116,6 +116,7 @@ describe('LocationRepository', () => {
         location_type: 'restaurant',
         state_code: 'CA',
         country_code: 'US',
+        image_url: null,
         created_at: '2024-01-01T00:00:00Z'
       };
 
@@ -167,6 +168,7 @@ describe('LocationRepository', () => {
           location_type: 'restaurant',
           state_code: 'CA',
           country_code: 'US',
+          image_url: null,
           created_at: '2024-01-01T00:00:00Z'
         }
       ];
@@ -204,6 +206,7 @@ describe('LocationRepository', () => {
           location_type: 'park',
           state_code: 'CA',
           country_code: 'US',
+          image_url: null,
           created_at: '2024-01-01T00:00:00Z'
         }
       ];
@@ -243,7 +246,8 @@ describe('LocationRepository', () => {
       location_type: 'restaurant',
       state_code: 'CA',
       country_code: 'US',
-      created_at: '2024-01-01T00:00:00Z'
+      created_at: '2024-01-01T00:00:00Z',
+      image_url: null
     };
 
     it('should get matching enemy pools for location and combat level', async () => {
@@ -423,7 +427,8 @@ describe('LocationRepository', () => {
       location_type: 'restaurant',
       state_code: 'CA',
       country_code: 'US',
-      created_at: '2024-01-01T00:00:00Z'
+      created_at: '2024-01-01T00:00:00Z',
+      image_url: null
     };
 
     it('should get matching loot pools for location and combat level', async () => {
@@ -659,7 +664,8 @@ describe('LocationRepository', () => {
       location_type: 'restaurant',
       state_code: 'CA',
       country_code: 'US',
-      created_at: '2024-01-01T00:00:00Z'
+      created_at: '2024-01-01T00:00:00Z',
+      image_url: null
     };
 
     it('should include universal pools in enemy pool filters', async () => {
@@ -708,6 +714,7 @@ describe('LocationRepository', () => {
         location_type: '',
         state_code: '',
         country_code: '',
+        image_url: null,
         created_at: '2024-01-01T00:00:00Z'
       };
 
@@ -796,6 +803,7 @@ describe('LocationRepository', () => {
         location_type: 'restaurant',
         state_code: 'CA',
         country_code: 'US',
+        image_url: null,
         created_at: '2024-01-01T00:00:00Z'
       };
 
@@ -857,6 +865,7 @@ describe('LocationRepository', () => {
         location_type: 'restaurant',
         state_code: 'CA',
         country_code: 'US',
+        image_url: null,
         created_at: '2024-01-01T00:00:00Z'
       };
 

@@ -19,6 +19,8 @@ enum ImageGenerationStatus: String, Codable, CaseIterable, Sendable {
 /// Enhanced player item model with materials and computed stats
 struct EnhancedPlayerItem: APIModel, Hashable, Sendable {
     let id: String
+    let name: String
+    let description: String?
     let baseType: String
     let itemTypeId: String
     let category: String
@@ -37,6 +39,8 @@ struct EnhancedPlayerItem: APIModel, Hashable, Sendable {
 
     enum CodingKeys: String, CodingKey {
         case id
+        case name = "name"
+        case description = "description"
         case baseType = "base_type"
         case itemTypeId = "item_type_id"
         case category
@@ -52,6 +56,72 @@ struct EnhancedPlayerItem: APIModel, Hashable, Sendable {
         case isStyled = "is_styled"
         case isEquipped = "is_equipped"
         case equippedSlot = "equipped_slot"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        id = try container.decode(String.self, forKey: .id)
+        baseType = try container.decode(String.self, forKey: .baseType)
+        itemTypeId = try container.decode(String.self, forKey: .itemTypeId)
+        category = try container.decode(String.self, forKey: .category)
+        level = try container.decode(Int.self, forKey: .level)
+        rarity = try container.decode(String.self, forKey: .rarity)
+        appliedMaterials = try container.decode([ItemMaterialApplication].self, forKey: .appliedMaterials)
+        materials = try container.decode([ItemMaterialApplication].self, forKey: .materials)
+        computedStats = try container.decode(ItemStats.self, forKey: .computedStats)
+        materialComboHash = try container.decodeIfPresent(String.self, forKey: .materialComboHash)
+        generatedImageUrl = try container.decodeIfPresent(String.self, forKey: .generatedImageUrl)
+        imageGenerationStatus = try container.decodeIfPresent(ImageGenerationStatus.self, forKey: .imageGenerationStatus)
+        craftCount = try container.decode(Int.self, forKey: .craftCount)
+        isStyled = try container.decode(Bool.self, forKey: .isStyled)
+        isEquipped = try container.decode(Bool.self, forKey: .isEquipped)
+        equippedSlot = try container.decodeIfPresent(String.self, forKey: .equippedSlot)
+
+        // Backward compatibility: fallback to baseType.capitalized if name is missing
+        name = (try? container.decode(String.self, forKey: .name)) ?? baseType.capitalized
+        description = try? container.decodeIfPresent(String.self, forKey: .description)
+    }
+
+    // Convenience initializer for backward compatibility with existing code
+    init(
+        id: String,
+        baseType: String,
+        itemTypeId: String,
+        category: String,
+        level: Int,
+        rarity: String,
+        appliedMaterials: [ItemMaterialApplication],
+        materials: [ItemMaterialApplication],
+        computedStats: ItemStats,
+        materialComboHash: String?,
+        generatedImageUrl: String?,
+        imageGenerationStatus: ImageGenerationStatus?,
+        craftCount: Int,
+        isStyled: Bool,
+        isEquipped: Bool,
+        equippedSlot: String?,
+        name: String? = nil,
+        description: String? = nil
+    ) {
+        self.id = id
+        self.name = name ?? baseType.capitalized
+        self.description = description
+        self.baseType = baseType
+        self.itemTypeId = itemTypeId
+        self.category = category
+        self.level = level
+        self.rarity = rarity
+        self.appliedMaterials = appliedMaterials
+        self.materials = materials
+        self.computedStats = computedStats
+        self.materialComboHash = materialComboHash
+        self.generatedImageUrl = generatedImageUrl
+        self.imageGenerationStatus = imageGenerationStatus
+        self.craftCount = craftCount
+        self.isStyled = isStyled
+        self.isEquipped = isEquipped
+        self.equippedSlot = equippedSlot
     }
 
     // MARK: - Hashable Conformance
@@ -72,6 +142,7 @@ struct ItemMaterialApplication: APIModel, Hashable, Sendable {
         let name: String
         let description: String?
         let styleId: String
+        let styleName: String?
         let statModifiers: StatModifier?
         let imageUrl: String?
 
@@ -80,6 +151,7 @@ struct ItemMaterialApplication: APIModel, Hashable, Sendable {
             case name
             case description
             case styleId = "style_id"
+            case styleName = "style_name"
             case statModifiers = "stat_modifiers"
             case imageUrl = "image_url"
         }

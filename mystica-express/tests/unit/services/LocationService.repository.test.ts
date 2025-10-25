@@ -384,6 +384,7 @@ describe('LocationService (Repository Pattern)', () => {
         location_type: 'park',
         state_code: 'NY',
         country_code: 'US',
+        image_url: null,
         created_at: '2024-01-01T00:00:00Z'
       };
 
@@ -417,8 +418,8 @@ describe('LocationService (Repository Pattern)', () => {
 
   describe('Error handling and edge cases', () => {
     it('should handle concurrent calls to nearby() correctly', async () => {
-      const locations1 = [LocationFactory.createSF('park')];
-      const locations2 = [LocationFactory.createSF('library')];
+      const locations1 = [LocationFactory.createSF('park', { image_url: null })];
+      const locations2 = [LocationFactory.createSF('library', { image_url: null })];
 
       mockFindNearby
         .mockResolvedValueOnce(locations1.map(loc => ({ ...loc, distance_meters: 100 })))
@@ -457,7 +458,7 @@ describe('LocationService (Repository Pattern)', () => {
     it('should maintain repository method isolation', async () => {
       // Test that failure in one method doesn't affect the other
       mockFindNearby.mockRejectedValue(new DatabaseError('PostGIS error'));
-      mockFindById.mockResolvedValue(LocationFactory.createSF('park'));
+      mockFindById.mockResolvedValue(LocationFactory.createSF('park', { image_url: null }));
 
       // nearby() should fail
       await expect(
@@ -639,7 +640,7 @@ describe('LocationService (Repository Pattern)', () => {
 
   describe('getAll()', () => {
     it('should delegate to locationRepository.findAll with pagination', async () => {
-      const mockLocations = [LocationFactory.createSF('park'), LocationFactory.createSF('library')];
+      const mockLocations = [LocationFactory.createSF('park', { image_url: null }), LocationFactory.createSF('library', { image_url: null })];
       mockFindAll.mockResolvedValue(mockLocations);
 
       const result = await locationService.getAll(10, 20);

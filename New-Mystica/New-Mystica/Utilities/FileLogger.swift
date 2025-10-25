@@ -36,13 +36,23 @@ public class FileLogger {
 
     /// Log network request details
     public func logRequest(_ request: URLRequest, body: Data? = nil) {
+        guard let urlString = request.url?.absoluteString else {
+            logger.warning("Request URL is nil")
+            return
+        }
+
+        guard let method = request.httpMethod else {
+            logger.warning("Request HTTP method is nil")
+            return
+        }
+
         var logMessage = """
 
         ╔══════════════════════════════════════════════════════════════
         ║ 📤 REQUEST
         ╠══════════════════════════════════════════════════════════════
-        ║ URL: \(request.url?.absoluteString ?? "nil")
-        ║ Method: \(request.httpMethod ?? "nil")
+        ║ URL: \(urlString)
+        ║ Method: \(method)
         ║ Headers:
         """
 
@@ -151,7 +161,11 @@ public class FileLogger {
 
     /// Read all logs as a string
     public func readLogs() -> String {
-        return (try? String(contentsOf: fileURL, encoding: .utf8)) ?? "No logs available"
+        guard let logs = try? String(contentsOf: fileURL, encoding: .utf8) else {
+            logger.warning("Unable to read log file")
+            return "[Log file inaccessible]"
+        }
+        return logs
     }
 
     /// Clear all logs
@@ -211,6 +225,14 @@ public class FileLogger {
     }
 
     private func logSessionStart() {
+        let appVersion: String
+        if let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String {
+            appVersion = version
+        } else {
+            logger.warning("App version could not be retrieved")
+            appVersion = "[Version Unknown]"
+        }
+
         let message = """
 
         ════════════════════════════════════════════════════════════════
@@ -218,7 +240,7 @@ public class FileLogger {
         ════════════════════════════════════════════════════════════════
         Device: \(UIDevice.current.model)
         OS: \(UIDevice.current.systemName) \(UIDevice.current.systemVersion)
-        App Version: \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown")
+        App Version: \(appVersion)
         ════════════════════════════════════════════════════════════════
         """
         writeLog(message: message, level: .info, category: "Session")

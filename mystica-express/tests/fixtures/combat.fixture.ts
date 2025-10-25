@@ -10,9 +10,7 @@ export interface EnemyType {
   name: string;
   ai_personality_traits: string[];
   dialogue_tone: string;
-  verbosity: string;
-  example_taunts: string[];
-  base_dialogue_prompt: string;
+  dialogue_guidelines: string;
 }
 
 export interface CombatSession {
@@ -83,9 +81,7 @@ export const ENEMY_GOBLIN: EnemyType = {
   name: 'Spray Paint Goblin',
   ai_personality_traits: ['mischievous', 'artistic', 'territorial'],
   dialogue_tone: 'taunting',
-  verbosity: 'medium',
-  example_taunts: ['My art is better than yours!', 'This wall belongs to me!'],
-  base_dialogue_prompt: 'You are a mischievous spray paint goblin who is territorial about art spaces.'
+  dialogue_guidelines: 'You are a mischievous spray paint goblin who is territorial about art spaces.'
 };
 
 /**
@@ -96,9 +92,7 @@ export const ENEMY_EYE: EnemyType = {
   name: 'Goopy Floating Eye',
   ai_personality_traits: ['surreal', 'omniscient', 'cryptic'],
   dialogue_tone: 'mysterious',
-  verbosity: 'low',
-  example_taunts: ['I see all...', 'Your movements are predictable.'],
-  base_dialogue_prompt: 'You are a cryptic floating eye that speaks in riddles and sees everything.'
+  dialogue_guidelines: 'You are a cryptic floating eye that speaks in riddles and sees everything.'
 };
 
 /**

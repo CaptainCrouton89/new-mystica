@@ -31,6 +31,7 @@ export class LocationFactory {
       name: this.generateLocationName(type),
       state_code: 'CA', // Default to California
       country_code: 'US',
+      image_url: null,
       created_at: new Date().toISOString(),
       ...overrides
     };
@@ -58,6 +59,7 @@ export class LocationFactory {
       name: `Location near (${lat.toFixed(4)}, ${lng.toFixed(4)})`,
       state_code: 'CA',
       country_code: 'US',
+      image_url: null,
       created_at: new Date().toISOString(),
       ...overrides
     };
@@ -81,6 +83,7 @@ export class LocationFactory {
       name: this.generateSFLocationName(type),
       state_code: 'CA',
       country_code: 'US',
+      image_url: null,
       created_at: new Date().toISOString(),
       ...overrides
     };
@@ -100,6 +103,7 @@ export class LocationFactory {
       name: `${type} at (${lat.toFixed(4)}, ${lng.toFixed(4)})`,
       state_code: 'CA',
       country_code: 'US',
+      image_url: null,
       created_at: new Date().toISOString(),
       ...overrides
     };

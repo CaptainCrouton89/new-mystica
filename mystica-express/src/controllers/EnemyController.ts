@@ -25,9 +25,14 @@ export class EnemyController {
           name,
           ai_personality_traits,
           dialogue_tone,
-          verbosity,
-          example_taunts,
-          base_dialogue_prompt
+          dialogue_guidelines,
+          atk_power,
+          atk_accuracy,
+          def_power,
+          def_accuracy,
+          base_hp,
+          tier_id,
+          style_id
         `)
         .order('name');
 

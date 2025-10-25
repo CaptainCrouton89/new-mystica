@@ -53,6 +53,23 @@ export class DatabaseError extends AppError {
   }
 }
 
+import { ZodError, ZodIssue } from 'zod';
+
+// Type for ZodIssue with optional 'received' property
+type ExtendedZodIssue = ZodIssue & {
+  received?: unknown;
+};
+
+/**
+ * Detailed validation error information
+ */
+interface ValidationErrorDetails {
+  field: string;
+  message: string;
+  received?: unknown;
+  postgresCode?: string;
+}
+
 /**
  * Request validation errors
  * Used for Zod schema validation failures, invalid parameters, etc.
@@ -61,19 +78,28 @@ export class ValidationError extends AppError {
   readonly statusCode = 400;
   readonly code = 'VALIDATION_ERROR';
 
-  constructor(message: string, details?: Record<string, any>) {
-    super(`Validation failed: ${message}`, details);
+  constructor(message: string, details?: ValidationErrorDetails[]) {
+    super(`Validation failed: ${message}`, { validationErrors: details });
   }
 
   /**
    * Create ValidationError from Zod error
    */
-  static fromZodError(error: any): ValidationError {
-    const details = error.issues?.map((issue: any) => ({
-      field: issue.path.join('.'),
-      message: issue.message,
-      received: issue.received,
-    }));
+  static fromZodError(error: ZodError): ValidationError {
+    if (!error.issues || error.issues.length === 0) {
+      throw new Error(`Validation error missing issues: ${JSON.stringify(error)}`);
+    }
+    const details = error.issues.map((issue: ExtendedZodIssue) => {
+      const baseDetails = {
+        field: issue.path.join('.'),
+        message: issue.message
+      };
+
+      // Safely include 'received' if it exists
+      return issue.received !== undefined
+        ? { ...baseDetails, received: issue.received }
+        : baseDetails;
+    });
 
     return new ValidationError('Invalid request parameters', details);
   }
@@ -397,10 +423,10 @@ export const mapSupabaseError = (error: any): AppError => {
       return new ConflictError('Resource already exists', { postgresCode: code });
 
     case '23503': // foreign_key_violation
-      return new ValidationError('Referenced resource does not exist', { postgresCode: code });
+      return new ValidationError('Referenced resource does not exist', [{ field: 'reference', message: 'Resource does not exist', postgresCode: code }]);
 
     case '23514': // check_violation
-      return new ValidationError('Data violates constraint', { postgresCode: code });
+      return new ValidationError('Data violates constraint', [{ field: 'constraint', message: 'Data violates database constraint', postgresCode: code }]);
 
     case 'PGRST116': // no rows returned (not necessarily an error)
       return new NotFoundError('Resource', undefined, { postgresCode: code });

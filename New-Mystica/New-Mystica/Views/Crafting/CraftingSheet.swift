@@ -88,9 +88,13 @@ struct CraftingSheet: View {
     }
 
     private var itemDisplayView: some View {
-        VStack(spacing: 12) {
+        guard let selectedItem = viewModel.selectedItem else {
+            fatalError("CraftingSheet displayed without selected item")
+        }
+
+        return VStack(spacing: 12) {
             Group {
-                if let imageUrl = viewModel.selectedItem?.generatedImageUrl, !imageUrl.isEmpty {
+                if let imageUrl = selectedItem.generatedImageUrl, !imageUrl.isEmpty {
                     CachedAsyncImage(
                         url: URL(string: imageUrl),
                         content: { image in
@@ -119,11 +123,11 @@ struct CraftingSheet: View {
             }
 
             VStack(spacing: 4) {
-                NormalText(viewModel.selectedItem?.baseType.capitalized ?? "Unknown Item")
+                NormalText(selectedItem.baseType.capitalized)
                     .foregroundColor(Color.textPrimary)
                     .bold()
 
-                SmallText("Level \(viewModel.selectedItem?.level ?? 0)")
+                SmallText("Level \(selectedItem.level)")
                     .foregroundColor(Color.textSecondary)
             }
         }

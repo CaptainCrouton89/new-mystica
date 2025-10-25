@@ -2,6 +2,27 @@ import winston from 'winston';
 import { env } from '../config/env.js';
 
 /**
+ * Type definition for a request object used in logging
+ * Matches the shape of typical Express request objects
+ */
+interface LoggerRequest {
+  id?: string;
+  headers: {
+    'x-request-id'?: string;
+    'user-agent'?: string;
+  };
+  method: string;
+  path: string;
+  user?: {
+    id?: string;
+  };
+  ip?: string;
+  connection?: {
+    remoteAddress?: string;
+  };
+}
+
+/**
  * Custom log format for development
  * Pretty-prints logs with colors and timestamps
  */
@@ -129,14 +150,77 @@ export const createContextLogger = (context: Record<string, any>) => {
  * HTTP request logger middleware helper
  * Creates a logger with request-specific context
  */
-export const createRequestLogger = (req: any) => {
+export const createRequestLogger = (req: LoggerRequest) => {
+  // Strict request ID extraction with error throwing
+  const requestId = req.id ?? req.headers['x-request-id'];
+  if (!requestId) {
+    const error = new Error('Missing request ID: Required for logging context');
+    error.name = 'LoggingContextError';
+
+    console.error('Logging failed due to missing request ID', {
+      method: req.method,
+      path: req.path,
+      details: 'Request ID is required for all logging operations'
+    });
+
+    throw error;
+  }
+
+  // Strict user ID extraction with error throwing
+  const userId = req.user?.id;
+  if (!userId) {
+    const error = new Error('Missing user ID: Required for logging context');
+    error.name = 'LoggingContextError';
+
+    console.error('Logging failed due to missing user ID', {
+      requestId,
+      method: req.method,
+      path: req.path,
+      details: 'User ID is required for all logging operations'
+    });
+
+    throw error;
+  }
+
+  // Strict IP address extraction with error throwing
+  const ipAddress = req.ip ?? req.connection?.remoteAddress;
+  if (!ipAddress) {
+    const error = new Error('Missing IP address: Required for logging context');
+    error.name = 'LoggingContextError';
+
+    console.error('Logging failed due to missing IP address', {
+      requestId,
+      userId,
+      method: req.method,
+      path: req.path,
+      details: 'IP address is required for all logging operations'
+    });
+
+    throw error;
+  }
+
+  // Ensure user agent is present
+  const userAgent = req.headers['user-agent'];
+  if (!userAgent) {
+    const unspecifiedAgentError = new Error('User agent not specified');
+    unspecifiedAgentError.name = 'LoggingContextWarning';
+
+    console.warn('User agent not specified in logging context', {
+      requestId,
+      userId,
+      method: req.method,
+      path: req.path
+    });
+  }
+
+  // Construct context with extracted values
   return createContextLogger({
-    requestId: req.id || req.headers['x-request-id'] || 'unknown',
+    requestId,
     method: req.method,
     path: req.path,
-    userId: req.user?.id || 'anonymous',
-    userAgent: req.headers['user-agent'],
-    ip: req.ip || req.connection.remoteAddress,
+    userId,
+    userAgent: userAgent || undefined, // Explicitly pass undefined if no user agent
+    ip: ipAddress,
   });
 };
 

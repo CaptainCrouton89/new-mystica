@@ -140,7 +140,8 @@ describe('CombatService', () => {
         state_code: 'CA',
         lat: 37.7749,
         lng: -122.4194,
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
+        image_url: null
       });
       mockEquipmentRepository.getPlayerPowerLevel.mockResolvedValue({
         atk: 50,
@@ -157,8 +158,10 @@ describe('CombatService', () => {
         id: testEnemy.id,
         name: testEnemy.name,
         base_hp: testEnemy.base_hp,
-        base_atk: testEnemy.base_atk,
-        base_def: testEnemy.base_def,
+        atk_power: testEnemy.atk_power,
+        atk_accuracy: testEnemy.atk_accuracy,
+        def_power: testEnemy.def_power,
+        def_accuracy: testEnemy.def_accuracy,
         tier_id: testEnemy.tier_id,
         style_id: testEnemy.style_id,
         dialogue_tone: testEnemy.dialogue_tone,
@@ -212,8 +215,10 @@ describe('CombatService', () => {
         id: dragonEnemy.id,
         name: dragonEnemy.name,
         base_hp: dragonEnemy.base_hp,
-        base_atk: dragonEnemy.base_atk,
-        base_def: dragonEnemy.base_def,
+        atk_power: dragonEnemy.atk_power,
+        atk_accuracy: dragonEnemy.atk_accuracy,
+        def_power: dragonEnemy.def_power,
+        def_accuracy: dragonEnemy.def_accuracy,
         tier_id: dragonEnemy.tier_id,
         style_id: dragonEnemy.style_id,
         dialogue_tone: dragonEnemy.dialogue_tone,
@@ -299,7 +304,8 @@ describe('CombatService', () => {
         state_code: 'CA',
         lat: 37.7749,
         lng: -122.4194,
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
+        image_url: null
       });
       mockLocationService.getMatchingEnemyPools.mockResolvedValue([]);
 

@@ -229,15 +229,12 @@ describe('Auth Middleware', () => {
         nextFunction
       );
 
-      expect(mockResponse.status).toHaveBeenCalledWith(401);
-      expect(mockResponse.json).toHaveBeenCalledWith({
-        error: {
-          code: 'auth_error',
-          message: 'Failed to authenticate request',
-          details: 'Network error'
-        }
-      });
-      expect(nextFunction).not.toHaveBeenCalled();
+      expect(nextFunction).toHaveBeenCalledWith(expect.any(Error));
+      expect(nextFunction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'Network error'
+        })
+      );
     });
 
     it('should handle anonymous token verification errors gracefully', async () => {
@@ -252,15 +249,12 @@ describe('Auth Middleware', () => {
         nextFunction
       );
 
-      expect(mockResponse.status).toHaveBeenCalledWith(401);
-      expect(mockResponse.json).toHaveBeenCalledWith({
-        error: {
-          code: 'auth_error',
-          message: 'Failed to authenticate request',
-          details: 'JWT malformed'
-        }
-      });
-      expect(nextFunction).not.toHaveBeenCalled();
+      expect(nextFunction).toHaveBeenCalledWith(expect.any(Error));
+      expect(nextFunction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'JWT malformed'
+        })
+      );
     });
   });
 

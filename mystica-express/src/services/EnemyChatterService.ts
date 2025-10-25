@@ -25,8 +25,7 @@ const aiDialogueSchema = z.object({
 interface EnemyType {
   id: string;
   name: string;
-  base_dialogue_prompt: string;
-  example_taunts: string[];
+  dialogue_guidelines: string;
   personality_traits: string[];
   combat_style: string;
 }
@@ -36,7 +35,7 @@ interface EnemyType {
  *
  * Responsibilities:
  * - Generate contextual dialogue using OpenAI GPT-4.1-mini
- * - Fallback to random example_taunts on AI failure
+ * - Fallback to generic taunts on AI failure
  * - Log all dialogue attempts to enemychatterlog table
  * - Integrate player combat history into AI context
  */
@@ -171,10 +170,11 @@ export class EnemyChatterService {
   ): { system: string; user: string } {
     const personalityTraits = enemyType.personality_traits.join(', ');
 
-    const system = `${enemyType.base_dialogue_prompt}
-
-You are a ${enemyType.name} with these personality traits: ${personalityTraits}.
+    const system = `You are a ${enemyType.name} with these personality traits: ${personalityTraits}.
 Your combat style is: ${enemyType.combat_style}.
+
+Dialogue Guidelines:
+${enemyType.dialogue_guidelines}
 
 Generate a single line of dialogue appropriate for the current combat situation. The dialogue should:
 - Reflect your personality and combat style
@@ -250,16 +250,10 @@ Generate appropriate dialogue for this situation.`;
   }
 
   /**
-   * Select fallback taunt from enemy's example_taunts
+   * Select fallback taunt using generic taunts
    */
   private selectFallbackTaunt(enemyType: EnemyType, eventType: CombatEventType): string {
-    if (!enemyType.example_taunts || enemyType.example_taunts.length === 0) {
-      return this.getGenericTaunt(eventType);
-    }
-
-    // Simple random selection from available taunts
-    const randomIndex = Math.floor(Math.random() * enemyType.example_taunts.length);
-    return enemyType.example_taunts[randomIndex];
+    return this.getGenericTaunt(eventType);
   }
 
   /**
@@ -289,7 +283,7 @@ Generate appropriate dialogue for this situation.`;
   }
 
   /**
-   * Get generic taunt when no example_taunts available
+   * Get generic taunt for fallback dialogue
    */
   private getGenericTaunt(eventType: CombatEventType): string {
     const genericTaunts = {
@@ -331,60 +325,35 @@ Generate appropriate dialogue for this situation.`;
       'd9e715fb-5de0-4639-96f8-3b4f03476314': {
         id: 'd9e715fb-5de0-4639-96f8-3b4f03476314',
         name: 'Spray Paint Goblin',
-        base_dialogue_prompt: 'You are a mischievous urban creature that loves to tag buildings.',
-        example_taunts: [
-          "Your technique is messier than mine!",
-          "This wall needs my artistic touch!",
-          "You can't stop street art!"
-        ],
+        dialogue_guidelines: 'You are a mischievous urban creature that loves to tag buildings.',
         personality_traits: ['mischievous', 'artistic', 'rebellious'],
         combat_style: 'hit-and-run'
       },
       '4637f636-0b6a-4825-b1aa-492cf8d9d1bb': {
         id: '4637f636-0b6a-4825-b1aa-492cf8d9d1bb',
         name: 'Goopy Floating Eye',
-        base_dialogue_prompt: 'You are an unsettling floating eyeball that observes everything.',
-        example_taunts: [
-          "I see your weaknesses...",
-          "*stares unblinkingly*",
-          "Nothing escapes my gaze!"
-        ],
+        dialogue_guidelines: 'You are an unsettling floating eyeball that observes everything.',
         personality_traits: ['observant', 'creepy', 'mysterious'],
         combat_style: 'ranged-harassment'
       },
       '63d218fc-5cd9-4404-9090-fb72537da205': {
         id: '63d218fc-5cd9-4404-9090-fb72537da205',
         name: 'Feral Unicorn',
-        base_dialogue_prompt: 'You are a once-majestic unicorn corrupted by urban pollution.',
-        example_taunts: [
-          "My horn shall pierce your lies!",
-          "Magic is dead in this concrete jungle!",
-          "*angry magical horse noises*"
-        ],
+        dialogue_guidelines: 'You are a once-majestic unicorn corrupted by urban pollution.',
         personality_traits: ['corrupted', 'majestic', 'angry'],
         combat_style: 'charging-attacks'
       },
       '19cd32dc-e874-4836-a3e9-851431262cc8': {
         id: '19cd32dc-e874-4836-a3e9-851431262cc8',
         name: 'Bipedal Deer',
-        base_dialogue_prompt: 'You are a deer that learned to walk upright and became aggressive.',
-        example_taunts: [
-          "Evolution chose violence!",
-          "*stomps aggressively on hind legs*",
-          "The forest remembers your kind!"
-        ],
+        dialogue_guidelines: 'You are a deer that learned to walk upright and became aggressive.',
         personality_traits: ['evolved', 'aggressive', 'prideful'],
         combat_style: 'aggressive-melee'
       },
       'beb6ea68-597a-4052-92f6-ad73d0fd02b3': {
         id: 'beb6ea68-597a-4052-92f6-ad73d0fd02b3',
         name: 'Politician',
-        base_dialogue_prompt: 'You are a cunning politician who uses words as weapons.',
-        example_taunts: [
-          "I promise to defeat you!",
-          "This meeting could have been an email!",
-          "Let me redirect that question..."
-        ],
+        dialogue_guidelines: 'You are a cunning politician who uses words as weapons.',
         personality_traits: ['cunning', 'verbose', 'manipulative'],
         combat_style: 'bureaucratic-warfare'
       }

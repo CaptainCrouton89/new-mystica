@@ -33,6 +33,9 @@ enum AppError: LocalizedError, Equatable, Sendable {
 
     case unknown(Error)
 
+    /// Used specifically for testing purposes to simulate error scenarios
+    case testError(String)
+
     var errorDescription: String? {
         switch self {
         case .networkError(let error):
@@ -78,6 +81,8 @@ enum AppError: LocalizedError, Equatable, Sendable {
             return "Constraint violation: \(message)"
         case .unknown(let error):
             return "Unknown error: \(error.localizedDescription)"
+        case .testError(let message):
+            return "Test error: \(message)"
         }
     }
 
@@ -105,6 +110,8 @@ enum AppError: LocalizedError, Equatable, Sendable {
             return "Please check your input and try again"
         case .constraintViolation:
             return "Please review the requirements and adjust your input"
+        case .testError:
+            return "This is a test error. No recovery suggestion."
         default:
             return nil
         }
@@ -173,6 +180,8 @@ extension AppError {
             return lhsMessage == rhsMessage
         case (.unknown(let lhsError), .unknown(let rhsError)):
             return lhsError.localizedDescription == rhsError.localizedDescription
+        case (.testError(let lhsMessage), .testError(let rhsMessage)):
+            return lhsMessage == rhsMessage
         default:
             return false
         }

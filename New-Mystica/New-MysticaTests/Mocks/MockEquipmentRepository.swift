@@ -133,21 +133,7 @@ extension EquipmentSlots {
     }
 }
 
-extension ItemStats {
-    static func testData(
-        atkPower: Double = 15.0,
-        atkAccuracy: Double = 85.0,
-        defPower: Double = 12.0,
-        defAccuracy: Double = 80.0
-    ) -> ItemStats {
-        return ItemStats(
-            atkPower: atkPower,
-            atkAccuracy: atkAccuracy,
-            defPower: defPower,
-            defAccuracy: defAccuracy
-        )
-    }
-}
+// ItemStats.testData is defined in MockInventoryRepository.swift to avoid conflicts
 
 extension PlayerItem {
     static func testData(
@@ -165,14 +151,18 @@ extension PlayerItem {
         let testItemType = itemType ?? ItemType.testData(equipmentSlot: equipmentSlot)
         return PlayerItem(
             id: id,
-            itemType: testItemType,
+            baseType: testItemType.name.lowercased(),
+            itemTypeId: testItemType.id,
+            category: testItemType.category,
             level: level,
             rarity: rarity,
             appliedMaterials: appliedMaterials,
             isStyled: isStyled,
             computedStats: computedStats,
             isEquipped: isEquipped,
-            generatedImageUrl: generatedImageUrl
+            generatedImageUrl: generatedImageUrl,
+            name: testItemType.name,
+            description: testItemType.description
         )
     }
 }

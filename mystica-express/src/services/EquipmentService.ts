@@ -1,5 +1,5 @@
 import { EquipmentSlots, EquipResult, Stats, Item, ItemType, PlayerStats, EquipmentSlot, PlayerItem } from '../types/api.types';
-import { NotImplementedError, mapSupabaseError } from '../utils/errors';
+import { NotImplementedError, ValidationError, mapSupabaseError } from '../utils/errors';
 import { EquipmentRepository } from '../repositories/EquipmentRepository.js';
 import { ItemRepository } from '../repositories/ItemRepository.js';
 
@@ -68,7 +68,7 @@ export class EquipmentService {
       // Handle RPC function response
       const equipResult = result as any;
       if (!equipResult.success) {
-        throw new Error(equipResult.message || 'Failed to equip item');
+        throw new Error(equipResult.message ?? 'Failed to equip item');
       }
 
       const equipData = equipResult.data;
@@ -89,7 +89,7 @@ export class EquipmentService {
       // Count equipped items and sum their levels
       const equippedSlots = Object.values(currentEquipment.slots).filter(item => item !== undefined);
       const equippedItemsCount = equippedSlots.length;
-      const totalItemLevel = equippedSlots.reduce((sum, item) => sum + (item?.level || 0), 0);
+      const totalItemLevel = equippedSlots.reduce((sum, item) => sum + (item?.level ?? 0), 0);
 
       // For now, use empty stats for individual item contributions (could be enhanced later)
       const emptyStats: Stats = { atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0 };
@@ -136,7 +136,7 @@ export class EquipmentService {
       // Handle RPC function response
       const unequipResult = result as any;
       if (!unequipResult.success) {
-        throw new Error(unequipResult.message || 'Failed to unequip item');
+        throw new Error(unequipResult.message ?? 'Failed to unequip item');
       }
 
       // Return true if an item was actually unequipped, false if slot was empty
@@ -285,10 +285,10 @@ export class EquipmentService {
     }
 
     // Get applied materials if any
-    const appliedMaterials = repositoryItem.materials || [];
+    const appliedMaterials = repositoryItem.materials ?? [];
 
     // Get the base normalized stats
-    const baseStats = repositoryItem.item_type.base_stats_normalized || this.getNormalizedStatsForCategory(repositoryItem.item_type.category);
+    const baseStats = repositoryItem.item_type.base_stats_normalized ?? this.getNormalizedStatsForCategory(repositoryItem.item_type.category);
 
     // Use current_stats only if it appears to be normalized (values between 0-1)
     // Otherwise fall back to base_stats_normalized
@@ -304,7 +304,9 @@ export class EquipmentService {
 
     return {
       id: repositoryItem.id,
-      base_type: repositoryItem.item_type.name,
+      base_type: repositoryItem.name ?? repositoryItem.item_type.name ?? 'Unknown',
+      description: repositoryItem.description ?? repositoryItem.item_type.description ?? null,
+      name: repositoryItem.name ?? null,
       item_type_id: repositoryItem.item_type.id,
       category: repositoryItem.item_type.category,
       level: repositoryItem.level,
@@ -315,7 +317,7 @@ export class EquipmentService {
       generated_image_url: repositoryItem.generated_image_url ?? `https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/items/default_${repositoryItem.item_type.category}.png`,
       image_generation_status: repositoryItem.image_generation_status ?? null,
       craft_count: 0, // TODO: Query from ItemImageCache
-      is_styled: repositoryItem.is_styled || false,
+      is_styled: repositoryItem.is_styled ?? false,
       is_equipped: isEquipped,
       equipped_slot: null // TODO: Get from current equipment state
     };

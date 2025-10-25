@@ -40,6 +40,9 @@ const EnvSchema = z.object({
   // Database Configuration
   DATABASE_URL: z.string().url().optional(), // For direct PostgreSQL if needed
   REDIS_URL: z.string().url().optional(), // For Redis session storage, defaults to redis://localhost:6379
+
+  // Development-only authentication bypass
+  DEV_BYPASS_KEY: z.string().optional(), // Only used in development for manual testing
 });
 
 export type Env = z.infer<typeof EnvSchema>;

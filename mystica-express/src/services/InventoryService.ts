@@ -11,6 +11,8 @@ import { statsService } from './StatsService.js';
 export interface PlayerItem {
   id: string;
   base_type: string;
+  description?: string | null;
+  name?: string | null;
   item_type_id: string;
   category: 'weapon' | 'offhand' | 'head' | 'armor' | 'feet' | 'accessory' | 'pet';
   level: number;
@@ -101,7 +103,7 @@ export class InventoryService {
       const equippedItems = await this.itemRepository.findEquippedByUser(userId);
       const equippedItemIds = new Set(equippedItems.map(item => item.id));
       const equippedSlotMap = new Map(
-        equippedItems.map(item => [item.id, (item as any).userequipment?.slot_name || null])
+        equippedItems.map(item => [item.id, (item as any).userequipment?.slot_name ?? null])
       );
 
       // Apply slot type filtering
@@ -112,21 +114,41 @@ export class InventoryService {
         try {
           return {
             id: item.id,
-            base_type: item.item_type.name,
+            base_type: item.name
+                ? item.name
+                : item.item_type.name
+                    ? item.item_type.name
+                    : (() => {
+                        throw new ValidationError(`Missing name for item ${item.id}`);
+                    })(),
+            description: item.description
+                ? item.description
+                : item.item_type.description
+                    ? item.item_type.description
+                    : null,
+            name: item.name ? item.name : null,
             item_type_id: item.item_type_id,
-            category: item.item_type.category as any,
+            category: (() => {
+                const category = item.item_type.category;
+                if (['weapon', 'offhand', 'head', 'armor', 'feet', 'accessory', 'pet'].includes(category)) {
+                    return category as 'weapon' | 'offhand' | 'head' | 'armor' | 'feet' | 'accessory' | 'pet';
+                }
+                throw new ValidationError(`Invalid category for item ${item.id}: ${category}`);
+            })(),
             level: item.level,
             rarity: item.item_type.rarity,
-            applied_materials: item.materials || [],
-            materials: item.materials || [], // For compatibility with tests
+            applied_materials: item.materials ?? [],
+            materials: item.materials ?? [], // For compatibility with tests
             computed_stats: this.calculateItemStatsWithMaterials(item),
-            material_combo_hash: item.material_combo_hash || null,
-            generated_image_url: item.generated_image_url || this.getDefaultImage(item),
-            image_generation_status: item.image_generation_status || null,
+            material_combo_hash: item.material_combo_hash ?? null,
+            generated_image_url: item.generated_image_url
+                ? item.generated_image_url
+                : this.getDefaultImage(item),
+            image_generation_status: item.image_generation_status ?? null,
             craft_count: 0, // TODO: Implement craft count tracking when image cache is queried
             is_styled: item.is_styled,
             is_equipped: equippedItemIds.has(item.id),
-            equipped_slot: equippedSlotMap.get(item.id) || null
+            equipped_slot: equippedSlotMap.get(item.id) ?? null
           };
         } catch (error) {
           throw new DatabaseError(`Failed to process item ${item.id}`, error as Record<string, any>);
@@ -169,7 +191,7 @@ export class InventoryService {
   private calculateItemStatsWithMaterials(item: ItemWithDetails): Stats {
     try {
       const baseStats = item.item_type.base_stats_normalized;
-      const appliedMaterials = item.materials || [];
+      const appliedMaterials = item.materials ?? [];
 
       return statsService.computeItemStats(baseStats, item.level, appliedMaterials);
     } catch (error) {
@@ -256,8 +278,8 @@ export class InventoryService {
       'legendary': 5
     };
 
-    const aValue = rarityOrder[a as keyof typeof rarityOrder] || 0;
-    const bValue = rarityOrder[b as keyof typeof rarityOrder] || 0;
+    const aValue = rarityOrder[a as keyof typeof rarityOrder] ?? 0;
+    const bValue = rarityOrder[b as keyof typeof rarityOrder] ?? 0;
 
     return aValue - bValue;
   }

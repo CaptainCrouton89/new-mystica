@@ -44,9 +44,12 @@ struct InventoryItemDetailModal: View {
                 .padding(.vertical, 16)
             }
             .background(Color.backgroundPrimary)
-            .navigationTitle(item.baseType.capitalized)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    TitleText(item.name, size: 20)
+                        .lineLimit(1)
+                }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
                         audioManager.playCancelClick()
@@ -135,6 +138,13 @@ struct InventoryItemDetailModal: View {
                                 .stroke(Color.accent, lineWidth: 1)
                         )
                 )
+            }
+
+            // Description
+            if let description = item.description, !description.isEmpty {
+                NormalText(description)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 12)
             }
         }
     }
@@ -478,6 +488,7 @@ private struct StatDetailRow: View {
                         name: "Steel",
                         description: nil,
                         styleId: "rustic",
+                        styleName: "Rustic",
                         statModifiers: StatModifier(atkPower: 5, atkAccuracy: 0, defPower: 0, defAccuracy: 0),
                         imageUrl: nil
                     )
@@ -492,6 +503,7 @@ private struct StatDetailRow: View {
                         name: "Crystal",
                         description: nil,
                         styleId: "ethereal",
+                        styleName: "Ethereal",
                         statModifiers: StatModifier(atkPower: 10, atkAccuracy: 0, defPower: 0, defAccuracy: 0),
                         imageUrl: nil
                     )

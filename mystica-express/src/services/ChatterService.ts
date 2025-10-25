@@ -12,31 +12,32 @@
 
 import { openai } from '@ai-sdk/openai';
 import { generateText } from 'ai';
+import { AnalyticsRepository } from '../repositories/AnalyticsRepository.js';
+import { CombatRepository } from '../repositories/CombatRepository.js';
+import { EnemyRepository } from '../repositories/EnemyRepository.js';
+import { PetRepository } from '../repositories/PetRepository.js';
 import {
-  PetChatterEventType,
-  EnemyChatterEventType,
-  CombatEventDetails,
+  ChatterMetadata,
   ChatterResponse,
+  CombatEventDetails,
+  EnemyChatterEventType,
   EnemyChatterResponse,
-  PetPersonality,
   EnemyType,
-  PlayerCombatHistory,
   PersonalityAssignmentResult,
-  ChatterMetadata
+  PetChatterEventType,
+  PetPersonality,
+  PlayerCombatHistory
 } from '../types/api.types.js';
 import {
-  SessionNotFoundError,
+  EnemyTypeNotFoundError,
+  ExternalAPIError,
+  InvalidPersonalityError,
   NoPetEquippedError,
   PersonalityNotFoundError,
   PetNotFoundError,
-  InvalidPersonalityError,
-  EnemyTypeNotFoundError,
-  ExternalAPIError
+  SessionNotFoundError,
+  ValidationError
 } from '../utils/errors.js';
-import { CombatRepository } from '../repositories/CombatRepository.js';
-import { PetRepository } from '../repositories/PetRepository.js';
-import { EnemyRepository } from '../repositories/EnemyRepository.js';
-import { AnalyticsRepository } from '../repositories/AnalyticsRepository.js';
 
 interface CombatContext {
   turnNumber: number;
@@ -178,6 +179,14 @@ export class ChatterService {
     eventType: EnemyChatterEventType,
     eventDetails: CombatEventDetails
   ): Promise<EnemyChatterResponse> {
+    console.log('[CHATTER_SERVICE] Starting enemy chatter generation', {
+      sessionId,
+      eventType,
+      turnNumber: eventDetails.turn_number,
+      playerHpPct: eventDetails.player_hp_pct,
+      enemyHpPct: eventDetails.enemy_hp_pct
+    });
+
     // 1. Validate session and get enemy context
     const session = await this.combatRepository.getActiveSession(sessionId);
     if (!session) {
@@ -189,16 +198,30 @@ export class ChatterService {
       throw new EnemyTypeNotFoundError(`Enemy type ${session.enemyTypeId} not found`);
     }
 
+    console.log('[CHATTER_SERVICE] Found enemy type', {
+      sessionId,
+      enemyType: enemyType.name,
+      dialogueTone: enemyType.dialogue_tone
+    });
+
     // 2. Get player combat history for contextual taunts
     const playerHistory = await this.combatRepository.getPlayerHistory(session.userId, session.locationId);
 
     // Convert to PlayerCombatHistory format
     const playerContext: PlayerCombatHistory = {
-      attempts: playerHistory?.totalAttempts || 0,
-      victories: playerHistory?.victories || 0,
-      defeats: playerHistory?.defeats || 0,
-      current_streak: playerHistory?.currentStreak || 0
+      attempts: playerHistory?.totalAttempts ?? 0,
+      victories: playerHistory?.victories ?? 0,
+      defeats: playerHistory?.defeats ?? 0,
+      current_streak: playerHistory?.currentStreak ?? 0
     };
+
+    console.log('[CHATTER_SERVICE] Player combat history', {
+      sessionId,
+      attempts: playerContext.attempts,
+      victories: playerContext.victories,
+      defeats: playerContext.defeats,
+      currentStreak: playerContext.current_streak
+    });
 
     // 3. Build AI prompt with enemy personality and player context
     const combatContext: CombatContext = {
@@ -212,6 +235,11 @@ export class ChatterService {
 
     const prompt = await this.buildEnemyPrompt(enemyType, playerContext, combatContext, eventDetails);
 
+    console.log('[CHATTER_SERVICE] Built AI prompt', {
+      sessionId,
+      promptLength: prompt.length
+    });
+
     // 4. Generate dialogue with timeout and fallback
     let dialogue: string;
     let wasAIGenerated = true;
@@ -219,10 +247,19 @@ export class ChatterService {
 
     try {
       dialogue = await this.callAIService(prompt, this.AI_TIMEOUT_MS);
+      console.log('[CHATTER_SERVICE] AI generation succeeded', {
+        sessionId,
+        dialogue,
+        generationTime: Date.now() - startTime
+      });
     } catch (error) {
-      // Fallback to example taunts
-      dialogue = await this.getRandomFallbackPhrase(enemyType.example_taunts || []);
-      wasAIGenerated = false;
+      console.error('[CHATTER_SERVICE] AI generation failed', {
+        sessionId,
+        error: error instanceof Error ? error.message : String(error),
+        generationTime: Date.now() - startTime
+      });
+      // Re-throw AI generation errors - no fallbacks
+      throw error;
     }
 
     const generationTime = Date.now() - startTime;
@@ -230,19 +267,26 @@ export class ChatterService {
     // 5. Log chatter event for analytics
     await this.logChatterEvent(sessionId, dialogue, {
       eventType,
-      enemyType: enemyType.name || '',
-      dialogueTone: enemyType.dialogue_tone || '',
+      enemyType: enemyType.name ?? '',
+      dialogueTone: enemyType.dialogue_tone ?? '',
       wasAIGenerated,
       generationTime,
       playerContextUsed: playerContext,
       fallbackReason: !wasAIGenerated ? 'ai_timeout' : undefined
     });
 
+    console.log('[CHATTER_SERVICE] Returning enemy chatter response', {
+      sessionId,
+      dialogueLength: dialogue.length,
+      generationTime,
+      wasAIGenerated
+    });
+
     return {
       dialogue,
       personality_type: '', // Not applicable for enemies
-      enemy_type: enemyType.name || '',
-      dialogue_tone: enemyType.dialogue_tone || '',
+      enemy_type: enemyType.name ?? '',
+      dialogue_tone: enemyType.dialogue_tone ?? '',
       generation_time_ms: generationTime,
       was_ai_generated: wasAIGenerated,
       player_context_used: playerContext
@@ -261,14 +305,19 @@ export class ChatterService {
   async getPetPersonalities(): Promise<PetPersonality[]> {
     const personalities = await this.petRepository.getAllPersonalities();
 
-    return personalities.map(p => ({
-      personality_type: p.personality_type || '',
-      display_name: p.display_name || '',
-      description: p.description || '',
-      traits: Array.isArray(p.traits) ? p.traits.map(t => String(t)) : [],
-      example_phrases: Array.isArray(p.example_phrases) ? p.example_phrases.map(e => String(e)) : [],
-      verbosity: (p.verbosity as 'terse' | 'moderate' | 'verbose') || 'moderate'
-    }));
+    return personalities.map(p => {
+      if (!p.personality_type || !p.display_name) {
+        throw new ValidationError('Pet personality missing required fields');
+      }
+      return {
+        personality_type: p.personality_type,
+        display_name: p.display_name,
+        description: p.description ?? '',
+        traits: Array.isArray(p.traits) ? p.traits.map(t => String(t)) : [],
+        example_phrases: Array.isArray(p.example_phrases) ? p.example_phrases.map(e => String(e)) : [],
+        verbosity: (p.verbosity as 'terse' | 'moderate' | 'verbose') ?? 'moderate'
+      };
+    });
   }
 
   /**
@@ -320,16 +369,19 @@ export class ChatterService {
   async getEnemyTypes(): Promise<EnemyType[]> {
     const enemyTypes = await this.enemyRepository.findAllEnemyTypes();
 
-    return enemyTypes.map(e => ({
-      type: e.name || '',
-      display_name: e.name || '',
-      personality_traits: e.ai_personality_traits ? Object.keys(e.ai_personality_traits) : [],
-      dialogue_tone: 'aggressive' as const, // Default tone - should be from database
-      example_taunts: e.example_taunts || [],
-      verbosity: 'moderate' as const, // Default verbosity - should be from database
-      tier_id: e.tier_id || 1,
-      style_id: e.style_id || ''
-    }));
+    return enemyTypes.map(e => {
+      if (!e.name) {
+        throw new ValidationError('Enemy type missing required name field');
+      }
+      return {
+        type: e.name,
+        display_name: e.name,
+        personality_traits: e.ai_personality_traits ? Object.keys(e.ai_personality_traits) : [],
+        dialogue_tone: 'aggressive' as const, // Default tone - should be from database
+        tier_id: e.tier_id ?? 1,
+        style_id: e.style_id ?? ''
+      };
+    });
   }
 
   // =====================================
@@ -366,7 +418,7 @@ export class ChatterService {
       let personalityType: string | null = null;
       if (pet.personality_id) {
         const personality = await this.petRepository.findPersonalityById(pet.personality_id);
-        personalityType = personality?.personality_type || null;
+        personalityType = personality?.personality_type ?? null;
       }
 
       return {
@@ -473,7 +525,7 @@ Response:`;
       });
 
       const aiPromise = generateText({
-        model: openai('gpt-4.1-mini'),
+        model: openai('gpt-4.1-nano'),
         prompt
       });
 

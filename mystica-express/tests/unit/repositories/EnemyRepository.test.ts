@@ -29,18 +29,14 @@ describe('EnemyRepository', () => {
       name: 'Forest Goblin',
       tier_id: 1,
       style_id: 'style-1',
-      base_atk: 15,
-      base_def: 12,
+      atk_power: 15,
+      atk_accuracy: 85,
+      def_power: 12,
+      def_accuracy: 80,
       base_hp: 80,
-      atk_offset: 2,
-      def_offset: 1,
-      hp_offset: 5,
       ai_personality_traits: { aggression: 'high', cunning: 'medium' },
       dialogue_tone: 'mocking',
-      base_dialogue_prompt: 'A sneaky forest dweller',
-      example_taunts: ['You smell like human!', 'My territory!'],
-      verbosity: 'medium',
-      appearance_data: { color: 'green', size: 'small' }
+      dialogue_guidelines: 'A sneaky forest dweller'
     };
 
     it('should find enemy type by ID with personality data', async () => {
@@ -60,9 +56,7 @@ describe('EnemyRepository', () => {
       expect(mockClient.from).toHaveBeenCalledWith('enemytypes');
       expect(result).toEqual({
         ...mockEnemyType,
-        ai_personality_traits: { aggression: 'high', cunning: 'medium' },
-        example_taunts: ['You smell like human!', 'My territory!'],
-        appearance_data: { color: 'green', size: 'small' }
+        ai_personality_traits: { aggression: 'high', cunning: 'medium' }
       });
     });
 
@@ -86,9 +80,7 @@ describe('EnemyRepository', () => {
     it('should handle JSON string personality data', async () => {
       const enemyWithStringJson = {
         ...mockEnemyType,
-        ai_personality_traits: '{"aggression": "high"}',
-        example_taunts: '["Growl!", "Hiss!"]',
-        appearance_data: '{"wings": true}'
+        ai_personality_traits: '{"aggression": "high"}'
       };
       mockClient.from.mockReturnValue({
         select: jest.fn().mockReturnValue({
@@ -104,17 +96,13 @@ describe('EnemyRepository', () => {
       const result = await repository.findEnemyTypeById('enemy-1');
 
       expect(result?.ai_personality_traits).toEqual({ aggression: 'high' });
-      expect(result?.example_taunts).toEqual(['Growl!', 'Hiss!']);
-      expect(result?.appearance_data).toEqual({ wings: true });
     });
 
     it('should handle invalid JSON gracefully', async () => {
       const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
       const enemyWithBadJson = {
         ...mockEnemyType,
-        ai_personality_traits: 'invalid json',
-        example_taunts: 'not array json',
-        appearance_data: '{'
+        ai_personality_traits: 'invalid json'
       };
       mockClient.from.mockReturnValue({
         select: jest.fn().mockReturnValue({
@@ -130,9 +118,7 @@ describe('EnemyRepository', () => {
       const result = await repository.findEnemyTypeById('enemy-1');
 
       expect(result?.ai_personality_traits).toBeNull();
-      expect(result?.example_taunts).toBeNull();
-      expect(result?.appearance_data).toBeNull();
-      expect(consoleSpy).toHaveBeenCalledTimes(3);
+      expect(consoleSpy).toHaveBeenCalledTimes(1);
       consoleSpy.mockRestore();
     });
 

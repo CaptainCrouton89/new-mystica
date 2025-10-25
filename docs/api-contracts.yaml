@@ -87,6 +87,10 @@ components:
         country_code:
           type: string
           description: ISO country code (USA, CAN, etc.)
+        image_url:
+          type: string
+          nullable: true
+          description: R2 URL to location-specific image (replaces SF Symbol icons on map). Pattern: location-images/{location-type}.png
         enemy_level:
           type: integer
           description: "DEPRECATED: Removed in favor of pool-based enemy selection (EnemyPools). Combat level is now determined from player's avg_item_level at combat start."

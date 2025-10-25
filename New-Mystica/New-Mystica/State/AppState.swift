@@ -9,6 +9,16 @@
 import Foundation
 import Observation
 
+// MARK: - Combat Metadata for Defeat Screen
+/// Stores combat session data needed after session is deleted
+struct CombatMetadata {
+    let totalDamageDealt: Double
+    let turnsSurvived: Int
+    let highestMultiplier: Double
+    let combatHistory: CombatHistory
+    let enemy: CombatEnemy
+}
+
 @Observable
 final class AppState {
     static let shared = AppState()
@@ -27,6 +37,9 @@ final class AppState {
 
     // MARK: - Combat Rewards State
     var combatRewards: CombatRewards? = nil
+
+    // MARK: - Combat Metadata (for defeat screen)
+    var lastCombatMetadata: CombatMetadata? = nil
 
     init() {}
 
@@ -142,6 +155,16 @@ final class AppState {
         self.combatRewards = nil
     }
 
+    // MARK: - Combat Metadata Methods
+
+    func setLastCombatMetadata(_ metadata: CombatMetadata?) {
+        self.lastCombatMetadata = metadata
+    }
+
+    func clearLastCombatMetadata() {
+        self.lastCombatMetadata = nil
+    }
+
     // MARK: - Session Restoration
 
     /// Restore authentication session from stored token on app launch
@@ -184,7 +207,9 @@ final class AppState {
 
             // Extract optional fields from JWT
             let deviceId = payloadJSON["device_id"] as? String
-            let accountType = payloadJSON["account_type"] as? String ?? "anonymous"
+            guard let accountType = payloadJSON["account_type"] as? String else {
+                throw AppError.invalidData("Missing account_type in JWT payload: \(payloadJSON)")
+            }
 
             // Create user from JWT claims
             let deviceIdString = deviceId.map { "\"\($0)\"" } ?? "null"
@@ -212,7 +237,12 @@ final class AppState {
             try? KeychainService.deleteAccessToken()
 
             // Set error state so UI can show what went wrong
-            let appError = error as? AppError ?? AppError.invalidData("Session restoration failed: \(error.localizedDescription)")
+            let appError: AppError
+if let typedError = error as? AppError {
+                appError = typedError
+            } else {
+                appError = AppError.invalidData("Session restoration failed: \(error.localizedDescription)")
+            }
             self.authSession = .error(appError)
         }
     }

@@ -31,6 +31,15 @@ final class CombatViewModel {
     var selectedAction: CombatActionType?
     // NOTE: timingScore removed - timing system not yet implemented
 
+    var currentDialogue: DialogueData?
+    var isGeneratingDialogue: Bool = false
+    private var dialogueTimer: Timer?
+    private var dialogueExpirationDate: Date?
+
+    // MARK: - Combat Statistics Tracking (for defeat screen)
+    private var totalDamageDealt: Double = 0
+    private var highestMultiplier: Double = 1.0
+
     init(repository: CombatRepository = DefaultCombatRepository(), navigationManager: NavigationManager? = nil, appState: AppState? = nil) {
         self.repository = repository
         self.navigationManager = navigationManager
@@ -46,6 +55,9 @@ final class CombatViewModel {
         combatState = .loading
         rewards = .idle
         turnHistory = []
+        currentDialogue = nil
+        totalDamageDealt = 0
+        highestMultiplier = 1.0
 
         do {
             // First check for existing active session
@@ -61,6 +73,9 @@ final class CombatViewModel {
                     selectedLevel: selectedLevel
                 )
                 combatState = .loaded(newSession)
+
+                // Fetch commentary for combat start
+                await fetchCommentary(eventType: .combatStart)
             } else {
                 // No active session and no locationId - cannot proceed
                 combatState = .idle
@@ -79,6 +94,8 @@ final class CombatViewModel {
         combatState = .loaded(session)
         rewards = .idle
         turnHistory = [] // Could load action history from server in future
+        totalDamageDealt = 0
+        highestMultiplier = 1.0
     }
 
     func attack(tapPositionDegrees: Float) async {
@@ -98,8 +115,33 @@ final class CombatViewModel {
             // Add to turn history for UI display
             turnHistory.append(action)
 
+            // Track combat stats for defeat screen
+            if let damage = action.damageDealt {
+                totalDamageDealt += damage
+            }
+            // Track highest multiplier from attack actions (check for crit bonus)
+            if action.type == .attack, let damage = action.damageDealt, damage > 0 {
+                // Estimate multiplier from damage (simplified - could be enhanced with backend data)
+                let estimatedMultiplier = damage / (currentSession.playerStats.atkPower * 0.5) // Rough estimate
+                if estimatedMultiplier > highestMultiplier {
+                    highestMultiplier = estimatedMultiplier
+                }
+            }
+
             // Update combat state from action response (eliminates session refetch)
             updateCombatStateFromAction(action, previousSession: currentSession)
+
+            // Fetch enemy commentary ONLY if combat is still ongoing
+            if action.combatStatus == .ongoing || action.combatStatus == .active {
+                Task {
+                    do {
+                        try await fetchCommentary()
+                    } catch {
+                        // Log the error but don't interrupt combat flow
+                        print("Failed to fetch enemy commentary: \(error)")
+                    }
+                }
+            }
 
             // Handle combat completion with direct navigation
             if action.combatStatus == .victory {
@@ -107,6 +149,17 @@ final class CombatViewModel {
                 appState?.setCombatRewards(action.rewards) // Store rewards for VictoryView
                 navigationManager?.navigateTo(.victory)
             } else if action.combatStatus == .defeat {
+                // Store combat metadata BEFORE clearing session
+                if let rewards = action.rewards {
+                    let metadata = CombatMetadata(
+                        totalDamageDealt: totalDamageDealt,
+                        turnsSurvived: action.turnNumber ?? 0,
+                        highestMultiplier: highestMultiplier,
+                        combatHistory: rewards.combatHistory,
+                        enemy: currentSession.enemy
+                    )
+                    appState?.setLastCombatMetadata(metadata)
+                }
                 appState?.setCombatSession(nil) // Clear active session
                 appState?.clearCombatRewards() // Clear any previous rewards
                 navigationManager?.navigateTo(.defeat)
@@ -143,12 +196,35 @@ final class CombatViewModel {
             // Update combat state from action response (eliminates session refetch)
             updateCombatStateFromAction(action, previousSession: currentSession)
 
+            // Fetch enemy commentary ONLY if combat is still ongoing
+            if action.combatStatus == .ongoing || action.combatStatus == .active {
+                Task {
+                    do {
+                        try await fetchCommentary()
+                    } catch {
+                        // Log the error but don't interrupt combat flow
+                        print("Failed to fetch enemy commentary: \(error)")
+                    }
+                }
+            }
+
             // Handle combat completion with direct navigation
             if action.combatStatus == .victory {
                 appState?.setCombatSession(nil) // Clear active session
                 appState?.setCombatRewards(action.rewards) // Store rewards for VictoryView
                 navigationManager?.navigateTo(.victory)
             } else if action.combatStatus == .defeat {
+                // Store combat metadata BEFORE clearing session
+                if let rewards = action.rewards {
+                    let metadata = CombatMetadata(
+                        totalDamageDealt: totalDamageDealt,
+                        turnsSurvived: action.turnNumber ?? 0,
+                        highestMultiplier: highestMultiplier,
+                        combatHistory: rewards.combatHistory,
+                        enemy: currentSession.enemy
+                    )
+                    appState?.setLastCombatMetadata(metadata)
+                }
                 appState?.setCombatSession(nil) // Clear active session
                 appState?.clearCombatRewards() // Clear any previous rewards
                 navigationManager?.navigateTo(.defeat)
@@ -222,7 +298,95 @@ final class CombatViewModel {
     private func resetCombatState() {
         turnHistory = []
         selectedAction = nil
+        currentDialogue = nil
+        isGeneratingDialogue = false
+        dialogueTimer?.invalidate()
+        dialogueTimer = nil
+        dialogueExpirationDate = nil
+        totalDamageDealt = 0
+        highestMultiplier = 1.0
         // NOTE: timingScore removed - timing system not yet implemented
+    }
+
+    private func scheduleDialogueDismissal() {
+        dialogueTimer?.invalidate()
+        dialogueExpirationDate = Date().addingTimeInterval(4.5)
+
+        dialogueTimer = Timer.scheduledTimer(withTimeInterval: 5.0, repeats: false) { [weak self] _ in
+            DispatchQueue.main.async {
+                self?.currentDialogue = nil
+            }
+        }
+    }
+
+    /// Determine the event type based on the last combat action
+    private func determineEventType(from action: CombatAction) -> CombatEventType {
+        // Infer event type from action context and combat state
+        if case .loaded(let session) = combatState {
+            // Check for special conditions
+            if session.playerHp <= Double(session.playerStats.hp) * 0.3 {
+                return .lowPlayerHP
+            }
+            if session.enemyHp <= Double(session.enemy.hp) * 0.15 {
+                return .nearVictory
+            }
+        }
+
+        // Default to player_hit for any successful action
+        return .playerHit
+    }
+
+    /// Build event details from the most recent combat action
+    private func buildEventDetails() -> CombatEventDetails? {
+        guard let session = getCurrentSession() else {
+            return nil
+        }
+
+        return CombatEventDetails(
+            turnNumber: session.turnNumber ?? 1,
+            playerHpPct: playerHPPercentage,
+            enemyHpPct: enemyHPPercentage,
+            damage: nil,
+            isCritical: nil
+        )
+    }
+
+    /// Fetch enemy commentary for the current combat event
+    private func fetchCommentary(eventType: CombatEventType? = nil) async {
+        guard case .loaded(let session) = combatState else {
+            return
+        }
+        guard !isGeneratingDialogue else {
+            return
+        }
+
+        // Determine event type dynamically if not provided
+        let finalEventType: CombatEventType = eventType ?? (turnHistory.last.map(determineEventType) ?? .combatStart)
+
+        guard let eventDetails = buildEventDetails() else {
+            return
+        }
+
+        isGeneratingDialogue = true
+        do {
+            let dialogueResponse = try await repository.fetchEnemyChatter(
+                sessionId: session.sessionId,
+                eventType: finalEventType.rawValue,
+                eventDetails: eventDetails
+            )
+
+            await MainActor.run {
+                self.currentDialogue = DialogueData(
+                    text: dialogueResponse.dialogue,
+                    tone: dialogueResponse.dialogueTone
+                )
+                self.isGeneratingDialogue = false
+                self.scheduleDialogueDismissal()
+            }
+        } catch {
+            isGeneratingDialogue = false
+            print("Error fetching enemy commentary: \(error)")
+        }
     }
 
     private func handleCombatEnd(status: CombatStatus, sessionId: String) async {

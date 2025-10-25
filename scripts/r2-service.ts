@@ -1,7 +1,23 @@
 import * as dotenv from 'dotenv';
 import * as path from 'path';
-import { S3Client, ListObjectsV2Command, GetObjectCommand, PutObjectCommand, HeadObjectCommand } from '@aws-sdk/client-s3';
+import {
+  S3Client,
+  ListObjectsV2Command,
+  GetObjectCommand,
+  PutObjectCommand,
+  HeadObjectCommand,
+  S3ServiceException
+} from '@aws-sdk/client-s3';
+import { SdkError } from '@aws-sdk/types';
 import * as fs from 'fs';
+
+interface R2Error extends Error {
+  name: string;
+  message: string;
+  $metadata?: {
+    httpStatusCode?: number;
+  };
+}
 
 // Load environment variables from parent directory
 dotenv.config({ path: path.join('..', '.env.local'), override: true });
@@ -108,11 +124,19 @@ export async function checkR2AssetExists(name: string, type: 'item' | 'material'
     }));
 
     return true;
-  } catch (error: any) {
-    if (error.name === 'NotFound' || error.$metadata?.httpStatusCode === 404) {
+  } catch (error) {
+    const r2Error = error as R2Error | S3ServiceException;
+
+    if (r2Error.name === 'NotFound') {
       return false;
     }
-    throw new Error(`Failed to check R2 asset ${key}: ${error.message}`);
+
+    const s3Error = r2Error as S3ServiceException;
+    if (s3Error.$metadata?.httpStatusCode === 404) {
+      return false;
+    }
+
+    throw new Error(`Failed to check R2 asset ${key}: ${r2Error.message}`);
   }
 }
 
@@ -160,8 +184,9 @@ export async function uploadToR2(
     console.log(`✅ Uploaded to R2: ${publicUrl}`);
 
     return publicUrl;
-  } catch (error: any) {
-    throw new Error(`Failed to upload to R2 ${key}: ${error.message}`);
+  } catch (error) {
+    const r2Error = error as R2Error | S3ServiceException;
+    throw new Error(`Failed to upload to R2 ${key}: ${r2Error.message}`);
   }
 }
 

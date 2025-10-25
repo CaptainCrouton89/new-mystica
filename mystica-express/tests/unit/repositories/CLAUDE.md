@@ -12,6 +12,7 @@ Each `*Repository.test.ts` file tests a corresponding `src/repositories/*.ts` cl
 - Tests use `setupDatabase()` from `../helpers/seedDatabase.js` to populate test data
 - Supabase is mocked globally in `tests/setup.ts`
 - Database state is reset between test suites
+- Use `setupMockChain()` helper to mock Supabase method chains (`.from().select().eq()` etc)
 
 ### Fixtures and Factories
 - **Fixtures** (`../fixtures/`): Static test data (e.g., `ANONYMOUS_USER`, `BASE_SWORD`)
@@ -43,7 +44,33 @@ Test for:
 - `NotFoundError` when record doesn't exist
 - `ValidationError` for invalid input
 - `UnauthorizedError` for permission violations
+- `DatabaseError` for connection/RPC failures
 - Database constraint violations
+
+## LocationRepository Pattern
+
+LocationRepository demonstrates advanced patterns for complex game queries:
+
+**PostGIS Geospatial Queries:**
+- `findNearby(lat, lng, radius)` - Uses PostGIS RPC function `get_nearby_locations()`
+- Test RPC calls with `mockClient.rpc.mockResolvedValue()`
+- Include edge cases: poles, date line, extreme radii
+
+**Pool Matching with Filters:**
+- `getMatchingEnemyPools()` and `getMatchingLootPools()` - Complex OR filters
+- Filter logic includes: universal, location_type, state, country
+- Test that filters are properly constructed using `setupMockChain()`
+
+**Weighted Random Selection:**
+- `selectRandomEnemy()` and `selectRandomLoot()` - Use cumulative weights
+- Mock `Math.random()` with `jest.spyOn()` to test specific selection paths
+- Test edge cases: empty arrays, zero weights
+- Verify weight aggregation and multiplier application
+
+**Advanced Aggregation:**
+- `getAggregatedEnemyPools()` - Combines weights across multiple pools
+- `getAggregatedLootPools()` - Applies tier weight multipliers to materials only
+- Use sequential `.mockReturnValueOnce()` for multi-step queries
 
 ## Example Test Structure
 
@@ -75,7 +102,9 @@ describe('ItemRepository', () => {
 ## See Also
 
 - `../helpers/seedDatabase.js` - Database setup
+- `../helpers/mockSupabase.js` - Mock Supabase client and chain setup
 - `../fixtures/` - Static test data
 - `../factories/` - Data generators
 - `../../src/repositories/BaseRepository.ts` - Base class patterns
+- `../../src/repositories/LocationRepository.ts` - PostGIS + pool matching patterns
 - Parent CLAUDE.md - Full test infrastructure documentation

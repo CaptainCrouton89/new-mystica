@@ -6,6 +6,7 @@ export { MaterialService, materialService } from './MaterialService.js';
 export { ItemService, itemService } from './ItemService.js';
 export { StatsService, statsService } from './StatsService.js';
 export { ImageGenerationService, imageGenerationService } from './ImageGenerationService.js';
+export { NameDescriptionService, nameDescriptionService } from './NameDescriptionService.js';
 export { CombatService, combatService } from './CombatService.js';
 export { ChatterService, chatterService } from './ChatterService.js';
 export { EconomyService, economyService } from './EconomyService.js';

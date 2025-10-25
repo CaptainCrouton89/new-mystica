@@ -15,7 +15,7 @@ struct CombatLevelSelectionView: View {
     let onLevelSelected: (Int) -> Void
 
     private let levels = Array(1...10)
-    private let gridColumns = Array(repeating: GridItem(.flexible(), spacing: 12), count: 5)
+    private let gridColumns = Array(repeating: GridItem(.flexible(), spacing: 16), count: 3)
 
     var body: some View {
         ZStack {
@@ -38,23 +38,18 @@ struct CombatLevelSelectionView: View {
                         .foregroundColor(Color.textSecondary)
                 }
 
-                // Recommended level indicator
-                HStack {
-                    Spacer()
-                    Text("Recommended for your gear: \(recommendedLevel)")
-                        .font(.caption)
-                        .foregroundColor(Color.accent)
-                        .shadow(color: Color.accent.opacity(0.3), radius: 2)
-                    Spacer()
-                }
 
-                // Level selection grid
-                LazyVGrid(columns: gridColumns, spacing: 12) {
-                    ForEach(levels, id: \.self) { level in
-                        levelButton(for: level)
+                // Level selection grid (scrollable)
+                ScrollView {
+                    LazyVGrid(columns: gridColumns, spacing: 16) {
+                        ForEach(levels, id: \.self) { level in
+                            levelButton(for: level)
+                        }
                     }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
                 }
-                .padding(.horizontal, 8)
+                .frame(maxHeight: 400)
 
                 if isLoading {
                     ProgressView()
@@ -88,25 +83,43 @@ struct CombatLevelSelectionView: View {
         Button {
             selectLevel(level)
         } label: {
-            Text("\(level)")
-                .font(.system(size: 18, weight: .bold, design: .default))
-                .foregroundColor(Color.textPrimary)
-                .frame(width: 60, height: 60)
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(Color.backgroundSecondary)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(
-                            level == recommendedLevel ? Color.accent : Color.borderSubtle,
-                            lineWidth: level == recommendedLevel ? 2 : 1
+            ZStack(alignment: .top) {
+                // Main button content
+                Text("\(level)")
+                    .font(.system(size: 22, weight: .bold, design: .default))
+                    .foregroundColor(Color.textPrimary)
+                    .frame(width: 80, height: 80)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.backgroundSecondary)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(
+                                level == recommendedLevel ? Color.accent : Color.borderSubtle,
+                                lineWidth: level == recommendedLevel ? 2 : 1
+                            )
+                            .shadow(
+                                color: level == recommendedLevel ? Color.accent.opacity(0.4) : Color.clear,
+                                radius: level == recommendedLevel ? 4 : 0
+                            )
+                    )
+
+                // Recommended badge on top border
+                if level == recommendedLevel {
+                    Text("Recommended")
+                        .font(.system(size: 8, weight: .semibold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 2)
+                        .background(
+                            Capsule()
+                                .fill(Color.accent)
                         )
-                        .shadow(
-                            color: level == recommendedLevel ? Color.accent.opacity(0.4) : Color.clear,
-                            radius: level == recommendedLevel ? 4 : 0
-                        )
-                )
+                        .offset(y: -8)
+                        .shadow(color: Color.accent.opacity(0.3), radius: 2)
+                }
+            }
         }
         .buttonStyle(LevelButtonStyle())
         .accessibilityLabel("Level \(level)")
