@@ -293,19 +293,53 @@ struct LocationMarkerView: View {
     var body: some View {
         Button(action: onTap) {
             ZStack {
-                Circle()
-                    .fill(markerColor.opacity(0.3))
-                    .frame(width: 60, height: 60)
-                    .blur(radius: 4)
-
-                Circle()
-                    .fill(markerColor)
-                    .frame(width: 44, height: 44)
-                    .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
-
-                Image(systemName: getLocationIcon())
-                    .font(.system(size: 20, weight: .medium))
-                    .foregroundColor(.white)
+                // Display location image if available, otherwise fallback to SF Symbol
+                if let imageUrl = location.imageUrl, let url = URL(string: imageUrl) {
+                    AsyncImage(url: url) { phase in
+                        switch phase {
+                        case .empty:
+                            ProgressView()
+                                .frame(width: 44, height: 44)
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .frame(width: 44, height: 44)
+                        case .failure:
+                            // Fallback to SF Symbol icon if image fails to load
+                            Circle()
+                                .fill(markerColor)
+                                .frame(width: 44, height: 44)
+                                .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
+                                .overlay(
+                                    Image(systemName: getLocationIcon())
+                                        .font(.system(size: 20, weight: .medium))
+                                        .foregroundColor(.white)
+                                )
+                        @unknown default:
+                            Circle()
+                                .fill(markerColor)
+                                .frame(width: 44, height: 44)
+                                .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
+                                .overlay(
+                                    Image(systemName: getLocationIcon())
+                                        .font(.system(size: 20, weight: .medium))
+                                        .foregroundColor(.white)
+                                )
+                        }
+                    }
+                } else {
+                    // No image URL, use SF Symbol icon
+                    Circle()
+                        .fill(markerColor)
+                        .frame(width: 44, height: 44)
+                        .shadow(color: .black.opacity(0.3), radius: 4, x: 0, y: 2)
+                        .overlay(
+                            Image(systemName: getLocationIcon())
+                                .font(.system(size: 20, weight: .medium))
+                                .foregroundColor(.white)
+                        )
+                }
 
                 VStack {
                     Spacer()
