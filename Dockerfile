@@ -7,12 +7,13 @@ RUN npm install -g pnpm@8
 # Set working directory
 WORKDIR /app
 
-# Copy monorepo package.json and mystica-express
+# Copy mystica-express contents (Railway build context is already mystica-express/)
 COPY package.json ./
-COPY mystica-express ./mystica-express
+COPY pnpm-lock.yaml ./
+COPY tsconfig.json ./
+COPY src ./src
 
 # Install dependencies
-WORKDIR /app/mystica-express
 RUN pnpm install --frozen-lockfile --force
 
 # Build TypeScript
