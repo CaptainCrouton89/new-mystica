@@ -60,6 +60,10 @@ tests/
 └── integration/ # Full API tests (10s timeout)
 ```
 
+## Railway Deployment
+
+**Configuration:** `railway.json` specifies Dockerfile builder with auto-restart on failure (max 10 retries, 1 replica). See parent [CLAUDE.md](/CLAUDE.md) for full deployment details.
+
 ## Database
 
 **Remote Supabase only:** kofvwxutsmxdszycvluc. PostGIS enabled for geospatial queries (`get_nearby_locations`). Migrations in `migrations/` applied to remote.
