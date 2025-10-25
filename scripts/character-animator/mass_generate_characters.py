@@ -55,7 +55,7 @@ def generate_character(character_desc, reference_paths, output_path, aspect_rati
 def main():
     parser = argparse.ArgumentParser(description="Mass generate character images using nano-banana")
     parser.add_argument("csv_file", help="CSV file with character descriptions")
-    parser.add_argument("--output", "-o", default="generated_characters", help="Output folder")
+    parser.add_argument("--output", "-o", default="character-animations/generated", help="Output folder (default: character-animations/generated)")
     parser.add_argument("--references", "-r", nargs='+', required=True, help="Reference image paths")
     parser.add_argument("--aspect-ratio", default="9:16", help="Aspect ratio (default: 9:16)")
     parser.add_argument("--format", default="jpg", choices=["jpg", "png"], help="Output format")

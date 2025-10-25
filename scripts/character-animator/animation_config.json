@@ -1,7 +1,6 @@
 {
-  "output_folder": "output",
+  "output_folder": "character-animations/animated",
   "max_concurrent": 10,
-  "aspect_ratio": "16:9",
   "animations": {
     "idle": {
       "prompt": "Game animation: The character is idle, breathing gently and swaying slightly as if waiting.",
