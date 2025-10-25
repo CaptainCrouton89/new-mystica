@@ -76,6 +76,15 @@ Services delegate data access to repositories extending `BaseRepository<T>`.
 - AI-generated names/descriptions using OpenAI GPT-4.1-mini
 - Structured Zod validation with exponential backoff
 
+**StatsService** (✅ Fully Implemented)
+- Item stat computation with level & rarity multipliers using quadratic formula: `1 + 0.05 * (level - 1)²`
+- Material modifier application and validation (normalized to ±0.01)
+- Equipment stat aggregation across 8 slots with per-slot contributions
+- Enemy stat realization with level, rarity, and difficulty multipliers (8x base * levelMult * diffMult)
+- Zone probability distribution calculation for combat accuracy (5-zone system with smooth interpolation)
+- Zone hit simulation and critical damage multipliers by zone (zone 1: 50% crit, zone 5: no crit)
+- Comprehensive input validation (all stats must sum to 1.0, materials ≤3, items ≤8)
+
 ## AI-Powered Services
 
 **ChatterService** (✅ Fully Implemented - Implements F-11, F-12)
@@ -117,7 +126,6 @@ Services delegate data access to repositories extending `BaseRepository<T>`.
 
 **MaterialService** (⚠️) - Material application and style system
 **ItemService** (⚠️) - Item creation and stat calculation
-**StatsService** (⚠️) - Stat normalization algorithms
 
 ## Testing Services
 
