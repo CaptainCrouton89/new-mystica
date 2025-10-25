@@ -17,6 +17,14 @@ Redesign enemy stats to scale linearly with player progression and consolidate l
 
 ## Enemy Stat System
 
+### Core Design Decision: HP Does NOT Scale
+
+**Rationale:**
+- Player HP does NOT scale with level (fixed pool)
+- Enemy HP should NOT scale with player level
+- Combat length stays consistent across progression
+- Difficulty comes from enemy attack/defense scaling, not HP inflation
+
 ### Stat Distribution
 
 **Current (absolute values that don't scale):**
@@ -24,21 +32,23 @@ Redesign enemy stats to scale linearly with player progression and consolidate l
 enemytypes: {
   atk_power: 10      // Fixed base stat
   def_power: 10
-  base_hp: 120
+  base_hp: 120       // Fixed HP value
   // Tier adds fixed bonuses
 }
 ```
 
-**New (normalized distribution):**
+**New (hybrid system - attack/defense normalized, HP absolute):**
 ```
 enemytypes: {
-  // Stats as normalized distribution (sum = 1.0)
-  atk_power_normalized: 0.25      // 25% of stat budget
-  atk_accuracy_normalized: 0.15   // 15% of stat budget
-  def_power_normalized: 0.25      // 25% of stat budget
-  def_accuracy_normalized: 0.15   // 15% of stat budget
-  hp_normalized: 0.20             // 20% of stat budget
+  // Combat stats as normalized distribution (sum = 1.0)
+  atk_power_normalized: 0.33      // 33% of stat budget
+  atk_accuracy_normalized: 0.17   // 17% of stat budget
+  def_power_normalized: 0.33      // 33% of stat budget
+  def_accuracy_normalized: 0.17   // 17% of stat budget
   // Total: 1.0
+
+  // HP as absolute value (does NOT scale with level)
+  base_hp: 1200                   // Fixed HP per enemy type
 }
 ```
 
@@ -47,11 +57,11 @@ enemytypes: {
 ```
 const baseStat = 10; // Baseline stat value per point (matches player system)
 
-// For non-HP stats
+// For combat stats (scale with player level)
 final_stat = normalized_stat × 8 × combat_level × tier.difficulty_multiplier × baseStat
 
-// For HP (larger multiplier)
-final_hp = hp_normalized × 8 × combat_level × tier.difficulty_multiplier × baseStat × 10
+// For HP (absolute value, only scales with tier)
+final_hp = base_hp × tier.difficulty_multiplier
 ```
 
 **Explanation:**
@@ -60,17 +70,36 @@ final_hp = hp_normalized × 8 × combat_level × tier.difficulty_multiplier × b
 - `combat_level`: Player's avg_item_level (from Users table)
 - `tier.difficulty_multiplier`: Difficulty scaling (0.7 - 2.0)
 - `baseStat`: 10 (matches player base_stat_value)
-- `× 10 for HP`: Matches player HP scaling (larger pool)
+- `base_hp`: Fixed HP value defined per enemy type
+- **HP only multiplied by tier difficulty** - NOT by combat_level
 
 ### Example (Level 10, Tier 2 "Normal" enemy with balanced stats)
 
 ```
-atk_power = 0.25 × 8 × 10 × 1.0 × 10 = 200
-atk_accuracy = 0.15 × 8 × 10 × 1.0 × 10 = 120
-def_power = 0.25 × 8 × 10 × 1.0 × 10 = 200
-def_accuracy = 0.15 × 8 × 10 × 1.0 × 10 = 120
-hp = 0.20 × 8 × 10 × 1.0 × 10 × 10 = 1600
+atk_power = 0.33 × 8 × 10 × 1.0 × 10 = 264
+atk_accuracy = 0.17 × 8 × 10 × 1.0 × 10 = 136
+def_power = 0.33 × 8 × 10 × 1.0 × 10 = 264
+def_accuracy = 0.17 × 8 × 10 × 1.0 × 10 = 136
+hp = 1200 × 1.0 = 1200  // Does NOT scale with level 10
 ```
+
+### Same Enemy at Different Levels
+
+**Level 5 (Tier 2):**
+```
+atk_power = 0.33 × 8 × 5 × 1.0 × 10 = 132
+def_power = 0.33 × 8 × 5 × 1.0 × 10 = 132
+hp = 1200 × 1.0 = 1200  // Same HP!
+```
+
+**Level 20 (Tier 2):**
+```
+atk_power = 0.33 × 8 × 20 × 1.0 × 10 = 528
+def_power = 0.33 × 8 × 20 × 1.0 × 10 = 528
+hp = 1200 × 1.0 = 1200  // Still same HP!
+```
+
+**Result:** Higher level players face enemies that hit harder and defend better, but have the same HP pool. Fights stay mechanically challenging without becoming tedious HP sponges.
 
 ## Tier System
 
@@ -312,11 +341,13 @@ async function generateLoot(combatSessionId: string) {
 ### EnemyTypes Table
 
 **Remove columns:**
-- `atk_power: number` (absolute value)
-- `atk_accuracy: number` (absolute value)
-- `def_power: number` (absolute value)
-- `def_accuracy: number` (absolute value)
-- `base_hp: number` (absolute value)
+- `atk_power: number` (absolute value that doesn't scale)
+- `atk_accuracy: number` (absolute value that doesn't scale)
+- `def_power: number` (absolute value that doesn't scale)
+- `def_accuracy: number` (absolute value that doesn't scale)
+
+**Keep column:**
+- `base_hp: number` (absolute value, only modified by tier.difficulty_multiplier)
 
 **Add columns:**
 ```
@@ -324,17 +355,16 @@ atk_power_normalized: number      // 0.0 - 1.0
 atk_accuracy_normalized: number   // 0.0 - 1.0
 def_power_normalized: number      // 0.0 - 1.0
 def_accuracy_normalized: number   // 0.0 - 1.0
-hp_normalized: number             // 0.0 - 1.0
 ```
 
 **Add constraint:**
 ```sql
+-- Only combat stats must sum to 1.0 (HP is separate)
 CHECK (
   atk_power_normalized +
   atk_accuracy_normalized +
   def_power_normalized +
-  def_accuracy_normalized +
-  hp_normalized = 1.0
+  def_accuracy_normalized = 1.0
 )
 ```
 
@@ -407,21 +437,26 @@ SELECT
   t.tier_num,
   t.difficulty_multiplier,
 
-  -- Normalized stats (for reference)
+  -- Normalized combat stats (for reference)
   e.atk_power_normalized,
   e.atk_accuracy_normalized,
   e.def_power_normalized,
   e.def_accuracy_normalized,
-  e.hp_normalized
 
-  -- These will be computed at runtime with combat_level
-  -- This view just stores the base distributions
+  -- Absolute HP (only multiplied by tier)
+  e.base_hp,
+  (e.base_hp * t.difficulty_multiplier) AS realized_hp
+
+  -- Combat stats will be computed at runtime with combat_level
+  -- This view stores base distributions and pre-computed HP
 
 FROM enemytypes e
 JOIN tiers t ON e.tier_id = t.id;
 ```
 
-**Note:** Final stats computed at runtime in application code, not in view (since combat_level varies per session).
+**Note:**
+- Combat stats (atk/def) computed at runtime in application code (require combat_level)
+- HP pre-computed in view since it only depends on tier (no combat_level factor)
 
 ## Migration Path
 
