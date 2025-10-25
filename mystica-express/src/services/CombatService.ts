@@ -1,11 +1,3 @@
-/**
- * CombatService - Core combat system implementation
- *
- * Implements turn-based combat with weapon timing dial mechanics, enemy selection,
- * damage calculation, and session management. Handles combat session lifecycle
- * from initialization through completion with proper pool-based enemy/loot selection.
- */
-
 import { CombatRepository, CombatSessionData } from '../repositories/CombatRepository.js';
 import { EnemyRepository } from '../repositories/EnemyRepository.js';
 import { EquipmentRepository } from '../repositories/EquipmentRepository.js';
@@ -14,19 +6,52 @@ import { ItemTypeRepository } from '../repositories/ItemTypeRepository.js';
 import { MaterialRepository } from '../repositories/MaterialRepository.js';
 import { ProfileRepository } from '../repositories/ProfileRepository.js';
 import { WeaponRepository } from '../repositories/WeaponRepository.js';
-import { Stats } from '../types/api.types.js';
-import { Database } from '../types/database.types.js';
-import { AdjustedBands } from '../types/repository.types.js';
-import {
-  ConflictError,
-  NotFoundError,
-  ValidationError
-} from '../utils/errors.js';
-import { locationService } from './LocationService.js';
-import { getMaterialImageUrl } from '../utils/image-url.js';
+import { ConflictError, NotFoundError, ValidationError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
+import { locationService } from './LocationService.js';
+import { statsService } from './StatsService.js';
 
-// Default repository instances (can be overridden for testing)
+import {
+  CombatSession,
+  AttackResult,
+  DefenseResult,
+  CombatRewards,
+  PlayerStats,
+  EnemyStats,
+  HitBand,
+} from './combat/types.js';
+import { ZONE_MULTIPLIERS, MIN_DAMAGE } from './combat/constants.js';
+import {
+  hitBandToZone,
+  determineHitZone,
+  calculateDamage,
+  calculateEnemyStats,
+} from './combat/calculations.js';
+import { generateLoot } from './combat/loot.js';
+import {
+  selectEnemy,
+  getWeaponConfig,
+  captureEquipmentSnapshot,
+  calculatePlayerStats,
+  calculateSessionExpiry,
+} from './combat/session.js';
+import { applyRewards } from './combat/rewards.js';
+import {
+  CombatLogEntry,
+  getCurrentHP,
+  createAttackLogEntry,
+  createDefenseLogEntry,
+  getNextTurnNumber,
+} from './combat/combat-log.js';
+import {
+  executeAttackTurn,
+  executeDefenseTurn,
+} from './combat/turn-execution.js';
+import {
+  buildSessionRecoveryData,
+  buildBasicSessionData,
+} from './combat/session-recovery.js';
+
 let combatRepository = new CombatRepository();
 let enemyRepository = new EnemyRepository();
 let equipmentRepository = new EquipmentRepository();
@@ -35,178 +60,7 @@ let itemTypeRepository = new ItemTypeRepository();
 let weaponRepository = new WeaponRepository();
 let materialRepository = new MaterialRepository();
 let profileRepository = new ProfileRepository();
-
-// Type aliases
-type CombatResult = Database['public']['Enums']['combat_result'];
-type HitBand = Database['public']['Enums']['hit_band'];
-type WeaponPattern = Database['public']['Enums']['weapon_pattern'];
-
-// Combat configuration constants
-const HIT_ZONE_MULTIPLIERS = {
-  injure: -0.5,
-  miss: 0.0,
-  graze: 0.6,
-  normal: 1.0,
-  crit: 1.6,
-} as const;
-
-const MIN_DAMAGE = 1;
-const MAX_CRIT_BONUS = 1.0; // 0-100% additional multiplier
-
-// Combat interfaces matching the spec
-export interface CombatSession {
-  session_id: string;
-  player_id: string;
-  enemy_id: string;
-  status: 'active';
-  player_hp: number;
-  enemy_hp: number;
-  enemy: {
-    id: string;
-    type: string;
-    name: string;
-    level: number;
-    atk: number;
-    def: number;
-    hp: number;
-    style_id: string;
-    dialogue_tone: string;
-    personality_traits: string[];
-  };
-  player_stats: {
-    atkPower: number;
-    atkAccuracy: number;
-    defPower: number;
-    defAccuracy: number;
-    hp: number;
-  };
-  weapon_config: {
-    pattern: WeaponPattern;
-    spin_deg_per_s: number;
-    adjusted_bands: {
-      deg_injure: number;
-      deg_miss: number;
-      deg_graze: number;
-      deg_normal: number;
-      deg_crit: number;
-    };
-  };
-}
-
-export interface AttackResult {
-  hit_zone: HitBand;
-  base_multiplier: number;
-  crit_bonus_multiplier?: number;
-  damage_dealt: number;
-  player_hp_remaining: number;
-  enemy_hp_remaining: number;
-  enemy_damage: number;
-  combat_status: 'ongoing' | 'victory' | 'defeat';
-  turn_number: number;
-  rewards: CombatRewards | null;
-}
-
-/**
- * Combat rewards and player history data returned after combat completion
- *
- * @interface CombatRewards
- * @property {string} result - Combat outcome ('victory' or 'defeat')
- * @property {object} [currencies] - Currency rewards (only present for victory)
- * @property {number} currencies.gold - Gold amount earned
- * @property {Array} [materials] - Material drops with style inheritance (only present for victory)
- * @property {Array} [items] - Item drops from loot pools with full details (only present for victory)
- * @property {number} [experience] - Experience points earned (only present for victory)
- * @property {object} combat_history - Updated combat statistics for location
- */
-export interface CombatRewards {
-  result: 'victory' | 'defeat';
-  /** Currency rewards with extensible structure for future currencies (only present for victory) */
-  currencies?: {
-    /** Gold amount earned from combat */
-    gold: number;
-    // Future: gems, premium_currency, event_tokens
-  };
-  /** Material drops with style inheritance from enemy (only present for victory) */
-  materials?: Array<{
-    /** Material UUID from Materials table */
-    material_id: string;
-    /** Display name of the material */
-    name: string;
-    /** Style UUID inherited from enemy */
-    style_id: string;
-    /** Display name of the style */
-    style_name: string;
-  }>;
-  /** Item drops from loot pools with full item details (only present for victory) */
-  items?: Array<{
-    /** Created item UUID from Items table */
-    id: string;
-    /** Item type UUID from ItemTypes table */
-    item_type_id: string;
-    /** Display name of the item */
-    name: string;
-    /** Item category (weapon, armor, accessory, etc.) */
-    category: string;
-    /** Item rarity (common, uncommon, rare, epic, legendary) */
-    rarity: string;
-    /** Style UUID inherited from enemy */
-    style_id: string;
-    /** Display name of the style */
-    style_name: string;
-    /** Generated image URL from R2 storage (null if not yet generated) */
-    generated_image_url: string | null;
-  }>;
-  /** Experience points earned from combat (only present for victory) */
-  experience?: number;
-  /** Updated combat statistics for this location */
-  combat_history: {
-    /** Location UUID where combat occurred */
-    location_id: string;
-    /** Total combat attempts at this location */
-    total_attempts: number;
-    /** Total victories at this location */
-    victories: number;
-    /** Total defeats at this location */
-    defeats: number;
-    /** Current win/loss streak */
-    current_streak: number;
-    /** Longest win streak achieved */
-    longest_streak: number;
-  };
-}
-
-export interface PlayerStats {
-  atkPower: number;
-  atkAccuracy: number;
-  defPower: number;
-  defAccuracy: number;
-  hp: number;
-}
-
-export interface EnemyStats {
-  atk: number;
-  def: number;
-  hp: number;
-  style_id: string;
-  dialogue_tone: string;
-  personality_traits: string[];
-}
-
-/**
- * CombatService implementation
- *
- * Responsibilities:
- * - Combat session management (PostgreSQL with TTL)
- * - Enemy selection via pool system with weighted random
- * - Player/enemy stat calculation via database views
- * - Weapon timing mechanics with accuracy adjustments
- * - Damage calculation with zone multipliers and crit bonuses
- * - Combat completion with loot generation and history updates
- */
 export class CombatService {
-  // Cache for storing selected enemy style_id per session
-  // Key: sessionId, Value: style_id (selected via weighted random)
-  private enemyStyleCache = new Map<string, string>();
 
   private combatRepository: CombatRepository;
   private enemyRepository: EnemyRepository;
@@ -237,24 +91,13 @@ export class CombatService {
     this.profileRepository = profileRepo || profileRepository;
   }
 
-  // ============================================================================
-  // Public API Methods
-  // ============================================================================
-
-  /**
-   * Initialize new combat encounter at location
-   *
-   * @param userId - User UUID
-   * @param locationId - Location UUID
-   * @param selectedLevel - Player-chosen combat difficulty level (1-20)
-   * @returns Combat session data with enemy, player stats, and weapon config
-   * @throws ConflictError if user already has active session
-   * @throws NotFoundError if location not found or no enemies available
-   */
   async startCombat(userId: string, locationId: string, selectedLevel: number): Promise<CombatSession> {
     logger.info('⚔️ Starting new combat session', { userId, locationId, selectedLevel });
 
-    // Validate user doesn't have active session
+    if (selectedLevel < 1) {
+      throw new ValidationError('Combat level must be 1 or greater');
+    }
+
     const existingSession = await this.combatRepository.getUserActiveSession(userId);
     if (existingSession) {
       logger.warn('❌ Combat start failed: user already has active session', {
@@ -264,54 +107,59 @@ export class CombatService {
       throw new ConflictError('User already has an active combat session');
     }
 
-    // Validate location exists
     const location = await locationService.getById(locationId);
+    if (!location) {
+      throw new NotFoundError('Location', locationId);
+    }
 
-    // Get player stats from equipped items
-    const playerStats = await this.calculatePlayerStats(userId);
-    // Use player-selected level instead of derived combat level
-    const combatLevel = selectedLevel;
+    const playerStats = await calculatePlayerStats(this.equipmentRepository, userId);
 
-    // Get matching enemy and loot pools for analytics
-    const enemyPoolIds = await locationService.getMatchingEnemyPools(locationId, combatLevel);
-    const lootPoolIds = await locationService.getMatchingLootPools(locationId, combatLevel);
+    const enemy = await selectEnemy(this.enemyRepository, locationId, selectedLevel);
 
-    // Convert to analytics format (pool IDs only for session storage)
-    const appliedEnemyPools = enemyPoolIds || [];
-    const appliedLootPools = lootPoolIds || [];
+    const weaponConfig = await getWeaponConfig(
+      this.equipmentRepository,
+      this.weaponRepository,
+      userId,
+      playerStats.atkAccuracy
+    );
 
-    // Select enemy from matching pools
-    const enemy = await this.selectEnemy(locationId, combatLevel);
+    const enemyWithTier = await this.enemyRepository.getEnemyTypeWithTier(enemy.id);
+    if (!enemyWithTier || !enemyWithTier.enemyType || !enemyWithTier.tier) {
+      throw new NotFoundError('Enemy type or tier', enemy.id);
+    }
 
-    // Get weapon configuration
-    const weaponConfig = await this.getWeaponConfig(userId, playerStats.atkAccuracy);
+    const realizedEnemyStats = statsService.calculateEnemyRealizedStats(
+      enemyWithTier.enemyType,
+      selectedLevel,
+      enemyWithTier.tier
+    );
 
-    // Capture player equipment snapshot
-    const playerEquippedItemsSnapshot = await this.captureEquipmentSnapshot(userId);
+    if (!enemyWithTier.enemyType.base_hp || !enemyWithTier.tier.difficulty_multiplier) {
+      throw new ValidationError('Unable to calculate enemy stats');
+    }
 
-    // Create session in database
+    const enemyHP = Math.floor(enemyWithTier.enemyType.base_hp * enemyWithTier.tier.difficulty_multiplier);
+
     const sessionData: Omit<CombatSessionData, 'id' | 'createdAt' | 'updatedAt'> = {
       userId,
       locationId,
-      combatLevel: selectedLevel, // Store the player-selected level
+      combatLevel: selectedLevel,
       enemyTypeId: enemy.id,
-      appliedEnemyPools,
-      appliedLootPools,
-      playerEquippedItemsSnapshot,
-      // Analytics disabled for MVP - optional fields omitted
+      enemyStyleId: enemy.style_id,
+      playerEquippedItemsSnapshot: await captureEquipmentSnapshot(this.equipmentRepository, userId),
       combatLog: [],
     };
 
     const sessionId = await this.combatRepository.createSession(userId, sessionData);
 
-    // Store selected style_id in cache for later combat actions
-    this.enemyStyleCache.set(sessionId, enemy.style_id);
-
     logger.info('✅ Combat session created successfully', {
       sessionId,
       userId,
       enemyTypeId: enemy.id,
-      combatLevel: selectedLevel
+      combatLevel: selectedLevel,
+      enemyHP,
+      enemyAtkPower: realizedEnemyStats.atk_power,
+      enemyDefPower: realizedEnemyStats.def_power
     });
 
     return {
@@ -320,26 +168,23 @@ export class CombatService {
       enemy_id: enemy.id,
       status: 'active',
       player_hp: playerStats.hp,
-      enemy_hp: enemy.hp,
-      enemy,
+      enemy_hp: enemyHP,
+      enemy: {
+        ...enemy,
+        atk_power: realizedEnemyStats.atk_power,
+        atk_accuracy: realizedEnemyStats.atk_accuracy,
+        def_power: realizedEnemyStats.def_power,
+        def_accuracy: realizedEnemyStats.def_accuracy,
+        hp: enemyHP,
+      },
       player_stats: playerStats,
       weapon_config: weaponConfig,
     };
   }
 
-  /**
-   * Execute player attack with timing dial mechanics
-   *
-   * @param sessionId - Combat session UUID
-   * @param attackAccuracy - Player attack accuracy (0.0-1.0)
-   * @returns Attack result with damage, HP updates, and combat status
-   * @throws NotFoundError if session not found or expired
-   * @throws ValidationError if invalid attack accuracy
-   */
   async executeAttack(sessionId: string, tapPositionDegrees: number): Promise<AttackResult> {
     logger.info('🎯 Combat attack initiated', { sessionId, tapPositionDegrees });
 
-    // Validate session exists and is active
     const session = await this.combatRepository.getActiveSession(sessionId);
     if (!session) {
       logger.warn('❌ Attack failed: session not found', { sessionId });
@@ -352,159 +197,104 @@ export class CombatService {
       turnCount: session.combatLog?.length ?? 0
     });
 
-    // Validate tap position degrees
     if (tapPositionDegrees < 0 || tapPositionDegrees > 360) {
       throw new ValidationError('Tap position must be between 0 and 360 degrees');
     }
 
-    // Get current combat state from session
-    const playerStats = await this.calculatePlayerStats(session.userId);
-    const enemy = await this.enemyRepository.findEnemyTypeById(session.enemyTypeId);
-    if (!enemy) {
-      throw new NotFoundError('Enemy type', session.enemyTypeId);
-    }
-
-    // Get enemy stats via database view - use cached style_id from session start
-    const cachedStyleId = this.enemyStyleCache.get(sessionId);
-    if (!cachedStyleId) {
-      throw new Error(`Enemy style not found in cache for session ${sessionId}. Session may have expired.`);
-    }
-    const enemyStats = await this.calculateEnemyStats(session.enemyTypeId, cachedStyleId);
-
-    // Get weapon bands for hit zone determination
-    const weaponConfig = await this.getWeaponConfig(session.userId, playerStats.atkAccuracy);
-
-    // Determine hit zone based on tap position (0-360 degrees)
-    const hitZone = this.determineHitZone(tapPositionDegrees, weaponConfig.adjusted_bands);
-
-    // Calculate damage based on hit zone
-    const { damage: damageDealt, baseMultiplier, critBonus } = this.calculateDamage(
-      playerStats.atkPower,
-      enemyStats.def,
-      hitZone
+    const playerStats = await calculatePlayerStats(this.equipmentRepository, session.userId);
+    const enemyStats = await calculateEnemyStats(
+      this.enemyRepository,
+      session.enemyTypeId,
+      session.enemyStyleId,
+      session.combatLevel
     );
 
-    // NO enemy counterattack during attack phase - enemy attacks during defense phase only
-    const enemyDamage = 0;
+    const weaponConfig = await getWeaponConfig(
+      this.equipmentRepository,
+      this.weaponRepository,
+      session.userId,
+      playerStats.atkAccuracy
+    );
 
-    // Update HP values (stored in session combatLog for now)
-    const currentLog = session.combatLog || [];
-    const lastLogEntry = currentLog[currentLog.length - 1];
-    const currentPlayerHP = lastLogEntry?.playerHP ?? playerStats.hp;
-    const currentEnemyHP = lastLogEntry?.enemyHP ?? enemyStats.hp;
+    const currentLog = (session.combatLog || []) as CombatLogEntry[];
+    const { playerHP: currentPlayerHP, enemyHP: currentEnemyHP } = getCurrentHP(
+      currentLog,
+      playerStats.hp,
+      enemyStats.hp
+    );
 
-    // Handle self-injury vs enemy damage
-    let newPlayerHP = currentPlayerHP;
-    let newEnemyHP = currentEnemyHP;
+    const turnResult = executeAttackTurn(
+      tapPositionDegrees,
+      weaponConfig,
+      playerStats,
+      enemyStats,
+      currentPlayerHP,
+      currentEnemyHP
+    );
 
-    if (hitZone === 'injure') {
-      // Self-injury: player takes damage instead of enemy
-      newPlayerHP = Math.max(0, currentPlayerHP - damageDealt);
-      newEnemyHP = currentEnemyHP; // Enemy HP unchanged
-    } else {
-      // Normal attack: enemy takes damage
-      newPlayerHP = currentPlayerHP; // Player HP unchanged
-      newEnemyHP = Math.max(0, currentEnemyHP - damageDealt);
-    }
-
-    // Determine combat status
-    let combatStatus: 'ongoing' | 'victory' | 'defeat' = 'ongoing';
-    if (newEnemyHP <= 0) {
-      combatStatus = 'victory';
-      logger.info('🎉 Combat victory!', { sessionId, finalDamage: damageDealt, hitZone });
-    } else if (newPlayerHP <= 0) {
-      combatStatus = 'defeat';
-      logger.info('💀 Combat defeat', { sessionId, finalDamage: damageDealt, hitZone });
+    if (turnResult.combatStatus === 'victory') {
+      logger.info('🎉 Combat victory!', { sessionId, finalDamage: turnResult.damageDealt, hitZone: turnResult.hitZone });
+    } else if (turnResult.combatStatus === 'defeat') {
+      logger.info('💀 Combat defeat', { sessionId, finalDamage: turnResult.damageDealt, hitZone: turnResult.hitZone });
     } else {
       logger.debug('⚔️ Combat ongoing', {
         sessionId,
-        playerHP: newPlayerHP,
-        enemyHP: newEnemyHP,
-        hitZone,
-        damage: damageDealt
+        playerHP: turnResult.newPlayerHP,
+        enemyHP: turnResult.newEnemyHP,
+        hitZone: turnResult.hitZone,
+        damage: turnResult.damageDealt
       });
     }
 
-    // Update session with new combat log entry
-    const turnNumber = currentLog.length + 1;
-    const newLogEntry = {
-      turn: turnNumber,
-      action: 'attack',
-      tapPositionDegrees: tapPositionDegrees,
-      hitZone,
-      damageDealt,
-      enemyDamage,
-      playerHP: newPlayerHP,
-      enemyHP: newEnemyHP,
-      timestamp: new Date().toISOString(),
-    };
+    const turnNumber = getNextTurnNumber(currentLog);
+    const newLogEntry = createAttackLogEntry(
+      turnNumber,
+      tapPositionDegrees,
+      turnResult.hitZone,
+      turnResult.damageDealt,
+      turnResult.enemyDamage,
+      turnResult.newPlayerHP,
+      turnResult.newEnemyHP
+    );
 
     await this.combatRepository.updateSession(sessionId, {
       combatLog: [...currentLog, newLogEntry],
     });
 
-    // NOTE: Session completion now happens in completeCombatInternal() to avoid duplicate calls
-
-    // Log combat event
     await this.combatRepository.addLogEvent(sessionId, {
       seq: turnNumber,
       ts: new Date(),
       actor: 'player',
       eventType: 'attack',
-      payload: { hitZone, damageDealt, tapPositionDegrees },
-      valueI: damageDealt,
+      payload: { hitZone: turnResult.hitZone, damageDealt: turnResult.damageDealt, tapPositionDegrees },
+      valueI: turnResult.damageDealt,
     });
 
-    // Apply rewards atomically before response for terminal combat states
     let rewards: CombatRewards | null = null;
-    if (combatStatus === 'victory' || combatStatus === 'defeat') {
-      logger.info('💰 Generating and applying rewards', { sessionId, result: combatStatus });
+    if (turnResult.combatStatus === 'victory' || turnResult.combatStatus === 'defeat') {
+      logger.info('💰 Generating and applying rewards', { sessionId, result: turnResult.combatStatus });
 
-      // Generate rewards for this combat outcome (pass session to avoid refetch)
-      rewards = await this.completeCombatInternal(sessionId, combatStatus, session);
+      rewards = await this.completeCombatInternal(sessionId, turnResult.combatStatus, session);
 
-      // Apply rewards and delete session atomically
       await this.applyRewardsTransaction(session.userId, sessionId, rewards);
 
       logger.info('✅ Session cleanup complete', { sessionId });
     }
 
     return {
-      hit_zone: hitZone,
-      base_multiplier: baseMultiplier,
-      crit_bonus_multiplier: critBonus,
-      damage_dealt: damageDealt,
-      player_hp_remaining: newPlayerHP,
-      enemy_hp_remaining: newEnemyHP,
-      enemy_damage: enemyDamage,
-      combat_status: combatStatus,
+      player_damage: turnResult.playerZoneHitInfo,
+      enemy_damage: turnResult.enemyZoneHitInfo,
+      player_hp_remaining: turnResult.newPlayerHP,
+      enemy_hp_remaining: turnResult.newEnemyHP,
+      combat_status: turnResult.combatStatus,
       turn_number: turnNumber,
       rewards,
     };
   }
 
-  /**
-   * Execute player defense with timing mechanics
-   *
-   * @param sessionId - Combat session UUID
-   * @param defenseAccuracy - Defense accuracy (0.0-1.0)
-   * @returns Defense result with damage reduction and HP updates
-   * @throws NotFoundError if session not found or expired
-   * @throws ValidationError if invalid defense accuracy
-   */
-  async executeDefense(sessionId: string, tapPositionDegrees: number): Promise<{
-    damage_blocked: number;
-    damage_taken: number;
-    player_hp_remaining: number;
-    enemy_hp_remaining: number;
-    combat_status: 'ongoing' | 'victory' | 'defeat';
-    hit_zone: HitBand;
-    turn_number: number;
-    rewards: CombatRewards | null;
-  }> {
+  async executeDefense(sessionId: string, tapPositionDegrees: number): Promise<DefenseResult> {
     logger.info('🛡️ Combat defense initiated', { sessionId, tapPositionDegrees });
 
-    // Validate session exists and is active
     const session = await this.combatRepository.getActiveSession(sessionId);
     if (!session) {
       logger.warn('❌ Defense failed: session not found', { sessionId });
@@ -517,127 +307,90 @@ export class CombatService {
       turnCount: session.combatLog?.length ?? 0
     });
 
-    // Validate tap position degrees
     if (tapPositionDegrees < 0 || tapPositionDegrees > 360) {
       throw new ValidationError('Tap position must be between 0 and 360 degrees');
     }
 
-    // Get current combat state from session
-    const playerStats = await this.calculatePlayerStats(session.userId);
-    const cachedStyleId = this.enemyStyleCache.get(sessionId);
-    if (!cachedStyleId) {
-      throw new Error(`Enemy style not found in cache for session ${sessionId}. Session may have expired.`);
-    }
-    const enemyStats = await this.calculateEnemyStats(session.enemyTypeId, cachedStyleId);
+    const playerStats = await calculatePlayerStats(this.equipmentRepository, session.userId);
+    const enemyStats = await calculateEnemyStats(
+      this.enemyRepository,
+      session.enemyTypeId,
+      session.enemyStyleId,
+      session.combatLevel
+    );
 
-    // Get current HP values from combat log
-    const currentLog = session.combatLog || [];
-    const lastLogEntry = currentLog[currentLog.length - 1];
-    const currentPlayerHP = lastLogEntry?.playerHP ?? playerStats.hp;
-    const currentEnemyHP = lastLogEntry?.enemyHP ?? enemyStats.hp;
+    const weaponConfig = await getWeaponConfig(
+      this.equipmentRepository,
+      this.weaponRepository,
+      session.userId,
+      playerStats.atkAccuracy
+    );
 
-    // Get weapon bands for hit zone determination
-    const weaponConfig = await this.getWeaponConfig(session.userId, playerStats.atkAccuracy);
+    const currentLog = (session.combatLog || []) as CombatLogEntry[];
+    const { playerHP: currentPlayerHP, enemyHP: currentEnemyHP } = getCurrentHP(
+      currentLog,
+      playerStats.hp,
+      enemyStats.hp
+    );
 
-    // Determine hit zone based on tap position (0-360 degrees)
-    const hitZone = this.determineHitZone(tapPositionDegrees, weaponConfig.adjusted_bands);
-
-    // Calculate base enemy damage
-    const baseEnemyDamage = Math.max(MIN_DAMAGE, enemyStats.atk - playerStats.defPower);
-
-    // Defense mechanics: hit zone determines damage reduction/amplification
-    // Injure zone amplifies damage (like attack self-injury), good zones reduce damage significantly
-    const zoneMultipliers: Record<HitBand, number> = {
-      'injure': -0.5,  // Self-injury: take 150% damage (50% penalty)
-      'miss': 0.0,     // Failed defense: take full damage, no block
-      'graze': 0.3,    // Partial block: reduce damage by 30%
-      'normal': 0.7,   // Good block: reduce damage by 70%
-      'crit': 0.9      // Perfect block: reduce damage by 90%
-    };
-    const defenseEffectiveness = zoneMultipliers[hitZone];
-    const damageBlocked = Math.floor(baseEnemyDamage * defenseEffectiveness);
-    const damageActuallyTaken = Math.max(MIN_DAMAGE, baseEnemyDamage - damageBlocked);
-
-    // Update HP values
-    const newPlayerHP = Math.max(0, currentPlayerHP - damageActuallyTaken);
-
-    // Determine combat status (enemy doesn't take damage during defense)
-    let combatStatus: 'ongoing' | 'victory' | 'defeat' = 'ongoing';
-    if (newPlayerHP <= 0) {
-      combatStatus = 'defeat';
-    }
-    // Victory can only occur on attack actions, not defense
-
-    // Update session with new combat log entry
-    const turnNumber = currentLog.length + 1;
-    const newLogEntry = {
-      turn: turnNumber,
-      action: 'defend',
+    const turnResult = executeDefenseTurn(
       tapPositionDegrees,
-      hitZone,
-      damageBlocked,
-      damageActuallyTaken,
-      playerHP: newPlayerHP,
-      enemyHP: currentEnemyHP, // Enemy HP unchanged during defense
-      timestamp: new Date().toISOString(),
-    };
+      weaponConfig,
+      playerStats,
+      enemyStats,
+      currentPlayerHP,
+      currentEnemyHP
+    );
+
+    const turnNumber = getNextTurnNumber(currentLog);
+    const newLogEntry = createDefenseLogEntry(
+      turnNumber,
+      tapPositionDegrees,
+      turnResult.hitZone,
+      turnResult.damageBlocked,
+      turnResult.damageActuallyTaken,
+      turnResult.newPlayerHP,
+      turnResult.currentEnemyHP
+    );
 
     await this.combatRepository.updateSession(sessionId, {
       combatLog: [...currentLog, newLogEntry],
     });
 
-    // NOTE: Session completion now happens in completeCombatInternal() to avoid duplicate calls
-
-    // Log combat event
     await this.combatRepository.addLogEvent(sessionId, {
       seq: turnNumber,
       ts: new Date(),
       actor: 'player',
       eventType: 'defend',
-      payload: { hitZone, damageBlocked, damageActuallyTaken, tapPositionDegrees },
-      valueI: damageActuallyTaken,
+      payload: { hitZone: turnResult.hitZone, damageBlocked: turnResult.damageBlocked, damageActuallyTaken: turnResult.damageActuallyTaken, tapPositionDegrees },
+      valueI: turnResult.damageActuallyTaken,
     });
 
-    // Apply rewards atomically before response for terminal combat states
     let rewards: CombatRewards | null = null;
-    if (combatStatus === 'defeat') {
-      logger.info('💰 Generating and applying rewards', { sessionId, result: combatStatus });
+    if (turnResult.combatStatus === 'defeat') {
+      logger.info('💰 Generating and applying rewards', { sessionId, result: turnResult.combatStatus });
 
-      // Generate rewards for defeat (pass session to avoid refetch)
-      rewards = await this.completeCombatInternal(sessionId, combatStatus, session);
+      rewards = await this.completeCombatInternal(sessionId, turnResult.combatStatus, session);
 
-      // Apply rewards and delete session atomically
       await this.applyRewardsTransaction(session.userId, sessionId, rewards);
 
       logger.info('✅ Session cleanup complete', { sessionId });
     }
 
     return {
-      damage_blocked: damageBlocked,
-      damage_taken: damageActuallyTaken,
-      player_hp_remaining: newPlayerHP,
-      enemy_hp_remaining: currentEnemyHP,
-      combat_status: combatStatus,
-      hit_zone: hitZone,
+      player_damage: turnResult.playerDefenseZoneHitInfo,
+      enemy_damage: turnResult.enemyZoneHitInfo,
+      player_hp_remaining: turnResult.newPlayerHP,
+      enemy_hp_remaining: turnResult.currentEnemyHP,
+      combat_status: turnResult.combatStatus,
       turn_number: turnNumber,
       rewards,
     };
   }
 
-  /**
-   * Complete combat and distribute rewards (PUBLIC API for controller)
-   * Fetches session from database - prefer completeCombatInternal() when session already loaded
-   *
-   * @param sessionId - Combat session UUID
-   * @param result - Combat outcome ('victory' or 'defeat')
-   * @returns Combat rewards and updated player history
-   * @throws NotFoundError if session not found
-   * @throws ValidationError if invalid result
-   */
   async completeCombat(sessionId: string, result: 'victory' | 'defeat'): Promise<CombatRewards> {
     logger.info('📊 Completing combat session (public API)', { sessionId, result });
 
-    // Fetch session from database
     const session = await this.combatRepository.getActiveSession(sessionId);
     if (!session) {
       throw new NotFoundError('Combat session', sessionId);
@@ -646,31 +399,17 @@ export class CombatService {
     return this.completeCombatInternal(sessionId, result, session);
   }
 
-  /**
-   * Complete combat and distribute rewards (INTERNAL method)
-   * IMPORTANT: This is called from executeAttack/executeDefense with session already loaded
-   *
-   * @param sessionId - Combat session UUID
-   * @param result - Combat outcome ('victory' or 'defeat')
-   * @param session - Pre-fetched session data (REQUIRED - avoids race condition)
-   * @returns Combat rewards and updated player history
-   * @throws ValidationError if invalid result
-   */
-  private async completeCombatInternal(sessionId: string, result: 'victory' | 'defeat', session: any): Promise<CombatRewards> {
+  private async completeCombatInternal(sessionId: string, result: 'victory' | 'defeat', session: CombatSessionData): Promise<CombatRewards> {
     logger.info('📊 Completing combat session (internal)', { sessionId, result });
 
-    // Validate result
     if (result !== 'victory' && result !== 'defeat') {
       throw new ValidationError('Result must be "victory" or "defeat"');
     }
 
-    // Complete session in database
     await this.combatRepository.completeSession(sessionId, result);
 
-    // Get updated player combat history
     const playerHistory = await this.combatRepository.getPlayerHistory(session.userId, session.locationId);
 
-    // Build combat history data
     const combatHistory = {
       location_id: session.locationId,
       total_attempts: playerHistory?.totalAttempts ?? 1,
@@ -680,18 +419,25 @@ export class CombatService {
       longest_streak: playerHistory?.longestStreak ?? (result === 'victory' ? 1 : 0),
     };
 
-    // Generate rewards for victory
     if (result === 'victory') {
-      const baseRewards = await this.generateLoot(session.locationId, session.combatLevel, session.enemyTypeId);
 
-      // Persist materials to player's inventory
+      const baseRewards = await generateLoot(
+        this.enemyRepository,
+        this.itemTypeRepository,
+        this.materialRepository,
+        session.locationId,
+        session.combatLevel,
+        session.enemyTypeId,
+        session.enemyStyleId
+      );
+
       for (const material of baseRewards.materials) {
         try {
-          await materialRepository.createStack(
+          await this.materialRepository.createStack(
             session.userId,
             material.material_id,
-            material.style_id,
-            1 // 1 of each material
+            1, 
+            material.style_id
           );
           logger.info('✅ Material awarded', {
             userId: session.userId,
@@ -707,11 +453,10 @@ export class CombatService {
         }
       }
 
-      // Persist items to player's inventory and capture created items
       const createdItems = [];
       for (const item of baseRewards.items) {
         try {
-          const createdItem = await itemRepository.create({
+          const createdItem = await this.itemRepository.create({
             user_id: session.userId,
             item_type_id: item.item_type_id,
             level: session.combatLevel,
@@ -763,7 +508,6 @@ export class CombatService {
       return victoryRewards;
     }
 
-    // Defeat case - no rewards, only combat history
     const defeatRewards = {
       result,
       currencies: {
@@ -778,34 +522,14 @@ export class CombatService {
     return defeatRewards;
   }
 
-  /**
-   * Abandon active combat session
-   *
-   * @param sessionId - Combat session UUID
-   * @throws NotFoundError if session not found
-   */
   async abandonCombat(sessionId: string): Promise<void> {
     await this.combatRepository.deleteSession(sessionId);
   }
 
-  /**
-   * Get user's active combat session for auto-resume
-   *
-   * @param userId - User UUID
-   * @returns Active session or null if none exists
-   */
   async getUserActiveSession(userId: string): Promise<CombatSessionData | null> {
     return await this.combatRepository.getUserActiveSession(userId);
   }
 
-  /**
-   * Get active combat session data
-   * Used by EnemyChatterService and other services that need session info
-   *
-   * @param sessionId - Combat session UUID
-   * @returns Session data with enemy_type_id, player_id, location_id
-   * @throws NotFoundError if session not found or expired
-   */
   async getCombatSession(sessionId: string): Promise<{
     session_id: string;
     enemy_type_id: string;
@@ -824,41 +548,28 @@ export class CombatService {
       throw new NotFoundError('Combat session', sessionId);
     }
 
-    // Calculate current HP from combat log
-    const currentLog = session.combatLog || [];
-    const lastLogEntry = currentLog[currentLog.length - 1];
+    const playerStats = await calculatePlayerStats(this.equipmentRepository, session.userId);
+    const enemyStats = await calculateEnemyStats(
+      this.enemyRepository,
+      session.enemyTypeId,
+      session.enemyStyleId,
+      session.combatLevel
+    );
 
-    const playerStats = await this.calculatePlayerStats(session.userId);
-    const cachedStyleId = this.enemyStyleCache.get(sessionId);
-    if (!cachedStyleId) {
-      throw new Error(`Enemy style not found in cache for session ${sessionId}. Session may have expired.`);
-    }
-    const enemyStats = await this.calculateEnemyStats(session.enemyTypeId, cachedStyleId);
-
-    return {
-      session_id: sessionId,
-      enemy_type_id: session.enemyTypeId,
-      player_id: session.userId,
-      location_id: session.locationId,
-      turn_number: currentLog.length,
-      player_hp: lastLogEntry?.playerHP ?? playerStats.hp,
-      enemy_hp: lastLogEntry?.enemyHP ?? enemyStats.hp,
-      max_player_hp: playerStats.hp,
-      max_enemy_hp: enemyStats.hp,
-      created_at: session.createdAt.toISOString(),
-      updated_at: session.updatedAt.toISOString(),
-    };
+    const currentLog = (session.combatLog || []) as CombatLogEntry[];
+    return buildBasicSessionData(
+      sessionId,
+      session.userId,
+      session.enemyTypeId,
+      session.locationId,
+      currentLog,
+      playerStats,
+      enemyStats,
+      session.createdAt,
+      session.updatedAt
+    );
   }
 
-  /**
-   * Get combat session for recovery (API endpoint)
-   * Returns session state in the format specified by the API contract
-   *
-   * @param sessionId - Combat session UUID
-   * @param userId - User UUID for authorization
-   * @returns Session recovery data with enemy, HP, and turn state
-   * @throws NotFoundError if session not found, expired, or doesn't belong to user
-   */
   async getCombatSessionForRecovery(sessionId: string, userId: string): Promise<{
     session_id: string;
     player_id: string;
@@ -891,8 +602,10 @@ export class CombatService {
       type: string;
       name: string;
       level: number;
-      atk: number;
-      def: number;
+      atk_power: number;
+      atk_accuracy: number;
+      def_power: number;
+      def_accuracy: number;
       hp: number;
       style_id: string;
       dialogue_tone: string;
@@ -905,845 +618,72 @@ export class CombatService {
       throw new NotFoundError('Combat session', sessionId);
     }
 
-    // Verify session belongs to the requesting user
     if (session.userId !== userId) {
       throw new NotFoundError('Combat session', sessionId);
     }
 
-    // Calculate current HP from combat log
-    const currentLog = session.combatLog || [];
-    const lastLogEntry = currentLog[currentLog.length - 1];
+    const playerStats = await calculatePlayerStats(this.equipmentRepository, session.userId);
+    const enemyStats = await calculateEnemyStats(
+      this.enemyRepository,
+      session.enemyTypeId,
+      session.enemyStyleId,
+      session.combatLevel
+    );
 
-    const playerStats = await this.calculatePlayerStats(session.userId);
-    const cachedStyleId = this.enemyStyleCache.get(sessionId);
-    if (!cachedStyleId) {
-      throw new Error(`Enemy style not found in cache for session ${sessionId}. Session may have expired.`);
-    }
-    const enemyStats = await this.calculateEnemyStats(session.enemyTypeId, cachedStyleId);
+    const weaponConfig = await getWeaponConfig(
+      this.equipmentRepository,
+      this.weaponRepository,
+      session.userId,
+      playerStats.atkAccuracy
+    );
 
-    // Get weapon configuration for timing dial
-    const weaponConfig = await this.getWeaponConfig(session.userId, playerStats.atkAccuracy);
-
-    // Get enemy details
     const enemyType = await this.enemyRepository.findEnemyTypeById(session.enemyTypeId);
     if (!enemyType) {
       throw new NotFoundError('Enemy type', session.enemyTypeId);
     }
 
-    // Calculate current HP values
-    const currentPlayerHP = lastLogEntry?.playerHP ?? playerStats.hp;
-    const currentEnemyHP = lastLogEntry?.enemyHP ?? enemyStats.hp;
+    if (!enemyType.dialogue_tone) {
+      throw new Error(`Enemy type ${session.enemyTypeId} missing required dialogue_tone`);
+    }
 
-    // Determine whose turn it is based on turn count
-    // Turn is always 'player' for this implementation since combat is player-initiated
-    const whoseTurn: 'player' | 'enemy' = 'player';
-
-    // Calculate session expiry (15 minutes from creation)
-    const expiresAt = new Date(session.createdAt.getTime() + (15 * 60 * 1000));
-
-    return {
-      session_id: sessionId,
-      player_id: session.userId,
-      enemy_id: session.enemyTypeId,
-      turn_number: currentLog.length,
-      current_turn_owner: whoseTurn,
-      status: 'active' as const,
-      player_hp: currentPlayerHP,
-      enemy_hp: currentEnemyHP,
-      player_stats: {
-        atkPower: playerStats.atkPower,
-        atkAccuracy: playerStats.atkAccuracy,
-        defPower: playerStats.defPower,
-        defAccuracy: playerStats.defAccuracy,
-        hp: playerStats.hp,
-      },
-      weapon_config: weaponConfig,
-      enemy: {
+    const currentLog = (session.combatLog || []) as CombatLogEntry[];
+    return buildSessionRecoveryData(
+      sessionId,
+      session.userId,
+      session.enemyTypeId,
+      session.combatLevel,
+      currentLog,
+      playerStats,
+      enemyStats,
+      weaponConfig,
+      {
         id: enemyType.id,
-        type: enemyType.name,
         name: enemyType.name,
-        level: session.combatLevel,
-        atk: enemyStats.atk,
-        def: enemyStats.def,
-        hp: enemyStats.hp,
-        style_id: enemyStats.style_id,
-        dialogue_tone: enemyStats.dialogue_tone,
-        personality_traits: enemyStats.personality_traits,
+        dialogue_tone: enemyType.dialogue_tone,
+        ai_personality_traits: enemyType.ai_personality_traits as Record<string, unknown> | undefined,
       },
-      expires_at: expiresAt.toISOString(),
-    };
+      session.createdAt
+    );
   }
 
-  // ============================================================================
-  // Reward Application Transaction
-  // ============================================================================
-
-  /**
-   * Apply rewards atomically before combat response using transaction pattern
-   *
-   * Applies currencies, items, materials, XP, and combat history in single atomic operation.
-   * Deletes session as final step to ensure rewards are applied before session disappears.
-   *
-   * @param userId - User UUID
-   * @param sessionId - Combat session UUID
-   * @param rewards - Combat rewards to apply
-   * @throws DatabaseError on transaction failure (session remains active)
-   */
   private async applyRewardsTransaction(
     userId: string,
     sessionId: string,
     rewards: CombatRewards
   ): Promise<void> {
-    try {
-      if (rewards.result === 'victory' && rewards.currencies) {
-        logger.info('Applying victory rewards atomically', {
-          userId,
-          sessionId,
-          gold: rewards.currencies.gold,
-          materials: rewards.materials?.length ?? 0,
-          items: rewards.items?.length ?? 0,
-          experience: rewards.experience ?? 0
-        });
-
-        // 1. Apply gold currency
-        if (rewards.currencies.gold > 0) {
-          await this.profileRepository.addCurrency(
-            userId,
-            'GOLD',
-            rewards.currencies.gold,
-            'combat_victory',
-            sessionId,
-            { sessionId, combatType: 'victory' }
-          );
-        }
-
-        // 2. Apply materials (upsert MaterialStacks)
-        if (rewards.materials) {
-          for (const material of rewards.materials) {
-            await this.materialRepository.incrementStack(
-              userId,
-              material.material_id,
-              material.style_id,
-              1 // Always 1 unit per material drop
-            );
-          }
-        }
-
-        // 3. Apply items (create PlayerItems + unlock ItemTypes)
-        if (rewards.items) {
-          for (const item of rewards.items) {
-            // Create the player item
-            await this.itemRepository.create({
-              user_id: userId,
-              item_type_id: item.item_type_id,
-              level: 1, // Items drop at level 1
-            });
-
-            // TODO: Unlock item type if not already unlocked
-            // This requires implementing unlockItemType method in ProfileRepository
-            // For now, items are created without explicit unlocking
-            logger.debug('Item created without unlocking ItemType', {
-              userId,
-              itemTypeId: item.item_type_id
-            });
-          }
-        }
-
-        // 4. Apply experience points
-        if (rewards.experience && rewards.experience > 0) {
-          await this.profileRepository.addXP(userId, rewards.experience);
-        }
-
-        // 5. Combat history is already updated by completeSession in CombatRepository
-        // No additional action needed here
-
-        logger.info('Victory rewards applied successfully', { userId, sessionId });
-      } else if (rewards.result === 'defeat') {
-        logger.info('Defeat - no rewards to apply', { userId, sessionId });
-        // Combat history already updated by completeSession for defeats
-      }
-
-      // 6. Delete session as final step (atomic completion)
-      logger.info('🗑️ Deleting combat session', { sessionId, userId });
-      await this.combatRepository.deleteSession(sessionId);
-
-      logger.info('✅ Combat session deleted successfully', { sessionId });
-
-    } catch (error) {
-      logger.error('Reward application transaction failed', {
-        userId,
-        sessionId,
-        error: error instanceof Error ? error.message : String(error)
-      });
-      // Re-throw to ensure session remains active for retry
-      throw error;
-    }
-  }
-
-  // ============================================================================
-  // Private Helper Methods
-  // ============================================================================
-
-  /**
-   * Calculate player stats from equipped items via database view
-   */
-  private async calculatePlayerStats(userId: string): Promise<PlayerStats> {
-    try {
-      // Get power level stats from v_player_powerlevel view via repository
-      const powerStats = await this.equipmentRepository.getPlayerPowerLevel(userId);
-
-      // Fallback to equipment repository if view query fails or no data
-      if (!powerStats) {
-        const stats = await this.equipmentRepository.computeTotalStats(userId);
-        return {
-          atkPower: stats?.atkPower ?? 10, // Default base stats
-          atkAccuracy: stats?.atkAccuracy ?? 0.5,
-          defPower: stats?.defPower ?? 10,
-          defAccuracy: stats?.defAccuracy ?? 0.5,
-          hp: 100, // Fallback HP
-        };
-      }
-
-      return {
-        atkPower: powerStats.atk ?? 10,
-        atkAccuracy: powerStats.acc ?? 0.5,
-        defPower: powerStats.def ?? 10,
-        defAccuracy: powerStats.acc ?? 0.5, // Using same acc for both atk and def
-        hp: powerStats.hp ?? 100,
-      };
-    } catch (error) {
-      logger.warn('Database v_player_powerlevel query failed, using fallback', { error: error instanceof Error ? error.message : String(error) });
-      // Fallback to equipment repository
-      const stats = await this.equipmentRepository.computeTotalStats(userId);
-      return {
-        atkPower: stats?.atkPower ?? 10,
-        atkAccuracy: stats?.atkAccuracy ?? 0.5,
-        defPower: stats?.defPower ?? 10,
-        defAccuracy: stats?.defAccuracy ?? 0.5,
-        hp: 100, // Fallback HP
-      };
-    }
-  }
-
-  /**
-   * Calculate enemy stats via database view
-   */
-  /**
-   * Perform weighted random selection from an array of enemy type styles.
-   *
-   * Normalizes weight_multiplier values into probabilities and performs
-   * cumulative distribution sampling to select a style.
-   *
-   * @param styles - Array of enemy type style entries with weight_multiplier
-   * @returns Selected style_id
-   */
-  private selectRandomStyle(styles: Array<{ style_id: string; weight_multiplier: number }>): string {
-    if (styles.length === 0) {
-      throw new Error('Cannot select style from empty array');
-    }
-
-    if (styles.length === 1) {
-      return styles[0].style_id;
-    }
-
-    // Compute total weight for normalization
-    const totalWeight = styles.reduce((sum, style) => sum + style.weight_multiplier, 0);
-
-    if (totalWeight <= 0) {
-      throw new Error('Total weight must be positive for style selection');
-    }
-
-    // Generate random number between 0 and totalWeight
-    const randomValue = Math.random() * totalWeight;
-
-    // Perform cumulative distribution sampling
-    let cumulativeWeight = 0;
-    for (const style of styles) {
-      cumulativeWeight += style.weight_multiplier;
-      if (randomValue <= cumulativeWeight) {
-        return style.style_id;
-      }
-    }
-
-    // Fallback to last style (should not reach here due to cumulative distribution)
-    return styles[styles.length - 1].style_id;
-  }
-
-  private async calculateEnemyStats(enemyTypeId: string, selectedStyleId: string): Promise<EnemyStats> {
-    // Use v_enemy_realized_stats view for stats with tier scaling via repository
-    const realizedStats = await this.enemyRepository.getEnemyRealizedStats(enemyTypeId);
-
-    if (!realizedStats) {
-      throw new NotFoundError('Enemy stats', enemyTypeId);
-    }
-
-    // Get enemy type details for non-stat properties
-    const enemyType = await this.enemyRepository.findEnemyTypeById(enemyTypeId);
-    if (!enemyType) {
-      throw new NotFoundError('Enemy type', enemyTypeId);
-    }
-
-    // dialogue_tone is required in database schema, throw if missing
-    if (!enemyType.dialogue_tone) {
-      throw new Error(`Enemy type ${enemyTypeId} missing required dialogue_tone`);
-    }
-
-    return {
-      atk: realizedStats.atk,
-      def: realizedStats.def,
-      hp: realizedStats.hp,
-      style_id: selectedStyleId,
-      dialogue_tone: enemyType.dialogue_tone,
-      personality_traits: enemyType.ai_personality_traits
-        ? Object.keys(enemyType.ai_personality_traits)
-        : [],
-    };
-  }
-
-  /**
-   * Select enemy from matching pools using weighted random
-   */
-  private async selectEnemy(locationId: string, combatLevel: number): Promise<{
-    id: string;
-    type: string;
-    name: string;
-    level: number;
-    atk: number;
-    def: number;
-    hp: number;
-    style_id: string;
-    dialogue_tone: string;
-    personality_traits: string[];
-  }> {
-    // Get matching enemy pools for location and combat level
-    const poolIds = await locationService.getMatchingEnemyPools(locationId, combatLevel);
-    if (!poolIds || poolIds.length === 0) {
-      throw new NotFoundError('No enemies available for this location and level');
-    }
-
-    // Get pool members with spawn weights
-    const poolMembers = await locationService.getEnemyPoolMembers(poolIds);
-    if (!poolMembers || poolMembers.length === 0) {
-      throw new NotFoundError('No enemies found in available pools');
-    }
-
-    // Select random enemy using weighted selection
-    const selectedEnemyTypeId = locationService.selectRandomEnemy(poolMembers);
-
-    // Get enemy details
-    const enemyType = await this.enemyRepository.findEnemyTypeById(selectedEnemyTypeId);
-    if (!enemyType) {
-      throw new NotFoundError('Enemy type', selectedEnemyTypeId);
-    }
-
-    // Get style options for this enemy type and perform weighted random selection
-    const enemyStyles = await this.enemyRepository.getStylesForEnemyType(selectedEnemyTypeId);
-    const selectedStyleId = this.selectRandomStyle(enemyStyles);
-
-    const enemyStats = await this.calculateEnemyStats(selectedEnemyTypeId, selectedStyleId);
-
-    return {
-      id: enemyType.id,
-      type: enemyType.name, // Using name as type identifier
-      name: enemyType.name,
-      level: combatLevel, // Enemy level matches selected combat level
-      atk: enemyStats.atk,
-      def: enemyStats.def,
-      hp: enemyStats.hp,
-      style_id: enemyStats.style_id,
-      dialogue_tone: enemyStats.dialogue_tone,
-      personality_traits: enemyStats.personality_traits,
-    };
-  }
-
-  /**
-   * Get weapon configuration with accuracy-adjusted bands
-   */
-  private async getWeaponConfig(userId: string, playerAccuracy: number): Promise<{
-    pattern: WeaponPattern;
-    spin_deg_per_s: number;
-    adjusted_bands: AdjustedBands;
-  }> {
-    // Get equipped weapon from slot
-    const equippedWeapon = await this.equipmentRepository.findItemInSlot(userId, 'weapon');
-
-    if (!equippedWeapon) {
-      // Default weapon configuration for no equipped weapon
-      // Matches new database defaults: crit=10°, normal=20°, rest=110° each
-      return {
-        pattern: 'single_arc',
-        spin_deg_per_s: 180,
-        adjusted_bands: {
-          deg_crit: 10,
-          deg_normal: 20,
-          deg_graze: 110,
-          deg_miss: 110,
-          deg_injure: 110,
-          total_degrees: 360,
-        },
-      };
-    }
-
-    // Get weapon timing data
-    const weapon = await this.weaponRepository.findWeaponByItemId(equippedWeapon.id);
-    if (!weapon) {
-      throw new NotFoundError('Weapon data', equippedWeapon.id);
-    }
-
-    // Calculate adjusted bands using database function
-    const adjustedBands = await this.weaponRepository.getAdjustedBands(weapon.item_id, playerAccuracy);
-
-    return {
-      pattern: weapon.pattern,
-      spin_deg_per_s: weapon.spin_deg_per_s,
-      adjusted_bands: adjustedBands,
-    };
-  }
-
-  /**
-   * Determine hit zone based on tap position and adjusted weapon bands
-   * REVERSED ORDER: crit -> normal -> graze -> miss -> injure (starting from 0°)
-   */
-  private determineHitZone(tapDegrees: number, adjustedBands: AdjustedBands): HitBand {
-    let cumulativeDegrees = 0;
-
-    logger.info(`🎯 HIT ZONE CALCULATION - Tap: ${tapDegrees}°, Bands:`, adjustedBands);
-
-    // Check each zone in REVERSED order (bands are cumulative)
-    // Zone 1: Crit (dark green)
-    if (tapDegrees < adjustedBands.deg_crit) {
-      logger.info(`✅ Result: CRIT (0° - ${adjustedBands.deg_crit}°)`);
-      return 'crit';
-    }
-    cumulativeDegrees += adjustedBands.deg_crit;
-
-    // Zone 2: Normal (bright green)
-    if (tapDegrees < cumulativeDegrees + adjustedBands.deg_normal) {
-      logger.info(`✅ Result: NORMAL (${cumulativeDegrees}° - ${cumulativeDegrees + adjustedBands.deg_normal}°)`);
-      return 'normal';
-    }
-    cumulativeDegrees += adjustedBands.deg_normal;
-
-    // Zone 3: Graze (yellow)
-    if (tapDegrees < cumulativeDegrees + adjustedBands.deg_graze) {
-      logger.info(`✅ Result: GRAZE (${cumulativeDegrees}° - ${cumulativeDegrees + adjustedBands.deg_graze}°)`);
-      return 'graze';
-    }
-    cumulativeDegrees += adjustedBands.deg_graze;
-
-    // Zone 4: Miss (orange)
-    if (tapDegrees < cumulativeDegrees + adjustedBands.deg_miss) {
-      logger.info(`✅ Result: MISS (${cumulativeDegrees}° - ${cumulativeDegrees + adjustedBands.deg_miss}°)`);
-      return 'miss';
-    }
-
-    // Zone 5: Injure (red) - remaining degrees
-    logger.info(`✅ Result: INJURE (${cumulativeDegrees + adjustedBands.deg_miss}° - 360°)`);
-    return 'injure';
-  }
-
-  /**
-   * Determine hit zone based on attack accuracy (0.0-1.0)
-   * Higher accuracy = better hit zones
-   */
-  private determineHitZoneFromAccuracy(attackAccuracy: number): HitBand {
-    // Map accuracy to hit zones with some randomness
-    // 0.0-0.1: injure (very poor accuracy hurts player)
-    // 0.1-0.3: miss
-    // 0.3-0.6: graze
-    // 0.6-0.9: normal
-    // 0.9-1.0: crit (perfect accuracy gets critical hits)
-
-    if (attackAccuracy < 0.1) {
-      return 'injure';
-    } else if (attackAccuracy < 0.3) {
-      return 'miss';
-    } else if (attackAccuracy < 0.6) {
-      return 'graze';
-    } else if (attackAccuracy < 0.9) {
-      return 'normal';
-    } else {
-      return 'crit';
-    }
-  }
-
-  /**
-   * Get expected damage multiplier for predictions using database function
-   */
-  private async getExpectedDamageMultiplier(weaponId: string | null, accuracy: number): Promise<number> {
-    if (!weaponId) return 1.0;
-
-    try {
-      return await this.weaponRepository.getExpectedDamageMultiplier(weaponId, accuracy);
-    } catch (error) {
-      throw new Error(`Expected damage multiplier calculation failed: ${error instanceof Error ? error.message : String(error)}`);
-    }
-  }
-
-  /**
-   * Calculate damage with zone multipliers and crit bonuses
-   */
-  private calculateDamage(attackerAtk: number, defenderDef: number, hitZone: HitBand): {
-    damage: number;
-    baseMultiplier: number;
-    critBonus?: number;
-  } {
-    const baseMultiplier = HIT_ZONE_MULTIPLIERS[hitZone];
-    let critBonus: number | undefined;
-
-    // Generate crit bonus for crit hits (0-100% additional)
-    if (hitZone === 'crit') {
-      critBonus = Math.random() * MAX_CRIT_BONUS;
-    }
-
-    // Calculate base damage
-    let totalMultiplier = baseMultiplier;
-    if (critBonus !== undefined) {
-      totalMultiplier += critBonus;
-    }
-
-    // Special handling for injure zone (self-damage)
-    if (hitZone === 'injure') {
-      // Self-injury: calculate as percentage of player's own attack power (no defense reduction)
-      // Use absolute value of multiplier (0.5) to deal meaningful self-damage
-      const selfDamage = Math.max(MIN_DAMAGE, Math.floor(attackerAtk * Math.abs(totalMultiplier)));
-      return {
-        damage: selfDamage,
-        baseMultiplier,
-        critBonus,
-      };
-    }
-
-    // Normal damage: (ATK * multiplier) - DEF, minimum 1
-    const damage = Math.max(MIN_DAMAGE, Math.floor(attackerAtk * totalMultiplier) - defenderDef);
-
-    return {
-      damage,
-      baseMultiplier,
-      critBonus,
-    };
-  }
-
-  /**
-   * Generate loot from applied loot pools with style inheritance using database views
-   * Returns base reward data without combat_history (added by completeCombat method)
-   */
-  private async generateLoot(locationId: string, combatLevel: number, enemyTypeId: string): Promise<{
-    currencies: { gold: number };
-    materials: Array<{
-      material_id: string;
-      name: string;
-      style_id: string;
-      style_name: string;
-      image_url: string;
-    }>;
-    items: Array<{
-      item_type_id: string;
-      name: string;
-      category: string;
-      rarity: string;
-      style_id: string;
-      style_name: string;
-    }>;
-    experience: number;
-  }> {
-    try {
-      logger.debug('🎁 generateLoot START', { locationId, combatLevel, enemyTypeId });
-
-      // Get enemy style for inheritance
-      const enemy = await this.enemyRepository.findEnemyTypeById(enemyTypeId);
-      const enemyStyleId = enemy?.style_id ?? 'normal';
-      logger.debug('👾 Enemy loaded', { enemyTypeId, enemyStyleId, enemyName: enemy?.name });
-
-      // Get matching loot pools
-      const lootPoolIds = await locationService.getMatchingLootPools(locationId, combatLevel);
-      logger.debug('📦 Loot pools query result', {
-        locationId,
-        combatLevel,
-        poolsFound: lootPoolIds?.length ?? 0,
-        poolIds: lootPoolIds
-      });
-
-      if (!lootPoolIds || lootPoolIds.length === 0) {
-        // No loot pools, return base rewards
-        logger.warn('⚠️ No loot pools matched, returning empty drops', { locationId, combatLevel });
-        return {
-          currencies: {
-            gold: Math.floor(Math.random() * 20) + 5, // 5-25 gold
-          },
-          materials: [],
-          items: [], // No items without loot pools
-          experience: combatLevel * 10,
-        };
-      }
-
-      // Use the fallback method which supports both materials and items
-      // The database view approach only supports materials, so we'll delegate to the more comprehensive fallback
-      logger.debug('🎁 generateLoot → delegating to generateLootFallback', { lootPoolIds });
-      return this.generateLootFallback(locationId, combatLevel, enemyStyleId);
-    } catch (error) {
-      logger.warn('⚠️ Loot generation failed, using fallback', { error: error instanceof Error ? error.message : String(error) });
-      // Get enemy style for fallback
-      const enemy = await this.enemyRepository.findEnemyTypeById(enemyTypeId);
-      return this.generateLootFallback(locationId, combatLevel, enemy?.style_id ?? 'normal');
-    }
-  }
-
-  /**
-   * Fallback loot generation using existing location service methods
-   * Returns base reward data without combat_history (added by completeCombat method)
-   */
-  private async generateLootFallback(locationId: string, combatLevel: number, enemyStyleId: string): Promise<{
-    currencies: { gold: number };
-    materials: Array<{
-      material_id: string;
-      name: string;
-      style_id: string;
-      style_name: string;
-      image_url: string;
-    }>;
-    items: Array<{
-      item_type_id: string;
-      name: string;
-      category: string;
-      rarity: string;
-      style_id: string;
-      style_name: string;
-    }>;
-    experience: number;
-  }> {
-    try {
-      const lootPoolIds = await locationService.getMatchingLootPools(locationId, combatLevel);
-      if (!lootPoolIds || lootPoolIds.length === 0) {
-        logger.warn('💰 No loot pools found for location/level', {
-          locationId,
-          combatLevel,
-          enemyTypeId: enemyStyleId,
-        });
-        return {
-          currencies: {
-            gold: Math.floor(Math.random() * 20) + 5,
-          },
-          materials: [],
-          items: [],
-          experience: combatLevel * 10,
-        };
-      }
-
-      // Get loot pool entries and tier weights
-      const poolEntries = await locationService.getLootPoolEntries(lootPoolIds);
-      const tierWeights = await locationService.getLootPoolTierWeights(lootPoolIds);
-      logger.debug('📊 Loot pool entries loaded', {
-        poolIds: lootPoolIds,
-        poolEntriesCount: poolEntries?.length ?? 0,
-        tierWeights: tierWeights
-      });
-
-      // Select random loot with style inheritance
-      const dropCount = Math.floor(Math.random() * 3) + 1; // 1-3 drops
-      logger.debug('🎲 Selecting random loot', {
-        poolEntriesCount: poolEntries?.length,
-        dropCount,
-        enemyStyleId
-      });
-      const lootDrops = locationService.selectRandomLoot(
-        poolEntries,
-        tierWeights,
-        enemyStyleId,
-        dropCount
-      );
-      logger.debug('🎲 Loot drops selected', {
-        dropsCount: lootDrops?.length ?? 0,
-        drops: lootDrops?.map((d: any) => ({ type: d.type, material_id: d.material_id, item_type_id: d.item_type_id }))
-      });
-
-      // Fetch style name for the enemy style
-      const styleName = await locationService.getStyleName(enemyStyleId);
-
-      // Extract material and item type IDs for batch fetching
-      const materialIds = lootDrops
-        .filter((drop: any) => drop.type === 'material' && drop.material_id)
-        .map((drop: any) => drop.material_id);
-
-      const itemTypeIds = lootDrops
-        .filter((drop: any) => drop.type === 'item' && drop.item_type_id)
-        .map((drop: any) => drop.item_type_id);
-
-      // Batch fetch Material details
-      const fetchedMaterials = materialIds.length > 0 ? await this.materialRepository.findByIds(materialIds) : [];
-      const materialMap = new Map(fetchedMaterials.map(m => [m.id, m]));
-
-      logger.debug('🧱 Materials batch fetched', {
-        requestedCount: materialIds.length,
-        foundCount: fetchedMaterials.length,
-        materials: fetchedMaterials.map(m => ({ id: m.id, name: m.name }))
-      });
-
-      // Build materials array with full data
-      const materials = lootDrops
-        .filter((drop: any) => drop.type === 'material' && drop.material_id)
-        .map((drop: any) => {
-          const material = materialMap.get(drop.material_id);
-          if (!material) {
-            throw new Error(`Material ${drop.material_id} not found in database for loot drop`);
-          }
-          return {
-            material_id: drop.material_id,
-            name: material.name,
-            description: material.description || undefined,
-            stat_modifiers: material.stat_modifiers || undefined,
-            style_id: drop.style_id,
-            style_name: styleName,
-            image_url: getMaterialImageUrl(material.name),
-          };
-        });
-
-      // Batch fetch ItemType details with all fields
-      const itemTypes = itemTypeIds.length > 0 ? await this.itemTypeRepository.findByIds(itemTypeIds) : [];
-      const itemTypeMap = new Map(itemTypes.map(it => [it.id, it]));
-
-      logger.debug('📦 ItemTypes batch fetched', {
-        requestedCount: itemTypeIds.length,
-        foundCount: itemTypes.length,
-        itemTypes: itemTypes.map(it => ({ id: it.id, name: it.name, rarity: it.rarity, hasBaseImage: !!it.base_image_url }))
-      });
-
-      // Diagnostic logging for ItemType lookup
-      const missingIds = itemTypeIds.filter(id => !itemTypeMap.has(id));
-      logger.info('🔍 ItemType batch lookup results', {
-        requestedIds: itemTypeIds,
-        foundCount: itemTypes.length,
-        foundIds: itemTypes.map(it => it.id),
-        missingIds: missingIds.length > 0 ? missingIds : undefined,
-      });
-
-      // Process items with ItemType details
-      const items = lootDrops
-        .filter((drop: any) => drop.type === 'item' && drop.item_type_id)
-        .map((drop: any) => {
-          const itemType = itemTypeMap.get(drop.item_type_id);
-          if (!itemType) {
-            // ERROR: Missing ItemType data - don't hide this issue
-            throw new Error(`ItemType ${drop.item_type_id} not found in database for loot drop`);
-          }
-          return {
-            item_type_id: drop.item_type_id,
-            name: itemType.name,
-            category: itemType.category,
-            rarity: itemType.rarity,
-            description: itemType.description || undefined,
-            base_stats: itemType.base_stats_normalized || undefined,
-            base_image_url: itemType.base_image_url || undefined,
-            style_id: drop.style_id, // Inherit enemy's style
-            style_name: styleName,
-          };
-        });
-
-      // Diagnostic logging for loot generation summary
-      logger.info('💰 Loot generation summary', {
-        locationId,
-        combatLevel,
-        lootPoolsMatched: lootPoolIds.length,
-        totalDropsGenerated: lootDrops.length,
-        materialDrops: materials.length,
-        itemDropsSelected: lootDrops.filter((d: any) => d.type === 'item').length,
-        itemsAfterFiltering: items.length,
-        goldAmount: Math.floor(Math.random() * 30) + 10,
-      });
-
-      return {
-        currencies: {
-          gold: Math.floor(Math.random() * 30) + 10,
-        },
-        materials,
-        items,
-        experience: combatLevel * 15,
-      };
-    } catch (error) {
-      logger.warn('Fallback loot generation failed', { error: error instanceof Error ? error.message : String(error) });
-      return {
-        currencies: {
-          gold: Math.floor(Math.random() * 20) + 5,
-        },
-        materials: [],
-        items: [],
-        experience: combatLevel * 10,
-      };
-    }
-  }
-
-  /**
-   * Calculate combat rating using database power-law formula
-   */
-  private async calculateCombatRating(atk: number, def: number, hp: number): Promise<number> {
-    return await this.combatRepository.calculateCombatRating(atk, def, hp);
-  }
-
-
-  /**
-   * Capture player equipment snapshot at combat start
-   */
-  private async captureEquipmentSnapshot(userId: string): Promise<{
-    total_stats: PlayerStats;
-    equipped_items: Record<string, {
-      item_id: string;
-      item_type_id: string;
-      level: number;
-      current_stats: Stats;
-      applied_materials?: Array<{material_id: string, slot_index: number}>;
-    }>;
-    snapshot_timestamp: string;
-  }> {
-    try {
-      // Get total stats
-      const totalStats = await this.equipmentRepository.getPlayerEquippedStats(userId);
-
-      // Get all equipped items
-      const equippedItems = await this.equipmentRepository.findEquippedByUser(userId);
-
-      // Convert to snapshot format
-      const itemsSnapshot: Record<string, any> = {};
-
-      for (const [slotName, item] of Object.entries(equippedItems)) {
-        if (item) {
-          itemsSnapshot[slotName] = {
-            item_id: item.id,
-            item_type_id: item.item_type.id,
-            level: item.level,
-            current_stats: item.current_stats || { atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0 },
-            // TODO: Add applied_materials query if needed for future analytics
-          };
-        }
-      }
-
-      return {
-        total_stats: {
-          atkPower: totalStats.atkPower,
-          atkAccuracy: totalStats.atkAccuracy,
-          defPower: totalStats.defPower,
-          defAccuracy: totalStats.defAccuracy,
-          hp: 100, // Default HP - EquipmentRepository doesn't include HP in total stats
-        },
-        equipped_items: itemsSnapshot,
-        snapshot_timestamp: new Date().toISOString(),
-      };
-    } catch (error) {
-      logger.warn('Failed to capture equipment snapshot', { error: error instanceof Error ? error.message : String(error) });
-      // Return empty snapshot on failure
-      return {
-        total_stats: { atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0, hp: 100 },
-        equipped_items: {},
-        snapshot_timestamp: new Date().toISOString(),
-      };
-    }
-  }
-
-  /**
-   * Calculate win probability using Elo-style formula
-   */
-  private calculateWinProbability(playerRating: number, enemyRating: number): number {
-    const ratingDiff = playerRating - enemyRating;
-    return 1.0 / (1.0 + Math.pow(10, -ratingDiff / 400));
+    
+    await applyRewards(
+      this.itemRepository,
+      this.materialRepository,
+      this.profileRepository,
+      userId,
+      sessionId,
+      rewards
+    );
+
+    logger.info('🗑️ Deleting combat session', { sessionId, userId });
+    await this.combatRepository.deleteSession(sessionId);
+    logger.info('✅ Combat session deleted successfully', { sessionId });
   }
 }
 

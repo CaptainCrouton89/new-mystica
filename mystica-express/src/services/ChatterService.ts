@@ -1,15 +1,3 @@
-/**
- * ChatterService - AI-powered dialogue generation service
- *
- * Implements F-11 (Pet Personality & Chatter) and F-12 (Enemy Trash Talk)
- * Features:
- * - Pet personality-based dialogue generation
- * - Enemy trash-talk with player context
- * - OpenAI GPT-4.1-mini integration with fallback phrases
- * - 2-second timeout with graceful degradation
- * - Analytics logging for quality monitoring
- */
-
 import { openai } from '@ai-sdk/openai';
 import { generateText } from 'ai';
 import { AnalyticsRepository } from '../repositories/AnalyticsRepository.js';
@@ -56,13 +44,8 @@ interface CombatEvent {
   player_hp_pct: number;
   enemy_hp_pct: number;
 }
-
-/**
- * ChatterService implementation
- * Handles AI-powered dialogue generation for combat events
- */
 export class ChatterService {
-  private readonly AI_TIMEOUT_MS = 2000; // 2 second timeout
+  private readonly AI_TIMEOUT_MS = 2000; 
   private combatRepository: CombatRepository;
   private petRepository: PetRepository;
   private enemyRepository: EnemyRepository;
@@ -75,33 +58,17 @@ export class ChatterService {
     this.analyticsRepository = new AnalyticsRepository();
   }
 
-  // =====================================
-  // PET CHATTER GENERATION (F-11)
-  // =====================================
-
-  /**
-   * Generate AI-powered pet dialogue based on personality traits and combat events
-   *
-   * @param sessionId - Active combat session identifier
-   * @param eventType - Combat event trigger
-   * @param eventDetails - Event context data
-   * @returns Generated pet chatter with metadata
-   * @throws SessionNotFoundError if session not found/expired
-   * @throws NoPetEquippedError if no pet equipped
-   * @throws PersonalityNotFoundError if personality template missing
-   */
   async generatePetChatter(
     sessionId: string,
     eventType: PetChatterEventType,
     eventDetails: CombatEventDetails
   ): Promise<ChatterResponse> {
-    // 1. Validate session exists and get combat context
+    
     const session = await this.combatRepository.getActiveSession(sessionId);
     if (!session) {
       throw new SessionNotFoundError(`Combat session ${sessionId} not found or expired`);
     }
 
-    // 2. Get equipped pet and personality data
     const pet = await this.getEquippedPet(session.userId);
     if (!pet) {
       throw new NoPetEquippedError('Player has no pet equipped for chatter generation');
@@ -116,7 +83,6 @@ export class ChatterService {
       throw new PersonalityNotFoundError(`Pet personality ${pet.personality_type} not found`);
     }
 
-    // 3. Build AI prompt with personality context
     const combatContext: CombatContext = {
       turnNumber: eventDetails.turn_number,
       playerHpPct: eventDetails.player_hp_pct,
@@ -126,9 +92,14 @@ export class ChatterService {
       isCritical: eventDetails.is_critical
     };
 
-    const prompt = await this.buildPetPrompt(personality, combatContext, eventDetails);
+    const personalityData = {
+      personality_type: personality.personality_type,
+      traits: Array.isArray(personality.traits) ? personality.traits as string[] : [],
+      verbosity: personality.verbosity as 'terse' | 'moderate' | 'verbose'
+    };
 
-    // 4. Generate dialogue with timeout and fallback
+    const prompt = await this.buildPetPrompt(personalityData, combatContext, eventDetails);
+
     let dialogue: string;
     let wasAIGenerated = true;
     const startTime = Date.now();
@@ -136,14 +107,13 @@ export class ChatterService {
     try {
       dialogue = await this.callAIService(prompt, this.AI_TIMEOUT_MS);
     } catch (error) {
-      // Fallback to example phrases
+      
       dialogue = await this.getRandomFallbackPhrase(Array.isArray(personality.example_phrases) ? personality.example_phrases as string[] : []);
       wasAIGenerated = false;
     }
 
     const generationTime = Date.now() - startTime;
 
-    // 5. Log chatter event for analytics
     await this.logChatterEvent(sessionId, dialogue, {
       eventType,
       personalityType: personality.personality_type,
@@ -160,20 +130,6 @@ export class ChatterService {
     };
   }
 
-  // =====================================
-  // ENEMY CHATTER GENERATION (F-12)
-  // =====================================
-
-  /**
-   * Generate contextual enemy trash-talk using player combat history and performance
-   *
-   * @param sessionId - Active combat session identifier
-   * @param eventType - Combat event trigger
-   * @param eventDetails - Event context data
-   * @returns Generated enemy chatter with metadata
-   * @throws SessionNotFoundError if session not found/expired
-   * @throws EnemyTypeNotFoundError if enemy type not found
-   */
   async generateEnemyChatter(
     sessionId: string,
     eventType: EnemyChatterEventType,
@@ -187,7 +143,6 @@ export class ChatterService {
       enemyHpPct: eventDetails.enemy_hp_pct
     });
 
-    // 1. Validate session and get enemy context
     const session = await this.combatRepository.getActiveSession(sessionId);
     if (!session) {
       throw new SessionNotFoundError(`Combat session ${sessionId} not found or expired`);
@@ -200,14 +155,11 @@ export class ChatterService {
 
     console.log('[CHATTER_SERVICE] Found enemy type', {
       sessionId,
-      enemyType: enemyType.name,
       dialogueTone: enemyType.dialogue_tone
     });
 
-    // 2. Get player combat history for contextual taunts
     const playerHistory = await this.combatRepository.getPlayerHistory(session.userId, session.locationId);
 
-    // Convert to PlayerCombatHistory format
     const playerContext: PlayerCombatHistory = {
       attempts: playerHistory?.totalAttempts ?? 0,
       victories: playerHistory?.victories ?? 0,
@@ -223,7 +175,6 @@ export class ChatterService {
       currentStreak: playerContext.current_streak
     });
 
-    // 3. Build AI prompt with enemy personality and player context
     const combatContext: CombatContext = {
       turnNumber: eventDetails.turn_number,
       playerHpPct: eventDetails.player_hp_pct,
@@ -233,14 +184,13 @@ export class ChatterService {
       isCritical: eventDetails.is_critical
     };
 
-    const prompt = await this.buildEnemyPrompt(enemyType, playerContext, combatContext, eventDetails);
+    const prompt = await this.buildEnemyPrompt(enemyType.dialogue_tone!, playerContext, combatContext, eventDetails);
 
     console.log('[CHATTER_SERVICE] Built AI prompt', {
       sessionId,
       promptLength: prompt.length
     });
 
-    // 4. Generate dialogue with timeout and fallback
     let dialogue: string;
     let wasAIGenerated = true;
     const startTime = Date.now();
@@ -258,13 +208,12 @@ export class ChatterService {
         error: error instanceof Error ? error.message : String(error),
         generationTime: Date.now() - startTime
       });
-      // Re-throw AI generation errors - no fallbacks
+      
       throw error;
     }
 
     const generationTime = Date.now() - startTime;
 
-    // 5. Log chatter event for analytics
     await this.logChatterEvent(sessionId, dialogue, {
       eventType,
       enemyType: enemyType.name ?? '',
@@ -284,7 +233,7 @@ export class ChatterService {
 
     return {
       dialogue,
-      personality_type: '', // Not applicable for enemies
+      personality_type: '', 
       enemy_type: enemyType.name ?? '',
       dialogue_tone: enemyType.dialogue_tone ?? '',
       generation_time_ms: generationTime,
@@ -293,15 +242,6 @@ export class ChatterService {
     };
   }
 
-  // =====================================
-  // PERSONALITY MANAGEMENT (F-11)
-  // =====================================
-
-  /**
-   * Return available pet personality types with example phrases and traits
-   *
-   * @returns Array of PetPersonality objects
-   */
   async getPetPersonalities(): Promise<PetPersonality[]> {
     const personalities = await this.petRepository.getAllPersonalities();
 
@@ -320,22 +260,12 @@ export class ChatterService {
     });
   }
 
-  /**
-   * Assign personality type and optional custom name to player's pet
-   *
-   * @param petId - Pet identifier to update
-   * @param personalityType - Personality type to assign
-   * @param customName - Optional custom pet name
-   * @returns Assignment result
-   * @throws PetNotFoundError if pet not found
-   * @throws InvalidPersonalityError if personality type invalid
-   */
   async assignPetPersonality(
     petId: string,
     personalityType: string,
     customName?: string
   ): Promise<PersonalityAssignmentResult> {
-    // 1. Validate pet ownership and personality type exists
+    
     const pet = await this.petRepository.findById(petId);
     if (!pet) {
       throw new PetNotFoundError(`Pet ${petId} not found`);
@@ -346,7 +276,6 @@ export class ChatterService {
       throw new InvalidPersonalityError(`Personality type ${personalityType} not found`);
     }
 
-    // 2. Update pet with new personality and optional name
     await this.petRepository.updatePetPersonality(petId, personalityType, customName);
 
     return {
@@ -357,15 +286,6 @@ export class ChatterService {
     };
   }
 
-  // =====================================
-  // ENEMY TYPE MANAGEMENT (F-12)
-  // =====================================
-
-  /**
-   * Return available enemy types with personality traits and example taunts
-   *
-   * @returns Array of EnemyType objects
-   */
   async getEnemyTypes(): Promise<EnemyType[]> {
     const enemyTypes = await this.enemyRepository.findAllEnemyTypes();
 
@@ -377,20 +297,13 @@ export class ChatterService {
         type: e.name,
         display_name: e.name,
         personality_traits: e.ai_personality_traits ? Object.keys(e.ai_personality_traits) : [],
-        dialogue_tone: 'aggressive' as const, // Default tone - should be from database
-        tier_id: e.tier_id ?? 1,
-        style_id: e.style_id ?? ''
+        dialogue_tone: 'aggressive' as const, 
+        tier_id: e.tier_id ?? 1
+        
       };
     });
   }
 
-  // =====================================
-  // PRIVATE HELPER METHODS
-  // =====================================
-
-  /**
-   * Get equipped pet for user with personality data
-   */
   private async getEquippedPet(userId: string): Promise<{
     item_id: string;
     personality_id: string | null;
@@ -398,23 +311,19 @@ export class ChatterService {
     custom_name: string | null;
   } | null> {
     try {
-      // Import EquipmentRepository dynamically to avoid circular dependencies
       const { EquipmentRepository } = await import('../repositories/EquipmentRepository.js');
       const equipmentRepository = new EquipmentRepository();
 
-      // Get equipped pet from pet slot
       const equippedPet = await equipmentRepository.findItemInSlot(userId, 'pet');
       if (!equippedPet) {
-        return null; // No pet equipped
+        return null;
       }
 
-      // Get pet details with personality from PetRepository
       const pet = await this.petRepository.findPetByItemId(equippedPet.id);
       if (!pet) {
-        return null; // Pet item exists but no pet record (data inconsistency)
+        return null;
       }
 
-      // Get personality details if personality_id exists
       let personalityType: string | null = null;
       if (pet.personality_id) {
         const personality = await this.petRepository.findPersonalityById(pet.personality_id);
@@ -433,11 +342,12 @@ export class ChatterService {
     }
   }
 
-  /**
-   * Build AI prompt for pet chatter generation
-   */
   private async buildPetPrompt(
-    personality: any,
+    personality: {
+      personality_type: string;
+      traits?: string[];
+      verbosity: 'terse' | 'moderate' | 'verbose';
+    },
     context: CombatContext,
     event: CombatEventDetails
   ): Promise<string> {
@@ -463,11 +373,8 @@ Personality Guidelines:
 Response:`;
   }
 
-  /**
-   * Build AI prompt for enemy chatter generation
-   */
   private async buildEnemyPrompt(
-    enemyType: any,
+    dialogueTone: string,
     playerHistory: PlayerCombatHistory,
     context: CombatContext,
     event: CombatEventDetails
@@ -475,7 +382,7 @@ Response:`;
     const winRate = playerHistory.attempts > 0 ? Math.round((playerHistory.victories / playerHistory.attempts) * 100) : 0;
     const streakType = playerHistory.current_streak >= 0 ? 'wins' : 'losses';
 
-    return `You are a ${enemyType.type} enemy with ${enemyType.dialogue_tone} personality in a fantasy combat game.
+    return `You are an enemy with ${dialogueTone} personality in a fantasy combat game.
 
 Player History at this location:
 - Attempts: ${playerHistory.attempts}, Victories: ${playerHistory.victories}, Defeats: ${playerHistory.defeats}
@@ -488,7 +395,7 @@ Combat Context:
 - ${this.formatEventContext(context)}
 
 Generate a single, short taunt (1-2 sentences) that:
-1. Matches your ${enemyType.dialogue_tone} personality
+1. Matches your ${dialogueTone} personality
 2. References the player's performance history when relevant
 3. Reacts to the current combat event
 
@@ -502,9 +409,6 @@ Tone Guidelines:
 Response:`;
   }
 
-  /**
-   * Format combat event details for AI prompt
-   */
   private formatEventContext(context: CombatContext): string {
     if (context.damage && context.isCritical) {
       return `${context.damage} damage dealt (CRITICAL HIT!)`;
@@ -515,9 +419,6 @@ Response:`;
     }
   }
 
-  /**
-   * Call AI service with timeout
-   */
   private async callAIService(prompt: string, timeout: number): Promise<string> {
     try {
       const timeoutPromise = new Promise<never>((_, reject) => {
@@ -539,21 +440,15 @@ Response:`;
     }
   }
 
-  /**
-   * Get random fallback phrase from array
-   */
   private async getRandomFallbackPhrase(phrases: string[]): Promise<string> {
     if (!phrases || phrases.length === 0) {
-      return "..."; // Default fallback
+      return "...";
     }
 
     const randomIndex = Math.floor(Math.random() * phrases.length);
     return phrases[randomIndex];
   }
 
-  /**
-   * Log chatter event to analytics
-   */
   private async logChatterEvent(
     sessionId: string,
     dialogue: string,
@@ -561,36 +456,31 @@ Response:`;
   ): Promise<void> {
     try {
       if (metadata.personalityType) {
-        // Pet chatter
         await this.analyticsRepository.logPetChatter(
           sessionId,
-          '', // petItemId - would need to get from session
+          '',
           metadata.eventType,
           dialogue,
           metadata.generationTime,
           metadata.wasAIGenerated
         );
       } else if (metadata.enemyType) {
-        // Enemy chatter
         await this.analyticsRepository.logEnemyChatter(
           sessionId,
-          '', // enemyTypeId - would need to get from session
+          '',
           metadata.eventType,
           dialogue,
-          metadata.playerContextUsed || null,
+          metadata.playerContextUsed!,
           metadata.generationTime,
           metadata.wasAIGenerated
         );
       }
     } catch (error) {
-      // Don't throw here - logging failure shouldn't break chatter generation
       console.error('Failed to log chatter event:', error);
     }
   }
 }
 
-// Export a factory function for testing and lazy initialization
 export const createChatterService = () => new ChatterService();
 
-// Export singleton instance for use in controllers
 export const chatterService = createChatterService();
