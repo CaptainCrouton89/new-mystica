@@ -176,7 +176,9 @@ extension BattleView {
             // Enemy Avatar with glow effect and shake animation
             EnemyAvatarView(
                 enemy: enemy,
-                scale: enemyScale
+                scale: enemyScale,
+                animationLoader: enemyAnimationLoader,
+                currentFrame: enemyCurrentFrame
             )
             .offset(x: enemyOffset.x, y: enemyOffset.y)
             .shadow(color: enemyGlowing ? .red : .clear, radius: enemyGlowing ? 20 : 0)

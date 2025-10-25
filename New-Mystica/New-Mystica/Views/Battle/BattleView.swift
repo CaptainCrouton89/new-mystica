@@ -89,6 +89,12 @@ struct BattleView: View {
     @State var enemyScale: CGFloat = 1.0
     @State var enemyOffset: CGPoint = .zero
     @State var playerOffset: CGPoint = .zero
+    
+    // MARK: - Enemy Animation State
+    @State var enemyAnimationLoader: MonsterAnimationLoader?
+    @State var enemyCurrentFrame: Int = 0
+    @State var enemyAnimationTimer: Timer?
+    @State var isEnemyAnimating: Bool = false
 
     // Location ID passed from map (optional for auto-resume scenarios)
     let locationId: String?
@@ -200,6 +206,10 @@ struct BattleView: View {
                 }
             }
         }
+        .onDisappear {
+            // Clean up animation timer when leaving the view
+            stopEnemyAnimation()
+        }
         .task {
             // Connect environment dependencies to viewModel
             viewModel.navigationManager = navigationManager
@@ -211,6 +221,9 @@ struct BattleView: View {
                let activeSession = session {
                 // Resume existing session loaded by AppState
                 viewModel.resumeCombat(session: activeSession)
+                
+                // Initialize enemy animation for existing session
+                await initializeEnemyAnimation(for: activeSession.enemy)
             } else {
                 // Try to resume existing session or create new one if locationId provided
                 await viewModel.initializeOrResumeCombat(locationId: locationId, selectedLevel: selectedLevel)
@@ -218,6 +231,9 @@ struct BattleView: View {
                 // Update AppState with whatever session we got from backend
                 if case .loaded(let session) = viewModel.combatState {
                     appState.setCombatSession(session)
+                    
+                    // Initialize enemy animation for new session
+                    await initializeEnemyAnimation(for: session.enemy)
                 }
             }
         }
@@ -251,6 +267,47 @@ struct BattleView: View {
         if !viewModel.combatEnded {
             transitionToPhase(.playerAttack)
         }
+    }
+    
+    // MARK: - Enemy Animation Functions
+    
+    /// Initialize enemy animation loader and start idle animation
+    func initializeEnemyAnimation(for enemy: CombatEnemy) async {
+        // Use enemy ID as monster ID for animation loading
+        let monsterId = enemy.id
+        enemyAnimationLoader = MonsterAnimationLoader(monsterId: monsterId, animationType: "idle")
+        
+        // Load the animation
+        await enemyAnimationLoader?.loadAnimation()
+        
+        // Start idle animation loop if loaded successfully
+        if enemyAnimationLoader?.isReady == true {
+            await MainActor.run {
+                startEnemyIdleAnimation()
+            }
+        }
+    }
+    
+    /// Start enemy idle animation loop
+    func startEnemyIdleAnimation() {
+        guard let loader = enemyAnimationLoader,
+              let animationData = loader.animationData else { return }
+        
+        stopEnemyAnimation() // Stop any existing animation
+        
+        isEnemyAnimating = true
+        enemyAnimationTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 12.0, repeats: true) { _ in
+            DispatchQueue.main.async {
+                self.enemyCurrentFrame = (self.enemyCurrentFrame + 1) % animationData.frames.count
+            }
+        }
+    }
+    
+    /// Stop enemy animation
+    func stopEnemyAnimation() {
+        enemyAnimationTimer?.invalidate()
+        enemyAnimationTimer = nil
+        isEnemyAnimating = false
     }
 
     // MARK: - Phase Management

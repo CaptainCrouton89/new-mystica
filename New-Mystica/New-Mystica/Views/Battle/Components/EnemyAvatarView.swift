@@ -11,6 +11,8 @@ import SwiftUI
 struct EnemyAvatarView: View {
     let enemy: Enemy
     let scale: CGFloat
+    let animationLoader: MonsterAnimationLoader?
+    let currentFrame: Int
 
     var body: some View {
         ZStack {
@@ -24,7 +26,7 @@ struct EnemyAvatarView: View {
                 )
                 .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 4)
 
-            // Enemy Animation (based on name or type)
+            // Enemy Animation (animated sprite or fallback to static image)
             enemyAnimationView
                 .frame(width: 80, height: 80)
         }
@@ -32,12 +34,42 @@ struct EnemyAvatarView: View {
     }
 
     private var enemyAnimationView: some View {
-        let imageName = getEnemyImageName(enemy)
-
-        return Image(imageName)
-            .resizable()
-            .aspectRatio(contentMode: .fit)
-            .frame(width: 80, height: 80)
+        // Try to show animated sprite first
+        if let loader = animationLoader,
+           let animationData = loader.animationData,
+           let spriteImage = loader.spriteImage,
+           currentFrame < animationData.frames.count {
+            
+            let frameData = animationData.frames[currentFrame]
+            
+            return AnyView(
+                Image(uiImage: spriteImage)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(
+                        width: animationData.meta.size.w / 5,
+                        height: animationData.meta.size.h / 5
+                    )
+                    .offset(
+                        x: -(frameData.x - (2 * animationData.meta.frameSize.w)) / 5,
+                        y: -(frameData.y - (2 * animationData.meta.frameSize.h)) / 5
+                    )
+                    .frame(
+                        width: frameData.width / 5,
+                        height: frameData.height / 5
+                    )
+                    .clipped()
+            )
+        } else {
+            // Fallback to static image
+            let imageName = getEnemyImageName(enemy)
+            return AnyView(
+                Image(imageName)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 80, height: 80)
+            )
+        }
     }
 
     private func getEnemyImageName(_ enemy: Enemy) -> String {
@@ -68,12 +100,16 @@ struct EnemyAvatarView: View {
     VStack(spacing: 20) {
         EnemyAvatarView(
             enemy: mockEnemy,
-            scale: 1.0
+            scale: 1.0,
+            animationLoader: nil,
+            currentFrame: 0
         )
 
         EnemyAvatarView(
             enemy: mockEnemy,
-            scale: 1.1
+            scale: 1.1,
+            animationLoader: nil,
+            currentFrame: 0
         )
     }
     .padding()
