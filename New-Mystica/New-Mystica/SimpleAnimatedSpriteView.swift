@@ -19,12 +19,15 @@ import SpriteKit
  * - Support loop and one-time animations
  * - Load metadata from JSON files automatically
  * 
- * USAGE: SimpleAnimatedSpriteView(spriteSheetPath: "SkeletonSprite")
+ * USAGE: 
+ * - SimpleAnimatedSpriteView(spriteSheetPath: "SkeletonSprite")
+ * - SimpleAnimatedSpriteView(spriteSheetPath: "CircleSprite", imageFileName: "AlphaTest")
  */
 struct SimpleAnimatedSpriteView: View {
     let spriteSheetPath: String
     let frameRate: Double
     let loopAnimation: Bool
+    let imageFileName: String?
     
     @State private var skView: SKView?
     @State private var isLoading = true
@@ -35,11 +38,13 @@ struct SimpleAnimatedSpriteView: View {
     init(
         spriteSheetPath: String,
         frameRate: Double = 12.0,
-        loopAnimation: Bool = true
+        loopAnimation: Bool = true,
+        imageFileName: String? = nil
     ) {
         self.spriteSheetPath = spriteSheetPath
         self.frameRate = frameRate
         self.loopAnimation = loopAnimation
+        self.imageFileName = imageFileName
     }
     
     var body: some View {
@@ -114,7 +119,8 @@ struct SimpleAnimatedSpriteView: View {
                     spriteSheetPath: spriteSheetPath,
                     metadata: loadedMetadata,
                     frameRate: frameRate,
-                    loopAnimation: loopAnimation
+                    loopAnimation: loopAnimation,
+                    imageFileName: imageFileName
                 ) { spriteNode in
                     DispatchQueue.main.async {
                         isLoading = false
@@ -145,6 +151,9 @@ struct SimpleAnimatedSpriteView: View {
         // Ensure sprite has no background color
         spriteNode.color = .clear
         spriteNode.colorBlendFactor = 0.0
+        
+        // Fix for premultiplied alpha causing black backgrounds
+        spriteNode.blendMode = .replace
         
         spriteNode.position = CGPoint(x: spriteSize.width / 2, y: spriteSize.height / 2)
         scene.addChild(spriteNode)

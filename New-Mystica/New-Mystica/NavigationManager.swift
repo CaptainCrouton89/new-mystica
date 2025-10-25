@@ -12,6 +12,7 @@ enum NavigationDestination: Hashable {
     case victory
     case defeat
     case testAnimations
+    case transparencyTests
     case crafting(
         preselectedItem: EnhancedPlayerItem? = nil,
         preselectedMaterial: MaterialInventoryStack? = nil
@@ -30,6 +31,7 @@ enum NavigationDestination: Hashable {
              (.victory, .victory),
              (.defeat, .defeat),
              (.testAnimations, .testAnimations),
+             (.transparencyTests, .transparencyTests),
              (.crafting, .crafting),
              (.upgradePreview, .upgradePreview):
             return true
@@ -60,6 +62,8 @@ enum NavigationDestination: Hashable {
             hasher.combine("defeat")
         case .testAnimations:
             hasher.combine("testAnimations")
+        case .transparencyTests:
+            hasher.combine("transparencyTests")
         case .crafting:
             hasher.combine("crafting")
         case .upgradePreview:
@@ -89,6 +93,8 @@ enum NavigationDestination: Hashable {
             return "Defeat"
         case .testAnimations:
             return "Test Animations"
+        case .transparencyTests:
+            return "Transparency Tests"
         case .crafting:
             return "Crafting"
         case .upgradePreview:

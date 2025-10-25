@@ -43,10 +43,10 @@ struct SimpleAnimationTestView: View {
 }
 
 /**
- * CircleSpriteAnimationView - Simple animated sprite display for local circle sprite
+ * CircleSpriteAnimationView - Simple animated sprite display using AlphaTest.png with CircleSprite metadata
  */
 struct CircleSpriteAnimationView: View {
-    let title = "Circle Sprite Animation (Local)"
+    let title = "AlphaTest Animation (Circle Metadata)"
     
     @State private var metadata: SpriteMetadata?
     
@@ -58,7 +58,8 @@ struct CircleSpriteAnimationView: View {
                 SimpleAnimatedSpriteView(
                     spriteSheetPath: "CircleSprite",
                     frameRate: 12.0,
-                    loopAnimation: true
+                    loopAnimation: true,
+                    imageFileName: "AlphaTest"
                 )                
                 
             } else {

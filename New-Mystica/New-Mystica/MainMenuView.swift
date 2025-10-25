@@ -86,6 +86,19 @@ struct MainMenuView: View {
                     }
                     .buttonStyle(PlainButtonStyle())
                     .fadeIn(delay: 0.8)
+                    
+                    Button {
+                        audioManager.playMenuButtonClick()
+                        navigationManager.navigateTo(.transparencyTests)
+                    } label: {
+                        MenuOptionView(
+                            title: "Transparency Tests",
+                            icon: "eye.fill",
+                            gradientColors: [Color.orange, Color.red]
+                        )
+                    }
+                    .buttonStyle(PlainButtonStyle())
+                    .fadeIn(delay: 1.0)
                 }
                 .padding(.horizontal, 32)
                 

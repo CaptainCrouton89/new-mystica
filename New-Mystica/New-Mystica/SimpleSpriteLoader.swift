@@ -43,6 +43,7 @@ class SimpleSpriteLoader {
         metadata: SpriteMetadata,
         frameRate: Double = 12.0,
         loopAnimation: Bool = true,
+        imageFileName: String? = nil,
         completion: @escaping (SKSpriteNode?) -> Void
     ) {
         print("🎬 Loading sprite sheet: \(spriteSheetPath)")
@@ -64,6 +65,7 @@ class SimpleSpriteLoader {
                 metadata: metadata,
                 frameRate: frameRate,
                 loopAnimation: loopAnimation,
+                imageFileName: imageFileName,
                 completion: completion
             )
         }
@@ -117,10 +119,13 @@ class SimpleSpriteLoader {
         metadata: SpriteMetadata,
         frameRate: Double,
         loopAnimation: Bool,
+        imageFileName: String?,
         completion: @escaping (SKSpriteNode?) -> Void
     ) {
-        guard let image = loadLocalImage(named: spriteSheetPath) else {
-            print("❌ Failed to load local image: \(spriteSheetPath)")
+        // Use imageFileName if provided, otherwise use spriteSheetPath
+        let imageName = imageFileName ?? spriteSheetPath
+        guard let image = loadLocalImage(named: imageName) else {
+            print("❌ Failed to load local image: \(imageName)")
             completion(nil)
             return
         }
@@ -137,7 +142,7 @@ class SimpleSpriteLoader {
         // Create animated sprite
         let spriteNode = SKSpriteNode(texture: frameTextures[0])
         spriteNode.colorBlendFactor = 0.0  // Ensure no color blending affects transparency
-        spriteNode.blendMode = .alpha       // Ensure proper transparency handling
+        spriteNode.blendMode = .replace     // Fix for premultiplied alpha causing black backgrounds
         let frameTime = 1.0 / frameRate
         let animateAction = SKAction.animate(with: frameTextures, timePerFrame: frameTime)
         
@@ -303,7 +308,7 @@ class SimpleSpriteLoader {
         // Create animated sprite
         let spriteNode = SKSpriteNode(texture: frameTextures[0])
         spriteNode.colorBlendFactor = 0.0  // Ensure no color blending affects transparency
-        spriteNode.blendMode = .alpha       // Ensure proper transparency handling
+        spriteNode.blendMode = .replace     // Fix for premultiplied alpha causing black backgrounds
         let frameTime = 1.0 / frameRate
         let animateAction = SKAction.animate(with: frameTextures, timePerFrame: frameTime)
         

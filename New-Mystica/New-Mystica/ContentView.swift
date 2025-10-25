@@ -40,6 +40,8 @@ struct ContentView: View {
             DefeatView()
         case .testAnimations:
             SimpleAnimationTestView()
+        case .transparencyTests:
+            TransparencyTestView()
         case .crafting(let preselectedItem, let preselectedMaterial):
             CraftingView(preselectedItem: preselectedItem, preselectedMaterial: preselectedMaterial)
                 .onAppear {
