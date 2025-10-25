@@ -140,7 +140,8 @@ describe('CombatService', () => {
         state_code: 'CA',
         lat: 37.7749,
         lng: -122.4194,
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
+        image_url: null
       });
       mockEquipmentRepository.getPlayerPowerLevel.mockResolvedValue({
         atk: 50,
@@ -303,7 +304,8 @@ describe('CombatService', () => {
         state_code: 'CA',
         lat: 37.7749,
         lng: -122.4194,
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
+        image_url: null
       });
       mockLocationService.getMatchingEnemyPools.mockResolvedValue([]);
 
