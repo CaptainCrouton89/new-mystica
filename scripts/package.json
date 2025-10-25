@@ -10,7 +10,8 @@
     "generate-arbitrary": "tsx generate-arbitrary-image.ts",
     "generate-landscape": "tsx generate-landscape.ts",
     "analyze-image": "tsx analyze-image.ts",
-    "query-db": "NODE_OPTIONS='--dns-result-order=ipv4first' tsx query-db.ts"
+    "query-db": "NODE_OPTIONS='--dns-result-order=ipv4first' tsx query-db.ts",
+    "import-monsters": "tsx import-monsters-from-animator.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^2.0.53",
@@ -20,6 +21,7 @@
     "@supabase/supabase-js": "^2.76.1",
     "@types/pg": "^8.15.5",
     "ai": "^5.0.76",
+    "csv-parse": "^5.6.0",
     "dotenv": "^16.4.7",
     "pg": "^8.16.3",
     "replicate": "^1.0.4",
