@@ -12,11 +12,35 @@ struct StatValueView: View {
     let label: String
     let value: String
     let color: Color
+    let iconUrl: String?
+    let fallbackIcon: String
+
+    init(label: String, value: String, color: Color, iconUrl: String? = nil, fallbackIcon: String = "questionmark.circle") {
+        self.label = label
+        self.value = value
+        self.color = color
+        self.iconUrl = iconUrl
+        self.fallbackIcon = fallbackIcon
+    }
 
     var body: some View {
         HStack(spacing: 4) {
-            SmallText(label)
-                .foregroundColor(Color.textSecondary)
+            // Stat Icon from R2 with SF Symbol fallback
+            CachedAsyncImage(
+                url: iconUrl.flatMap { URL(string: $0) },
+                content: { image in
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 16, height: 16)
+                },
+                placeholder: {
+                    Image(systemName: fallbackIcon)
+                        .font(.system(size: 12, weight: .semibold))
+                }
+            )
+            .foregroundColor(color)
+            .frame(width: 16, height: 16)
 
             SmallText(value)
                 .foregroundColor(color)

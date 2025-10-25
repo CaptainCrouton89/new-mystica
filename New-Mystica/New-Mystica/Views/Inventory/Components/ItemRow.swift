@@ -87,18 +87,38 @@ struct ItemRow: View {
 
                 // Item Details
                 VStack(alignment: .leading, spacing: 4) {
-                    // Stats Preview
-                    HStack(spacing: 16) {
+                    // Stats Preview - All 4 Stats in Single Row
+                    HStack(spacing: 12) {
                         StatValueView(
-                            label: "ATK",
-                            value: String(format: "%.0f", item.computedStats.atkPower),
-                            color: Color.accent
+                            label: "ATK PWR",
+                            value: String(format: "%.0f", item.computedStats.atkPower * 100),
+                            color: Color.alert,
+                            iconUrl: "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/attack-power-crossed-swords.png",
+                            fallbackIcon: "hammer.fill"
                         )
 
                         StatValueView(
-                            label: "DEF",
-                            value: String(format: "%.0f", item.computedStats.defPower),
-                            color: Color.accentSecondary
+                            label: "ATK ACC",
+                            value: String(format: "%.0f", item.computedStats.atkAccuracy * 100),
+                            color: Color.warning,
+                            iconUrl: "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/attack-accuracy-crosshair.png",
+                            fallbackIcon: "target"
+                        )
+
+                        StatValueView(
+                            label: "DEF PWR",
+                            value: String(format: "%.0f", item.computedStats.defPower * 100),
+                            color: Color.accentSecondary,
+                            iconUrl: "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/defense-power-round-shield.png",
+                            fallbackIcon: "shield.fill"
+                        )
+
+                        StatValueView(
+                            label: "DEF ACC",
+                            value: String(format: "%.0f", item.computedStats.defAccuracy * 100),
+                            color: Color.success,
+                            iconUrl: "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/defense-accuracy-force-field.png",
+                            fallbackIcon: "checkmark.shield.fill"
                         )
 
                         Spacer()
