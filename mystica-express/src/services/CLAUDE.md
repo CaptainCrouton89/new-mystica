@@ -43,7 +43,8 @@ Services delegate data access to repositories extending `BaseRepository<T>`.
 ## Core Services
 
 **CombatService** (✅ Fully Implemented)
-- Combat session lifecycle and turn execution
+- Combat session lifecycle and turn execution using modular subdirectory structure
+- Subdirectories: `combat/types.ts`, `combat/constants.ts`, `combat/calculations.ts`, `combat/session.ts`, `combat/loot.ts`, `combat/rewards.ts`, `combat/combat-log.ts`, `combat/turn-execution.ts`
 - Enemy selection with weighted randomization
 - Attack/defense mechanics with zone-based accuracy
 - Reward application (gold, materials, items, XP)
@@ -71,23 +72,28 @@ Services delegate data access to repositories extending `BaseRepository<T>`.
 ## AI-Powered Services
 
 **ChatterService** (✅ Fully Implemented - Implements F-11, F-12)
-- Pet personality-based dialogue generation
-- OpenAI GPT-4.1-mini integration with 2-second timeout
-- Throws ExternalAPIError on timeout/failure
+- Pet personality-based dialogue generation using `ai` library (generateText)
+- OpenAI GPT-4.1-nano integration with 2-second timeout
+- Graceful fallback to pet's example_phrases on timeout (not error throwing)
 - Analytics logging for quality monitoring
 - Integrates player combat history for context
+- Enemy chatter generation with player history integration
 
 **EnemyChatterService** (✅ Fully Implemented)
 - Contextual enemy dialogue during combat events
-- AI timeout handling (2s) with error throwing
-- Combat context-aware prompting (turn number, HP%, critical hits)
+- Uses `ai` library (generateObject) with Zod schema validation
+- 2-second timeout with generic fallback taunts on failure
+- Combat context-aware prompting (turn number, HP%, event type, critical hits)
 - Logs all dialogue attempts for analytics
+- Player combat history integration (win rate, streaks, attempts)
 
 **AI Service Patterns:**
-- Always include 2-second timeout to prevent blocking
-- Throw ExternalAPIError on timeout or API failure
-- Log attempts for quality monitoring
-- Integrate combat context into prompts for personality
+- Use `ai` library (generateText for simple strings, generateObject for structured data)
+- Always include 2-second timeout via Promise.race() to prevent blocking
+- Graceful fallback behavior on timeout (fallback phrases/taunts) rather than error throwing
+- Throw ExternalAPIError only on API errors, not timeouts
+- Log all attempts for quality monitoring via AnalyticsRepository
+- Integrate combat context and player history into prompts
 
 ## Supporting Services
 
