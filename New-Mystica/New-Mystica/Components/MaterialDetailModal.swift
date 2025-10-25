@@ -40,9 +40,12 @@ struct MaterialDetailModal: View {
                 .padding(.vertical, 16)
             }
             .background(Color.backgroundPrimary)
-            .navigationTitle(material.name.capitalized)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .principal) {
+                    TitleText(material.name.capitalized, size: 20)
+                        .lineLimit(1)
+                }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
                         audioManager.playCancelClick()
@@ -62,7 +65,6 @@ struct MaterialDetailModal: View {
         ZStack {
             RoundedRectangle(cornerRadius: 16)
                 .fill(Color.backgroundCard)
-                .frame(height: 280)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
                         .stroke(getStyleBorderColor(), lineWidth: 3)
@@ -75,7 +77,6 @@ struct MaterialDetailModal: View {
                         image
                             .resizable()
                             .aspectRatio(contentMode: .fill)
-                            .frame(height: 280)
                             .clipped()
                     },
                     placeholder: {
@@ -87,6 +88,8 @@ struct MaterialDetailModal: View {
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 16))
+        .frame(maxWidth: .infinity)
+        .aspectRatio(1, contentMode: .fit)
     }
 
     private var fallbackMaterialIcon: some View {

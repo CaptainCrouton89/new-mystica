@@ -137,10 +137,9 @@ struct UnifiedItemDetailModal<Item: ItemDetailDisplayable, ActionButtons: View>:
         ZStack {
             RoundedRectangle(cornerRadius: 16)
                 .fill(Color.backgroundCard)
-                .frame(width: 280, height: 280)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
-                        .stroke(getRarityColor(), lineWidth: 3)
+                        .stroke(getRarityColor(), lineWidth: 6)
                 )
 
             if let imageUrl = item.generatedImageUrl, let url = URL(string: imageUrl) {
@@ -150,7 +149,6 @@ struct UnifiedItemDetailModal<Item: ItemDetailDisplayable, ActionButtons: View>:
                         image
                             .resizable()
                             .aspectRatio(contentMode: .fill)
-                            .frame(width: 280, height: 280)
                             .clipped()
                     },
                     placeholder: {
@@ -162,6 +160,8 @@ struct UnifiedItemDetailModal<Item: ItemDetailDisplayable, ActionButtons: View>:
             }
         }
         .clipShape(RoundedRectangle(cornerRadius: 16))
+        .frame(maxWidth: .infinity)
+        .aspectRatio(1, contentMode: .fit)
     }
 
     private var fallbackItemIcon: some View {
