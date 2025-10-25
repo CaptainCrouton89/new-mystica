@@ -58,19 +58,54 @@ struct AnimationData: Codable {
 
 struct TestAnimationsView: View {
     @EnvironmentObject private var navigationManager: NavigationManager
-    @StateObject private var loader = MonsterAnimationLoader()
     
     // Animation settings
     let frameRate: Double
+    let monsterId: String
+    
+    // Animation type management
+    @State private var selectedAnimationType: String = "idle"
+    private let animationTypes = ["idle", "attack", "damage", "death"]
+    
+    // Multiple loaders for each animation type
+    @State private var idleLoader: MonsterAnimationLoader?
+    @State private var attackLoader: MonsterAnimationLoader?
+    @State private var damageLoader: MonsterAnimationLoader?
+    @State private var deathLoader: MonsterAnimationLoader?
     
     // Sprite animation settings
     @State private var currentFrame: Int = 0
     @State private var animationTimer: Timer?
     @State private var isPlaying: Bool = false
     
-    // Required initializer - no defaults
-    init(frameRate: Double = 12.0) {
+    // Required initializer
+    init(monsterId: String, frameRate: Double = 12.0) {
+        self.monsterId = monsterId
         self.frameRate = frameRate
+    }
+    
+    // MARK: - Computed Properties
+    
+    /// Get the current loader based on selected animation type
+    private var currentLoader: MonsterAnimationLoader? {
+        switch selectedAnimationType {
+        case "idle": return idleLoader
+        case "attack": return attackLoader
+        case "damage": return damageLoader
+        case "death": return deathLoader
+        default: return idleLoader
+        }
+    }
+    
+    /// Get loader for specific animation type
+    private func getLoader(for animationType: String) -> MonsterAnimationLoader? {
+        switch animationType {
+        case "idle": return idleLoader
+        case "attack": return attackLoader
+        case "damage": return damageLoader
+        case "death": return deathLoader
+        default: return nil
+        }
     }
     
     var body: some View {
@@ -86,21 +121,83 @@ struct TestAnimationsView: View {
                 
                 VStack(spacing: 30) {
                     
-                    if loader.isLoading {
+                    // Monster ID and Animation Type Selector
+                    VStack(spacing: 12) {
+                        Text("Monster ID: \(monsterId)")
+                            .font(.headline)
+                            .foregroundColor(.white)
+                        
+                        Text("Animation Type: \(selectedAnimationType.capitalized)")
+                            .font(.subheadline)
+                            .foregroundColor(.white.opacity(0.8))
+                        
+                        // Animation type picker
+                        Picker("Animation Type", selection: $selectedAnimationType) {
+                            ForEach(animationTypes, id: \.self) { animationType in
+                                Text(animationType.capitalized)
+                                    .tag(animationType)
+                            }
+                        }
+                        .pickerStyle(SegmentedPickerStyle())
+                        .background(Color.white.opacity(0.2))
+                        .cornerRadius(8)
+                        .onChange(of: selectedAnimationType) { _, newType in
+                            // Reset animation when switching types
+                            stopAnimation()
+                            currentFrame = 0
+                            
+                            // Get the loader for the new animation type
+                            let newLoader = getLoader(for: newType)
+                            
+                            // Load the new animation type if not already loaded
+                            if let loader = newLoader, !loader.isReady && !loader.isLoading {
+                                Task {
+                                    await loader.loadAnimation()
+                                }
+                            } else if let loader = newLoader, loader.isReady {
+                                // If animation is already loaded, start playing it immediately
+                                DispatchQueue.main.async {
+                                    self.startAnimation()
+                                }
+                            }
+                        }
+                    }
+                    .padding()
+                    .background(Color.black.opacity(0.3))
+                    .cornerRadius(12)
+                    
+                    if let loader = currentLoader, loader.isLoading {
                         // Loading state
                         VStack(spacing: 16) {
                             ProgressView()
                                 .scaleEffect(1.5)
                             
-                            Text("Loading animation...")
+                            Text("Loading \(selectedAnimationType) animation...")
                                 .font(.headline)
                                 .foregroundColor(.white)
+                            
+                            // Show loading progress for all animations
+                            VStack(spacing: 8) {
+                                Text("Loading all animations...")
+                                    .font(.caption)
+                                    .foregroundColor(.white.opacity(0.8))
+                                
+                                HStack(spacing: 4) {
+                                    ForEach(animationTypes, id: \.self) { animationType in
+                                        let loader = getLoader(for: animationType)
+                                        Circle()
+                                            .fill(loader?.isReady == true ? Color.green : 
+                                                  loader?.isLoading == true ? Color.yellow : Color.gray)
+                                            .frame(width: 8, height: 8)
+                                    }
+                                }
+                            }
                         }
                         .padding()
                         .background(Color.black.opacity(0.3))
                         .cornerRadius(12)
                         
-                    } else if let errorMessage = loader.errorMessage {
+                    } else if let loader = currentLoader, let errorMessage = loader.errorMessage {
                         // Error state
                         VStack(spacing: 16) {
                             Image(systemName: "exclamationmark.triangle")
@@ -127,7 +224,7 @@ struct TestAnimationsView: View {
                         .background(Color.black.opacity(0.3))
                         .cornerRadius(12)
                         
-                    } else if loader.isReady, let animationData = loader.animationData {
+                    } else if let loader = currentLoader, loader.isReady, let animationData = loader.animationData {
                         // Success state - show animation
                         VStack(spacing: 20) {                                
                             // Sprite animation using frame-specific coordinates
@@ -240,22 +337,19 @@ struct TestAnimationsView: View {
                         }
                         
                     } else {
-                        // Initial state - start loading
+                        // All animations loaded successfully
                         VStack(spacing: 16) {
-                            Image(systemName: "play.circle")
+                            Image(systemName: "checkmark.circle.fill")
                                 .font(.system(size: 48))
-                                .foregroundColor(.white)
+                                .foregroundColor(.green)
                             
-                            Text("Ready to load animation")
+                            Text("All animations loaded successfully!")
                                 .font(.headline)
                                 .foregroundColor(.white)
                             
-                            Button("Load Animation") {
-                                Task {
-                                    await loader.loadAnimation()
-                                }
-                            }
-                            .buttonStyle(.borderedProminent)
+                            Text("Currently playing: \(selectedAnimationType.capitalized)")
+                                .font(.subheadline)
+                                .foregroundColor(.white.opacity(0.8))
                         }
                         .padding()
                         .background(Color.black.opacity(0.3))
@@ -277,20 +371,23 @@ struct TestAnimationsView: View {
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Reload") {
-                        loader.clearData()
-                        Task {
-                            await loader.loadAnimation()
+                        if let loader = currentLoader {
+                            loader.clearData()
+                            Task {
+                                await loader.loadAnimation()
+                            }
                         }
                     }
-                    .disabled(loader.isLoading)
+                    .disabled(currentLoader?.isLoading ?? false)
                 }
             }
             .onAppear {
-                // Auto-load animation when view appears
-                if !loader.isLoading && !loader.isReady {
-                    Task {
-                        await loader.loadAnimation()
-                    }
+                // Initialize loaders and auto-load all animations when view appears
+                initializeLoaders()
+                
+                // Load all animation types automatically
+                Task {
+                    await loadAllAnimations()
                 }
             }
             .onDisappear {
@@ -302,10 +399,44 @@ struct TestAnimationsView: View {
     
     // MARK: - Animation Methods
     
+    /// Initialize all animation loaders with the current monster ID
+    private func initializeLoaders() {
+        idleLoader = MonsterAnimationLoader(monsterId: monsterId, animationType: "idle")
+        attackLoader = MonsterAnimationLoader(monsterId: monsterId, animationType: "attack")
+        damageLoader = MonsterAnimationLoader(monsterId: monsterId, animationType: "damage")
+        deathLoader = MonsterAnimationLoader(monsterId: monsterId, animationType: "death")
+    }
+    
+    /// Load all animation types automatically
+    private func loadAllAnimations() async {
+        // Load all animations concurrently
+        await withTaskGroup(of: Void.self) { group in
+            if let idleLoader = idleLoader {
+                group.addTask { await idleLoader.loadAnimation() }
+            }
+            if let attackLoader = attackLoader {
+                group.addTask { await attackLoader.loadAnimation() }
+            }
+            if let damageLoader = damageLoader {
+                group.addTask { await damageLoader.loadAnimation() }
+            }
+            if let deathLoader = deathLoader {
+                group.addTask { await deathLoader.loadAnimation() }
+            }
+        }
+        
+        // Start playing idle animation automatically once it's loaded
+        DispatchQueue.main.async {
+            if let idleLoader = self.idleLoader, idleLoader.isReady {
+                self.startAnimation()
+            }
+        }
+    }
+    
     private func startAnimation() {
         stopAnimation()
         
-        guard let animationData = loader.animationData else { return }
+        guard let loader = currentLoader, let animationData = loader.animationData else { return }
         
         isPlaying = true
         animationTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / frameRate, repeats: true) { _ in
@@ -332,7 +463,7 @@ struct TestAnimationsView: View {
     }
     
     private func nextFrame() {
-        guard let animationData = loader.animationData else { return }
+        guard let loader = currentLoader, let animationData = loader.animationData else { return }
         if currentFrame < animationData.frames.count - 1 {
             currentFrame += 1
         }

@@ -11,7 +11,7 @@ enum NavigationDestination: Hashable {
     case battle
     case victory
     case defeat
-    case testAnimations
+    case testAnimations(monsterId: String = "07ba5f91-662d-4820-8a99-eee4c301f2ca")
     case crafting(
         preselectedItem: EnhancedPlayerItem? = nil,
         preselectedMaterial: MaterialInventoryStack? = nil
@@ -29,10 +29,11 @@ enum NavigationDestination: Hashable {
              (.battle, .battle),
              (.victory, .victory),
              (.defeat, .defeat),
-             (.testAnimations, .testAnimations),
              (.crafting, .crafting),
              (.upgradePreview, .upgradePreview):
             return true
+        case (.testAnimations(let lhsId), .testAnimations(let rhsId)):
+            return lhsId == rhsId
         default:
             return false
         }
@@ -58,8 +59,9 @@ enum NavigationDestination: Hashable {
             hasher.combine("victory")
         case .defeat:
             hasher.combine("defeat")
-        case .testAnimations:
+        case .testAnimations(let monsterId):
             hasher.combine("testAnimations")
+            hasher.combine(monsterId)
         case .crafting:
             hasher.combine("crafting")
         case .upgradePreview:

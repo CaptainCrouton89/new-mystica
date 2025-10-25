@@ -76,7 +76,7 @@ struct MainMenuView: View {
                     
                     Button {
                         audioManager.playMenuButtonClick()
-                        navigationManager.navigateTo(.testAnimations)
+                        navigationManager.navigateTo(.testAnimations(monsterId: "07ba5f91-662d-4820-8a99-eee4c301f2ca"))
                     } label: {
                         MenuOptionView(
                             title: "Test Animations",
