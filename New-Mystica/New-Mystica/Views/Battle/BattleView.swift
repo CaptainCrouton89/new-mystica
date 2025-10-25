@@ -49,6 +49,7 @@ import UIKit
  */
 
 struct BattleView: View {
+    @State private var enemyDialogueVisible = false
     @Environment(\.navigationManager) var navigationManager
     @Environment(\.audioManager) var audioManager
     @Environment(AppState.self) var appState
@@ -104,6 +105,20 @@ struct BattleView: View {
                 // Main combat content with background loading
                 if case .loaded(let session) = viewModel.combatState {
                     combatContentView(session: session)
+
+                    // Enemy Dialogue Bubble Integration
+                    if let dialogue = viewModel.currentDialogue {
+                        EnemyDialogueBubble(
+                            dialogue: dialogue,
+                            isVisible: $enemyDialogueVisible
+                        )
+                        .transition(.asymmetric(
+                            insertion: .scale(scale: 0.8).combined(with: .opacity),
+                            removal: .scale(scale: 0.95).combined(with: .opacity)
+                        ))
+                        .zIndex(100)
+                        .offset(y: -150) // Position above enemy, adjust as needed
+                    }
                 } else if case .error(let error) = viewModel.combatState {
                     // Error state
                     VStack(spacing: 20) {
@@ -153,6 +168,11 @@ struct BattleView: View {
         }
         .floatingText()
         .environmentObject(floatingTextManager)
+        .onChange(of: viewModel.currentDialogue) { oldValue, newValue in
+            withAnimation {
+                enemyDialogueVisible = newValue != nil
+            }
+        }
         .onChange(of: currentPhase) { oldPhase, newPhase in
             // Handle visual transitions when phase changes (no timers)
             withAnimation(.easeInOut(duration: 0.3)) {

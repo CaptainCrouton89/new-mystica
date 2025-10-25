@@ -9,6 +9,16 @@
 import Foundation
 import Observation
 
+// MARK: - Combat Metadata for Defeat Screen
+/// Stores combat session data needed after session is deleted
+struct CombatMetadata {
+    let totalDamageDealt: Double
+    let turnsSurvived: Int
+    let highestMultiplier: Double
+    let combatHistory: CombatHistory
+    let enemy: CombatEnemy
+}
+
 @Observable
 final class AppState {
     static let shared = AppState()
@@ -27,6 +37,9 @@ final class AppState {
 
     // MARK: - Combat Rewards State
     var combatRewards: CombatRewards? = nil
+
+    // MARK: - Combat Metadata (for defeat screen)
+    var lastCombatMetadata: CombatMetadata? = nil
 
     init() {}
 
@@ -140,6 +153,16 @@ final class AppState {
 
     func clearCombatRewards() {
         self.combatRewards = nil
+    }
+
+    // MARK: - Combat Metadata Methods
+
+    func setLastCombatMetadata(_ metadata: CombatMetadata?) {
+        self.lastCombatMetadata = metadata
+    }
+
+    func clearLastCombatMetadata() {
+        self.lastCombatMetadata = nil
     }
 
     // MARK: - Session Restoration

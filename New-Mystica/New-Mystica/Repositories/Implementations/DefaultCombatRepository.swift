@@ -221,4 +221,39 @@ final class DefaultCombatRepository: CombatRepository {
             body: request
         )
     }
+
+    func fetchEnemyChatter(sessionId: String, eventType: String, eventDetails: CombatEventDetails) async throws -> EnemyDialogueResponse {
+        struct ChatterRequest: Encodable {
+            let sessionId: String
+            let eventType: String
+            let eventDetails: CombatEventDetails
+
+            enum CodingKeys: String, CodingKey {
+                case sessionId = "session_id"
+                case eventType = "event_type"
+                case eventDetails = "event_details"
+            }
+        }
+
+        struct ChatterResponse: Decodable {
+            let dialogueResponse: EnemyDialogueResponse
+
+            enum CodingKeys: String, CodingKey {
+                case dialogueResponse = "dialogue_response"
+            }
+        }
+
+        let request = ChatterRequest(
+            sessionId: sessionId,
+            eventType: eventType,
+            eventDetails: eventDetails
+        )
+
+        let response: ChatterResponse = try await apiClient.post(
+            endpoint: "/combat/enemy-chatter",
+            body: request
+        )
+
+        return response.dialogueResponse
+    }
 }

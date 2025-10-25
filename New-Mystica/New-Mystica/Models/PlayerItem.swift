@@ -53,8 +53,12 @@ struct PlayerItem: Codable, Sendable {
         isEquipped = try container.decode(Bool.self, forKey: .isEquipped)
         generatedImageUrl = try container.decodeIfPresent(String.self, forKey: .generatedImageUrl)
 
-        // Name is now required
-        name = try container.decode(String.self, forKey: .name)
+        // Name can be null from API, fallback to baseType
+        if let decodedName = try container.decodeIfPresent(String.self, forKey: .name) {
+            name = decodedName
+        } else {
+            name = baseType
+        }
         description = try container.decodeIfPresent(String.self, forKey: .description)
     }
 
