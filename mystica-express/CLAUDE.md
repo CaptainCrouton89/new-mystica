@@ -378,7 +378,7 @@ const { data, error } = await supabase
 Configured for deployment via Railway using Nixpacks.
 
 **Build Configuration** (`nixpacks.toml`):
-- **Setup phase:** Node.js 24.x + pnpm
+- **Setup phase:** Node.js 22.x + pnpm
 - **Install:** `pnpm install`
 - **Build:** `pnpm build` (TypeScript → dist/)
 - **Start:** `pnpm start` (runs dist/server.js)
@@ -409,7 +409,7 @@ All routes prefixed with `/api/v1` (configured in src/app.ts:63). Health check a
 
 ## Engine Requirements
 
-- **Node.js:** >=24.0.0
+- **Node.js:** >=22.0.0 (see `.node-version`)
 - **pnpm:** >=9.0.0
 
 ## Troubleshooting
