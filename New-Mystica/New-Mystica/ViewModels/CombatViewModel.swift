@@ -273,6 +273,8 @@ final class CombatViewModel {
         do {
             try await repository.abandonCombat(sessionId: session.sessionId)
             resetCombat()
+            // Clear the session from AppState so it won't be resumed
+            appState?.setCombatSession(nil)
         } catch let error as AppError {
             combatState = .error(error)
         } catch {
