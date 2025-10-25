@@ -199,6 +199,9 @@ struct BattleView: View {
             }
         }
         .task {
+            // Pause background music when entering battle
+            audioManager.pauseBackgroundMusic()
+
             // Connect environment dependencies to viewModel
             viewModel.navigationManager = navigationManager
             viewModel.appState = appState

@@ -6,14 +6,16 @@ import Combine
 @MainActor
 class AudioManager: ObservableObject {
     static let shared = AudioManager()
-    
+
     @Published var isEnabled: Bool = true
     private var audioPlayers: [String: AVAudioPlayer] = [:]
+    private var backgroundMusicPlayer: AVAudioPlayer?
     private let audioSession = AVAudioSession.sharedInstance()
-    
+
     private init() {
         setupAudioSession()
         preloadAudioFiles()
+        loadBackgroundMusic()
     }
     
     // MARK: - Audio Session Setup
@@ -178,24 +180,74 @@ class AudioManager: ObservableObject {
     }
     
     // MARK: - Audio State Management
-    
+
     func stopAllAudio() {
         for player in audioPlayers.values {
             player.stop()
             player.currentTime = 0
         }
     }
-    
+
     func pauseAllAudio() {
         for player in audioPlayers.values {
             player.pause()
         }
     }
-    
+
     func resumeAllAudio() {
         for player in audioPlayers.values {
             player.play()
         }
+    }
+
+    // MARK: - Background Music
+
+    private func loadBackgroundMusic() {
+        // Load MainMenu audio from Assets.xcassets dataset
+        guard let asset = NSDataAsset(name: "MainMenu") else {
+            print("❌ [AUDIO] Could not find MainMenu dataset in Assets.xcassets")
+            return
+        }
+
+        do {
+            let player = try AVAudioPlayer(data: asset.data)
+            player.numberOfLoops = -1 // Loop infinitely
+            player.volume = 0.5
+            player.prepareToPlay()
+            backgroundMusicPlayer = player
+            print("✅ [AUDIO] Successfully loaded MainMenu background music")
+        } catch {
+            print("❌ [AUDIO] Failed to load background music: \(error)")
+        }
+    }
+
+    func playBackgroundMusic() {
+        guard isEnabled else {
+            print("⚠️ [AUDIO] Background music playback skipped - audio disabled")
+            return
+        }
+
+        if backgroundMusicPlayer == nil {
+            print("❌ [AUDIO] Background music player not initialized")
+            return
+        }
+
+        backgroundMusicPlayer?.play()
+        print("🎵 [AUDIO] Playing background music")
+    }
+
+    func pauseBackgroundMusic() {
+        backgroundMusicPlayer?.pause()
+    }
+
+    func stopBackgroundMusic() {
+        backgroundMusicPlayer?.stop()
+        backgroundMusicPlayer?.currentTime = 0
+    }
+
+    func setBackgroundMusicVolume(_ volume: Float) {
+        let clampedVolume = max(0.0, min(1.0, volume))
+        backgroundMusicPlayer?.volume = clampedVolume
     }
 }
 

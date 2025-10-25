@@ -79,6 +79,9 @@ struct MainMenuView: View {
                 Spacer()
             }
         }
+        .onAppear {
+            audioManager.playBackgroundMusic()
+        }
     }
 }
 
