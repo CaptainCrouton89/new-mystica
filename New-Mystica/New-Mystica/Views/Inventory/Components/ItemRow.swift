@@ -171,7 +171,7 @@ struct ItemRow: View {
         }
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(colorForRarity(item.rarity).opacity(0.1))
+                .fill(colorForRarityBackground(item.rarity))
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
                         .stroke(colorForRarity(item.rarity), lineWidth: 1)
@@ -216,6 +216,23 @@ struct ItemRow: View {
             return .orange
         default:
             return .gray
+        }
+    }
+
+    private func colorForRarityBackground(_ rarity: String) -> Color {
+        switch rarity.lowercased() {
+        case "common":
+            return Color.rarityCommon
+        case "uncommon":
+            return Color.rarityUncommon
+        case "rare":
+            return Color.rarityRare
+        case "epic":
+            return Color.rarityEpic
+        case "legendary":
+            return Color.rarityLegendary
+        default:
+            return Color.rarityCommon
         }
     }
 

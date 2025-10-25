@@ -32,7 +32,14 @@ extension Color {
     static let borderPrimary = Color(hex: "FF1493")        // Primary borders (Neon Pink)
     static let borderSecondary = Color(hex: "00BFFF")      // Secondary borders (Neon Blue)
     static let borderSubtle = Color(hex: "B0B0B0")         // Subtle borders
-    
+
+    // Rarity Background Colors (pre-calculated for 0.05 opacity on #2F2F2F dark gray)
+    static let rarityCommon = Color(hex: "333333")         // Gray at 0.05 opacity on #2F2F2F
+    static let rarityUncommon = Color(hex: "2D322D")       // Green at 0.05 opacity on #2F2F2F
+    static let rarityRare = Color(hex: "2D2D39")           // Blue at 0.05 opacity on #2F2F2F
+    static let rarityEpic = Color(hex: "332D33")           // Purple at 0.05 opacity on #2F2F2F
+    static let rarityLegendary = Color(hex: "39352D")      // Orange at 0.05 opacity on #2F2F2F
+
     init(hex: String) {
         let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
         var int: UInt64 = 0

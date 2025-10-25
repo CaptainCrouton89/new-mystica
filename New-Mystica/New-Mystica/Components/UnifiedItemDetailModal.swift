@@ -112,7 +112,7 @@ struct UnifiedItemDetailModal<Item: ItemDetailDisplayable, ActionButtons: View>:
                 .padding(.horizontal, 20)
                 .padding(.vertical, 16)
             }
-            .background(getRarityColor().opacity(0.1))
+            .background(getRarityBackgroundColor())
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
@@ -337,6 +337,23 @@ struct UnifiedItemDetailModal<Item: ItemDetailDisplayable, ActionButtons: View>:
             return .orange
         default:
             return .gray
+        }
+    }
+
+    private func getRarityBackgroundColor() -> Color {
+        switch item.rarity.lowercased() {
+        case "common":
+            return Color.rarityCommon
+        case "uncommon":
+            return Color.rarityUncommon
+        case "rare":
+            return Color.rarityRare
+        case "epic":
+            return Color.rarityEpic
+        case "legendary":
+            return Color.rarityLegendary
+        default:
+            return Color.rarityCommon
         }
     }
 
