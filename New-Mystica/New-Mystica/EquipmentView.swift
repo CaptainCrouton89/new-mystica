@@ -126,7 +126,6 @@ struct EquipmentSlotView: View {
 // MARK: - Stats Display Component
 struct StatsDisplayView: View {
     let totalStats: ItemStats
-    let equipmentCount: Int
 
     var body: some View {
         VStack(spacing: 12) {
@@ -139,13 +138,13 @@ struct StatsDisplayView: View {
                 HStack(spacing: 20) {
                     StatItemView(
                         label: "ATK Power",
-                        value: String(format: "%.0f", totalStats.atkPower),
+                        value: String(format: "%.0f", totalStats.atkPower * 100),
                         color: Color.accent
                     )
 
                     StatItemView(
                         label: "ATK Accuracy",
-                        value: String(format: "%.1f", totalStats.atkAccuracy),
+                        value: String(format: "%.0f", totalStats.atkAccuracy * 100),
                         color: Color.accent
                     )
                 }
@@ -154,21 +153,17 @@ struct StatsDisplayView: View {
                 HStack(spacing: 20) {
                     StatItemView(
                         label: "DEF Power",
-                        value: String(format: "%.0f", totalStats.defPower),
+                        value: String(format: "%.0f", totalStats.defPower * 100),
                         color: Color.accentSecondary
                     )
 
                     StatItemView(
                         label: "DEF Accuracy",
-                        value: String(format: "%.1f", totalStats.defAccuracy),
+                        value: String(format: "%.0f", totalStats.defAccuracy * 100),
                         color: Color.accentSecondary
                     )
                 }
             }
-
-            // Equipment Count
-            NormalText("\(equipmentCount)/8 Equipped")
-                .foregroundColor(Color.textPrimary)
         }
         .padding(16)
         .background(
@@ -238,32 +233,16 @@ struct EquipmentView: View {
         .sheet(isPresented: $viewModel.showingItemDetailModal) {
             if let item = viewModel.selectedItemForDetail,
                let slot = viewModel.selectedSlotForDetail {
-                ItemDetailModal(
+                UnifiedItemDetailModal(
                     item: item,
-                    slot: slot,
-                    onUnequip: {
-                        await viewModel.unequipCurrentItem()
-                    },
-                    onEquipDifferent: {
-                        viewModel.showItemSelection(for: slot)
-                    },
-                    onUpgrade: {
-                        // Show upgrade confirmation via inventory view model
-                        viewModel.showingItemDetailModal = false
-                        // Prepare the item in inventoryViewModel so handleUpgradeAction can find it
-                        viewModel.prepareItemForInventoryAction()
-                        Task {
-                            await viewModel.inventoryViewModel.handleUpgradeAction()
-                        }
-                    },
-                    onCraft: {
-                        audioManager.playMenuButtonClick()
-                        viewModel.prepareItemForInventoryAction()
-                        Task {
-                            await viewModel.inventoryViewModel.handleCraftAction()
-                        }
-                    }
-                )
+                    badges: [
+                        .level,
+                        .primary(label: "Rarity", color: getRarityColor(for: item)),
+                        .secondary(label: "Type", color: Color.textSecondary)
+                    ]
+                ) {
+                    equipmentActionButtons(for: item, slot: slot)
+                }
             }
         }
         .sheet(isPresented: $viewModel.inventoryViewModel.showingUpgradeConfirmationModal) {
@@ -365,8 +344,7 @@ struct EquipmentView: View {
             // Stats Panel
             if let equipmentData = equipment.first {
                 StatsDisplayView(
-                    totalStats: equipmentData.totalStats,
-                    equipmentCount: equipmentData.equipmentCount
+                    totalStats: equipmentData.totalStats
                 )
             }
         }
@@ -482,6 +460,121 @@ struct EquipmentView: View {
             defAccuracy: currentStats.defAccuracy * statIncrease
         )
     }
+
+    // MARK: - Equipment Action Buttons
+    @ViewBuilder
+    private func equipmentActionButtons(for item: PlayerItem, slot: EquipmentSlot) -> some View {
+        VStack(spacing: 12) {
+            // Primary actions row (Upgrade & Craft)
+            HStack(spacing: 12) {
+                // Upgrade button
+                Button {
+                    audioManager.playMenuButtonClick()
+                    viewModel.showingItemDetailModal = false
+                    Task {
+                        try? await Task.sleep(for: .milliseconds(300))
+                        viewModel.prepareItemForInventoryAction()
+                        await viewModel.inventoryViewModel.handleUpgradeAction()
+                    }
+                } label: {
+                    HStack {
+                        Image(systemName: "arrow.up.circle.fill")
+                        NormalText("Upgrade")
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.accent.opacity(0.15))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color.accent, lineWidth: 2)
+                            )
+                    )
+                    .foregroundColor(Color.accent)
+                }
+                .buttonStyle(PlainButtonStyle())
+
+                // Craft button
+                Button {
+                    audioManager.playMenuButtonClick()
+                    viewModel.showingItemDetailModal = false
+                    Task {
+                        try? await Task.sleep(for: .milliseconds(300))
+                        viewModel.prepareItemForInventoryAction()
+                        await viewModel.inventoryViewModel.handleCraftAction()
+                    }
+                } label: {
+                    HStack {
+                        Image(systemName: "hammer.fill")
+                        NormalText("Craft")
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.accentSecondary.opacity(0.15))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color.accentSecondary, lineWidth: 2)
+                            )
+                    )
+                    .foregroundColor(Color.accentSecondary)
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
+
+            // Equip Different button
+            TextButton("Equip Different Item") {
+                audioManager.playMenuButtonClick()
+                viewModel.showingItemDetailModal = false
+                Task {
+                    try? await Task.sleep(for: .milliseconds(300))
+                    viewModel.showItemSelection(for: slot)
+                }
+            }
+
+            // Unequip button
+            Button {
+                audioManager.playMenuButtonClick()
+                Task {
+                    await viewModel.unequipCurrentItem()
+                }
+            } label: {
+                HStack {
+                    Image(systemName: "minus.circle")
+                    NormalText("Unequip Item")
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.alert.opacity(0.15))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color.alert, lineWidth: 2)
+                        )
+                )
+                .foregroundColor(Color.alert)
+            }
+            .buttonStyle(PlainButtonStyle())
+        }
+    }
+
+    private func getRarityColor(for item: PlayerItem) -> Color {
+        switch item.rarity.lowercased() {
+        case "common":
+            return Color.borderSubtle
+        case "rare":
+            return Color.success
+        case "epic":
+            return Color.accent
+        case "legendary":
+            return Color.warning
+        default:
+            return Color.borderSubtle
+        }
+    }
 }
 
 // MARK: - Preview
@@ -511,8 +604,7 @@ struct EquipmentView: View {
                 atkAccuracy: 85.5,
                 defPower: 32.0,
                 defAccuracy: 78.2
-            ),
-            equipmentCount: 5
+            )
         )
     }
     .padding()
