@@ -1,4 +1,4 @@
 todo:
-- Fix prod url
 - Locations load around your location
+- delete account
 - Upload images to make custom materials/items
