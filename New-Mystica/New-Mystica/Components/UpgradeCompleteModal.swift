@@ -14,10 +14,11 @@ struct UpgradeModal: View {
     let newGoldBalance: Int
     let currentStats: ItemStats
     let projectedStats: ItemStats
-    let onUpgrade: () -> Void
+    let onUpgrade: () async -> Void
     let onReturnToInventory: () -> Void
 
     @Environment(\.audioManager) private var audioManager
+    @State private var isLoading = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -259,10 +260,20 @@ struct UpgradeModal: View {
             // Upgrade button - clicking triggers upgrade immediately without dismissing modal
             Button {
                 audioManager.playMenuButtonClick()
-                onUpgrade()
+                isLoading = true
+                Task {
+                    await onUpgrade()
+                    isLoading = false
+                }
             } label: {
                 HStack {
-                    Image(systemName: "arrow.up.circle.fill")
+                    if isLoading {
+                        ProgressView()
+                            .progressViewStyle(.circular)
+                            .frame(width: 20, height: 20)
+                    } else {
+                        Image(systemName: "arrow.up.circle.fill")
+                    }
                     Text("Upgrade")
                         .font(FontManager.impact(size: 16))
                 }
@@ -278,6 +289,7 @@ struct UpgradeModal: View {
                 )
                 .foregroundColor(Color.accent)
             }
+            .disabled(isLoading)
             .buttonStyle(PlainButtonStyle())
         }
         .padding(.horizontal, 20)
@@ -413,7 +425,7 @@ private struct StatComparisonRow: View {
         ),
         onUpgrade: {
             print("Upgrade tapped")
-        },
+        } as () async -> Void,
         onReturnToInventory: {
             print("Return to Inventory tapped")
         }

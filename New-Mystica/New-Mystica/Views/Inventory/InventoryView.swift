@@ -71,15 +71,8 @@ struct InventoryView: View {
                         )
 
                     case .upgrading:
-                        VStack {
-                            ProgressView()
-                            Text("Upgrading item...")
-                                .font(FontManager.body)
-                                .foregroundColor(Color.textSecondary)
-                                .padding(.top, 8)
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .background(Color.backgroundPrimary)
+                        // Modal handles loading state internally
+                        EmptyView()
                     }
                 }
             }

@@ -604,11 +604,6 @@ final class InventoryViewModel {
         upgradeInProgress = true
         defer { upgradeInProgress = false }
 
-        // Transition to upgrading state
-        await MainActor.run {
-            upgradeModalState = .upgrading(itemId: itemId)
-        }
-
         do {
             let upgradeResult = try await repository.upgradeItem(itemId: itemId)
 
