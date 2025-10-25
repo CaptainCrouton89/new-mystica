@@ -55,9 +55,9 @@ pnpm generate-raw-image --batch materials --upload --remove-background
 
 ## Deployment
 
-The backend is deployed via **Railway** using Docker containerization with Node.js 24:
+The backend is deployed via **Railway** using Docker containerization:
 
-- **Dockerfile** - Builds and runs Express backend on port 3000
+- **Dockerfile** - Node.js 24 with pnpm 8.x (required for lockfile v6.0 compatibility), builds Express backend on port 3000
 - **railway.toml** - Railway platform config with health check at `/api/v1/health`
 - **nixpacks.toml** - Alternative Nixpacks build config (fallback)
 - **.dockerignore** - Excludes non-essentials (node_modules, dist, docs, etc.)
