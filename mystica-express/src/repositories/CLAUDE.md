@@ -43,7 +43,7 @@ export class ItemRepository extends BaseRepository<ItemRow> {
 - **ProgressionRepository** - Level, experience, unlocks
 
 **World:**
-- **LocationRepository** - Geospatial queries, enemy/loot pool matching, weighted random selection
+- **LocationRepository** - PostGIS spatial queries, pool-based enemy/loot matching, weighted random selection with style inheritance
 - **LoadoutRepository** - Saved equipment configurations
 - **PetRepository** - Pet inventory, active pet state
 
@@ -138,45 +138,39 @@ removeMaterialFromItemAtomic()
 replaceMaterialOnItemAtomic()
 ```
 
-### LocationRepository Pool Systems
-Enemy pools determine spawning; loot pools determine drops.
+### LocationRepository Spatial & Pool Systems
+Handles PostGIS geospatial queries and pool-based enemy/loot matching with style inheritance.
 
-**Enemy Pools:** Query `enemypools` → `enemypoolmembers` → weighted random selection via `selectRandomEnemy()`
+**Spatial Queries:**
+- `findNearby(lat, lng, radius)` - Calls `get_nearby_locations` RPC with diagnostic logging
+- Returns `LocationWithDistance[]` with `distance_meters` from PostGIS `ST_DWithin`
+- Includes RPC debugging output showing parameter values and returned field names
 
-**Loot Pools:** Query `lootpools` → `lootpoolentries` (polymorphic: material or item_type) → `selectRandomLoot()` for multi-drop
+**Pool Filtering System:**
+- `buildPoolFilter(location)` - Builds composite OR filter for Supabase queries
+- Filter types: `universal` | `location_type` | `state` | `country` | `lat_range` | `lng_range`
+- Universal pools always match; location-specific pools filter by type/state/country codes
+- TODO: Implement lat_range and lng_range matching (requires parsing "min,max" ranges)
 
-Weighted random pattern:
-```typescript
-const totalWeight = entries.reduce((sum, e) => sum + e.weight, 0);
-const randomValue = Math.random() * totalWeight;
-let currentWeight = 0;
-for (const entry of entries) {
-  currentWeight += entry.weight;
-  if (randomValue <= currentWeight) return entry;
-}
-```
+**Enemy Pools (Combat Initialization):**
+- `getMatchingEnemyPools(location, combatLevel)` - Finds pools by location and combat level
+- `getEnemyPoolMembers(poolIds)` - Fetches spawn weights for pool members
+- `selectRandomEnemy(poolMembers)` - Weighted random selection returning `enemy_type_id`
+- `getAggregatedEnemyPools(locationId, combatLevel)` - Combines pools and aggregates spawn weights by enemy type
 
-### Batch Operations
-MaterialRepository batch increment for loot distribution:
+**Loot Pools (Combat Rewards):**
+- `getMatchingLootPools(location, combatLevel)` - Finds pools by location and combat level
+- `getLootPoolEntries(poolIds)` - Fetches polymorphic loot entries (material or item_type) with names via parallel queries
+- `getLootPoolTierWeights(poolIds)` - Fetches tier multipliers (affect material drop rates by rarity tier)
+- `selectRandomLoot(poolEntries, tierWeights, enemyStyleId, dropCount)` - Weighted multi-drop with:
+  - Tier weight multipliers applied to materials (items use base weight)
+  - Style inheritance from enemy (`style_id`)
+  - Returns `LootDrop[]` array (up to `dropCount` drops per call)
+- `getAggregatedLootPools(locationId, combatLevel)` - Combines pools and applies tier weight multipliers to entries
 
-```typescript
-async batchIncrementStacks(updates: Array<{
-  userId: string;
-  materialId: string;
-  styleId: string;
-  quantity: number;
-}>): Promise<MaterialStackRow[]>
-```
-
-### Item History Tracking
-ItemRepository audit trail:
-
-```typescript
-async addHistoryEvent(itemId, userId, eventType, eventData);
-async getItemHistory(itemId, userId): Promise<ItemHistoryEvent[]>
-```
-
-Event types: `'level_up'`, `'material_applied'`, `'equipped'`, etc.
+**Helper Methods:**
+- `getStyleName(styleId)` - Fetches style name, falls back to 'normal'
+- `calculateMaterialDropWeight(entry, tierWeights)` - Applies tier multiplier to base weight (simplified: assumes 'common' tier)
 
 ## Error Handling
 
