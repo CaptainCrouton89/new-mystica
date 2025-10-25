@@ -54,17 +54,19 @@ struct TextButton: View {
     let action: () -> Void
     let height: CGFloat
     let isDisabled: Bool
-    
+    let isDestructive: Bool
+
     @State private var isPressed = false
     @Environment(\.audioManager) private var audioManager
-    
-    init(_ title: String, height: CGFloat = 48, isDisabled: Bool = false, action: @escaping () -> Void) {
+
+    init(_ title: String, height: CGFloat = 48, isDisabled: Bool = false, isDestructive: Bool = false, action: @escaping () -> Void) {
         self.title = title
         self.height = height
         self.isDisabled = isDisabled
+        self.isDestructive = isDestructive
         self.action = action
     }
-    
+
     var body: some View {
         Button {
             if !isDisabled {
@@ -79,7 +81,7 @@ struct TextButton: View {
                 .frame(height: height)
                 .background(
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(isDisabled ? Color.backgroundSecondary : (isPressed ? Color.accentInteractive : Color.accent))
+                        .fill(backgroundColor)
                 )
         }
         .buttonStyle(PlainButtonStyle())
@@ -90,6 +92,16 @@ struct TextButton: View {
                 isPressed = pressing
             }
         }, perform: {})
+    }
+
+    private var backgroundColor: Color {
+        if isDisabled {
+            return Color.backgroundSecondary
+        } else if isDestructive {
+            return isPressed ? Color(red: 0.8, green: 0.1, blue: 0.1) : Color(red: 0.9, green: 0.2, blue: 0.2)
+        } else {
+            return isPressed ? Color.accentInteractive : Color.accent
+        }
     }
 }
 

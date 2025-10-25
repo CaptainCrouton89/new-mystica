@@ -8,6 +8,7 @@ struct SettingsView: View {
     @ObservedObject private var audioManager = AudioManager.shared
 
     @State private var showingLogoutAlert = false
+    @State private var showingDeleteAccountAlert = false
 
     var body: some View {
         SimpleNavigableView(title: "Settings") {
@@ -47,7 +48,7 @@ struct SettingsView: View {
 
                     Spacer()
 
-                    // Logout section at bottom
+                    // Logout and Delete Account section at bottom
                     VStack(spacing: 16) {
                         Divider()
                             .background(Color.borderSubtle)
@@ -55,6 +56,11 @@ struct SettingsView: View {
 
                         TextButton("Logout") {
                             showingLogoutAlert = true
+                        }
+                        .padding(.horizontal, 32)
+
+                        TextButton("Delete Account", isDestructive: true) {
+                            showingDeleteAccountAlert = true
                         }
                         .padding(.horizontal, 32)
                     }
@@ -76,6 +82,19 @@ struct SettingsView: View {
             }
         } message: {
             Text("Logging out will delete your account. Are you sure?")
+        }
+        .alert("Delete Account", isPresented: $showingDeleteAccountAlert) {
+            Button("Cancel", role: .cancel) {
+                // Alert dismisses automatically
+            }
+            Button("Delete", role: .destructive) {
+                Task {
+                    await authViewModel.deleteAccount()
+                    navigationManager.navigateTo(.map)
+                }
+            }
+        } message: {
+            Text("This will permanently delete your account and all associated data. This action cannot be undone.")
         }
     }
 }

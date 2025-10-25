@@ -86,4 +86,15 @@ final class DefaultAuthRepository: AuthRepository {
         // Clear the token from APIClient and keychain
         apiClient.setAuthToken(token: nil)
     }
+
+    func deleteAccount() async throws {
+        struct DeleteAccountResponse: Decodable {
+            let message: String
+        }
+
+        let _: DeleteAccountResponse = try await apiClient.post(endpoint: "/auth/delete-account")
+
+        // Clear the token from APIClient and keychain
+        apiClient.setAuthToken(token: nil)
+    }
 }

@@ -74,4 +74,15 @@ final class AuthViewModel {
         KeychainService.clearAll()
         appState.logout()
     }
+
+    func deleteAccount() async {
+        do {
+            try await repository.deleteAccount()
+        } catch {
+            // Best-effort delete - clear state anyway
+        }
+
+        KeychainService.clearAll()
+        appState.logout()
+    }
 }
