@@ -4,40 +4,53 @@ The Railway app has all variables from @.env.local loaded (but NODE_ENV=producti
 
 The node engine is 24 (well supported as of October 2025).
 
-## Files
+## Configuration Files
 
-- **railway.json** - @/Users/silasrhyneer/Code/new-mystica/mystica-express/railway.json (sets build context to mystica-express/ directory)
-- **Dockerfile** - @/Users/silasrhyneer/Code/new-mystica/Dockerfile - Production build with Node.js 24, pnpm 8.x, TypeScript compilation (assumes mystica-express/ build context)
-- **railway.toml** - @/Users/silasrhyneer/Code/new-mystica/railway.toml - Deployment config (health checks, restart policy) - may not override UI
-- **.dockerignore** - @/Users/silasrhyneer/Code/new-mystica/.dockerignore - Excludes unnecessary files from build context
-- **External References**:
-  - @/Users/silasrhyneer/Code/new-mystica/docs/external/railway-nixpacks.md
-  - @/Users/silasrhyneer/Code/new-mystica/docs/external/railway-builder-config.md
-  - @/Users/silasrhyneer/Code/new-mystica/docs/external/railway-dockerfile-monorepo.md
+- **railway.toml** - Root-level Railway configuration (TAKES PRECEDENCE over railway.json)
+  - `builder = "DOCKERFILE"` - Use Dockerfile for builds
+  - `dockerfilePath = "Dockerfile"` - Use root Dockerfile
+  - `rootDirectory = "mystica-express"` - Set build context to mystica-express/ subdirectory
+- **Dockerfile** - Root-level Dockerfile optimized for mystica-express build context
+  - Node.js 24-slim base image
+  - pnpm 8.x (matches lockfile v6.0)
+  - Copies package.json, pnpm-lock.yaml, tsconfig.json, and src/ from build context
+  - Runs TypeScript compilation
+- **.dockerignore** - Root-level file excludes unnecessary files
+- **railway.json** - Located in mystica-express/ but overridden by railway.toml
 
 ## Build Context
 
-**IMPORTANT**: Railway prioritizes `railway.toml` over `railway.json`. The root-level `railway.toml` configures the build:
-- `dockerfilePath = "mystica-express/Dockerfile"` tells Railway where to find the Dockerfile
-- Build context is the monorepo root
-- Dockerfile is in `mystica-express/` and copies files relative to that directory
+Railway uses the monorepo root with `rootDirectory` set to `mystica-express`:
+1. Railway starts at monorepo root
+2. Reads `railway.toml` which sets `rootDirectory = "mystica-express"`
+3. Changes context to `mystica-express/` directory
+4. Finds `Dockerfile` at `../Dockerfile` (relative to root, specified as just "Dockerfile")
+5. Builds with `mystica-express/` as the build context
+6. Dockerfile copies files using relative paths (`. `= mystica-express/)
   
 ## Local Validation
 
-The Dockerfile has been validated locally:
+Test the exact Railway build configuration locally:
 
 ```bash
-# Build from mystica-express directory (simulating Railway's build context)
+# Navigate to mystica-express directory (Railway's rootDirectory)
 cd mystica-express
+
+# Build using root Dockerfile with mystica-express as context
 docker build -f ../Dockerfile -t mystica-express-test .
 
-# Run requires environment variables (Railway provides these automatically)
+# Run with environment variables (Railway provides these via dashboard)
 docker run --rm -p 3001:3000 --env-file .env.local mystica-express-test
 
 # Test health endpoint
 curl http://localhost:3001/api/v1/health
-# Should return: {"success":true,"data":{"status":"healthy",...}}
+# Expected: {"success":true,"data":{"status":"healthy",...}}
 ```
+
+This mirrors Railway's build process:
+- Build context = `mystica-express/`
+- Dockerfile = `../Dockerfile` (root)
+- Files copied from `mystica-express/` directory
 
 ## Production
 
