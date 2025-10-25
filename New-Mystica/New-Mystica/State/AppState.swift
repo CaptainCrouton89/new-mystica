@@ -41,6 +41,16 @@ final class AppState {
     // MARK: - Combat Metadata (for defeat screen)
     var lastCombatMetadata: CombatMetadata? = nil
 
+    // MARK: - User Preferences
+    var isMusicEnabled: Bool {
+        get {
+            UserDefaults.standard.object(forKey: "isMusicEnabled") as? Bool ?? true
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: "isMusicEnabled")
+        }
+    }
+
     init() {}
 
     // MARK: - Computed Properties
