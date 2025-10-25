@@ -190,10 +190,10 @@ private struct CurrencySection: View {
             .padding(.horizontal, 20)
             .padding(.vertical, 16)
             .background(
-                RoundedRectangle(cornerRadius: 12)
+                RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                     .fill(Color.backgroundCard)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 12)
+                        RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                             .stroke(Color.warning.opacity(0.3), lineWidth: 1)
                     )
             )
@@ -281,10 +281,10 @@ private struct ItemCard: View {
         }
         .padding(12)
         .background(
-            RoundedRectangle(cornerRadius: 8)
+            RoundedRectangle(cornerRadius: .cornerRadiusSmall)
                 .fill(Color.backgroundCard)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 8)
+                    RoundedRectangle(cornerRadius: .cornerRadiusSmall)
                         .stroke(colorForRarity(item.rarity), lineWidth: 2)
                 )
         )
@@ -411,10 +411,10 @@ private struct VictoryMaterialCard: View {
         }
         .padding(12)
         .background(
-            RoundedRectangle(cornerRadius: 8)
+            RoundedRectangle(cornerRadius: .cornerRadiusSmall)
                 .fill(Color.backgroundCard)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 8)
+                    RoundedRectangle(cornerRadius: .cornerRadiusSmall)
                         .stroke(Color.accentSecondary.opacity(0.5), lineWidth: 1)
                 )
         )

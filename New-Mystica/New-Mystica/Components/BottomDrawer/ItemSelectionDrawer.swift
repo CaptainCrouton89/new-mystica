@@ -172,7 +172,7 @@ private struct ItemSelectionCard: View {
                         )
                     } else {
                         ZStack {
-                            RoundedRectangle(cornerRadius: 8)
+                            RoundedRectangle(cornerRadius: .cornerRadiusSmall)
                                 .fill(getRarityColor())
                                 .frame(width: 48, height: 48)
 
@@ -182,7 +182,7 @@ private struct ItemSelectionCard: View {
                         }
                     }
                 }
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+                .clipShape(RoundedRectangle(cornerRadius: .cornerRadiusSmall))
 
                 // Item details
                 VStack(alignment: .leading, spacing: 4) {
@@ -200,7 +200,7 @@ private struct ItemSelectionCard: View {
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 2)
                                 .background(
-                                    RoundedRectangle(cornerRadius: 4)
+                                    RoundedRectangle(cornerRadius: .cornerRadiusXSmall)
                                         .fill(Color.accentSecondary.opacity(0.2))
                                 )
                         }
@@ -246,10 +246,10 @@ private struct ItemSelectionCard: View {
             }
             .padding(12)
             .background(
-                RoundedRectangle(cornerRadius: 12)
+                RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                     .fill(isSelected ? Color.accentSecondary.opacity(0.1) : Color.backgroundCard)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 12)
+                        RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                             .stroke(
                                 isSelected ? Color.accentSecondary : Color.borderSubtle,
                                 lineWidth: isSelected ? 2 : 1

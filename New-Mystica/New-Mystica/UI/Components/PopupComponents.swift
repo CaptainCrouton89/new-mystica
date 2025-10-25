@@ -49,7 +49,7 @@ struct GenericPopup: View {
                 
                 // Image
                 ZStack {
-                    RoundedRectangle(cornerRadius: 16)
+                    RoundedRectangle(cornerRadius: .cornerRadiusExtraLarge)
                         .fill(Color.backgroundCard)
                         .frame(height: 200)
                         .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 4)
@@ -77,10 +77,10 @@ struct GenericPopup: View {
                 .padding(.bottom, 24)
             }
             .background(
-                RoundedRectangle(cornerRadius: 20)
+                RoundedRectangle(cornerRadius: .cornerRadiusXXL)
                     .fill(Color.backgroundPrimary)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 20)
+                        RoundedRectangle(cornerRadius: .cornerRadiusXXL)
                             .stroke(Color.accent, lineWidth: 2)
                     )
             )
@@ -157,7 +157,7 @@ struct ActionPopup: View {
                 
                 // Image
                 ZStack {
-                    RoundedRectangle(cornerRadius: 16)
+                    RoundedRectangle(cornerRadius: .cornerRadiusExtraLarge)
                         .fill(Color.backgroundCard)
                         .frame(height: 200)
                         .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 4)
@@ -195,10 +195,10 @@ struct ActionPopup: View {
                         .frame(maxWidth: .infinity)
                         .frame(height: 50)
                         .background(
-                            RoundedRectangle(cornerRadius: 12)
+                            RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                                 .fill(Color.accentSecondary)
                                 .overlay(
-                                    RoundedRectangle(cornerRadius: 12)
+                                    RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                                         .stroke(Color.textSecondary, lineWidth: 2)
                                 )
                         )
@@ -209,10 +209,10 @@ struct ActionPopup: View {
                 .padding(.bottom, 24)
             }
             .background(
-                RoundedRectangle(cornerRadius: 20)
+                RoundedRectangle(cornerRadius: .cornerRadiusXXL)
                     .fill(Color.backgroundPrimary)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 20)
+                        RoundedRectangle(cornerRadius: .cornerRadiusXXL)
                             .stroke(Color.accent, lineWidth: 2)
                     )
             )

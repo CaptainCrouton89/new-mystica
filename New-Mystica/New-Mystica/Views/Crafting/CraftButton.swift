@@ -59,7 +59,7 @@ struct CraftButton: View {
             .frame(maxWidth: .infinity)
             .frame(height: 48)
             .background(
-                RoundedRectangle(cornerRadius: 12)
+                RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                     .fill(backgroundColor)
             )
         }

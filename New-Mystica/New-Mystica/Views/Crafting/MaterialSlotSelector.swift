@@ -48,7 +48,7 @@ struct MaterialSlotSelector: View {
                 // Material Image
                 materialImageView(material: material)
                     .frame(width: 80, height: 80)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .clipShape(RoundedRectangle(cornerRadius: .cornerRadiusLarge))
 
                 // Quantity Badge
                 if material.quantity > 1 {
@@ -70,7 +70,7 @@ struct MaterialSlotSelector: View {
     private func materialImageView(material: MaterialInventoryStack) -> some View {
         ZStack {
             // Background
-            RoundedRectangle(cornerRadius: 12)
+            RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                 .fill(Color.backgroundSecondary)
 
             // Material Image from R2

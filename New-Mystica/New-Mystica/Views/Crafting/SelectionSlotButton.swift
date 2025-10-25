@@ -24,10 +24,10 @@ struct SelectionSlotButton<Content: View>: View {
             content
                 .frame(width: 120, height: 160)
                 .background(
-                    RoundedRectangle(cornerRadius: 16)
+                    RoundedRectangle(cornerRadius: .cornerRadiusExtraLarge)
                         .fill(isFilled ? Color.backgroundCard : Color.backgroundSecondary)
                         .overlay(
-                            RoundedRectangle(cornerRadius: 16)
+                            RoundedRectangle(cornerRadius: .cornerRadiusExtraLarge)
                                 .stroke(isFilled ? Color.borderSubtle : Color.borderSubtle, lineWidth: 2)
                         )
                 )
@@ -60,7 +60,7 @@ struct SelectionSlotButton<Content: View>: View {
         SelectionSlotButton(isFilled: true, onTap: {}) {
             VStack(spacing: 8) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 12)
+                    RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                         .fill(Color.backgroundSecondary)
                         .frame(width: 80, height: 80)
 
@@ -68,9 +68,9 @@ struct SelectionSlotButton<Content: View>: View {
                         .font(.system(size: 32, weight: .medium))
                         .foregroundColor(Color.textSecondary)
                 }
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+                .clipShape(RoundedRectangle(cornerRadius: .cornerRadiusLarge))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 12)
+                    RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                         .stroke(Color.accent, lineWidth: 3)
                 )
 

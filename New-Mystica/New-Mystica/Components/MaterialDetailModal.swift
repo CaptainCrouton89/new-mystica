@@ -63,10 +63,10 @@ struct MaterialDetailModal: View {
 
     private var materialImageView: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 16)
+            RoundedRectangle(cornerRadius: .cornerRadiusExtraLarge)
                 .fill(Color.backgroundCard)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 16)
+                    RoundedRectangle(cornerRadius: .cornerRadiusExtraLarge)
                         .stroke(getStyleBorderColor(), lineWidth: 3)
                 )
 
@@ -87,7 +87,7 @@ struct MaterialDetailModal: View {
                 fallbackMaterialIcon
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .clipShape(RoundedRectangle(cornerRadius: .cornerRadiusExtraLarge))
         .frame(maxWidth: .infinity)
         .aspectRatio(1, contentMode: .fit)
     }
@@ -138,8 +138,6 @@ struct MaterialDetailModal: View {
 
     private var materialStatsView: some View {
         VStack(spacing: 12) {
-            TitleText("Stat Modifiers", size: 20)
-
             VStack(spacing: 8) {
                 // Attack modifier stats
                 HStack(spacing: 12) {
@@ -182,10 +180,10 @@ struct MaterialDetailModal: View {
         }
         .padding(16)
         .background(
-            RoundedRectangle(cornerRadius: 12)
+            RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                 .fill(Color.backgroundCard)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 12)
+                    RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                         .stroke(Color.borderSubtle, lineWidth: 1)
                 )
         )
@@ -195,24 +193,22 @@ struct MaterialDetailModal: View {
 
     private func descriptionView(_ description: String) -> some View {
         VStack(spacing: 12) {
-            TitleText("Description", size: 20)
-
             NormalText(description)
                 .foregroundColor(Color.textPrimary)
                 .multilineTextAlignment(.leading)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(12)
                 .background(
-                    RoundedRectangle(cornerRadius: 8)
+                    RoundedRectangle(cornerRadius: .cornerRadiusSmall)
                         .fill(Color.backgroundSecondary)
                 )
         }
         .padding(16)
         .background(
-            RoundedRectangle(cornerRadius: 12)
+            RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                 .fill(Color.backgroundCard)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 12)
+                    RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                         .stroke(Color.borderSubtle, lineWidth: 1)
                 )
         )
@@ -236,10 +232,10 @@ struct MaterialDetailModal: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
             .background(
-                RoundedRectangle(cornerRadius: 12)
+                RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                     .fill(Color.accent.opacity(0.15))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 12)
+                        RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                             .stroke(Color.accent, lineWidth: 2)
                     )
             )
@@ -321,7 +317,7 @@ private struct Badge: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
         .background(
-            RoundedRectangle(cornerRadius: 8)
+            RoundedRectangle(cornerRadius: .cornerRadiusSmall)
                 .fill(Color.backgroundSecondary)
         )
     }
@@ -381,7 +377,7 @@ private struct StatModifierRow: View {
         .frame(maxWidth: .infinity)
         .padding(12)
         .background(
-            RoundedRectangle(cornerRadius: 8)
+            RoundedRectangle(cornerRadius: .cornerRadiusSmall)
                 .fill(Color.backgroundSecondary)
         )
     }

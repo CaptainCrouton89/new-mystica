@@ -65,9 +65,9 @@ struct StatPreview: View {
         }
         .padding(16)
         .background(Color.backgroundSecondary)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .clipShape(RoundedRectangle(cornerRadius: .cornerRadiusLarge))
         .overlay(
-            RoundedRectangle(cornerRadius: 12)
+            RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                 .stroke(Color.borderSubtle, lineWidth: 1)
         )
     }

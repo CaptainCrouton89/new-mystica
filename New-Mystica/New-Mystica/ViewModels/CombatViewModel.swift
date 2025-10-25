@@ -446,7 +446,9 @@ final class CombatViewModel {
             assertionFailure("Player max HP should always be available")
             return 0.0
         }
-        return session.playerHp / maxHP
+        let percentage = session.playerHp / maxHP
+        // Clamp percentage to [0.0, 1.0] to prevent validation errors from rounding/precision issues
+        return max(0.0, min(1.0, percentage))
     }
 
     var enemyHPPercentage: Double {
@@ -455,7 +457,9 @@ final class CombatViewModel {
             assertionFailure("Enemy max HP should always be available")
             return 0.0
         }
-        return session.enemyHp / maxHP
+        let percentage = session.enemyHp / maxHP
+        // Clamp percentage to [0.0, 1.0] to prevent validation errors from rounding/precision issues
+        return max(0.0, min(1.0, percentage))
     }
 
     private func getCurrentSession() -> CombatSession? {
@@ -517,12 +521,14 @@ final class CombatViewModel {
     }
 
     private func getPlayerMaxHP(session: CombatSession) -> Double? {
-        // TODO: Store actual max HP in session from backend instead of recalculating
+        // TODO: Request backend to provide player max HP in player_stats
+        // For now, calculate from defPower (approximation)
         return session.playerStats.defPower * Double(Self.HP_MULTIPLIER)
     }
 
     private func getEnemyMaxHP(session: CombatSession) -> Double? {
-        // TODO: Store actual max HP in session from backend instead of recalculating
-        return session.enemy.stats.defPower * Double(Self.HP_MULTIPLIER)
+        // Use backend-provided max HP value to ensure consistency
+        // The enemy.hp field contains the realized HP (base_hp × tier.difficulty_multiplier)
+        return session.enemy.hp
     }
 }

@@ -13,11 +13,11 @@ struct EquipmentSlotView: View {
         } label: {
             ZStack {
                 // Slot background
-                RoundedRectangle(cornerRadius: 12)
+                RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                     .fill(item != nil ? Color.backgroundCard : Color.backgroundSecondary)
                     .frame(width: 80, height: 80)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 12)
+                        RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                             .stroke(item != nil ? Color.accentSecondary : Color.borderSubtle, lineWidth: 2)
                     )
 
@@ -30,7 +30,7 @@ struct EquipmentSlotView: View {
                                 .resizable()
                                 .aspectRatio(contentMode: .fill)
                                 .frame(width: 80, height: 80)
-                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                                .clipShape(RoundedRectangle(cornerRadius: .cornerRadiusLarge))
                         },
                         placeholder: {
                             ProgressView()
@@ -167,10 +167,10 @@ struct StatsDisplayView: View {
         }
         .padding(16)
         .background(
-            RoundedRectangle(cornerRadius: 12)
+            RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                 .fill(Color.backgroundCard)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 12)
+                    RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                         .stroke(Color.borderSubtle, lineWidth: 1)
                 )
         )
@@ -429,11 +429,11 @@ struct EquipmentView: View {
     // MARK: - Character Silhouette View
     private var characterSilhouetteView: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 12)
+            RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                 .fill(Color.backgroundSecondary)
                 .frame(width: 100, height: 140)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 12)
+                    RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                         .stroke(Color.borderSubtle, lineWidth: 2)
                 )
 
@@ -484,10 +484,10 @@ struct EquipmentView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
                     .background(
-                        RoundedRectangle(cornerRadius: 12)
+                        RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                             .fill(Color.accent.opacity(0.15))
                             .overlay(
-                                RoundedRectangle(cornerRadius: 12)
+                                RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                                     .stroke(Color.accent, lineWidth: 2)
                             )
                     )
@@ -512,10 +512,10 @@ struct EquipmentView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
                     .background(
-                        RoundedRectangle(cornerRadius: 12)
+                        RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                             .fill(Color.accentSecondary.opacity(0.15))
                             .overlay(
-                                RoundedRectangle(cornerRadius: 12)
+                                RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                                     .stroke(Color.accentSecondary, lineWidth: 2)
                             )
                     )
@@ -548,10 +548,10 @@ struct EquipmentView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
                 .background(
-                    RoundedRectangle(cornerRadius: 12)
+                    RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                         .fill(Color.alert.opacity(0.15))
                         .overlay(
-                            RoundedRectangle(cornerRadius: 12)
+                            RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                                 .stroke(Color.alert, lineWidth: 2)
                         )
                 )

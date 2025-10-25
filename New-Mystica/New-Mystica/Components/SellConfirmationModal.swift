@@ -63,7 +63,7 @@ struct SellConfirmationModal: View {
                     HStack(spacing: 12) {
                         // Item icon
                         ZStack {
-                            RoundedRectangle(cornerRadius: 8)
+                            RoundedRectangle(cornerRadius: .cornerRadiusSmall)
                                 .fill(Color.backgroundSecondary)
                                 .frame(width: 40, height: 40)
 
@@ -86,10 +86,10 @@ struct SellConfirmationModal: View {
                     }
                     .padding(12)
                     .background(
-                        RoundedRectangle(cornerRadius: 12)
+                        RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                             .fill(Color.backgroundSecondary)
                             .overlay(
-                                RoundedRectangle(cornerRadius: 12)
+                                RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                                     .stroke(Color.borderSubtle, lineWidth: 1)
                             )
                     )
@@ -150,7 +150,7 @@ struct SellConfirmationModal: View {
                         .frame(maxWidth: .infinity)
                         .frame(height: 44)
                         .background(
-                            RoundedRectangle(cornerRadius: 8)
+                            RoundedRectangle(cornerRadius: .cornerRadiusSmall)
                                 .fill(Color.accent.opacity(0.6))
                         )
                     } else {
@@ -164,10 +164,10 @@ struct SellConfirmationModal: View {
             }
             .padding(24)
             .background(
-                RoundedRectangle(cornerRadius: 16)
+                RoundedRectangle(cornerRadius: .cornerRadiusExtraLarge)
                     .fill(Color.backgroundCard)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 16)
+                        RoundedRectangle(cornerRadius: .cornerRadiusExtraLarge)
                             .stroke(Color.borderSubtle, lineWidth: 1)
                     )
             )

@@ -24,54 +24,54 @@ struct CraftingView: View {
     }
 
     var body: some View {
-        ZStack {
-            Color.backgroundPrimary
-                .ignoresSafeArea()
+        SimpleNavigableView(title: "Crafting") {
+            ZStack {
+                Color.backgroundPrimary
+                    .ignoresSafeArea()
 
-            ScrollView {
-                VStack(spacing: 24) {
-                    headerView
+                ScrollView {
+                    VStack(spacing: 24) {
+                        headerView
 
-                    selectionArea
+                        selectionArea
 
-                    if let baseStats = viewModel.baseStats,
-                       let previewStats = viewModel.previewStats {
-                        StatPreview(
-                            baseStats: baseStats,
-                            previewStats: previewStats,
-                            showComparison: true
-                        )
-                        .padding(.horizontal, 20)
-                    }
+                        if let baseStats = viewModel.baseStats,
+                           let previewStats = viewModel.previewStats {
+                            StatPreview(
+                                baseStats: baseStats,
+                                previewStats: previewStats,
+                                showComparison: true
+                            )
+                            .padding(.horizontal, 20)
+                        }
 
-                    if viewModel.selectedItem != nil && viewModel.selectedMaterial != nil {
-                        CraftButton(
-                            isEnabled: viewModel.canApplyMaterial,
-                            isProcessing: viewModel.isProcessing,
-                            onCraft: {
-                                Task {
-                                    await craftItem()
+                        if viewModel.selectedItem != nil && viewModel.selectedMaterial != nil {
+                            CraftButton(
+                                isEnabled: viewModel.canApplyMaterial,
+                                isProcessing: viewModel.isProcessing,
+                                onCraft: {
+                                    Task {
+                                        await craftItem()
+                                    }
                                 }
-                            }
-                        )
-                        .padding(.horizontal, 20)
+                            )
+                            .padding(.horizontal, 20)
+                        }
+
+                        Spacer(minLength: 40)
                     }
-
-                    Spacer(minLength: 40)
+                    .padding(.top, 20)
                 }
-                .padding(.top, 20)
-            }
 
-            if showCraftingProgress {
-                craftingProgressOverlay
-            }
+                if showCraftingProgress {
+                    craftingProgressOverlay
+                }
 
-            if showSuccessResult, let craftedItem = viewModel.craftedItem {
-                successResultOverlay(item: craftedItem)
+                if showSuccessResult, let craftedItem = viewModel.craftedItem {
+                    successResultOverlay(item: craftedItem)
+                }
             }
         }
-        .navigationTitle("Crafting")
-        .navigationBarBackButtonHidden(false)
         .task {
             await loadData()
         }
@@ -116,9 +116,6 @@ struct CraftingView: View {
 
     private var headerView: some View {
         VStack(spacing: 8) {
-            TitleText("Craft Your Items", size: 28)
-                .foregroundColor(Color.textPrimary)
-
             NormalText("Select an item and material to enhance its stats")
                 .foregroundColor(Color.textSecondary)
                 .multilineTextAlignment(.center)
@@ -320,10 +317,10 @@ struct CraftingView: View {
             }
             .padding(32)
             .background(
-                RoundedRectangle(cornerRadius: 16)
+                RoundedRectangle(cornerRadius: .cornerRadiusExtraLarge)
                     .fill(Color.backgroundCard)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 16)
+                        RoundedRectangle(cornerRadius: .cornerRadiusExtraLarge)
                             .stroke(Color.borderSubtle, lineWidth: 1)
                     )
             )
@@ -358,10 +355,10 @@ struct CraftingView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
                     .background(
-                        RoundedRectangle(cornerRadius: 8)
+                        RoundedRectangle(cornerRadius: .cornerRadiusSmall)
                             .fill(Color.yellow.opacity(0.2))
                             .overlay(
-                                RoundedRectangle(cornerRadius: 8)
+                                RoundedRectangle(cornerRadius: .cornerRadiusSmall)
                                     .stroke(Color.yellow, lineWidth: 1)
                             )
                     )
@@ -376,7 +373,7 @@ struct CraftingView: View {
                                     .resizable()
                                     .aspectRatio(contentMode: .fit)
                                     .frame(width: 120, height: 120)
-                                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                                    .clipShape(RoundedRectangle(cornerRadius: .cornerRadiusLarge))
                             },
                             placeholder: {
                                 ProgressView()
@@ -407,7 +404,7 @@ struct CraftingView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
                     .background(
-                        RoundedRectangle(cornerRadius: 8)
+                        RoundedRectangle(cornerRadius: .cornerRadiusSmall)
                             .fill(Color.backgroundSecondary)
                     )
                 }
@@ -426,10 +423,10 @@ struct CraftingView: View {
             }
             .padding(32)
             .background(
-                RoundedRectangle(cornerRadius: 16)
+                RoundedRectangle(cornerRadius: .cornerRadiusExtraLarge)
                     .fill(Color.backgroundCard)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 16)
+                        RoundedRectangle(cornerRadius: .cornerRadiusExtraLarge)
                             .stroke(Color.borderSubtle, lineWidth: 1)
                     )
             )
@@ -439,7 +436,7 @@ struct CraftingView: View {
 
     private var placeholderImage: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 12)
+            RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                 .fill(Color.backgroundSecondary)
                 .frame(width: 120, height: 120)
 

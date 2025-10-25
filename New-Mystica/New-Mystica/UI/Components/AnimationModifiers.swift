@@ -314,7 +314,7 @@ struct AnimationPreviewHelper: View {
                         
                         LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 16) {
                             ForEach(0..<9, id: \.self) { index in
-                                RoundedRectangle(cornerRadius: 8)
+                                RoundedRectangle(cornerRadius: .cornerRadiusSmall)
                                     .fill(Color.accent)
                                     .frame(height: 60)
                                     .staggerIn(index: index)

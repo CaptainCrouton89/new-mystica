@@ -30,10 +30,10 @@ struct GoldBalanceView: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
         .background(
-            RoundedRectangle(cornerRadius: 10)
+            RoundedRectangle(cornerRadius: .cornerRadiusMedium)
                 .fill(Color.backgroundCard)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 10)
+                    RoundedRectangle(cornerRadius: .cornerRadiusMedium)
                         .stroke(Color.accentSecondary.opacity(0.3), lineWidth: 1.5)
                 )
         )

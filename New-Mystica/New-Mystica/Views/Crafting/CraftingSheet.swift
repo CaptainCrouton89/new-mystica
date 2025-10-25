@@ -64,10 +64,10 @@ struct CraftingSheet: View {
         }
         .padding(24)
         .background(
-            RoundedRectangle(cornerRadius: 16)
+            RoundedRectangle(cornerRadius: .cornerRadiusExtraLarge)
                 .fill(Color.backgroundCard)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 16)
+                    RoundedRectangle(cornerRadius: .cornerRadiusExtraLarge)
                         .stroke(Color.borderSubtle, lineWidth: 1)
                 )
         )
@@ -102,7 +102,7 @@ struct CraftingSheet: View {
                                 .resizable()
                                 .aspectRatio(contentMode: .fit)
                                 .frame(width: 100, height: 100)
-                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                                .clipShape(RoundedRectangle(cornerRadius: .cornerRadiusLarge))
                         },
                         placeholder: {
                             ProgressView()
@@ -111,7 +111,7 @@ struct CraftingSheet: View {
                     )
                 } else {
                     ZStack {
-                        RoundedRectangle(cornerRadius: 12)
+                        RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                             .fill(Color.backgroundSecondary)
                             .frame(width: 100, height: 100)
 
@@ -174,10 +174,10 @@ struct CraftingSheet: View {
         }
         .padding(16)
         .background(
-            RoundedRectangle(cornerRadius: 12)
+            RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                 .fill(Color.backgroundSecondary)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 12)
+                    RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                         .stroke(Color.borderSubtle, lineWidth: 1)
                 )
         )
@@ -238,10 +238,10 @@ struct CraftingSheet: View {
             }
             .padding(24)
             .background(
-                RoundedRectangle(cornerRadius: 16)
+                RoundedRectangle(cornerRadius: .cornerRadiusExtraLarge)
                     .fill(Color.backgroundCard)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 16)
+                        RoundedRectangle(cornerRadius: .cornerRadiusExtraLarge)
                             .stroke(Color.borderSubtle, lineWidth: 1)
                     )
             )
