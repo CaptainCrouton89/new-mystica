@@ -10,23 +10,20 @@ import Observation
 // MARK: - Upgrade Modal State Machine
 enum UpgradeModalState: Equatable {
     case none
-    case confirmationLoading(itemId: String)
-    case confirmation(itemId: String, costInfo: UpgradeCostInfo, statsBefore: ItemStats)
+    case loading(itemId: String)
+    case ready(itemId: String, costInfo: UpgradeCostInfo, item: EnhancedPlayerItem)
     case upgrading(itemId: String)
-    case complete(upgradeResult: UpgradeResult, statsBefore: ItemStats)
 
     static func == (lhs: UpgradeModalState, rhs: UpgradeModalState) -> Bool {
         switch (lhs, rhs) {
         case (.none, .none):
             return true
-        case (.confirmationLoading(let id1), .confirmationLoading(let id2)):
+        case (.loading(let id1), .loading(let id2)):
             return id1 == id2
-        case (.confirmation(let id1, _, _), .confirmation(let id2, _, _)):
+        case (.ready(let id1, _, _), .ready(let id2, _, _)):
             return id1 == id2
         case (.upgrading(let id1), .upgrading(let id2)):
             return id1 == id2
-        case (.complete, .complete):
-            return true
         default:
             return false
         }
@@ -390,8 +387,8 @@ final class InventoryViewModel {
         }
         FileLogger.shared.log("✅ handleUpgradeAction starting with item: \(item.baseType) (id: \(item.id))", level: .info, category: "Inventory")
 
-        // Keep detail modal open, transition to confirmation loading state
-        await fetchUpgradeCostAndTransitionToConfirmation(itemId: item.id)
+        // Transition to loading state and fetch upgrade cost
+        await fetchUpgradeCostAndShowUpgradeScreen(itemId: item.id, item: item)
     }
 
     private func handleCraftNavigation(with item: EnhancedPlayerItem) async {
@@ -569,27 +566,23 @@ final class InventoryViewModel {
         }
     }
 
-    private func fetchUpgradeCostAndTransitionToConfirmation(itemId: String) async {
-        upgradeCostData = .loading
-
+    private func fetchUpgradeCostAndShowUpgradeScreen(itemId: String, item: EnhancedPlayerItem) async {
         // Set loading state
         await MainActor.run {
-            upgradeModalState = .confirmationLoading(itemId: itemId)
+            upgradeModalState = .loading(itemId: itemId)
         }
 
         do {
             let costInfo = try await repository.fetchUpgradeCost(itemId: itemId)
             upgradeCostData = .loaded(costInfo)
 
-            // Transition to confirmation state with all needed data
+            // Transition to ready state to show upgrade screen
             await MainActor.run {
-                if let item = selectedItemForDetail {
-                    upgradeModalState = .confirmation(
-                        itemId: itemId,
-                        costInfo: costInfo,
-                        statsBefore: item.computedStats
-                    )
-                }
+                upgradeModalState = .ready(
+                    itemId: itemId,
+                    costInfo: costInfo,
+                    item: item
+                )
             }
 
             FileLogger.shared.log("✅ Fetched upgrade cost: \(costInfo.goldCost) gold for level \(costInfo.currentLevel) -> \(costInfo.nextLevel)", level: .info, category: "Inventory")
@@ -611,13 +604,7 @@ final class InventoryViewModel {
         upgradeInProgress = true
         defer { upgradeInProgress = false }
 
-        // Extract statsBefore from current state before transitioning
-        var statsBefore: ItemStats = ItemStats(atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0)
-        if case .confirmation(_, _, let stats) = upgradeModalState {
-            statsBefore = stats
-        }
-
-        // Transition to upgrading state (this keeps the modal open)
+        // Transition to upgrading state
         await MainActor.run {
             upgradeModalState = .upgrading(itemId: itemId)
         }
@@ -643,7 +630,7 @@ final class InventoryViewModel {
                     }
                     AppState.shared.setCurrencies(updatedBalances)
                 } else {
-                        AppState.shared.setCurrencies([
+                    AppState.shared.setCurrencies([
                         CurrencyBalance(
                             currencyCode: .gold,
                             balance: upgradeResult.newGoldBalance,
@@ -652,16 +639,18 @@ final class InventoryViewModel {
                     ])
                 }
 
-                // Update selectedItemForDetail with the upgraded item so modal shows current state
+                // Update selectedItemForDetail with the upgraded item
                 if let upgradedItem = (items.value?.first { $0.id == itemId }) {
                     selectedItemForDetail = upgradedItem
                 }
-
-                // Transition to complete state with the upgrade result
-                upgradeModalState = .complete(upgradeResult: upgradeResult, statsBefore: statsBefore)
             }
 
             FileLogger.shared.log("✅ Item upgraded successfully to level \(upgradeResult.item.level)", level: .info, category: "Inventory")
+
+            // Fetch new cost for next upgrade and transition back to ready state
+            if let upgradedItem = items.value?.first(where: { $0.id == itemId }) {
+                await fetchUpgradeCostAndShowUpgradeScreen(itemId: itemId, item: upgradedItem)
+            }
 
         } catch let error as AppError {
             upgradeModalState = .none

@@ -1,22 +1,20 @@
 //
-//  UpgradeCompleteModal.swift
+//  UpgradeModal.swift
 //  New-Mystica
 //
-//  Modal view for displaying item upgrade (confirmation or completion) with stat comparison
+//  Modal view for displaying item upgrade screen with stat progression and upgrade button
 //
 
 import SwiftUI
 import SwiftData
 
-struct UpgradeCompleteModal: View {
+struct UpgradeModal: View {
     let item: EnhancedPlayerItem
-    let goldSpent: Int  // In confirmation mode, this is the cost; in completion mode, this is the amount spent
+    let goldCost: Int
     let newGoldBalance: Int
-    let statsBefore: ItemStats
-    let statsAfter: ItemStats
-    let isConfirmation: Bool  // true = show confirm/cancel, false = show upgrade again/return
-    let onConfirm: (() -> Void)?  // Only used in confirmation mode
-    let onUpgradeAgain: (() -> Void)?  // Only used in completion mode
+    let currentStats: ItemStats
+    let projectedStats: ItemStats
+    let onUpgrade: () -> Void
     let onReturnToInventory: () -> Void
 
     @Environment(\.dismiss) private var dismiss
@@ -123,9 +121,9 @@ struct UpgradeCompleteModal: View {
         VStack(spacing: 8) {
             TitleText(item.baseType.capitalized, size: 20)
 
-            // Level progression badge
+            // Level progression badge - shows current → next level
             HStack(spacing: 8) {
-                Text("Level \(isConfirmation ? item.level : item.level - 1)")
+                Text("Level \(item.level)")
                     .font(FontManager.impact(size: 16))
                     .foregroundColor(Color.textSecondary)
 
@@ -133,7 +131,7 @@ struct UpgradeCompleteModal: View {
                     .font(.system(size: 16, weight: .bold))
                     .foregroundColor(Color.accent)
 
-                Text("Level \(isConfirmation ? item.level + 1 : item.level)")
+                Text("Level \(item.level + 1)")
                     .font(FontManager.impact(size: 16))
                     .foregroundColor(Color.accent)
                     .bold()
@@ -159,32 +157,32 @@ struct UpgradeCompleteModal: View {
                 StatComparisonRow(
                     iconUrl: StatIconURL.atkPower,
                     fallbackIcon: "hammer.fill",
-                    oldValue: String(format: "%.0f", statsBefore.atkPower * 100),
-                    newValue: String(format: "%.0f", statsAfter.atkPower * 100),
+                    oldValue: String(format: "%.0f", currentStats.atkPower * 100),
+                    newValue: String(format: "%.0f", projectedStats.atkPower * 100),
                     color: Color.alert
                 )
 
                 StatComparisonRow(
                     iconUrl: StatIconURL.atkAccuracy,
                     fallbackIcon: "target",
-                    oldValue: String(format: "%.0f", statsBefore.atkAccuracy * 100),
-                    newValue: String(format: "%.0f", statsAfter.atkAccuracy * 100),
+                    oldValue: String(format: "%.0f", currentStats.atkAccuracy * 100),
+                    newValue: String(format: "%.0f", projectedStats.atkAccuracy * 100),
                     color: Color.warning
                 )
 
                 StatComparisonRow(
                     iconUrl: StatIconURL.defPower,
                     fallbackIcon: "shield.fill",
-                    oldValue: String(format: "%.0f", statsBefore.defPower * 100),
-                    newValue: String(format: "%.0f", statsAfter.defPower * 100),
+                    oldValue: String(format: "%.0f", currentStats.defPower * 100),
+                    newValue: String(format: "%.0f", projectedStats.defPower * 100),
                     color: Color.accentSecondary
                 )
 
                 StatComparisonRow(
                     iconUrl: StatIconURL.defAccuracy,
                     fallbackIcon: "checkmark.shield.fill",
-                    oldValue: String(format: "%.0f", statsBefore.defAccuracy * 100),
-                    newValue: String(format: "%.0f", statsAfter.defAccuracy * 100),
+                    oldValue: String(format: "%.0f", currentStats.defAccuracy * 100),
+                    newValue: String(format: "%.0f", projectedStats.defAccuracy * 100),
                     color: Color.success
                 )
             }
@@ -202,19 +200,19 @@ struct UpgradeCompleteModal: View {
         .padding(.top, 24)
     }
 
-    // MARK: - Gold Spent View
+    // MARK: - Gold Cost View
     private var goldSpentView: some View {
         HStack {
             Image(systemName: "minus.circle.fill")
                 .foregroundColor(Color.warning)
 
-            Text("\(goldSpent) Gold")
+            Text("\(goldCost) Gold")
                 .font(FontManager.impact(size: 16))
                 .foregroundColor(Color.warning)
 
             Spacer()
 
-            Text("\(isConfirmation ? "Balance After:" : "New Balance:") \(newGoldBalance)")
+            Text("Balance After: \(newGoldBalance)")
                 .font(FontManager.body)
                 .foregroundColor(Color.textSecondary)
         }
@@ -235,63 +233,29 @@ struct UpgradeCompleteModal: View {
     // MARK: - Action Buttons View
     private var actionButtonsView: some View {
         VStack(spacing: 12) {
-            if isConfirmation {
-                // Confirmation mode: Show only "Confirm Upgrade"
-                Button {
-                    audioManager.playMenuButtonClick()
-                    dismissModal()
-                    Task {
-                        try? await Task.sleep(for: .milliseconds(300))
-                        onConfirm?()
-                    }
-                } label: {
-                    HStack {
-                        Image(systemName: "checkmark.circle.fill")
-                        Text("Confirm Upgrade")
-                            .font(FontManager.impact(size: 16))
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .background(
-                        RoundedRectangle(cornerRadius: .cornerRadiusLarge)
-                            .fill(Color.success.opacity(0.15))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: .cornerRadiusLarge)
-                                    .stroke(Color.success, lineWidth: 2)
-                            )
-                    )
-                    .foregroundColor(Color.success)
+            // Upgrade button - clicking triggers upgrade immediately without dismissing modal
+            Button {
+                audioManager.playMenuButtonClick()
+                onUpgrade()
+            } label: {
+                HStack {
+                    Image(systemName: "arrow.up.circle.fill")
+                    Text("Upgrade")
+                        .font(FontManager.impact(size: 16))
                 }
-                .buttonStyle(PlainButtonStyle())
-            } else {
-                // Completion mode: Show only "Upgrade Again"
-                Button {
-                    audioManager.playMenuButtonClick()
-                    dismissModal()
-                    Task {
-                        try? await Task.sleep(for: .milliseconds(300))
-                        onUpgradeAgain?()
-                    }
-                } label: {
-                    HStack {
-                        Image(systemName: "arrow.up.circle.fill")
-                        Text("Upgrade Again")
-                            .font(FontManager.impact(size: 16))
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .background(
-                        RoundedRectangle(cornerRadius: .cornerRadiusLarge)
-                            .fill(Color.accent.opacity(0.15))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: .cornerRadiusLarge)
-                                    .stroke(Color.accent, lineWidth: 2)
-                            )
-                    )
-                    .foregroundColor(Color.accent)
-                }
-                .buttonStyle(PlainButtonStyle())
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(
+                    RoundedRectangle(cornerRadius: .cornerRadiusLarge)
+                        .fill(Color.accent.opacity(0.15))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: .cornerRadiusLarge)
+                                .stroke(Color.accent, lineWidth: 2)
+                        )
+                )
+                .foregroundColor(Color.accent)
             }
+            .buttonStyle(PlainButtonStyle())
         }
         .padding(.horizontal, 20)
         .padding(.top, 24)
@@ -389,8 +353,8 @@ private struct StatComparisonRow: View {
 }
 
 // MARK: - Preview
-#Preview("Upgrade Confirmation Modal") {
-    UpgradeCompleteModal(
+#Preview("Upgrade Modal") {
+    UpgradeModal(
         item: EnhancedPlayerItem(
             id: "550e8400-e29b-41d4-a716-446655440000",
             baseType: "Magic Sword",
@@ -414,76 +378,22 @@ private struct StatComparisonRow: View {
             isEquipped: true,
             equippedSlot: "weapon"
         ),
-        goldSpent: 506,
+        goldCost: 506,
         newGoldBalance: 694,
-        statsBefore: ItemStats(
+        currentStats: ItemStats(
             atkPower: 0.25,
             atkAccuracy: 0.15,
             defPower: 0.10,
             defAccuracy: 0.05
         ),
-        statsAfter: ItemStats(
+        projectedStats: ItemStats(
             atkPower: 0.30,
             atkAccuracy: 0.18,
             defPower: 0.12,
             defAccuracy: 0.06
         ),
-        isConfirmation: true,
-        onConfirm: {
-            print("Confirm Upgrade tapped")
-        },
-        onUpgradeAgain: nil,
-        onReturnToInventory: {
-            print("Cancel tapped")
-        }
-    )
-    .modelContainer(for: Item.self, inMemory: true)
-    .environmentObject(NavigationManager())
-}
-
-#Preview("Upgrade Complete Modal") {
-    UpgradeCompleteModal(
-        item: EnhancedPlayerItem(
-            id: "550e8400-e29b-41d4-a716-446655440000",
-            baseType: "Magic Sword",
-            itemTypeId: "550e8400-e29b-41d4-a716-446655440001",
-            category: "weapon",
-            level: 6,
-            rarity: "epic",
-            appliedMaterials: [],
-            materials: [],
-            computedStats: ItemStats(
-                atkPower: 0.30,
-                atkAccuracy: 0.18,
-                defPower: 0.12,
-                defAccuracy: 0.06
-            ),
-            materialComboHash: nil,
-            generatedImageUrl: nil,
-            imageGenerationStatus: nil,
-            craftCount: 0,
-            isStyled: true,
-            isEquipped: true,
-            equippedSlot: "weapon"
-        ),
-        goldSpent: 506,
-        newGoldBalance: 694,
-        statsBefore: ItemStats(
-            atkPower: 0.25,
-            atkAccuracy: 0.15,
-            defPower: 0.10,
-            defAccuracy: 0.05
-        ),
-        statsAfter: ItemStats(
-            atkPower: 0.30,
-            atkAccuracy: 0.18,
-            defPower: 0.12,
-            defAccuracy: 0.06
-        ),
-        isConfirmation: false,
-        onConfirm: nil,
-        onUpgradeAgain: {
-            print("Upgrade Again tapped")
+        onUpgrade: {
+            print("Upgrade tapped")
         },
         onReturnToInventory: {
             print("Return to Inventory tapped")

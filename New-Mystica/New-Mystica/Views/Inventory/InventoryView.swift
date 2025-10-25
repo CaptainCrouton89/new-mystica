@@ -34,13 +34,13 @@ struct InventoryView: View {
                 }
             }
             .sheet(isPresented: .constant(viewModel.upgradeModalState != .none)) {
-                // Single upgrade modal that handles all upgrade states
+                // Single persistent upgrade modal
                 Group {
                     switch viewModel.upgradeModalState {
                     case .none:
                         EmptyView()
 
-                    case .confirmationLoading:
+                    case .loading:
                         VStack {
                             ProgressView()
                             Text("Loading upgrade details...")
@@ -51,29 +51,24 @@ struct InventoryView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .background(Color.backgroundPrimary)
 
-                    case .confirmation(_, let costInfo, let statsBefore):
-                        if let item = viewModel.selectedItemForDetail {
-                            let projectedStats = calculateProjectedStats(from: statsBefore)
+                    case .ready(_, let costInfo, let item):
+                        let projectedStats = calculateProjectedStats(from: item.computedStats)
 
-                            UpgradeCompleteModal(
-                                item: item,
-                                goldSpent: costInfo.goldCost,
-                                newGoldBalance: costInfo.playerGold - costInfo.goldCost,
-                                statsBefore: statsBefore,
-                                statsAfter: projectedStats,
-                                isConfirmation: true,
-                                onConfirm: {
-                                    Task {
-                                        await viewModel.performUpgrade(itemId: item.id)
-                                    }
-                                },
-                                onUpgradeAgain: nil,
-                                onReturnToInventory: {
-                                    viewModel.upgradeModalState = .none
-                                    viewModel.selectedItemForDetail = nil
+                        UpgradeModal(
+                            item: item,
+                            goldCost: costInfo.goldCost,
+                            newGoldBalance: costInfo.playerGold - costInfo.goldCost,
+                            currentStats: item.computedStats,
+                            projectedStats: projectedStats,
+                            onUpgrade: {
+                                Task {
+                                    await viewModel.performUpgrade(itemId: item.id)
                                 }
-                            )
-                        }
+                            },
+                            onReturnToInventory: {
+                                viewModel.upgradeModalState = .none
+                            }
+                        )
 
                     case .upgrading:
                         VStack {
@@ -85,25 +80,6 @@ struct InventoryView: View {
                         }
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .background(Color.backgroundPrimary)
-
-                    case .complete(let upgradeResult, let statsBefore):
-                        UpgradeCompleteModal(
-                            item: upgradeResult.item,
-                            goldSpent: upgradeResult.goldSpent,
-                            newGoldBalance: upgradeResult.newGoldBalance,
-                            statsBefore: statsBefore,
-                            statsAfter: upgradeResult.item.computedStats,
-                            isConfirmation: false,
-                            onConfirm: nil,
-                            onUpgradeAgain: {
-                                Task {
-                                    await viewModel.handleUpgradeAction()
-                                }
-                            },
-                            onReturnToInventory: {
-                                viewModel.upgradeModalState = .none
-                            }
-                        )
                     }
                 }
             }
