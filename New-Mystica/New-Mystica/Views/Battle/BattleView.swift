@@ -282,6 +282,9 @@ struct BattleView: View {
     func initializeEnemyAnimation(for enemy: CombatEnemy) async {
         // Use enemy ID as monster ID for animation loading
         let monsterId = enemy.id
+        print("🎯 [BattleView] Starting battle with monster ID: \(monsterId)")
+        print("🎯 [BattleView] Enemy name: \(enemy.name ?? "Unknown")")
+        
         enemyAnimationLoader = MonsterAnimationLoader(monsterId: monsterId, animationType: "idle")
         
         // Load the animation
