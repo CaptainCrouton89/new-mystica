@@ -157,6 +157,7 @@ export interface Stats {
   atkAccuracy: number;
   defPower: number;
   defAccuracy: number;
+  [key: string]: number;
 }
 
 /**
@@ -256,7 +257,7 @@ export interface EquipResult {
  */
 export interface ApplyMaterialResult {
   success: boolean;
-  updated_item: Item;
+  updated_item: PlayerItem;
   is_first_craft: boolean;
   craft_count: number;
   image_url: string;
@@ -269,7 +270,7 @@ export interface ApplyMaterialResult {
  */
 export interface ReplaceMaterialResult {
   success: boolean;
-  updated_item: Item;
+  updated_item: PlayerItem;
   gold_spent: number;
   replaced_material: AppliedMaterial;
   refunded_material?: MaterialStackDetailed;
@@ -333,13 +334,43 @@ export interface CombatActionResult {
 }
 
 /**
- * Combat completion rewards
+ * Combat completion rewards with style inheritance
  */
 export interface CombatRewards {
-  gold_earned: number;
-  items_found: Item[];
-  materials_found: MaterialStack[];
-  experience_gained: number;
+  result: 'victory' | 'defeat';
+  /** Currency rewards (only present for victory) */
+  currencies?: {
+    gold: number;
+  };
+  /** Material drops with style inheritance from enemy (only present for victory) */
+  materials?: Array<{
+    material_id: string;
+    name: string;
+    style_id: string;
+    style_name: string;
+  }>;
+  /** Item drops from loot pools with full details (only present for victory) */
+  items?: Array<{
+    id: string;
+    item_type_id: string;
+    name: string;
+    category: string;
+    rarity: string;
+    style_id: string;
+    style_name: string;
+    generated_image_url: string | null;
+  }>;
+  /** Experience points earned from combat (only present for victory) */
+  experience?: number;
+  /** Updated combat statistics for this location */
+  combat_history: {
+    location_id: string;
+    total_attempts: number;
+    victories: number;
+    defeats: number;
+    current_streak: number;
+    longest_streak: number;
+  };
 }
 
 // ============================================================================
@@ -532,15 +563,6 @@ export type EnemyChatterEventType =
 /**
  * Combat event details for chatter generation
  */
-export interface CombatEventDetails {
-  damage?: number;
-  accuracy?: number;
-  is_critical?: boolean;
-  turn_number: number;
-  player_hp_pct: number;
-  enemy_hp_pct: number;
-}
-
 /**
  * Pet personality template
  */
@@ -562,7 +584,7 @@ export interface EnemyType {
   personality_traits: string[];
   dialogue_tone: 'aggressive' | 'sarcastic' | 'condescending' | 'chaotic' | 'political';
   tier_id: number;
-  style_id: string;
+  // Note: style_id not on enemytypes table - use enemytypestyles join table for style variants
 }
 
 /**
@@ -767,6 +789,129 @@ export type XPSourceType =
 export interface AnalyticsEvent {
   event_type: string;
   user_id: string;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
   timestamp: string;
+}
+
+// ============================================================================
+// Zone-Based Combat System
+// ============================================================================
+
+/**
+ * Detailed information about a zone hit, used in combat responses
+ * Frontend uses these fields to display zone information and critical hit effects
+ */
+export interface ZoneHitInfo {
+  /** The zone hit (1-5, from highest to lowest damage) */
+  zone: 1 | 2 | 3 | 4 | 5;
+
+  /** Multiplier applied to base damage for this zone (1.5x, 1.25x, 1.0x, 0.75x, 0.5x) */
+  zone_multiplier: number;
+
+  /** Whether a critical hit occurred (frontend uses this to trigger CRIT! animations) */
+  crit_occurred: boolean;
+
+  /** Critical hit multiplier (null if no crit, actual multiplier 1.0-2.0x if crit occurred) */
+  crit_multiplier: number | null;
+
+  /** Final calculated damage after zone and crit modifiers */
+  final_damage: number;
+}
+
+/**
+ * Distribution of zone probabilities based on enemy accuracy
+ * Sum of all zones = 1.0 for probability calculations
+ */
+export type ZoneDistribution = {
+  zone1: number;
+  zone2: number;
+  zone3: number;
+  zone4: number;
+  zone5: number;
+};
+
+/**
+ * Realized (computed) enemy stats for a specific combat session at a given combat level
+ * Formula: stat = normalized_stat × 8 × combat_level × tier.difficulty_multiplier
+ * HP only: base_hp × tier.difficulty_multiplier (NO combat_level factor)
+ */
+export interface EnemyRealizedStats {
+  /** Realized attack power stat (normalized × 8 × combat_level × tier × 10) */
+  atk_power: number;
+
+  /** Realized attack accuracy stat (normalized × 8 × combat_level × tier × 10) */
+  atk_accuracy: number;
+
+  /** Realized defense power stat (normalized × 8 × combat_level × tier × 10) */
+  def_power: number;
+
+  /** Realized defense accuracy stat (normalized × 8 × combat_level × tier × 10) */
+  def_accuracy: number;
+
+  /** HP (base_hp × tier.difficulty_multiplier, NO combat_level scaling) */
+  hp: number;
+}
+
+/**
+ * Polymorphic enemy loot table entry
+ * lootable_type discriminates between material and item_type drops
+ */
+export interface EnemyLoot {
+  id: string;
+  enemy_type_id: string;
+  lootable_type: 'material' | 'item_type';
+  lootable_id: string;
+  drop_weight: number;
+  guaranteed: boolean;
+}
+
+// ============================================================================
+// Combat Dialogue System (F-12)
+// ============================================================================
+
+/**
+ * Combat event types that trigger dialogue generation
+ */
+export type CombatEventType =
+  | 'combat_start'
+  | 'player_hit'
+  | 'player_miss'
+  | 'enemy_hit'
+  | 'low_player_hp'
+  | 'near_victory'
+  | 'defeat'
+  | 'victory';
+
+/**
+ * Detailed information about a combat event for dialogue generation
+ */
+export interface CombatEventDetails {
+  damage?: number;
+  accuracy?: number;
+  is_critical?: boolean;
+  turn_number: number;
+  player_hp_pct: number;
+  enemy_hp_pct: number;
+}
+
+/**
+ * Player's historical combat performance for contextual dialogue
+ */
+export interface PlayerCombatContext {
+  attempts: number;
+  victories: number;
+  defeats: number;
+  current_streak: number;
+}
+
+/**
+ * AI-generated dialogue response for combat events
+ */
+export interface DialogueResponse {
+  dialogue: string;
+  enemy_type: string;
+  dialogue_tone: string;
+  generation_time_ms: number;
+  was_ai_generated: boolean;
+  player_context_used: PlayerCombatContext;
 }

@@ -194,6 +194,7 @@ export type Database = {
           combat_log: Json | null
           created_at: string
           enemy_rating: number | null
+          enemy_style_id: string
           enemy_type_id: string
           id: string
           location_id: string
@@ -211,6 +212,7 @@ export type Database = {
           combat_log?: Json | null
           created_at?: string
           enemy_rating?: number | null
+          enemy_style_id?: string
           enemy_type_id: string
           id?: string
           location_id: string
@@ -228,6 +230,7 @@ export type Database = {
           combat_log?: Json | null
           created_at?: string
           enemy_rating?: number | null
+          enemy_style_id?: string
           enemy_type_id?: string
           id?: string
           location_id?: string
