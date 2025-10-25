@@ -18,14 +18,24 @@ final class DefaultLocationRepository: LocationRepository {
     // MARK: - LocationRepository Protocol
 
     func fetchNearby(userLocation: (latitude: Double, longitude: Double), radiusKm: Double) async throws -> [Location] {
+        print("🗺️ DefaultLocationRepository: Fetching nearby locations for lat: \(userLocation.latitude), lng: \(userLocation.longitude), radius: \(radiusKm)km")
+        
         // Convert radius from km to meters for API (API expects meters)
         let radiusMeters = Int(radiusKm * 1000)
+        print("🗺️ DefaultLocationRepository: Converted radius to \(radiusMeters) meters")
 
         let endpoint = "/locations/nearby?lat=\(userLocation.latitude)&lng=\(userLocation.longitude)&radius=\(radiusMeters)"
+        print("🗺️ DefaultLocationRepository: Making API call to endpoint: \(endpoint)")
 
-        // Backend returns {locations: [...]} directly without ApiResponseWrapper
-        let response: NearbyLocationsResponse = try await apiClient.get(endpoint: endpoint)
-        return response.locations
+        do {
+            // Backend returns {locations: [...]} directly without ApiResponseWrapper
+            let response: NearbyLocationsResponse = try await apiClient.get(endpoint: endpoint)
+            print("🗺️ DefaultLocationRepository: Successfully received \(response.locations.count) locations from API")
+            return response.locations
+        } catch {
+            print("🗺️ DefaultLocationRepository: API call failed with error: \(error)")
+            throw error
+        }
     }
 
     func getLocationDetails(locationId: String) async throws -> Location {

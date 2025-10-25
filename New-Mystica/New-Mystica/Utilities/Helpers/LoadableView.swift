@@ -27,6 +27,9 @@ struct LoadableView<T, Content: View>: View {
         switch loadable {
         case .idle:
             EmptyView()
+                .onAppear {
+                    print("🗺️ LoadableView: Showing idle state (EmptyView)")
+                }
 
         case .loading:
             VStack(spacing: 16) {
@@ -38,12 +41,21 @@ struct LoadableView<T, Content: View>: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(Color.backgroundPrimary)
+            .onAppear {
+                print("🗺️ LoadableView: Showing loading state")
+            }
 
         case .loaded(let data):
             content(data)
+                .onAppear {
+                    print("🗺️ LoadableView: Showing loaded state with data")
+                }
 
         case .error(let error):
             ErrorView(error: error, retry: retry)
+                .onAppear {
+                    print("🗺️ LoadableView: Showing error state: \(error)")
+                }
         }
     }
 }

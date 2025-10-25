@@ -38,7 +38,6 @@ struct CombatLevelSelectionView: View {
                         .foregroundColor(Color.textSecondary)
                 }
 
-
                 // Level selection grid (scrollable)
                 ScrollView {
                     LazyVGrid(columns: gridColumns, spacing: 16) {
@@ -68,6 +67,27 @@ struct CombatLevelSelectionView: View {
                     )
             )
             .shadow(color: Color.black.opacity(0.3), radius: 20, x: 0, y: 10)
+            .overlay(
+                // Cancel button positioned on the top-right corner of the modal
+                VStack {
+                    HStack {
+                        Spacer()
+                        Button {
+                            audioManager.playCancelClick()
+                            onDismiss()
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 24))
+                                .foregroundColor(Color.textSecondary)
+                        }
+                        .disabled(isLoading)
+                        .padding(.top, 8)
+                        .padding(.trailing, 8)
+                    }
+                    Spacer()
+                },
+                alignment: .topTrailing
+            )
             .padding(.horizontal, 40)
         }
         .alert("Combat Error", isPresented: $showingError) {
