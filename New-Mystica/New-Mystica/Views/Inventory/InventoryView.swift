@@ -196,10 +196,10 @@ struct InventoryView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
                     .background(
-                        RoundedRectangle(cornerRadius: 12)
+                        RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                             .fill(Color.success.opacity(0.1))
                             .overlay(
-                                RoundedRectangle(cornerRadius: 12)
+                                RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                                     .stroke(Color.success, lineWidth: 1)
                             )
                     )
@@ -233,10 +233,10 @@ struct InventoryView: View {
                     }
                     .padding(24)
                     .background(
-                        RoundedRectangle(cornerRadius: 16)
+                        RoundedRectangle(cornerRadius: .cornerRadiusExtraLarge)
                             .fill(Color.backgroundCard)
                             .overlay(
-                                RoundedRectangle(cornerRadius: 16)
+                                RoundedRectangle(cornerRadius: .cornerRadiusExtraLarge)
                                     .stroke(Color.borderSubtle, lineWidth: 1)
                             )
                     )
@@ -312,7 +312,7 @@ struct InventoryView: View {
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .background(
-                        RoundedRectangle(cornerRadius: 12)
+                        RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                             .fill(Color.backgroundSecondary)
                     )
             }
@@ -387,10 +387,10 @@ struct InventoryView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
                     .background(
-                        RoundedRectangle(cornerRadius: 12)
+                        RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                             .fill(Color.accent.opacity(0.15))
                             .overlay(
-                                RoundedRectangle(cornerRadius: 12)
+                                RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                                     .stroke(Color.accent, lineWidth: 2)
                             )
                     )
@@ -414,10 +414,10 @@ struct InventoryView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
                     .background(
-                        RoundedRectangle(cornerRadius: 12)
+                        RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                             .fill(Color.accentSecondary.opacity(0.15))
                             .overlay(
-                                RoundedRectangle(cornerRadius: 12)
+                                RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                                     .stroke(Color.accentSecondary, lineWidth: 2)
                             )
                     )
@@ -442,10 +442,10 @@ struct InventoryView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
                 .background(
-                    RoundedRectangle(cornerRadius: 12)
+                    RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                         .fill(Color.success.opacity(0.15))
                         .overlay(
-                            RoundedRectangle(cornerRadius: 12)
+                            RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                                 .stroke(Color.success, lineWidth: 2)
                         )
                 )
@@ -468,10 +468,10 @@ struct InventoryView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
                 .background(
-                    RoundedRectangle(cornerRadius: 12)
+                    RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                         .fill(Color.alert.opacity(0.15))
                         .overlay(
-                            RoundedRectangle(cornerRadius: 12)
+                            RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                                 .stroke(Color.alert, lineWidth: 2)
                         )
                 )

@@ -67,10 +67,10 @@ extension BattleView {
                 }
                 .padding(32)
                 .background(
-                    RoundedRectangle(cornerRadius: 16)
+                    RoundedRectangle(cornerRadius: .cornerRadiusExtraLarge)
                         .fill(Color.backgroundCard)
                         .overlay(
-                            RoundedRectangle(cornerRadius: 16)
+                            RoundedRectangle(cornerRadius: .cornerRadiusExtraLarge)
                                 .stroke(Color.borderSubtle, lineWidth: 1)
                         )
                 )

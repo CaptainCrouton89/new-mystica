@@ -14,7 +14,7 @@ struct BorderedCard: ViewModifier {
     let cornerRadius: CGFloat
     @State private var animationOffset: CGFloat = 0
 
-    init(borderType: BorderType, cornerRadius: CGFloat = 12) {
+    init(borderType: BorderType, cornerRadius: CGFloat = .cornerRadiusLarge) {
         self.borderType = borderType
         self.cornerRadius = cornerRadius
     }
@@ -74,23 +74,23 @@ struct BorderedCard: ViewModifier {
 // MARK: - Convenience View Extensions
 extension View {
     /// Apply a rarity-based border to any view
-    func rarityBorder(_ rarity: RarityBorder, cornerRadius: CGFloat = 12) -> some View {
+    func rarityBorder(_ rarity: RarityBorder, cornerRadius: CGFloat = .cornerRadiusLarge) -> some View {
         self.modifier(BorderedCard(borderType: .rarity(rarity), cornerRadius: cornerRadius))
     }
 
     /// Apply a style-based border to any view
-    func styleBorder(_ style: StyleBorder, cornerRadius: CGFloat = 12) -> some View {
+    func styleBorder(_ style: StyleBorder, cornerRadius: CGFloat = .cornerRadiusLarge) -> some View {
         self.modifier(BorderedCard(borderType: .style(style), cornerRadius: cornerRadius))
     }
 
     /// Apply a border based on item level (temporary until rarity system implemented)
-    func itemBorder(level: Int, cornerRadius: CGFloat = 12) -> some View {
+    func itemBorder(level: Int, cornerRadius: CGFloat = .cornerRadiusLarge) -> some View {
         let rarity = RarityBorder.fromLevel(level)
         return self.modifier(BorderedCard(borderType: .rarity(rarity), cornerRadius: cornerRadius))
     }
 
     /// Apply a border based on material style ID
-    func materialBorder(styleId: String, cornerRadius: CGFloat = 12) -> some View {
+    func materialBorder(styleId: String, cornerRadius: CGFloat = .cornerRadiusLarge) -> some View {
         let style = StyleBorder.fromStyleId(styleId)
         return self.modifier(BorderedCard(borderType: .style(style), cornerRadius: cornerRadius))
     }
@@ -169,7 +169,7 @@ private struct SampleCard: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            RoundedRectangle(cornerRadius: 8)
+            RoundedRectangle(cornerRadius: .cornerRadiusSmall)
                 .fill(Color.backgroundSecondary)
                 .frame(height: 60)
                 .overlay(
