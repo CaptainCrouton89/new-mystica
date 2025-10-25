@@ -76,13 +76,6 @@ export type Database = {
             referencedRelation: "v_player_equipped_stats"
             referencedColumns: ["player_id"]
           },
-          {
-            foreignKeyName: "fk_analytics_events_user"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "v_player_powerlevel"
-            referencedColumns: ["player_id"]
-          },
         ]
       }
       combatchatterlog: {
@@ -278,13 +271,6 @@ export type Database = {
             referencedRelation: "v_player_equipped_stats"
             referencedColumns: ["player_id"]
           },
-          {
-            foreignKeyName: "fk_combat_sessions_user"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "v_player_powerlevel"
-            referencedColumns: ["player_id"]
-          },
         ]
       }
       currencies: {
@@ -357,13 +343,6 @@ export type Database = {
             referencedRelation: "v_player_equipped_stats"
             referencedColumns: ["player_id"]
           },
-          {
-            foreignKeyName: "fk_device_tokens_user"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "v_player_powerlevel"
-            referencedColumns: ["player_id"]
-          },
         ]
       }
       economytransactions: {
@@ -416,13 +395,6 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "v_player_equipped_stats"
-            referencedColumns: ["player_id"]
-          },
-          {
-            foreignKeyName: "fk_economy_transactions_user"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "v_player_powerlevel"
             referencedColumns: ["player_id"]
           },
         ]
@@ -780,13 +752,6 @@ export type Database = {
             referencedRelation: "v_player_equipped_stats"
             referencedColumns: ["player_id"]
           },
-          {
-            foreignKeyName: "fk_item_history_user"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "v_player_powerlevel"
-            referencedColumns: ["player_id"]
-          },
         ]
       }
       itemimagecache: {
@@ -938,13 +903,6 @@ export type Database = {
             referencedRelation: "v_player_equipped_stats"
             referencedColumns: ["player_id"]
           },
-          {
-            foreignKeyName: "fk_items_user"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "v_player_powerlevel"
-            referencedColumns: ["player_id"]
-          },
         ]
       }
       itemtypes: {
@@ -1053,13 +1011,6 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "v_player_equipped_stats"
-            referencedColumns: ["player_id"]
-          },
-          {
-            foreignKeyName: "fk_loadouts_user"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "v_player_powerlevel"
             referencedColumns: ["player_id"]
           },
         ]
@@ -1205,13 +1156,6 @@ export type Database = {
             referencedRelation: "v_player_equipped_stats"
             referencedColumns: ["player_id"]
           },
-          {
-            foreignKeyName: "fk_material_instances_user"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "v_player_powerlevel"
-            referencedColumns: ["player_id"]
-          },
         ]
       }
       materials: {
@@ -1297,13 +1241,6 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "v_player_equipped_stats"
-            referencedColumns: ["player_id"]
-          },
-          {
-            foreignKeyName: "fk_material_stacks_user"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "v_player_powerlevel"
             referencedColumns: ["player_id"]
           },
         ]
@@ -1461,13 +1398,6 @@ export type Database = {
             referencedRelation: "v_player_equipped_stats"
             referencedColumns: ["player_id"]
           },
-          {
-            foreignKeyName: "fk_player_combat_history_user"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "v_player_powerlevel"
-            referencedColumns: ["player_id"]
-          },
         ]
       }
       playerprogression: {
@@ -1511,13 +1441,6 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: true
             referencedRelation: "v_player_equipped_stats"
-            referencedColumns: ["player_id"]
-          },
-          {
-            foreignKeyName: "fk_player_progression_user"
-            columns: ["user_id"]
-            isOneToOne: true
-            referencedRelation: "v_player_powerlevel"
             referencedColumns: ["player_id"]
           },
         ]
@@ -1677,13 +1600,6 @@ export type Database = {
             referencedRelation: "v_player_equipped_stats"
             referencedColumns: ["player_id"]
           },
-          {
-            foreignKeyName: "fk_user_currency_balances_user"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "v_player_powerlevel"
-            referencedColumns: ["player_id"]
-          },
         ]
       }
       userequipment: {
@@ -1741,13 +1657,6 @@ export type Database = {
             referencedRelation: "v_player_equipped_stats"
             referencedColumns: ["player_id"]
           },
-          {
-            foreignKeyName: "fk_user_equipment_user"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "v_player_powerlevel"
-            referencedColumns: ["player_id"]
-          },
         ]
       }
       userlevelrewards: {
@@ -1789,13 +1698,6 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "v_player_equipped_stats"
-            referencedColumns: ["player_id"]
-          },
-          {
-            foreignKeyName: "userlevelrewards_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "v_player_powerlevel"
             referencedColumns: ["player_id"]
           },
         ]
@@ -1875,13 +1777,6 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "v_player_equipped_stats"
-            referencedColumns: ["player_id"]
-          },
-          {
-            foreignKeyName: "fk_user_unlocked_item_types_user"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "v_player_powerlevel"
             referencedColumns: ["player_id"]
           },
         ]
@@ -2039,42 +1934,13 @@ export type Database = {
       }
       v_player_equipped_stats: {
         Row: {
-          acc: number | null
-          atk: number | null
-          combat_rating: number | null
-          def: number | null
-          hp: number | null
+          atkaccuracy: number | null
+          atkpower: number | null
+          defaccuracy: number | null
+          defpower: number | null
           player_id: string | null
         }
         Relationships: []
-      }
-      v_player_powerlevel: {
-        Row: {
-          acc: number | null
-          atk: number | null
-          def: number | null
-          expected_mul: number | null
-          hp: number | null
-          player_id: string | null
-          power_level: number | null
-          weapon_item_id: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "fk_user_equipment_item"
-            columns: ["weapon_item_id"]
-            isOneToOne: false
-            referencedRelation: "items"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_user_equipment_item"
-            columns: ["weapon_item_id"]
-            isOneToOne: false
-            referencedRelation: "v_item_total_stats"
-            referencedColumns: ["id"]
-          },
-        ]
       }
     }
     Functions: {

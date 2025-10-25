@@ -228,7 +228,7 @@ private struct ItemSelectionCard: View {
                             StatBadge(
                                 iconUrl: "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/attack-accuracy-crosshair.png",
                                 fallbackIcon: "target",
-                                value: String(format: "%.0f%%", item.computedStats.atkAccuracy * 100),
+                                value: String(format: "%.0f", item.computedStats.atkAccuracy * 100),
                                 color: Color.warning
                             )
                         }

@@ -9,22 +9,25 @@
 import Foundation
 
 struct APIConfig {
-    /// API base URL - can be overridden via environment variable API_BASE_URL
+    /// API base URL - loaded from build configuration via Info.plist
+    /// Can be overridden via environment variable API_BASE_URL for testing
     static let baseURL: String = {
-        // Check for environment variable override first
+        // Check for environment variable override first (for testing/debugging)
         if let envURL = ProcessInfo.processInfo.environment["API_BASE_URL"] {
             print("🔧 [APIConfig] Using API_BASE_URL from environment: \(envURL)")
             return envURL
         }
 
-        // Use build configuration defaults
-        #if DEBUG
-        // Development: local server
-        return "http://localhost:3000/api/v1"
-        #else
-        // Production: live API
-        return "https://api.mystica.cloud/api/v1"
-        #endif
+        // Read from Info.plist (set by xcconfig build configuration)
+        if let bundleURL = Bundle.main.infoDictionary?["APIBaseURL"] as? String {
+            print("🔧 [APIConfig] Using API_BASE_URL from build configuration: \(bundleURL)")
+            return bundleURL
+        }
+
+        // Fallback to development URL (should not happen in normal builds)
+        let fallbackURL = "http://localhost:3000/api/v1"
+        print("⚠️ [APIConfig] Using fallback URL: \(fallbackURL)")
+        return fallbackURL
     }()
 
     /// R2 Asset CDN base URL
