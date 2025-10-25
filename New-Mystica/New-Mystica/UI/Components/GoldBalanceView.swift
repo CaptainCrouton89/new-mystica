@@ -9,7 +9,7 @@ struct GoldBalanceView: View {
         HStack(spacing: 6) {
             // Gold coin icon from R2
             CachedAsyncImage(
-                url: URL(string: "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/assets/ui/coins.png"),
+                url: URL(string: UIAssetURL.coinIcon),
                 content: { image in
                     image
                         .resizable()

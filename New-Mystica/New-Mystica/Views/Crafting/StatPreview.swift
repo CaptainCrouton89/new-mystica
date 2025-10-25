@@ -98,25 +98,25 @@ private struct StatRow: View {
         switch name {
         case "ATK Power":
             return (
-                "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/attack-power-crossed-swords.png",
+                StatIconURL.atkPower,
                 "hammer.fill",
                 Color.alert
             )
         case "ATK Accuracy":
             return (
-                "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/attack-accuracy-crosshair.png",
+                StatIconURL.atkAccuracy,
                 "target",
                 Color.warning
             )
         case "DEF Power":
             return (
-                "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/defense-power-round-shield.png",
+                StatIconURL.defPower,
                 "shield.fill",
                 Color.accentSecondary
             )
         case "DEF Accuracy":
             return (
-                "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/defense-accuracy-force-field.png",
+                StatIconURL.defAccuracy,
                 "checkmark.shield.fill",
                 Color.success
             )

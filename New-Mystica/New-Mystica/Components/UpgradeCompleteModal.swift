@@ -157,7 +157,7 @@ struct UpgradeCompleteModal: View {
         VStack(spacing: 12) {
             VStack(spacing: 8) {
                 StatComparisonRow(
-                    iconUrl: "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/attack-power-crossed-swords.png",
+                    iconUrl: StatIconURL.atkPower,
                     fallbackIcon: "hammer.fill",
                     oldValue: String(format: "%.0f", statsBefore.atkPower * 100),
                     newValue: String(format: "%.0f", statsAfter.atkPower * 100),
@@ -165,7 +165,7 @@ struct UpgradeCompleteModal: View {
                 )
 
                 StatComparisonRow(
-                    iconUrl: "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/attack-accuracy-crosshair.png",
+                    iconUrl: StatIconURL.atkAccuracy,
                     fallbackIcon: "target",
                     oldValue: String(format: "%.0f", statsBefore.atkAccuracy * 100),
                     newValue: String(format: "%.0f", statsAfter.atkAccuracy * 100),
@@ -173,7 +173,7 @@ struct UpgradeCompleteModal: View {
                 )
 
                 StatComparisonRow(
-                    iconUrl: "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/defense-power-round-shield.png",
+                    iconUrl: StatIconURL.defPower,
                     fallbackIcon: "shield.fill",
                     oldValue: String(format: "%.0f", statsBefore.defPower * 100),
                     newValue: String(format: "%.0f", statsAfter.defPower * 100),
@@ -181,7 +181,7 @@ struct UpgradeCompleteModal: View {
                 )
 
                 StatComparisonRow(
-                    iconUrl: "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/defense-accuracy-force-field.png",
+                    iconUrl: StatIconURL.defAccuracy,
                     fallbackIcon: "checkmark.shield.fill",
                     oldValue: String(format: "%.0f", statsBefore.defAccuracy * 100),
                     newValue: String(format: "%.0f", statsAfter.defAccuracy * 100),

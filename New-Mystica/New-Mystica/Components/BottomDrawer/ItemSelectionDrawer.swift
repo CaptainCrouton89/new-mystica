@@ -210,7 +210,7 @@ private struct ItemSelectionCard: View {
                     HStack(spacing: 8) {
                         if item.computedStats.atkPower > 0 {
                             StatBadge(
-                                iconUrl: "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/attack-power-crossed-swords.png",
+                                iconUrl: StatIconURL.atkPower,
                                 fallbackIcon: "hammer.fill",
                                 value: String(format: "%.0f", item.computedStats.atkPower * 100),
                                 color: Color.alert
@@ -218,7 +218,7 @@ private struct ItemSelectionCard: View {
                         }
                         if item.computedStats.defPower > 0 {
                             StatBadge(
-                                iconUrl: "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/defense-power-round-shield.png",
+                                iconUrl: StatIconURL.defPower,
                                 fallbackIcon: "shield.fill",
                                 value: String(format: "%.0f", item.computedStats.defPower * 100),
                                 color: Color.accentSecondary
@@ -226,7 +226,7 @@ private struct ItemSelectionCard: View {
                         }
                         if item.computedStats.atkAccuracy > 0 {
                             StatBadge(
-                                iconUrl: "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/attack-accuracy-crosshair.png",
+                                iconUrl: StatIconURL.atkAccuracy,
                                 fallbackIcon: "target",
                                 value: String(format: "%.0f", item.computedStats.atkAccuracy * 100),
                                 color: Color.warning

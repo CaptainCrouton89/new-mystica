@@ -93,7 +93,7 @@ struct ItemRow: View {
                             label: "ATK PWR",
                             value: String(format: "%.0f", item.computedStats.atkPower * 100),
                             color: Color.alert,
-                            iconUrl: "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/attack-power-crossed-swords.png",
+                            iconUrl: StatIconURL.atkPower,
                             fallbackIcon: "hammer.fill"
                         )
 
@@ -101,7 +101,7 @@ struct ItemRow: View {
                             label: "ATK ACC",
                             value: String(format: "%.0f", item.computedStats.atkAccuracy * 100),
                             color: Color.warning,
-                            iconUrl: "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/attack-accuracy-crosshair.png",
+                            iconUrl: StatIconURL.atkAccuracy,
                             fallbackIcon: "target"
                         )
 
@@ -109,7 +109,7 @@ struct ItemRow: View {
                             label: "DEF PWR",
                             value: String(format: "%.0f", item.computedStats.defPower * 100),
                             color: Color.accentSecondary,
-                            iconUrl: "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/defense-power-round-shield.png",
+                            iconUrl: StatIconURL.defPower,
                             fallbackIcon: "shield.fill"
                         )
 
@@ -117,7 +117,7 @@ struct ItemRow: View {
                             label: "DEF ACC",
                             value: String(format: "%.0f", item.computedStats.defAccuracy * 100),
                             color: Color.success,
-                            iconUrl: "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/defense-accuracy-force-field.png",
+                            iconUrl: StatIconURL.defAccuracy,
                             fallbackIcon: "checkmark.shield.fill"
                         )
 

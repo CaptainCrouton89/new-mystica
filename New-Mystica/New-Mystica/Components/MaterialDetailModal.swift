@@ -142,7 +142,7 @@ struct MaterialDetailModal: View {
                 // Attack modifier stats
                 HStack(spacing: 12) {
                     StatModifierRow(
-                        iconUrl: "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/attack-power-crossed-swords.png",
+                        iconUrl: StatIconURL.atkPower,
                         fallbackIcon: "hammer.fill",
                         label: "ATK Power",
                         multiplier: material.statModifiers.atkPower,
@@ -150,7 +150,7 @@ struct MaterialDetailModal: View {
                     )
 
                     StatModifierRow(
-                        iconUrl: "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/attack-accuracy-crosshair.png",
+                        iconUrl: StatIconURL.atkAccuracy,
                         fallbackIcon: "target",
                         label: "ATK Accuracy",
                         multiplier: material.statModifiers.atkAccuracy,
@@ -161,7 +161,7 @@ struct MaterialDetailModal: View {
                 // Defense modifier stats
                 HStack(spacing: 12) {
                     StatModifierRow(
-                        iconUrl: "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/defense-power-round-shield.png",
+                        iconUrl: StatIconURL.defPower,
                         fallbackIcon: "shield.fill",
                         label: "DEF Power",
                         multiplier: material.statModifiers.defPower,
@@ -169,7 +169,7 @@ struct MaterialDetailModal: View {
                     )
 
                     StatModifierRow(
-                        iconUrl: "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/defense-accuracy-force-field.png",
+                        iconUrl: StatIconURL.defAccuracy,
                         fallbackIcon: "checkmark.shield.fill",
                         label: "DEF Accuracy",
                         multiplier: material.statModifiers.defAccuracy,

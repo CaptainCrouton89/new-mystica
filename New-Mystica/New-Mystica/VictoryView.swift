@@ -78,7 +78,7 @@ struct VictoryView: View {
                     }
 
                     Spacer()
-                        .frame(height: 40)
+                        .frame(height: 16)
 
                     // Action Buttons
                     VStack(spacing: 16) {
@@ -169,10 +169,21 @@ private struct CurrencySection: View {
         VStack(spacing: 12) {
             // Gold Card
             HStack(spacing: 16) {
-                // Coin Icon
-                Image(systemName: "dollarsign.circle.fill")
-                    .font(.system(size: 32, weight: .medium))
-                    .foregroundColor(.warning)
+                // Gold Coin Icon
+                CachedAsyncImage(
+                    url: URL(string: UIAssetURL.coinIcon),
+                    content: { image in
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 32, height: 32)
+                    },
+                    placeholder: {
+                        Image(systemName: "dollarsign.circle.fill")
+                            .font(.system(size: 32, weight: .medium))
+                    }
+                )
+                .foregroundColor(.warning)
 
                 // Gold Amount
                 VStack(alignment: .leading, spacing: 4) {
@@ -285,7 +296,7 @@ private struct ItemCard: View {
                 .fill(Color.backgroundCard)
                 .overlay(
                     RoundedRectangle(cornerRadius: .cornerRadiusSmall)
-                        .stroke(colorForRarity(item.rarity), lineWidth: 2)
+                        .stroke(colorForRarity(item.rarity).opacity(0.6), lineWidth: 2)
                 )
         )
     }
@@ -360,35 +371,32 @@ private struct VictoryMaterialCard: View {
     var body: some View {
         VStack(spacing: 8) {
             // Material Image or Icon
-            ZStack {
-                if let imageUrl = material.imageUrl, let url = URL(string: imageUrl) {
-                    CachedAsyncImage(
-                        url: url,
-                        content: { image in
-                            image
-                                .resizable()
-                                .scaledToFill()
-                                .frame(width: 40, height: 40)
-                                .clipShape(Circle())
-                        },
-                        placeholder: {
-                            ProgressView()
-                                .frame(width: 40, height: 40)
-                                .progressViewStyle(CircularProgressViewStyle(tint: .accentSecondary))
-                        }
+            if let imageUrl = material.imageUrl, let url = URL(string: imageUrl) {
+                CachedAsyncImage(
+                    url: url,
+                    content: { image in
+                        image
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 40, height: 40)
+                            .clipShape(Circle())
+                    },
+                    placeholder: {
+                        ProgressView()
+                            .frame(width: 40, height: 40)
+                            .progressViewStyle(CircularProgressViewStyle(tint: .accentSecondary))
+                    }
+                )
+            } else {
+                Image(systemName: "cube.fill")
+                    .font(.system(size: 24, weight: .medium))
+                    .foregroundColor(.textPrimary)
+                    .frame(width: 40, height: 40)
+                    .background(
+                        Circle()
+                            .fill(Color.accentSecondary.opacity(0.2))
                     )
-                } else {
-                    Image(systemName: "cube.fill")
-                        .font(.system(size: 24, weight: .medium))
-                        .foregroundColor(.textPrimary)
-                        .frame(width: 40, height: 40)
-                        .background(
-                            Circle()
-                                .fill(Color.accentSecondary.opacity(0.2))
-                        )
-                }
             }
-            .frame(width: 40, height: 40)
 
             // Material Name
             Text(material.name)
@@ -415,7 +423,7 @@ private struct VictoryMaterialCard: View {
                 .fill(Color.backgroundCard)
                 .overlay(
                     RoundedRectangle(cornerRadius: .cornerRadiusSmall)
-                        .stroke(Color.accentSecondary.opacity(0.5), lineWidth: 1)
+                        .stroke(Color.accentSecondary.opacity(0.6), lineWidth: 1)
                 )
         )
     }

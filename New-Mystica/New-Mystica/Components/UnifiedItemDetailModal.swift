@@ -286,7 +286,7 @@ struct UnifiedItemDetailModal<Item: ItemDetailDisplayable, ActionButtons: View>:
                 // Attack stats
                 HStack(spacing: 12) {
                     StatDetailRow(
-                        iconUrl: "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/attack-power-crossed-swords.png",
+                        iconUrl: StatIconURL.atkPower,
                         fallbackIcon: "hammer.fill",
                         label: "ATK Power",
                         value: String(format: "%.0f", item.computedStats.atkPower * 100),
@@ -294,7 +294,7 @@ struct UnifiedItemDetailModal<Item: ItemDetailDisplayable, ActionButtons: View>:
                     )
 
                     StatDetailRow(
-                        iconUrl: "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/attack-accuracy-crosshair.png",
+                        iconUrl: StatIconURL.atkAccuracy,
                         fallbackIcon: "target",
                         label: "ATK Accuracy",
                         value: String(format: "%.0f", item.computedStats.atkAccuracy * 100),
@@ -305,7 +305,7 @@ struct UnifiedItemDetailModal<Item: ItemDetailDisplayable, ActionButtons: View>:
                 // Defense stats
                 HStack(spacing: 12) {
                     StatDetailRow(
-                        iconUrl: "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/defense-power-round-shield.png",
+                        iconUrl: StatIconURL.defPower,
                         fallbackIcon: "shield.fill",
                         label: "DEF Power",
                         value: String(format: "%.0f", item.computedStats.defPower * 100),
@@ -313,7 +313,7 @@ struct UnifiedItemDetailModal<Item: ItemDetailDisplayable, ActionButtons: View>:
                     )
 
                     StatDetailRow(
-                        iconUrl: "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/defense-accuracy-force-field.png",
+                        iconUrl: StatIconURL.defAccuracy,
                         fallbackIcon: "checkmark.shield.fill",
                         label: "DEF Accuracy",
                         value: String(format: "%.0f", item.computedStats.defAccuracy * 100),
