@@ -201,6 +201,9 @@ struct BattleView: View {
             }
         }
         .task {
+            // Crossfade from background to battle music when entering battle
+            audioManager.crossfadeToBattleMusic(duration: 1.5)
+
             // Connect environment dependencies to viewModel
             viewModel.navigationManager = navigationManager
             viewModel.appState = appState
@@ -220,6 +223,10 @@ struct BattleView: View {
                     appState.setCombatSession(session)
                 }
             }
+        }
+        .onDisappear {
+            // Crossfade from battle to background music when leaving battle
+            audioManager.crossfadeToBackgroundMusic(duration: 1.5)
         }
     }
 
