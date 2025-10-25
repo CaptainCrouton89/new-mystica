@@ -310,9 +310,9 @@ struct TestAnimationsView: View {
         isPlaying = true
         animationTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / frameRate, repeats: true) { _ in
             DispatchQueue.main.async {
-                withAnimation(.linear(duration: 1.0 / frameRate)) {
-                    currentFrame = (currentFrame + 1) % animationData.frames.count
-                }
+                // Remove withAnimation to prevent smooth transitions between frames
+                // Sprite animation should snap instantly to each frame
+                currentFrame = (currentFrame + 1) % animationData.frames.count
             }
         }
     }
