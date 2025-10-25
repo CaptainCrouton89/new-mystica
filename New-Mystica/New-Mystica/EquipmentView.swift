@@ -228,33 +228,14 @@ struct EquipmentView: View {
                 }
             }
         }
-        .sheet(isPresented: $viewModel.inventoryViewModel.showingUpgradeConfirmationModal) {
+        .sheet(isPresented: .constant(viewModel.inventoryViewModel.upgradeModalState != .none)) {
+            // Single upgrade modal that handles all upgrade states
             Group {
-                if let item = viewModel.inventoryViewModel.selectedItemForDetail,
-                   let costInfo = viewModel.inventoryViewModel.pendingUpgradeCostInfo,
-                   let statsBefore = viewModel.inventoryViewModel.lastUpgradeStatsBefore {
+                switch viewModel.inventoryViewModel.upgradeModalState {
+                case .none:
+                    EmptyView()
 
-                    let projectedStats = calculateProjectedStats(from: statsBefore)
-
-                    UpgradeCompleteModal(
-                        item: item,
-                        goldSpent: costInfo.goldCost,
-                        newGoldBalance: costInfo.playerGold - costInfo.goldCost,
-                        statsBefore: statsBefore,
-                        statsAfter: projectedStats,
-                        isConfirmation: true,
-                        onConfirm: {
-                            Task {
-                                await viewModel.inventoryViewModel.performUpgrade(itemId: item.id)
-                            }
-                        },
-                        onUpgradeAgain: nil,
-                        onReturnToInventory: {
-                            viewModel.inventoryViewModel.showingUpgradeConfirmationModal = false
-                            viewModel.inventoryViewModel.selectedItemForDetail = nil
-                        }
-                    )
-                } else {
+                case .confirmationLoading:
                     VStack {
                         ProgressView()
                         Text("Loading upgrade details...")
@@ -264,29 +245,62 @@ struct EquipmentView: View {
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Color.backgroundPrimary)
-                }
-            }
-        }
-        .sheet(isPresented: $viewModel.inventoryViewModel.showingUpgradeCompleteModal) {
-            if let upgradeResult = viewModel.inventoryViewModel.lastUpgradeResult {
-                UpgradeCompleteModal(
-                    item: upgradeResult.item,
-                    goldSpent: upgradeResult.goldSpent,
-                    newGoldBalance: upgradeResult.newGoldBalance,
-                    statsBefore: viewModel.inventoryViewModel.lastUpgradeStatsBefore ?? ItemStats(atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0),
-                    statsAfter: upgradeResult.item.computedStats,
-                    isConfirmation: false,
-                    onConfirm: nil,
-                    onUpgradeAgain: {
-                        Task {
-                            await viewModel.inventoryViewModel.handleUpgradeAction()
-                        }
-                    },
-                    onReturnToInventory: {
-                        viewModel.inventoryViewModel.showingUpgradeCompleteModal = false
-                        viewModel.showingItemDetailModal = false
+
+                case .confirmation(_, let costInfo, let statsBefore):
+                    if let item = viewModel.inventoryViewModel.selectedItemForDetail {
+                        let projectedStats = calculateProjectedStats(from: statsBefore)
+
+                        UpgradeCompleteModal(
+                            item: item,
+                            goldSpent: costInfo.goldCost,
+                            newGoldBalance: costInfo.playerGold - costInfo.goldCost,
+                            statsBefore: statsBefore,
+                            statsAfter: projectedStats,
+                            isConfirmation: true,
+                            onConfirm: {
+                                Task {
+                                    await viewModel.inventoryViewModel.performUpgrade(itemId: item.id)
+                                }
+                            },
+                            onUpgradeAgain: nil,
+                            onReturnToInventory: {
+                                viewModel.inventoryViewModel.upgradeModalState = .none
+                                viewModel.inventoryViewModel.selectedItemForDetail = nil
+                            }
+                        )
                     }
-                )
+
+                case .upgrading:
+                    VStack {
+                        ProgressView()
+                        Text("Upgrading item...")
+                            .font(FontManager.body)
+                            .foregroundColor(Color.textSecondary)
+                            .padding(.top, 8)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color.backgroundPrimary)
+
+                case .complete(let upgradeResult, let statsBefore):
+                    UpgradeCompleteModal(
+                        item: upgradeResult.item,
+                        goldSpent: upgradeResult.goldSpent,
+                        newGoldBalance: upgradeResult.newGoldBalance,
+                        statsBefore: statsBefore,
+                        statsAfter: upgradeResult.item.computedStats,
+                        isConfirmation: false,
+                        onConfirm: nil,
+                        onUpgradeAgain: {
+                            Task {
+                                await viewModel.inventoryViewModel.handleUpgradeAction()
+                            }
+                        },
+                        onReturnToInventory: {
+                            viewModel.inventoryViewModel.upgradeModalState = .none
+                            viewModel.showingItemDetailModal = false
+                        }
+                    )
+                }
             }
         }
         .task {
