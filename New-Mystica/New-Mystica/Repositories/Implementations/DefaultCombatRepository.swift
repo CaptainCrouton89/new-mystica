@@ -74,9 +74,11 @@ final class DefaultCombatRepository: CombatRepository {
         return CombatAction(
             type: .attack,
             performerId: "player",
-            damageDealt: response.damageDealt,
+            playerDamage: response.playerDamage,
+            enemyDamage: response.enemyDamage,
+            damageDealt: response.damageDealt ?? response.playerDamage.finalDamage, // Legacy fallback
             result: response.combatStatus,
-            hitZone: response.hitZone,
+            hitZone: response.hitZone ?? "zone\(response.playerDamage.zone)", // Legacy fallback
             damageBlocked: nil,
             playerHpRemaining: response.playerHpRemaining,
             enemyHpRemaining: response.enemyHpRemaining,
@@ -114,10 +116,12 @@ final class DefaultCombatRepository: CombatRepository {
         return CombatAction(
             type: .defend,
             performerId: "player",
-            damageDealt: response.damageTaken,
+            playerDamage: response.playerDamage,
+            enemyDamage: response.enemyDamage,
+            damageDealt: response.damageTaken ?? response.enemyDamage.finalDamage, // Legacy fallback (enemy damage to player)
             result: response.combatStatus,
-            hitZone: response.hitZone,
-            damageBlocked: response.damageBlocked,
+            hitZone: response.hitZone ?? "zone\(response.playerDamage.zone)", // Legacy fallback
+            damageBlocked: response.damageBlocked ?? (response.playerDamage.finalDamage - response.enemyDamage.finalDamage), // Legacy fallback
             playerHpRemaining: response.playerHpRemaining,
             enemyHpRemaining: response.enemyHpRemaining,
             combatStatus: combatStatus,

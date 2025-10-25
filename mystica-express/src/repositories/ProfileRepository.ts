@@ -8,37 +8,33 @@
  */
 
 import { SupabaseClient } from '@supabase/supabase-js';
-import { BaseRepository } from './BaseRepository.js';
-import { BusinessLogicError, ValidationError } from '../utils/errors.js';
+import { Database } from '../types/database.types.js';
 import {
   EconomyTransactionData,
-  PlayerProgressionUpdate,
-  CurrencyBalanceUpdate,
+  PlayerProgressionUpdate
 } from '../types/repository.types.js';
-import { Database } from '../types/database.types.js';
+import { BusinessLogicError, ValidationError } from '../utils/errors.js';
+import { BaseRepository } from './BaseRepository.js';
 
 // Database row types
 type User = Database['public']['Tables']['users']['Row'];
-type UserCurrencyBalance = Database['public']['Tables']['usercurrencybalances']['Row'];
 type EconomyTransaction = Database['public']['Tables']['economytransactions']['Row'];
 type PlayerProgression = Database['public']['Tables']['playerprogression']['Row'];
 type DeviceToken = Database['public']['Tables']['devicetokens']['Row'];
 
-// Insert types
-type UserInsert = Database['public']['Tables']['users']['Insert'];
 type UserUpdate = Database['public']['Tables']['users']['Update'];
-type DeviceTokenInsert = Database['public']['Tables']['devicetokens']['Insert'];
+type PlayerProgressionInsert = Database['public']['Tables']['playerprogression']['Insert'];
 
 // RPC Response types for atomic operations
 interface CurrencyRpcResponse {
   success: boolean;
   error_code?: string;
   message?: string;
-  data?: {
+  data: {
     previous_balance: number;
     new_balance: number;
     transaction_id: string;
-  };
+  } | null;
 }
 
 interface XpRpcResponse {
@@ -117,7 +113,7 @@ export class ProfileRepository extends BaseRepository<User> {
       throw this.mapError(error);
     }
 
-    const user = (data as any)?.users;
+    const user = (data as any)?.users as User | null;
     if (!user) {
       throw new Error(`User not found for device token: ${deviceToken}`);
     }
@@ -240,11 +236,13 @@ export class ProfileRepository extends BaseRepository<User> {
       throw this.mapError(error);
     }
 
-    const balances = { GOLD: 0, GEMS: 0 };
+    const balances: { GOLD: number; GEMS: number } = { GOLD: 0, GEMS: 0 };
 
     data?.forEach(row => {
-      if (row.currency_code === 'GOLD' || row.currency_code === 'GEMS') {
-        (balances as any)[row.currency_code] = row.balance;
+      if (row.currency_code === 'GOLD') {
+        balances.GOLD = row.balance;
+      } else if (row.currency_code === 'GEMS') {
+        balances.GEMS = row.balance;
       }
     });
 
@@ -471,21 +469,19 @@ export class ProfileRepository extends BaseRepository<User> {
    * Update player progression
    */
   async updateProgression(userId: string, updateData: PlayerProgressionUpdate): Promise<void> {
-    // Build the update object, ensuring required fields are present
-    const updateObject: any = {
+    // Build the upsert object with user_id as the key
+    const upsertData: PlayerProgressionInsert = {
       user_id: userId,
       updated_at: new Date().toISOString(),
+      xp_to_next_level: updateData.xp_to_next_level ?? 0, // Required field - use 0 as default if not provided
+      ...(updateData.xp !== undefined && { xp: updateData.xp }),
+      ...(updateData.level !== undefined && { level: updateData.level }),
+      ...(updateData.last_level_up_at !== undefined && { last_level_up_at: updateData.last_level_up_at })
     };
-
-    // Only include fields that are provided
-    if (updateData.xp !== undefined) updateObject.xp = updateData.xp;
-    if (updateData.level !== undefined) updateObject.level = updateData.level;
-    if (updateData.xp_to_next_level !== undefined) updateObject.xp_to_next_level = updateData.xp_to_next_level;
-    if (updateData.last_level_up_at !== undefined) updateObject.last_level_up_at = updateData.last_level_up_at;
 
     const { error } = await this.client
       .from('playerprogression')
-      .upsert(updateObject);
+      .upsert(upsertData);
 
     if (error) {
       throw this.mapError(error);

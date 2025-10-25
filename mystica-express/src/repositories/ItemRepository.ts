@@ -14,35 +14,39 @@
  */
 
 import { SupabaseClient } from '@supabase/supabase-js';
-import { BaseRepository } from './BaseRepository.js';
+import { Stats } from '../types/api.types.js';
 import { Database } from '../types/database.types.js';
 import {
-  ItemWithDetails,
-  ItemWithMaterials,
   CreateItemData,
-  UpdateItemData,
-  PaginationParams
+  ItemWithDetails,
+  UpdateItemData
 } from '../types/repository.types.js';
-import { Stats } from '../types/api.types.js';
-import { DatabaseError, NotFoundError, ValidationError } from '../utils/errors.js';
+import { DatabaseError, ValidationError } from '../utils/errors.js';
 import { computeComboHash } from '../utils/hash.js';
+import { BaseRepository } from './BaseRepository.js';
 
 // Database row types
 type ItemRow = Database['public']['Tables']['items']['Row'];
 type ItemTypeRow = Database['public']['Tables']['itemtypes']['Row'];
 type ItemHistoryRow = Database['public']['Tables']['itemhistory']['Row'];
+
+// Supabase generated Insert/Update types - use these for strong typing
 type ItemInsert = Database['public']['Tables']['items']['Insert'];
 type ItemUpdate = Database['public']['Tables']['items']['Update'];
+type ItemHistoryInsert = Database['public']['Tables']['itemhistory']['Insert'];
 
 /**
  * Item history event entry
+ *
+ * Represents a historical event log entry for an item.
+ * event_data is serialized JSON and should be parsed by callers as needed.
  */
 export interface ItemHistoryEvent {
   id: string;
   item_id: string;
   user_id: string;
   event_type: string;
-  event_data: any;
+  event_data: Record<string, unknown> | null;
   created_at: string;
 }
 
@@ -90,9 +94,17 @@ export class ItemRepository extends BaseRepository<ItemRow> {
   /**
    * Create a new item for a user
    *
-   * @param itemData - Item creation data
-   * @returns Created item
-   * @throws DatabaseError on creation failure
+   * @param itemData - Item creation data (user_id, item_type_id, level optional)
+   * @returns Created item with all fields
+   * @throws DatabaseError if ItemType not found or insertion fails
+   *
+   * Auto-populated fields:
+   * - level: defaults to 1 if not provided
+   * - is_styled: defaults to false
+   * - current_stats: null (computed later)
+   * - material_combo_hash: hash of empty materials
+   * - generated_image_url: base_image_url from ItemType
+   * - image_generation_status: null (set to 'pending' when generation starts)
    */
   async create(itemData: CreateItemData): Promise<ItemRow> {
     // First, fetch the base_image_url from ItemTypes
@@ -110,6 +122,7 @@ export class ItemRepository extends BaseRepository<ItemRow> {
     // This ensures all items have a valid hash, even if they haven't had materials applied yet
     const initialComboHash = computeComboHash([], []);
 
+    // Use strongly-typed ItemInsert from Supabase schema
     const insertData: ItemInsert = {
       user_id: itemData.user_id,
       item_type_id: itemData.item_type_id,
@@ -129,19 +142,26 @@ export class ItemRepository extends BaseRepository<ItemRow> {
    *
    * @param itemId - Item ID to update
    * @param userId - User ID for ownership validation
-   * @param data - Fields to update
-   * @returns Updated item
+   * @param data - Fields to update (use UpdateItemData interface for type hints)
+   * @returns Updated item with modified fields
    * @throws NotFoundError if item not found or wrong owner
    * @throws DatabaseError on update failure
+   *
+   * Type-safe updates using Supabase's ItemUpdate type:
+   * - Only fields in UpdateItemData can be modified
+   * - current_stats accepts Stats object (auto-stringified by Supabase)
+   * - All optional fields can be omitted
    */
   async updateItem(itemId: string, userId: string, data: UpdateItemData): Promise<ItemRow> {
     // Validate ownership first
     await this.validateOwnership(itemId, userId);
 
+    // Use strongly-typed ItemUpdate from Supabase schema
+    // Note: Supabase client handles JSON stringification for current_stats field
     const updateData: ItemUpdate = {
       ...data,
-      // Ensure current_stats is properly formatted if provided
-      current_stats: data.current_stats ? JSON.stringify(data.current_stats) as any : undefined
+      // current_stats field accepts Stats object; Supabase auto-serializes it
+      current_stats: data.current_stats as any
     };
 
     return await super.update(itemId, updateData);
@@ -392,7 +412,7 @@ export class ItemRepository extends BaseRepository<ItemRow> {
    * @throws DatabaseError on update failure
    */
   async updateStats(itemId: string, userId: string, stats: Stats): Promise<void> {
-    await this.updateItem(itemId, userId, { current_stats: stats });
+    await this.updateItem(itemId, userId, { current_stats: stats },);
   }
 
   /**
@@ -453,9 +473,13 @@ export class ItemRepository extends BaseRepository<ItemRow> {
    * @param itemId - Item ID to log event for
    * @param userId - User ID for ownership validation
    * @param eventType - Type of event (e.g., 'level_up', 'material_applied', 'equipped')
-   * @param eventData - Additional event data
+   * @param eventData - Additional event metadata (optional, auto-serialized by Supabase)
    * @throws NotFoundError if item not found or wrong owner
    * @throws DatabaseError on insert failure
+   *
+   * Auto-populated fields:
+   * - id: auto-generated UUID
+   * - created_at: server timestamp
    */
   async addHistoryEvent(
     itemId: string,
@@ -466,14 +490,17 @@ export class ItemRepository extends BaseRepository<ItemRow> {
     // Validate ownership first
     await this.validateOwnership(itemId, userId);
 
+    // Use strongly-typed ItemHistoryInsert from Supabase schema
+    const historyEntry: ItemHistoryInsert = {
+      item_id: itemId,
+      user_id: userId,
+      event_type: eventType,
+      event_data: eventData
+    };
+
     const { error } = await this.client
       .from('itemhistory')
-      .insert({
-        item_id: itemId,
-        user_id: userId,
-        event_type: eventType,
-        event_data: eventData
-      });
+      .insert(historyEntry);
 
     if (error) {
       throw new DatabaseError(`Failed to add item history event: ${itemId}`, error);

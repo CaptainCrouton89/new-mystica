@@ -69,21 +69,24 @@ core_components:
       - "CORS middleware for client requests"
 
   - component: "Location Service"
-    description: "Manages spawn locations and level-aware pool system for enemy/loot assignments. Handles /locations/nearby queries with geospatial distance calculations. Implements tag/filter-based pool system where pools are level-specific and apply based on location attributes (location_type, state, country, coordinates). Returns locations within radius sorted by distance with dynamically assigned enemies from matching pools."
+    description: "Manages spawn locations and level-aware enemy pool system. Handles /locations/nearby queries with geospatial distance calculations. Implements tag/filter-based EnemyPool system where pools are combat_level-specific and apply based on location attributes (location_type, state, country, coordinates). Returns locations within radius sorted by distance with dynamically assigned enemies from matching pools. Loot determined per-enemy via enemyloot table (no LootPools)."
     dependencies:
       - "PostgreSQL PostGIS extension for geo queries"
       - "Locations table with location_type, state_code, country_code metadata"
-      - "EnemyPools and LootPools with filter-based matching logic"
-      - "Pool member tables for weighted random selection"
+      - "EnemyPools with filter-based matching logic (combat_level, location filters)"
+      - "EnemyPoolMembers table for weighted random enemy selection"
+      - "EnemyLoot table for direct enemy-specific loot queries"
 
   - component: "Combat Service"
-    description: "Manages combat sessions in CombatSessions table with automatic cleanup of expired sessions (15min TTL via scheduled job). Calculates damage based on player stats, enemy stats, and timing multiplier. Awards items/pets on victory. Uses level-aware pool system to dynamically select enemies and loot drops based on player level and location attributes. Enemies with style_id drop materials with matching style_id for visual consistency."
+    description: "Manages combat sessions in CombatSessions table with automatic cleanup of expired sessions (15min TTL via scheduled job). Calculates zone-based damage (5-zone system with 0.5x-1.5x multipliers, variable crit chances). Awards materials/items/gold/XP on victory from direct enemyloot table queries. Enemy stats use normalized distribution (sum=1.0) scaled by combat_level × tier.difficulty_multiplier. HP scales with tier ONLY (base_hp × tier.difficulty_multiplier, no combat_level factor). Simulates enemy zone hits using accuracy-based probability distribution. Style inheritance: enemies with style_id drop materials with matching style_id."
     dependencies:
       - "CombatSessions table for persistent session storage"
-      - "Items and enemies tables"
-      - "EnemyPools and LootPools for dynamic assignment"
+      - "EnemyTypes table with normalized stats (atk_power_normalized, etc.)"
+      - "Tiers table with difficulty/gold/xp multipliers"
+      - "EnemyLoot table with polymorphic FK (lootable_type + lootable_id)"
+      - "EnemyPools for dynamic enemy assignment (no LootPools)"
       - "StyleDefinitions table for enemy style inheritance"
-      - "Stat calculation logic"
+      - "Zone probability calculation (smooth anchor curves)"
       - "Database cleanup job for expired sessions (WHERE created_at < NOW() - INTERVAL '15 minutes')"
 
   - component: "Inventory Service"
@@ -156,27 +159,31 @@ data_flow: |
   4. Backend → Client: {locations: [{id, lat, lng, enemy_type, distance}]}
   5. Client → Google Maps: Display markers
 
-  **Combat Flow:**
+  **Combat Flow (Zone-Based System):**
   1. Client → Backend API: POST /combat/start {location_id}
   2. Backend → PostgreSQL: SELECT location metadata (location_type, state_code, country_code, lat, lng)
-  3. Backend → PostgreSQL: Calculate player combat level from avg equipped item level
-  4. Backend → PostgreSQL: Query matching EnemyPools based on combat level and location filters
+  3. Backend → PostgreSQL: Calculate player combat_level from avg equipped item level
+  4. Backend → PostgreSQL: Query matching EnemyPools based on combat_level and location filters
   5. Backend → PostgreSQL: Aggregate EnemyPoolMembers, select enemy via weighted random
-  6. Backend → PostgreSQL: Query matching LootPools for later drop calculation
-  7. Backend → PostgreSQL: SELECT Items JOIN UserEquipment WHERE user_id = {player_id} AND UserEquipment.item_id IS NOT NULL
-  8. Backend → PostgreSQL: INSERT CombatSessions {player_hp, enemy_hp, stats, applied_pools, combat_log}
-  9. Backend → Client: {session_id, enemy, player_stats}
-  10. Client → Backend API: POST /combat/attack {session_id, tap_accuracy}
-  11. Backend → PostgreSQL: SELECT CombatSessions WHERE id = {session_id}, calculate damage, UPDATE player_hp/enemy_hp/combat_log
-  12. Backend → Client: {damage_dealt, enemy_damage, player_hp, enemy_hp, status}
-  13. Repeat until victory/defeat
-  14. Client → Backend API: POST /combat/complete {session_id, result}
-  15. Backend → PostgreSQL: SELECT CombatSessions to retrieve LootPools and calculate drops (if victory)
-  15a. Backend → PostgreSQL: SELECT enemy style_id from combat session
-  15b. Backend → PostgreSQL: INSERT materials with matching style_id (if victory)
-  16. Backend → PostgreSQL: INSERT items (if victory)
-  17. Backend → PostgreSQL: UPDATE CombatSessions SET outcome = {result}, rewards = {json}
-  18. Backend → Client: {reward: {items, materials_with_styles}}
+  6. Backend → PostgreSQL: SELECT EnemyType with normalized stats + Tier with multipliers
+  7. Backend: Calculate realized enemy stats (base_atk = normalized × combat_level × tier.difficulty_multiplier, base_def similar, hp = base_hp × tier.difficulty_multiplier)
+  8. Backend → PostgreSQL: INSERT CombatSessions {player_hp, enemy_hp, realized_stats, enemy_type_id, combat_log}
+  9. Backend → Client: {session_id, enemy_realized_stats, player_stats}
+  10. Client → Backend API: POST /combat/attack {session_id, player_zone_hit (1-5)}
+  11. Backend: Simulate enemy zone hit using calculateZoneProbabilities(enemy.atk_accuracy_normalized)
+  12. Backend: Roll crit based on zone crit chance, apply zone_multiplier × crit_multiplier to base stats
+  13. Backend → PostgreSQL: UPDATE CombatSessions {player_hp, enemy_hp, combat_log with zone info}
+  14. Backend → Client: {damage_dealt, enemy_damage, player_zone, enemy_zone, crit_info, player_hp, enemy_hp, status}
+  15. Repeat attack/defense until victory/defeat
+  16. Client → Backend API: POST /combat/complete {session_id, result}
+  17. (If victory) Backend → PostgreSQL: SELECT EnemyLoot WHERE enemy_type_id = {id} AND lootable_type = 'material'
+  18. (If victory) Backend: Weighted random material selection, apply style_id = enemy.style_id if styled
+  19. (If victory) Backend → PostgreSQL: SELECT EnemyLoot WHERE lootable_type = 'item_type' (optional drop)
+  20. (If victory) Backend: Calculate gold = 10 × combat_level × tier.gold_multiplier, xp = 20 × combat_level × tier.xp_multiplier
+  21. (If victory) Backend → PostgreSQL: INSERT MaterialStacks {user_id, material_id, style_id, quantity: 1}
+  22. (If victory) Backend → PostgreSQL: INSERT Items (if item dropped)
+  23. Backend → PostgreSQL: UPDATE CombatSessions SET outcome = {result}, rewards = {materials_with_styles, items, gold, xp}
+  24. Backend → Client: {reward: {materials: [{material_id, style_id, quantity}], items, gold, xp}}
 
   **Material Application Flow (F-04, with Image Generation):**
   1. Client → Backend API: POST /items/{item_id}/materials/apply {material_instance_id, slot_index}

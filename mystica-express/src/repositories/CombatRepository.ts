@@ -13,7 +13,7 @@
 import { BaseRepository } from './BaseRepository.js';
 import { ValidationError, BusinessLogicError, NotFoundError, mapSupabaseError } from '../utils/errors.js';
 import { Database } from '../types/database.types.js';
-import { PlayerCombatContext } from '../types/combat.types.js';
+import type { CombatRewards, PlayerCombatContext } from '../types/api.types.js';
 import { v4 as uuidv4 } from 'uuid';
 
 // Database row types
@@ -42,6 +42,7 @@ export interface CombatSessionData {
   locationId: string;
   combatLevel: number;
   enemyTypeId: string;
+  enemyStyleId: string;
   appliedEnemyPools?: any;
   appliedLootPools?: any;
   playerEquippedItemsSnapshot?: any;
@@ -151,8 +152,8 @@ export class CombatRepository extends BaseRepository<CombatSession> {
       location_id: sessionData.locationId,
       combat_level: sessionData.combatLevel,
       enemy_type_id: sessionData.enemyTypeId,
+      enemy_style_id: sessionData.enemyStyleId,
       applied_enemy_pools: sessionData.appliedEnemyPools || null,
-      applied_loot_pools: sessionData.appliedLootPools || null,
       player_equipped_items_snapshot: sessionData.playerEquippedItemsSnapshot || null,
       player_rating: sessionData.playerRating || null,
       enemy_rating: sessionData.enemyRating || null,
@@ -205,6 +206,7 @@ export class CombatRepository extends BaseRepository<CombatSession> {
       locationId: data.location_id,
       combatLevel: data.combat_level,
       enemyTypeId: data.enemy_type_id,
+      enemyStyleId: data.enemy_style_id,
       appliedEnemyPools: data.applied_enemy_pools,
       appliedLootPools: data.applied_loot_pools,
       playerEquippedItemsSnapshot: data.player_equipped_items_snapshot,
@@ -274,6 +276,7 @@ export class CombatRepository extends BaseRepository<CombatSession> {
       locationId: data.location_id,
       combatLevel: data.combat_level,
       enemyTypeId: data.enemy_type_id,
+      enemyStyleId: data.enemy_style_id,
       appliedEnemyPools: data.applied_enemy_pools,
       appliedLootPools: data.applied_loot_pools,
       playerEquippedItemsSnapshot: data.player_equipped_items_snapshot,
@@ -780,16 +783,26 @@ export class CombatRepository extends BaseRepository<CombatSession> {
   /**
    * Calculate combat rating using PostgreSQL RPC function
    *
-   * @param atk - Attack power
-   * @param def - Defense power
+   * @param atkPower - Attack power stat
+   * @param atkAccuracy - Attack accuracy stat
+   * @param defPower - Defense power stat
+   * @param defAccuracy - Defense accuracy stat
    * @param hp - Health points
    * @returns Combat rating as number
    * @throws DatabaseError on RPC failure
    */
-  async calculateCombatRating(atk: number, def: number, hp: number): Promise<number> {
+  async calculateCombatRating(
+    atkPower: number,
+    atkAccuracy: number,
+    defPower: number,
+    defAccuracy: number,
+    hp: number
+  ): Promise<number> {
     const { data, error } = await this.client.rpc('combat_rating', {
-      atk: atk,
-      defense: def,
+      atk_power: atkPower,
+      atk_accuracy: atkAccuracy,
+      def_power: defPower,
+      def_accuracy: defAccuracy,
       hp: hp
     });
 

@@ -294,11 +294,7 @@ export interface LoadoutWithSlots {
 /**
  * Loadout creation data
  */
-export interface CreateLoadoutData {
-  user_id: string;
-  name: string;
-  is_active?: boolean;
-}
+export interface CreateLoadoutData extends Omit<Database['public']['Tables']['loadouts']['Insert'], 'id' | 'created_at' | 'updated_at'> {}
 
 /**
  * Loadout slot assignments (for bulk update)

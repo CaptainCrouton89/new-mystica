@@ -1,27 +1,20 @@
 import { openai } from '@ai-sdk/openai';
 import { generateObject } from 'ai';
 import { z } from 'zod';
-import { env } from '../config/env';
-import { DatabaseError, ExternalAPIError } from '../utils/errors';
-import {
-  CombatEventType,
+import { ChatterLogEntry, CombatRepository } from '../repositories/CombatRepository.js';
+import type {
   CombatEventDetails,
+  CombatEventType,
   DialogueResponse,
-  PlayerCombatContext,
-} from '../types/combat.types';
-import { CombatRepository, ChatterLogEntry } from '../repositories/CombatRepository.js';
+  PlayerCombatContext
+} from '../types/api.types.js';
+import { DatabaseError, ExternalAPIError } from '../utils/errors';
 
-/**
- * Schema for AI-generated dialogue response
- */
 const aiDialogueSchema = z.object({
   dialogue: z.string().describe('A single line of dialogue appropriate for the combat event'),
   dialogue_tone: z.string().describe('The emotional tone of the dialogue (aggressive, mocking, desperate, etc.)'),
 });
 
-/**
- * Enemy personality data from database
- */
 interface EnemyType {
   id: string;
   name: string;
@@ -30,27 +23,14 @@ interface EnemyType {
   combat_style: string;
 }
 
-/**
- * Service for generating AI-powered enemy dialogue during combat events
- *
- * Responsibilities:
- * - Generate contextual dialogue using OpenAI GPT-4.1-mini
- * - Fallback to generic taunts on AI failure
- * - Log all dialogue attempts to enemychatterlog table
- * - Integrate player combat history into AI context
- */
 export class EnemyChatterService {
-  private readonly AI_TIMEOUT_MS = 2000; // 2 second timeout
+  private readonly AI_TIMEOUT_MS = 2000; 
   private readonly combatRepository: CombatRepository;
 
   constructor() {
     this.combatRepository = new CombatRepository();
   }
 
-  /**
-   * Generate dialogue for a combat event
-   * Main entry point for combat dialogue generation
-   */
   async generateDialogue(
     sessionId: string,
     eventType: CombatEventType,
@@ -60,13 +40,12 @@ export class EnemyChatterService {
     const startTime = Date.now();
 
     try {
-      // Get combat session and enemy type data
+      
       const [sessionData, enemyTypeData] = await Promise.all([
         this.getCombatSession(sessionId),
         this.getEnemyTypeFromSession(sessionId),
       ]);
 
-      // Get player combat history if not provided
       const finalPlayerContext = playerContext || await this.getPlayerCombatHistory(
         sessionData.player_id,
         sessionData.location_id
@@ -76,7 +55,6 @@ export class EnemyChatterService {
       let dialogueTone: string;
       let wasAIGenerated = false;
 
-      // Try AI generation first
       try {
         const aiResult = await this.generateAIDialogue(
           enemyTypeData,
@@ -88,7 +66,7 @@ export class EnemyChatterService {
         dialogueTone = aiResult.dialogue_tone;
         wasAIGenerated = true;
       } catch (error) {
-        // Fallback to example taunts on AI failure
+        
         dialogue = this.selectFallbackTaunt(enemyTypeData, eventType);
         dialogueTone = this.getDefaultToneForEvent(eventType);
         wasAIGenerated = false;
@@ -105,7 +83,6 @@ export class EnemyChatterService {
         player_context_used: finalPlayerContext,
       };
 
-      // Log the dialogue attempt
       await this.logDialogueAttempt(
         sessionId,
         eventType,
@@ -117,7 +94,6 @@ export class EnemyChatterService {
     } catch (error) {
       const generationTimeMs = Date.now() - startTime;
 
-      // Log failed attempt
       await this.logDialogueAttempt(
         sessionId,
         eventType,
@@ -129,9 +105,6 @@ export class EnemyChatterService {
     }
   }
 
-  /**
-   * Generate AI dialogue using OpenAI GPT-4.1-mini
-   */
   private async generateAIDialogue(
     enemyType: EnemyType,
     eventType: CombatEventType,
@@ -158,10 +131,6 @@ export class EnemyChatterService {
     }
   }
 
-  /**
-   * Build AI prompts for dialogue generation
-   * Combines enemy personality with combat context
-   */
   private buildAIPrompt(
     enemyType: EnemyType,
     eventType: CombatEventType,
@@ -179,8 +148,7 @@ ${enemyType.dialogue_guidelines}
 Generate a single line of dialogue appropriate for the current combat situation. The dialogue should:
 - Reflect your personality and combat style
 - Be contextually appropriate for the event type
-- Be concise (1-2 sentences maximum)
-- Match the tone and style of fantasy combat encounters
+- Use 10 words or less
 - Show awareness of the combat situation (HP levels, turn progression, etc.)
 
 Consider the player's combat history when crafting your response - if they're experienced, you might be more respectful or challenging. If they're new, you might be more mocking or confident.`;
@@ -199,45 +167,41 @@ Generate appropriate dialogue for this situation.`;
     return { system, user };
   }
 
-  /**
-   * Format combat event details for AI prompt
-   */
   private formatEventContext(eventType: CombatEventType, eventDetails: CombatEventDetails): string {
-    const { damage, accuracy, is_critical, turn_number, player_hp_percentage, enemy_hp_percentage } = eventDetails;
+    const { damage, accuracy, is_critical, turn_number, player_hp_pct, enemy_hp_pct } = eventDetails;
+    const playerHpPercent = Math.round((player_hp_pct ?? 0) * 100);
+    const enemyHpPercent = Math.round((enemy_hp_pct ?? 0) * 100);
 
     switch (eventType) {
       case 'combat_start':
-        return `Turn ${turn_number}: Combat begins. Player HP: ${Math.round(player_hp_percentage)}%, Enemy HP: ${Math.round(enemy_hp_percentage)}%`;
+        return `Turn ${turn_number}: Combat begins. Player HP: ${playerHpPercent}%, Enemy HP: ${enemyHpPercent}%`;
 
       case 'player_hit':
-        return `Turn ${turn_number}: Player hit enemy for ${damage} damage${is_critical ? ' (CRITICAL!)' : ''}. Player HP: ${Math.round(player_hp_percentage)}%, Enemy HP: ${Math.round(enemy_hp_percentage)}%`;
+        return `Turn ${turn_number}: Player hit enemy for ${damage} damage${is_critical ? ' (CRITICAL!)' : ''}. Player HP: ${playerHpPercent}%, Enemy HP: ${enemyHpPercent}%`;
 
       case 'player_miss':
-        return `Turn ${turn_number}: Player missed their attack. Player HP: ${Math.round(player_hp_percentage)}%, Enemy HP: ${Math.round(enemy_hp_percentage)}%`;
+        return `Turn ${turn_number}: Player missed their attack. Player HP: ${playerHpPercent}%, Enemy HP: ${enemyHpPercent}%`;
 
       case 'enemy_hit':
-        return `Turn ${turn_number}: Enemy hit player for ${damage} damage${is_critical ? ' (CRITICAL!)' : ''}. Player HP: ${Math.round(player_hp_percentage)}%, Enemy HP: ${Math.round(enemy_hp_percentage)}%`;
+        return `Turn ${turn_number}: Enemy hit player for ${damage} damage${is_critical ? ' (CRITICAL!)' : ''}. Player HP: ${playerHpPercent}%, Enemy HP: ${enemyHpPercent}%`;
 
       case 'low_player_hp':
-        return `Turn ${turn_number}: Player health is critically low (${Math.round(player_hp_percentage)}%). Enemy HP: ${Math.round(enemy_hp_percentage)}%`;
+        return `Turn ${turn_number}: Player health is critically low (${playerHpPercent}%). Enemy HP: ${enemyHpPercent}%`;
 
       case 'near_victory':
-        return `Turn ${turn_number}: Enemy health is critically low (${Math.round(enemy_hp_percentage)}%). Player HP: ${Math.round(player_hp_percentage)}%`;
+        return `Turn ${turn_number}: Enemy health is critically low (${enemyHpPercent}%). Player HP: ${playerHpPercent}%`;
 
       case 'defeat':
-        return `Turn ${turn_number}: Player has been defeated. Final Enemy HP: ${Math.round(enemy_hp_percentage)}%`;
+        return `Turn ${turn_number}: Player has been defeated. Final Enemy HP: ${enemyHpPercent}%`;
 
       case 'victory':
-        return `Turn ${turn_number}: Enemy has been defeated. Final Player HP: ${Math.round(player_hp_percentage)}%`;
+        return `Turn ${turn_number}: Enemy has been defeated. Final Player HP: ${playerHpPercent}%`;
 
       default:
-        return `Turn ${turn_number}: ${eventType}. Player HP: ${Math.round(player_hp_percentage)}%, Enemy HP: ${Math.round(enemy_hp_percentage)}%`;
+        return `Turn ${turn_number}: ${eventType}. Player HP: ${playerHpPercent}%, Enemy HP: ${enemyHpPercent}%`;
     }
   }
 
-  /**
-   * Format player combat context for AI prompt
-   */
   private formatPlayerContext(playerContext: PlayerCombatContext): string {
     const { attempts, victories, defeats, current_streak } = playerContext;
     const winRate = attempts > 0 ? Math.round((victories / attempts) * 100) : 0;
@@ -249,16 +213,10 @@ Generate appropriate dialogue for this situation.`;
 - Current streak: ${current_streak} ${current_streak >= 0 ? 'wins' : 'losses'}`;
   }
 
-  /**
-   * Select fallback taunt using generic taunts
-   */
   private selectFallbackTaunt(enemyType: EnemyType, eventType: CombatEventType): string {
     return this.getGenericTaunt(eventType);
   }
 
-  /**
-   * Get default dialogue tone for event type
-   */
   private getDefaultToneForEvent(eventType: CombatEventType): string {
     switch (eventType) {
       case 'combat_start':
@@ -282,9 +240,6 @@ Generate appropriate dialogue for this situation.`;
     }
   }
 
-  /**
-   * Get generic taunt for fallback dialogue
-   */
   private getGenericTaunt(eventType: CombatEventType): string {
     const genericTaunts = {
       combat_start: "You dare challenge me?",
@@ -304,23 +259,15 @@ Generate appropriate dialogue for this situation.`;
     return taunt;
   }
 
-  /**
-   * Get combat session data
-   */
   private async getCombatSession(sessionId: string) {
     const { combatService } = await import('./CombatService.js');
     return combatService.getCombatSession(sessionId);
   }
 
-  /**
-   * Get enemy type data from combat session
-   * Currently uses hardcoded data since we're in development
-   */
   private async getEnemyTypeFromSession(sessionId: string): Promise<EnemyType> {
-    // Get the session to find the enemy_type_id
+    
     const session = await this.getCombatSession(sessionId);
 
-    // Return hardcoded enemy type data that matches our stub data
     const enemyTypes: Record<string, EnemyType> = {
       'd9e715fb-5de0-4639-96f8-3b4f03476314': {
         id: 'd9e715fb-5de0-4639-96f8-3b4f03476314',
@@ -367,16 +314,10 @@ Generate appropriate dialogue for this situation.`;
     return enemyType;
   }
 
-  /**
-   * Get player combat history for context
-   */
   private async getPlayerCombatHistory(playerId: string, locationId: string): Promise<PlayerCombatContext> {
     return this.combatRepository.getPlayerCombatContext(playerId, locationId);
   }
 
-  /**
-   * Log dialogue attempt to database
-   */
   private async logDialogueAttempt(
     sessionId: string,
     eventType: CombatEventType,
@@ -384,7 +325,7 @@ Generate appropriate dialogue for this situation.`;
     errorMessage: string | null
   ): Promise<void> {
     try {
-      // Get enemy_type_id from session
+      
       const session = await this.getCombatSession(sessionId);
 
       const logEntry: ChatterLogEntry = {
@@ -402,7 +343,7 @@ Generate appropriate dialogue for this situation.`;
       await this.combatRepository.logChatterAttempt(logEntry);
     } catch (error) {
       console.error('Failed to log dialogue attempt:', error);
-      // Don't throw here - logging failure shouldn't break dialogue generation
+      
     }
   }
 }

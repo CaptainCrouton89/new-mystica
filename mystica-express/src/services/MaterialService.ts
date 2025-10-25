@@ -1,20 +1,16 @@
-import { Material, MaterialStackDetailed, ApplyMaterialResult, ReplaceMaterialResult } from '../types/api.types.js';
-import { NotImplementedError, NotFoundError, ValidationError, BusinessLogicError } from '../utils/errors.js';
-import { MaterialRepository } from '../repositories/MaterialRepository.js';
 import { ImageCacheRepository } from '../repositories/ImageCacheRepository.js';
 import { ItemRepository } from '../repositories/ItemRepository.js';
+import { MaterialRepository } from '../repositories/MaterialRepository.js';
 import { StyleRepository } from '../repositories/StyleRepository.js';
-import { ImageGenerationService } from './ImageGenerationService.js';
-import { NameDescriptionService } from './NameDescriptionService.js';
-import { MaterialInstance, CreateImageCacheData } from '../types/repository.types.js';
+import { AppliedMaterial, ApplyMaterialResult, Material, MaterialStackDetailed, PlayerItem } from '../types/api.types.js';
+import { ItemWithDetails } from '../types/repository.types.js';
+import { BusinessLogicError, NotFoundError, ValidationError } from '../utils/errors.js';
 import { computeComboHash } from '../utils/hash.js';
 import { getMaterialImageUrl } from '../utils/image-url.js';
-import { economyService } from './EconomyService.js';
+import { ImageGenerationService } from './ImageGenerationService.js';
+import { NameDescriptionService } from './NameDescriptionService.js';
 import { statsService } from './StatsService.js';
 
-/**
- * Handles material application to items with image generation
- */
 export class MaterialService {
   private materialRepository: MaterialRepository;
   private imageCacheRepository: ImageCacheRepository;
@@ -39,41 +35,27 @@ export class MaterialService {
     this.nameDescriptionService = nameDescriptionService || new NameDescriptionService();
   }
 
-  /**
-   * Get all material templates (no auth required)
-   * - Returns complete material library for client display
-   * - Includes: id, name, description, stat_modifiers, theme, image_url
-   * - Ordered by name alphabetically
-   */
   async getAllMaterials(): Promise<Material[]> {
     const materials = await this.materialRepository.findAllMaterials();
-    // Add computed R2 image URLs
     return materials.map(m => ({
       ...m,
       image_url: getMaterialImageUrl(m.name)
     }));
   }
-  /**
-   * Get user's material inventory
-   * - Fetches all material stacks owned by user
-   * - Groups by material type and style
-   * - Returns stackable inventory data with style names
-   */
+
   async getMaterialInventory(userId: string): Promise<MaterialStackDetailed[]> {
-    // Get all material stacks for the user with joined style data
     const stacksWithDetails = await this.materialRepository.findStacksByUserWithDetails(userId);
 
-    // Build detailed stacks with full material information
     const stacksWithMaterials: MaterialStackDetailed[] = [];
 
     for (const stack of stacksWithDetails) {
       const material = await this.materialRepository.findMaterialById(stack.material_id);
       if (!material) {
-        continue; // Skip stacks with invalid material references
+        continue; 
       }
 
       stacksWithMaterials.push({
-        id: stack.material_id + ':' + stack.style_id, // Composite key
+        id: stack.material_id + ':' + stack.style_id,
         user_id: userId,
         material_id: stack.material_id,
         style_id: stack.style_id,
@@ -93,15 +75,6 @@ export class MaterialService {
     return stacksWithMaterials;
   }
 
-  /**
-   * Apply material to item (up to 3 total)
-   * - Validates ownership and slot availability
-   * - Decrements MaterialStacks quantity
-   * - Creates MaterialInstance
-   * - Computes material_combo_hash
-   * - Checks ItemImageCache or generates (20s sync)
-   * - Returns is_first_craft and craft_count
-   */
   async applyMaterial(request: {
     userId: string;
     itemId: string;
@@ -110,33 +83,16 @@ export class MaterialService {
     slotIndex: number;
   }): Promise<ApplyMaterialResult> {
     const { userId, itemId, materialId, styleId, slotIndex } = request;
-    // TODO: Implement material application workflow
-    // 1. Validate user owns item
-    // 2. Check slot availability (max 3 materials per item)
-    // 3. Validate slotIndex (0-2) and not occupied
-    // 4. Check MaterialStacks for sufficient quantity (>=1)
-    // 5. Create MaterialInstance record
-    // 6. Insert ItemMaterials junction record
-    // 7. Decrement MaterialStacks quantity
-    // 8. Compute deterministic combo_hash (sorted material IDs)
-    // 9. Check ItemImageCache for existing combo
-    // 10. If not cached: call ImageGenerationService.generateImage (20s sync)
-    // 11. Update Items table with new combo_hash and image_url
-    // 12. Return result with cache status and craft count
-
-    // 1. Validate user owns item
     const item = await this.itemRepository.findById(itemId, userId);
     if (!item) {
       throw new NotFoundError('Item', itemId);
     }
 
-    // 2. Check slot availability (max 3 materials per item)
     const occupiedSlots = await this.materialRepository.getSlotOccupancy(itemId);
     if (occupiedSlots.length >= 3) {
       throw new BusinessLogicError('Item already has maximum 3 materials applied');
     }
 
-    // 3. Validate slotIndex (0-2) and not occupied
     if (slotIndex < 0 || slotIndex > 2) {
       throw new ValidationError('Slot index must be between 0 and 2');
     }
@@ -144,14 +100,12 @@ export class MaterialService {
       throw new BusinessLogicError(`Slot ${slotIndex} is already occupied`);
     }
 
-    // 4. Check MaterialStacks for sufficient quantity (>=1)
     const materialStack = await this.materialRepository.findStackByUser(userId, materialId, styleId);
     if (!materialStack || materialStack.quantity < 1) {
       throw new BusinessLogicError('Insufficient materials in inventory');
     }
 
-    // 5-7. Use atomic RPC function for material application
-    const { instance, newStackQuantity } = await this.materialRepository.applyMaterialToItemAtomic(
+    await this.materialRepository.applyMaterialToItemAtomic(
       userId,
       itemId,
       materialId,
@@ -159,32 +113,52 @@ export class MaterialService {
       slotIndex
     );
 
-    // 8. Compute deterministic combo_hash (sorted material IDs)
     const allMaterials = await this.materialRepository.findMaterialsByItem(itemId);
-    const materialIds = allMaterials.map(m => m.material_id).filter(Boolean);
-    const styleIds = allMaterials.map(m => m.style_id || '00000000-0000-0000-0000-000000000000');
-    const comboHash = computeComboHash(materialIds, styleIds);
 
-    // 9. Check ItemImageCache for existing combo
+    const materialMappings: { materialId: string; styleId: string }[] = [];
+    for (const m of allMaterials) {
+        if (!m.material_id) {
+        throw new ValidationError('Material missing ID');
+      }
+      if (!m.style_id) {
+        throw new ValidationError(`Missing style_id for material ${m.material_id}`);
+      }
+
+        const {style_name} = await this.styleRepository.findById(m.style_id);
+      if (!style_name) {
+        throw new NotFoundError('Style', m.style_id);
+      }
+
+      materialMappings.push({
+        materialId: m.material_id,
+        styleId: m.style_id
+      });
+    }
+
+    materialMappings.sort((a, b) => a.materialId.localeCompare(b.materialId));
+
+    const comboHash = computeComboHash(
+      materialMappings.map(m => m.materialId),
+      materialMappings.map(m => m.styleId)
+    );
+
     let cacheEntry = await this.imageCacheRepository.findByComboHash(item.item_type_id, comboHash);
     let isFirstCraft = false;
     let craftCount = 1;
     let imageUrl = '';
 
     if (cacheEntry) {
-      // Cache hit - increment craft count
-      craftCount = await this.imageCacheRepository.incrementCraftCount(cacheEntry.id);
+        craftCount = await this.imageCacheRepository.incrementCraftCount(cacheEntry.id);
       imageUrl = cacheEntry.image_url;
     } else {
-      // 10. Cache miss - generate new image (20s sync)
+      
       isFirstCraft = true;
       const materialReferences = allMaterials.map(m => ({
         material_id: m.material_id,
         style_id: m.style_id || '00000000-0000-0000-0000-000000000000',
-        image_url: '' // Will be filled by ImageGenerationService
+        image_url: '' 
       }));
 
-      // Gather data for name/description generation
       const itemTypeForGeneration = await this.itemRepository.findWithMaterials(itemId, userId);
       if (!itemTypeForGeneration?.item_type?.name) {
         throw new ValidationError('Item type name is missing for image generation');
@@ -194,19 +168,17 @@ export class MaterialService {
         .map(m => m.material?.name)
         .filter(Boolean) as string[];
 
-      // Generate image and name/description in parallel
       const [generatedImageUrl, nameDescResult] = await Promise.all([
         this.imageGenerationService.generateImage(item.item_type_id, materialReferences),
         this.nameDescriptionService.generateForItem(itemTypeName, materialNames)
           .catch(error => {
             console.error('Name/description generation failed:', error);
-            return null; // Return null on failure, continue with crafting
+            return null; 
           })
       ]);
 
       imageUrl = generatedImageUrl;
 
-      // Store name/description if generation succeeded
       if (nameDescResult) {
         try {
           await this.itemRepository.updateItemNameDescription(
@@ -215,40 +187,30 @@ export class MaterialService {
             nameDescResult.name,
             nameDescResult.description
           );
-          console.log(`✅ Stored generated name: "${nameDescResult.name}"`);
         } catch (error) {
-          console.error('Failed to store name/description:', error);
-          // Don't throw - continue with crafting even if storage fails
+          console.warn('Failed to update item name/description:', error);
         }
       }
 
-      // Create cache entry
       cacheEntry = await this.imageCacheRepository.createCacheEntry({
         item_type_id: item.item_type_id,
         combo_hash: comboHash,
         image_url: imageUrl,
-        provider: 'gemini' // Default provider
+        provider: 'gemini' 
       });
       craftCount = cacheEntry.craft_count;
     }
 
-    // 11. Update Items table with new combo_hash and image_url
     await this.itemRepository.updateImageData(itemId, userId, comboHash, imageUrl, 'complete');
 
-    // 11.5. Calculate and update item stats with applied materials
-    // Note: We need to fetch the item with type data for base stats and rarity
     const itemWithType = await this.itemRepository.findWithMaterials(itemId, userId);
     if (itemWithType && itemWithType.item_type) {
-      // Get base stats and rarity from item type
-      // NOTE: Pass un-adjusted base stats to computeItemStats - it handles rarity internally
+      
       const baseStats = itemWithType.item_type.base_stats_normalized;
       const rarity = itemWithType.item_type.rarity;
 
-      // Calculate final stats with materials applied
-      // Note: Filter out any materials that don't have proper stat_modifiers (for tests)
       const validMaterials = allMaterials.filter(m => m.material && m.material.stat_modifiers);
 
-      // Create a wrapper with rarity info for the stats calculation
       const itemWithRarity = {
         item_type: {
           base_stats_normalized: baseStats,
@@ -256,10 +218,8 @@ export class MaterialService {
         }
       };
 
-      // Use computeItemStatsForLevel which properly handles rarity multiplier
       const finalStats = statsService.computeItemStatsForLevel(itemWithRarity, itemWithType.level);
 
-      // Apply material modifiers separately
       const materialMods = validMaterials.reduce((acc, material) => ({
         atkPower: acc.atkPower + material.material.stat_modifiers.atkPower,
         atkAccuracy: acc.atkAccuracy + material.material.stat_modifiers.atkAccuracy,
@@ -274,17 +234,20 @@ export class MaterialService {
         defAccuracy: Math.round((finalStats.defAccuracy + materialMods.defAccuracy) * 100) / 100
       };
 
-      // Update the item's current_stats in the database
+      const isStyled = allMaterials.some(m => m.style_id !== 'normal');
+
       await this.itemRepository.updateStats(itemId, userId, finalStatsWithMaterials);
+
+      if (isStyled) {
+        await this.itemRepository.update(itemId, { is_styled: true });
+      }
     }
 
-    // 12. Return result with cache status and craft count
     const updatedItem = await this.itemRepository.findWithMaterials(itemId, userId);
     if (!updatedItem) {
       throw new NotFoundError('Item', itemId);
     }
 
-    // Fetch full material data for materials_consumed response
     const consumedMaterial = await this.materialRepository.findMaterialById(materialStack.material_id);
     if (!consumedMaterial) {
       throw new NotFoundError('Material', materialStack.material_id);
@@ -308,328 +271,99 @@ export class MaterialService {
     };
   }
 
-  /**
-   * Replace existing material on item with new one
-   * - Costs gold to replace (higher for styled materials)
-   * - Returns old material to inventory as stack
-   * - Regenerates image if combo changes
-   */
-  async replaceMaterial(request: {
-    userId: string;
-    itemId: string;
-    slotIndex: number;
-    newMaterialId: string;
-    newStyleId: string;
-    goldCost: number;
-  }): Promise<ReplaceMaterialResult> {
-    const { userId, itemId, slotIndex, newMaterialId, newStyleId, goldCost } = request;
-    // TODO: Implement material replacement workflow
-    // 1. Validate user owns item and has sufficient gold
-    // 2. Check slot is occupied (slotIndex 0-2)
-    // 3. Get existing MaterialInstance from slot
-    // 4. Check user has new material in MaterialStacks
-    // 5. Deduct gold from user profile
-    // 6. Update MaterialInstance with new material/style_id
-    // 7. Increment MaterialStacks for old material (return to inventory)
-    // 8. Decrement MaterialStacks for new material
-    // 9. Recompute combo_hash
-    // 10. Check ItemImageCache or generate new image
-    // 11. Update Items table
-    // 12. Return result with gold spent and replaced material
-
-    // 1. Validate user owns item
-    const item = await this.itemRepository.findById(itemId, userId);
-    if (!item) {
-      throw new NotFoundError('Item', itemId);
+  private async transformItemToApiFormat(itemWithDetails: ItemWithDetails, craftCount: number = 1): Promise<PlayerItem> {
+    if (!itemWithDetails) {
+      throw new ValidationError('Item details are undefined');
     }
 
-    // 1.5. Validate gold cost and deduct currency BEFORE making changes
-    const expectedCost = 100 * item.level;
-    if (goldCost !== expectedCost) {
-      throw new ValidationError(`Invalid cost: expected ${expectedCost}, got ${goldCost}`);
-    }
+    const baseType = (() => {
+      if (itemWithDetails.name) return itemWithDetails.name;
+      if (itemWithDetails.item_type?.name) return itemWithDetails.item_type.name;
+      throw new ValidationError('No valid base type name found for item');
+    })();
 
-    // Deduct gold before making any material changes (atomic with transaction)
-    await economyService.deductCurrency(
-      userId,
-      'GOLD',
-      goldCost,
-      'material_replacement',
-      itemId
-    );
+    const description = (() => {
+      if (itemWithDetails.description) return itemWithDetails.description;
+      if (itemWithDetails.item_type?.description) return itemWithDetails.item_type.description;
+      return null;
+    })();
 
-    // 2. Check slot is occupied (slotIndex 0-2)
-    if (slotIndex < 0 || slotIndex > 2) {
-      throw new ValidationError('Slot index must be between 0 and 2');
-    }
-
-    const occupiedSlots = await this.materialRepository.getSlotOccupancy(itemId);
-    if (!occupiedSlots.includes(slotIndex)) {
-      throw new BusinessLogicError(`Slot ${slotIndex} is not occupied`);
-    }
-
-    // 3. Get existing MaterialInstance from slot
-    const oldMaterialInstance = await this.materialRepository.removeFromItem(itemId, slotIndex);
-
-    // 4. Check user has new material in MaterialStacks
-    const newMaterialStack = await this.materialRepository.findStackByUser(userId, newMaterialId, newStyleId);
-    if (!newMaterialStack || newMaterialStack.quantity < 1) {
-      // Restore the old material before failing
-      await this.materialRepository.applyToItem(itemId, oldMaterialInstance.id, slotIndex);
-      throw new BusinessLogicError('Insufficient new materials in inventory');
-    }
-
-    // 5-8. Use atomic RPC function for material replacement
-    const { oldInstance, newInstance, oldStackQuantity, newStackQuantity } =
-      await this.materialRepository.replaceMaterialOnItemAtomic(
-        userId,
-        itemId,
-        slotIndex,
-        newMaterialId,
-        newStyleId
-      );
-
-    // 9. Recompute combo_hash
-    const allMaterials = await this.materialRepository.findMaterialsByItem(itemId);
-    const materialIds = allMaterials.map(m => m.material_id).filter(Boolean);
-    const styleIds = allMaterials.map(m => m.style_id || '00000000-0000-0000-0000-000000000000');
-    const comboHash = computeComboHash(materialIds, styleIds);
-
-    // 10. Check ItemImageCache or generate new image
-    let cacheEntry = await this.imageCacheRepository.findByComboHash(item.item_type_id, comboHash);
-    let imageUrl = '';
-    let craftCount = 1;
-
-    if (cacheEntry) {
-      // Cache hit - increment craft count
-      craftCount = await this.imageCacheRepository.incrementCraftCount(cacheEntry.id);
-      imageUrl = cacheEntry.image_url;
-    } else {
-      // Cache miss - generate new image (20s sync)
-      const materialReferences = allMaterials.map(m => ({
-        material_id: m.material_id,
-        style_id: m.style_id || '00000000-0000-0000-0000-000000000000',
-        image_url: '' // Will be filled by ImageGenerationService
-      }));
-
-      // Gather data for name/description generation
-      const itemTypeForGeneration = await this.itemRepository.findWithMaterials(itemId, userId);
-      if (!itemTypeForGeneration?.item_type?.name) {
-        throw new ValidationError('Item type name is missing for image generation');
+    const category = (() => {
+      const validCategories = ['weapon', 'armor', 'accessory', 'offhand', 'head', 'feet', 'pet'];
+      const providedCategory = itemWithDetails.item_type?.category;
+      if (providedCategory && validCategories.includes(providedCategory)) {
+        return providedCategory as 'weapon' | 'armor' | 'accessory' | 'offhand' | 'head' | 'feet' | 'pet';
       }
-      const itemTypeName = itemTypeForGeneration.item_type.name;
-      const materialNames = allMaterials
-        .map(m => m.material?.name)
-        .filter(Boolean) as string[];
+      return 'weapon'; 
+    })();
 
-      // Generate image and name/description in parallel
-      const [generatedImageUrl, nameDescResult] = await Promise.all([
-        this.imageGenerationService.generateImage(item.item_type_id, materialReferences),
-        this.nameDescriptionService.generateForItem(itemTypeName, materialNames)
-          .catch(error => {
-            console.error('Name/description generation failed:', error);
-            return null; // Return null on failure, continue with crafting
-          })
-      ]);
-
-      imageUrl = generatedImageUrl;
-
-      // Store name/description if generation succeeded
-      if (nameDescResult) {
-        try {
-          await this.itemRepository.updateItemNameDescription(
-            itemId,
-            userId,
-            nameDescResult.name,
-            nameDescResult.description
-          );
-          console.log(`✅ Stored generated name: "${nameDescResult.name}"`);
-        } catch (error) {
-          console.error('Failed to store name/description:', error);
-          // Don't throw - continue with crafting even if storage fails
-        }
+    const rarity = (() => {
+      const validRarities = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
+      const providedRarity = itemWithDetails.item_type?.rarity;
+      if (providedRarity && validRarities.includes(providedRarity)) {
+        return providedRarity;
       }
+      return 'common'; 
+    })();
 
-      // Create cache entry
-      cacheEntry = await this.imageCacheRepository.createCacheEntry({
-        item_type_id: item.item_type_id,
-        combo_hash: comboHash,
-        image_url: imageUrl,
-        provider: 'gemini' // Default provider
-      });
-      craftCount = cacheEntry.craft_count;
-    }
-
-    // 11. Update Items table
-    await this.itemRepository.updateImageData(itemId, userId, comboHash, imageUrl, 'complete');
-
-    // 11.5. Calculate and update item stats with new materials
-    const itemWithTypeUpdated = await this.itemRepository.findWithMaterials(itemId, userId);
-    if (itemWithTypeUpdated && itemWithTypeUpdated.item_type) {
-      // Get base stats and rarity from item type
-      // NOTE: Pass un-adjusted base stats - computeItemStatsForLevel handles rarity internally
-      const baseStatsUpdated = itemWithTypeUpdated.item_type.base_stats_normalized;
-      const rarityUpdated = itemWithTypeUpdated.item_type.rarity;
-
-      // Get updated materials after replacement
-      const updatedMaterials = await this.materialRepository.findMaterialsByItem(itemId);
-
-      // Calculate final stats with replaced materials
-      // Note: Filter out any materials that don't have proper stat_modifiers (for tests)
-      const validMaterialsUpdated = updatedMaterials.filter(m => m.material && m.material.stat_modifiers);
-
-      // Create a wrapper with rarity info for the stats calculation
-      const itemWithRarityUpdated = {
-        item_type: {
-          base_stats_normalized: baseStatsUpdated,
-          rarity: rarityUpdated
-        }
-      };
-
-      // Use computeItemStatsForLevel which properly handles rarity multiplier
-      const finalStatsBase = statsService.computeItemStatsForLevel(itemWithRarityUpdated, itemWithTypeUpdated.level);
-
-      // Apply material modifiers separately
-      const materialModsUpdated = validMaterialsUpdated.reduce((acc, material) => ({
-        atkPower: acc.atkPower + material.material.stat_modifiers.atkPower,
-        atkAccuracy: acc.atkAccuracy + material.material.stat_modifiers.atkAccuracy,
-        defPower: acc.defPower + material.material.stat_modifiers.defPower,
-        defAccuracy: acc.defAccuracy + material.material.stat_modifiers.defAccuracy
-      }), { atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0 });
-
-      const finalStatsUpdated = {
-        atkPower: Math.round((finalStatsBase.atkPower + materialModsUpdated.atkPower) * 100) / 100,
-        atkAccuracy: Math.round((finalStatsBase.atkAccuracy + materialModsUpdated.atkAccuracy) * 100) / 100,
-        defPower: Math.round((finalStatsBase.defPower + materialModsUpdated.defPower) * 100) / 100,
-        defAccuracy: Math.round((finalStatsBase.defAccuracy + materialModsUpdated.defAccuracy) * 100) / 100
-      };
-
-      // Update the item's current_stats in the database
-      await this.itemRepository.updateStats(itemId, userId, finalStatsUpdated);
-    }
-
-    // 12. Return result with gold spent and replaced material
-    const updatedItem = await this.itemRepository.findWithMaterials(itemId, userId);
-    if (!updatedItem) {
-      throw new NotFoundError('Item', itemId);
-    }
-
-    // Get the old material details for the response
-    const oldMaterial = await this.materialRepository.findMaterialById(oldInstance.material_id);
-
-    return {
-      success: true,
-      updated_item: await this.transformItemToApiFormat(updatedItem, craftCount),
-      gold_spent: goldCost,
-      replaced_material: {
-        id: oldInstance.id,
-        material_id: oldInstance.material_id,
-        style_id: oldInstance.style_id,
-        slot_index: slotIndex,
-        material: oldMaterial ? {
-          id: oldMaterial.id,
-          name: oldMaterial.name,
-          stat_modifiers: oldMaterial.stat_modifiers,
-          description: oldMaterial.description ?? undefined,
-          base_drop_weight: oldMaterial.base_drop_weight
-        } : {} as any
-      },
-      refunded_material: {
-        id: oldInstance.user_id + ':' + oldInstance.material_id + ':' + oldInstance.style_id,
-        user_id: oldInstance.user_id,
-        material_id: oldInstance.material_id,
-        style_id: oldInstance.style_id,
-        quantity: 1,
-        material: oldMaterial ? {
-          id: oldMaterial.id,
-          name: oldMaterial.name,
-          stat_modifiers: oldMaterial.stat_modifiers,
-          description: oldMaterial.description ?? undefined,
-          base_drop_weight: oldMaterial.base_drop_weight
-        } : {} as any
-      },
-      message: `Replaced material in slot ${slotIndex} (cost: ${goldCost} gold)`
-    };
-  }
-
-  /**
-   * Get rarity multiplier for stat calculations
-   * Copied from StatsService to avoid service dependency
-   */
-  private getRarityMultiplier(rarity: string): number {
-    const multipliers: Record<string, number> = {
-      'common': 1.0,
-      'uncommon': 1.25,
-      'rare': 1.5,
-      'epic': 1.75,
-      'legendary': 2.0
-    };
-
-    const multiplier = multipliers[rarity];
-    if (multiplier === undefined) {
-      throw new ValidationError(`Invalid rarity: ${rarity}`);
-    }
-
-    return multiplier;
-  }
-
-  /**
-   * Transform ItemWithDetails from repository to API Item format
-   * Maps to iOS EnhancedPlayerItem structure
-   */
-  private async transformItemToApiFormat(itemWithDetails: any, craftCount: number = 1): Promise<any> {
-    // Extract the item type name as base_type
-    const baseType = itemWithDetails.name ?? itemWithDetails.item_type?.name ?? 'Unknown';
-    const description = itemWithDetails.description ?? itemWithDetails.item_type?.description ?? null;
-    const category = itemWithDetails.item_type?.category ?? 'weapon';
-    const rarity = itemWithDetails.item_type?.rarity ?? 'common';
-
-    // Transform applied materials and fetch style names
     const applied_materials = await Promise.all(
-      (itemWithDetails.materials || []).map(async (m: any) => {
-        const styleId = m.material?.style_id || '00000000-0000-0000-0000-000000000000';
+      (itemWithDetails.materials || []).map(async (m: AppliedMaterial) => {
+        const styleId = m.style_id;
 
-        // Fetch style definition - don't swallow errors
         const style = await this.styleRepository.findById(styleId);
         const styleName = style?.style_name;
 
         return {
-          material_id: m.material?.id || '',
+          id: m.id,
+          material_id: m.material_id,
           style_id: styleId,
           style_name: styleName,
           slot_index: m.slot_index,
           material: {
-            id: m.material?.id || '',
-            name: m.material?.name || '',
-            description: m.material?.description,
-            style_id: styleId,
-            style_name: styleName,
-            stat_modifiers: m.material?.stat_modifiers || {},
-            image_url: undefined
+            id: m.material.id,
+            name: m.material.name,
+            description: m.material.description,
+            stat_modifiers: m.material.stat_modifiers,
+            base_drop_weight: m.material.base_drop_weight,
+            image_url: m.material.image_url
           }
         };
       })
     );
 
+    if (!itemWithDetails.generated_image_url) {
+      throw new ValidationError('Item must have a generated image URL');
+    }
+
+    const validStatuses = ['pending', 'generating', 'complete', 'failed'];
+    const imageGenerationStatus = itemWithDetails.image_generation_status;
+    const finalImageGenerationStatus = imageGenerationStatus !== null && validStatuses.includes(imageGenerationStatus)
+      ? imageGenerationStatus
+      : 'complete';
+
+    const computedStats = (itemWithDetails.current_stats && Object.keys(itemWithDetails.current_stats).length > 0)
+      ? itemWithDetails.current_stats
+      : { atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0 };
+
     return {
       id: itemWithDetails.id,
       base_type: baseType,
       description: description,
-      name: itemWithDetails.name || null,
+      name: itemWithDetails.name !== null ? itemWithDetails.name : null,
       item_type_id: itemWithDetails.item_type_id,
       category: category,
       level: itemWithDetails.level,
       rarity: rarity,
       applied_materials,
       materials: applied_materials,
-      computed_stats: itemWithDetails.current_stats || {},
-      material_combo_hash: itemWithDetails.material_combo_hash || null,
-      generated_image_url: itemWithDetails.generated_image_url || null,
-      image_generation_status: itemWithDetails.image_generation_status || 'complete',
+      computed_stats: computedStats,
+      material_combo_hash: itemWithDetails.material_combo_hash,
+      generated_image_url: itemWithDetails.generated_image_url,
+      image_generation_status: finalImageGenerationStatus,
       craft_count: craftCount,
-      is_styled: itemWithDetails.is_styled || false,
-      is_equipped: false, // TODO: Check UserEquipment table
-      equipped_slot: null // TODO: Get from UserEquipment if equipped
+      is_styled: itemWithDetails.is_styled,
+      is_equipped: false,
+      equipped_slot: null
     };
   }
 }

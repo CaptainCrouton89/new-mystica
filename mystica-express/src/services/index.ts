@@ -1,4 +1,3 @@
-// Service layer exports
 export { ProfileService, profileService } from './ProfileService.js';
 export { InventoryService, inventoryService } from './InventoryService.js';
 export { EquipmentService, equipmentService } from './EquipmentService.js';

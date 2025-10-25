@@ -100,7 +100,8 @@ class FloatingTextView: ObservableObject {
         fontSize: CGFloat = 20,
         fontWeight: Font.Weight = .bold,
         duration: Double = 2.0,
-        distance: CGFloat = -100
+        distance: CGFloat = -100,
+        offsetY: CGFloat = 0
     ) {
         let floatingText = FloatingText(
             text: text,
@@ -108,7 +109,9 @@ class FloatingTextView: ObservableObject {
             fontSize: fontSize,
             fontWeight: fontWeight,
             duration: duration,
-            distance: distance
+            distance: distance,
+            startOffset: offsetY,
+            position: .zero
         )
         showFloatingText(floatingText)
     }

@@ -1,0 +1,260 @@
+# Implementation Plan – Enemy Type Styles Refactoring
+
+# Overview
+overview:
+  related_items:
+    feature_specs: []
+    user_stories: []
+    user_flows: []
+  related_docs: |
+    - docs/plans/enemy-type-styles/requirements.md
+    - docs/api-contracts.yaml (L-2420 enemy types, L-2437 combat history)
+    - mystica-express/src/services/CombatService.ts (enemy selection)
+    - mystica-express/src/repositories/EnemyRepository.ts (data access)
+    - mystica-express/src/services/LocationService.ts (loot generation)
+    - scripts/migrations/add-enemy-type-styles-junction.sql (schema)
+
+# Problem
+problem: |
+  Currently, each enemy type has a single static `style_id` on the `enemytypes` table.
+  To create visual variants (e.g., Red Goblin vs Blue Goblin with same mechanics),
+  duplicate enemy types must be created. This bloats the enemy definitions and
+  creates maintenance burden.
+
+  The migration already created the `enemytypestyles` junction table with
+  `weight_multiplier` for probabilistic selection, but no code yet reads from
+  this new table. Current code still uses the old `enemytypes.style_id` field.
+
+# Solution
+solution: |
+  Implement probabilistic style selection at enemy spawn time by querying the
+  `enemytypestyles` junction table instead of reading from the deprecated
+  `enemytypes.style_id` field. When an enemy spawns in combat, the service
+  will fetch all style options for that enemy type, normalize their weights
+  into probabilities, perform weighted random selection, and apply the
+  selected style to stat calculation and loot generation—exactly as before,
+  but with dynamic variety per spawn.
+
+# Current System
+current_system:
+  description: |
+    **Enemy Spawn Flow** (from investigation agent_245544):
+    1. `CombatService.startCombat()` triggers enemy selection
+    2. `LocationService.getMatchingEnemyPools(locationId, combatLevel)` finds eligible pools
+    3. `LocationService.selectRandomEnemy(poolMembers)` chooses enemy type via weighted random
+    4. `EnemyRepository.findEnemyTypeById(enemyTypeId)` retrieves enemy type with static `style_id`
+    5. `EnemyRepository.getEnemyRealizedStats()` computes stats via `v_enemy_realized_stats` view
+    6. Style is applied in:
+       - `CombatService.selectEnemy()` populates `style_id` in enemy object
+       - `CombatService.generateLootFallback()` inherits style for material/item generation
+
+    **Key Integration Points:**
+    - Stats: Influenced via `v_enemy_realized_stats` database view (no TypeScript multipliers)
+    - Loot: Passed to `LocationService.selectRandomLoot()` for style inheritance
+    - Name: Retrieved via `LocationService.getStyleName()` for display
+
+    **Type Safety:**
+    - Uses Supabase `.from().select()` with filters and error handling via `mapSupabaseError()`
+    - Generated types from `database.types.ts` (will be regenerated to include `enemytypestyles`)
+
+    **Junction Table Schema** (from agent_490217 and migration):
+    ```
+    enemytypestyles:
+      - id (UUID, PK)
+      - enemy_type_id (FK to enemytypes, cascade delete)
+      - style_id (FK to styledefinitions, restrict delete)
+      - weight_multiplier (NUMERIC, CHECK > 0, default 1.0)
+      - Unique constraint: (enemy_type_id, style_id)
+      - Indexes on enemy_type_id and style_id
+    ```
+
+# Changes Required
+
+changes_required:
+  - path: "mystica-express/src/repositories/EnemyRepository.ts"
+    changes: |
+      - Add `EnemyTypeStyles` type alias from generated `database.types.ts`
+      - Add method `getStylesForEnemyType(enemyTypeId: string): Promise<EnemyTypeStyles[]>`
+        that queries `enemytypestyles` table with filters and returns all style entries
+        for the given enemy type ID. Throw `NotFoundError` if no styles found.
+      - Follow existing repository pattern: use `this.client.from().select().eq().order()`
+      - Include error handling via `mapSupabaseError()` consistent with other methods
+      - Optional: Add helper method `normalizeStyleWeights(styles)` to compute cumulative distribution
+
+  - path: "mystica-express/src/services/CombatService.ts"
+    changes: |
+      - Add import for new `getStylesForEnemyType()` method from EnemyRepository
+      - Modify `selectEnemy(poolMembers)` method to:
+        1. After selecting enemy_type_id via weighted random pool selection
+        2. Call `enemyRepository.getStylesForEnemyType(enemyTypeId)` to fetch all styles
+        3. Implement weighted random selection from styles array using weight_multiplier
+        4. Assign selected style_id to returned enemy object (same field as before)
+      - Add inline comments explaining probability normalization algorithm
+      - No changes to error handling or return interface—style_id field still populated,
+        just sourced dynamically from junction table instead of static field
+
+  - path: "mystica-express/src/types/database.types.ts"
+    changes: |
+      - Regenerate from Supabase schema to include new `enemytypestyles` table
+      - Run: `pnpm supabase:types` in mystica-express/ directory
+      - Verify generated types include:
+        - EnemyTypeStyles table Row type
+        - EnemyTypeStyles Insert type (if applicable)
+        - All columns: id, enemy_type_id, style_id, weight_multiplier, created_at
+
+# Task Breakdown
+
+task_breakdown:
+  - id: "T1"
+    description: |
+      Regenerate TypeScript types from Supabase schema to include the new `enemytypestyles`
+      junction table. This ensures type safety for queries and prevents runtime errors.
+    agent: "junior-engineer"
+    depends_on: []
+    files:
+      - "mystica-express/src/types/database.types.ts"
+    exit_criteria: |
+      - `pnpm supabase:types` runs successfully without errors
+      - Generated file includes EnemyTypeStyles types with all columns
+      - Build succeeds: `pnpm build` in mystica-express/
+
+  - id: "T2"
+    description: |
+      Implement `getStylesForEnemyType()` method in EnemyRepository to fetch all style
+      options for a given enemy type from the junction table with proper weight data.
+      Include error handling for missing styles.
+    agent: "junior-engineer"
+    depends_on: ["T1"]
+    files:
+      - "mystica-express/src/repositories/EnemyRepository.ts"
+    exit_criteria: |
+      - Method queries `enemytypestyles` table correctly using Supabase `.from().select()`
+      - Filters by `enemy_type_id` and returns array of style entries with weights
+      - Throws NotFoundError if enemy type has no styles
+      - Error handling uses `mapSupabaseError()` consistently
+      - TypeScript build passes: `pnpm build`
+      - Unit tests verify correct query structure and error cases
+
+  - id: "T3"
+    description: |
+      Implement weighted random style selection in CombatService.selectEnemy() to choose
+      a style probabilistically from the styles array. Update the enemy object to include
+      the dynamically selected style_id instead of the static one.
+    agent: "junior-engineer"
+    depends_on: ["T2"]
+    files:
+      - "mystica-express/src/services/CombatService.ts"
+    exit_criteria: |
+      - selectEnemy() calls getStylesForEnemyType() after pool-based enemy selection
+      - Probability normalization correctly computes weights and cumulative distribution
+      - Weighted random selection correctly picks a style from the array
+      - Selected style_id is assigned to returned enemy object
+      - No API response schema changes (style_id field still present, same interface)
+      - Multiple spawns of same enemy type yield different styles (probabilistic)
+      - Unit tests verify weighted selection with various weight distributions
+
+  - id: "T4"
+    description: |
+      Write unit and integration tests to verify the end-to-end flow: enemy spawning,
+      style selection, and independent selection across multiple spawns. Test both
+      happy path and error cases.
+    agent: "junior-engineer"
+    depends_on: ["T3"]
+    files:
+      - "mystica-express/tests/unit/repositories/EnemyRepository.test.ts"
+      - "mystica-express/tests/unit/services/CombatService.test.ts"
+      - "mystica-express/tests/integration/combat.test.ts"
+    exit_criteria: |
+      - Unit test for getStylesForEnemyType() covers:
+        * Returns all styles with correct weights
+        * Throws NotFoundError when no styles exist
+        * Handles database errors gracefully
+      - Unit test for style selection covers:
+        * Weighted random selection produces correct probabilities
+        * Edge case: single style (weight = 1.0)
+        * Edge case: multiple styles with equal weights
+      - Integration test verifies:
+        * startCombat() → selectEnemy() → style assignment works end-to-end
+        * Multiple spawns of same enemy type yield different styles
+        * Style affects loot generation correctly (inherited via selectRandomLoot)
+      - All tests pass: `pnpm test`
+      - No regression: existing combat tests still pass
+
+  - id: "T5"
+    description: |
+      Perform build validation and final testing to ensure no regressions in existing
+      combat flow. Verify stats, loot, and name resolution still work correctly with
+      dynamically selected styles.
+    agent: "junior-engineer"
+    depends_on: ["T4"]
+    files: []
+    exit_criteria: |
+      - Full build succeeds: `pnpm build` in mystica-express/
+      - All tests pass: `pnpm test`
+      - No TypeScript errors or warnings
+      - Combat session creation returns correct enemy structure with selected style_id
+      - Loot generation inherits style from dynamically selected style (not regression)
+      - Style names resolve correctly via getStyleName()
+
+# Data/Schema Changes
+
+data_schema_changes:
+  migrations:
+    - file: "scripts/migrations/add-enemy-type-styles-junction.sql"
+      summary: |
+        Already applied to remote Supabase. Creates `enemytypestyles` junction table
+        with enemy_type_id (FK), style_id (FK), weight_multiplier (numeric, checked > 0),
+        and unique constraint on (enemy_type_id, style_id). Indexes for query performance.
+        Migrates existing data from enemytypes.style_id to junction table with weight 1.0.
+        Note: Old style_id column may still be present on enemytypes for backwards compatibility.
+  api_changes:
+    - endpoint: "POST /api/v1/combat/start"
+      changes: |
+        No response schema changes. Enemy object still includes single `style_id` field.
+        Value is now dynamically selected from junction table instead of static field.
+    - endpoint: "POST /api/v1/combat/attack, /combat/defend, /combat/complete"
+      changes: |
+        No changes. Enemy object with style_id persists through session.
+    - endpoint: "GET /api/v1/enemies/types"
+      changes: |
+        No changes. Returns enemy type definitions without style information.
+
+# Expected Result
+
+expected_result:
+  outcome: |
+    Enemy types can have multiple style variants selected probabilistically at spawn time,
+    enabling visual variety without creating duplicate enemy definitions. Each enemy spawn
+    independently selects a style based on configured weights, affecting stats and loot
+    while maintaining backward compatibility with existing API contracts.
+  example: |
+    **Before:** Spray Paint Goblin (Red) and Spray Paint Goblin (Blue) were two separate
+    enemy type definitions with different IDs. Creating visual variants required duplicating
+    the entire type definition.
+
+    **After:** Single "Spray Paint Goblin" enemy type with two style entries in enemytypestyles:
+    - style_id: red_paint (weight: 1.5)
+    - style_id: blue_paint (weight: 1.0)
+
+    When combat.startCombat() is called, CombatService.selectEnemy() now:
+    1. Selects Spray Paint Goblin via pool selection
+    2. Queries getStylesForEnemyType() → returns [red_paint, blue_paint]
+    3. Normalizes weights: total = 2.5, probabilities = [0.6, 0.4]
+    4. Selects blue_paint with 40% probability
+    5. Returns enemy object with style_id: blue_paint
+
+    Each spawn independently probabilistically selects a style, creating visual variety
+    in a single encounter without maintaining separate enemy definitions.
+
+# Notes
+
+notes:
+  - "Migration already applied to remote Supabase (kofvwxutsmxdszycvluc)"
+  - "Investigation artifacts: agent_245544 (enemy spawn flow), agent_490217 (repository patterns), agent_846060 (style impact), agent_471021 (relationships)"
+  - "No performance concerns: style selection is O(n) where n ≤ 5 styles per enemy type"
+  - "No stat modifier implementation needed: styles already influence stats via database view v_enemy_realized_stats"
+  - "Backwards compatibility: old style_id field on enemytypes may remain; new code reads from junction table only"
+  - "Database types regeneration must happen first (T1) before T2 can safely import new types"
+
+# Next
+next: "Run `/manage-project/implement/execute enemy-type-styles` to begin implementation"

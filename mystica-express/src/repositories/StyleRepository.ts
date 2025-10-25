@@ -10,13 +10,22 @@ import { supabase } from '../config/supabase.js';
 import { DatabaseError, mapSupabaseError } from '../utils/errors.js';
 import type { Database } from '../types/database.types.js';
 
-// Type alias from database schema
+// Type aliases from database schema
 type StyleDefinition = Database['public']['Tables']['styledefinitions']['Row'];
+type StyleDefinitionInsert = Database['public']['Tables']['styledefinitions']['Insert'];
+type StyleDefinitionUpdate = Database['public']['Tables']['styledefinitions']['Update'];
 
 /**
  * StyleRepository handles style-related database operations
  *
- * Provides read-only access to StyleDefinitions table for style system
+ * @description Provides read-only access to StyleDefinitions table for style system
+ * @category Repositories
+ * @subcategory Style
+ * @see Database['public']['Tables']['styledefinitions']
+ *
+ * @remarks
+ * This repository follows Supabase best practices by using strongly typed database operations.
+ * It handles querying style definitions with robust error management.
  */
 export class StyleRepository {
   protected client: SupabaseClient;

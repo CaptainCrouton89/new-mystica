@@ -7,23 +7,8 @@ extension BattleView {
     // MARK: - Combat Content View
     func combatContentView(session: CombatSession) -> some View {
         VStack(spacing: 0) {
-            // Header with turn counter
-            HStack {
-                Spacer()
-                Text("Turn \(viewModel.turnNumber)")
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(Color.textPrimary)
-                    .padding(.horizontal, 16)
-                    .padding(.vertical, 8)
-                    .background(Color.backgroundCard)
-                    .cornerRadius(8)
-                Spacer()
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 8)
-
             // Enemy Section
-            enemySection(enemy: convertCombatEnemyToEnemy(session.enemy), hp: Double(viewModel.enemyHP), maxHP: session.enemy.hp)
+            enemySection(enemy: convertCombatEnemyToEnemy(session.enemy), hp: Double(viewModel.enemyHP), maxHP: Int(session.enemy.hp))
                 .frame(maxHeight: .infinity)
 
             Spacer(minLength: 20)
@@ -317,12 +302,6 @@ extension BattleView {
                     .fill(Color.clear)
                     .frame(height: 200)
             }
-
-            // Phase instruction
-            SmallText("⚡ Timing-based combat system active", size: 11)
-                .foregroundColor(Color.textSecondary.opacity(0.8))
-                .multilineTextAlignment(.center)
-                .padding(.top, 8)
         }
     }
 }

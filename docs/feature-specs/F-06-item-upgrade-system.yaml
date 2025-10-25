@@ -114,10 +114,9 @@ detailed_design:
     Grows slower, more meaningful progression
 
     Stat Scaling Formula (Updated with Rarity):
-    final_stats = base_stats_normalized × rarity_multiplier × level × base_stat_value + material_modifiers
+    final_stats = base_stats_normalized × rarity_multiplier × level + material_modifiers
 
     Constants:
-    - base_stat_value = 10 (baseline stat point at level 1)
     - rarity_multiplier:
       * common: 1.00
       * uncommon: 1.25
@@ -127,9 +126,9 @@ detailed_design:
 
     Example: Common Sword (base_stats_normalized = {atkPower: 0.5, atkAccuracy: 0.2, defPower: 0.2, defAccuracy: 0.1})
 
-    Level 1 (common): atkPower = 0.5 × 1.00 × 1 × 10 = 5, total = 10 stat points
-    Level 5 (common): atkPower = 0.5 × 1.00 × 5 × 10 = 25, total = 50 stat points
-    Level 5 (legendary): atkPower = 0.5 × 2.00 × 5 × 10 = 50, total = 100 stat points
+    Level 1 (common): atkPower = 0.5 × 1.00 × 1 = 0.5, total = 1.0 stat points
+    Level 5 (common): atkPower = 0.5 × 1.00 × 5 = 2.5, total = 5.0 stat points
+    Level 5 (legendary): atkPower = 0.5 × 2.00 × 5 = 5.0, total = 10.0 stat points
 
     Material Modifiers (Applied Additively):
     - Normal materials: base effectiveness

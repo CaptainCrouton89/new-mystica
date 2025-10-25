@@ -90,3 +90,39 @@ func triggerCombatEndAudio(won: Bool, audioManager: AudioManager) {
         audioManager.playDefeat()
     }
 }
+
+// MARK: - Zone-Based Feedback (New System)
+
+/// Trigger haptic feedback based on numbered zone (1-5)
+func triggerHapticForZone(_ zone: Int) {
+    let generator: UIImpactFeedbackGenerator
+
+    switch zone {
+    case 1:
+        // Zone 1 (Perfect) - Heavy impact
+        generator = UIImpactFeedbackGenerator(style: .heavy)
+    case 2, 3:
+        // Zone 2-3 (Great/Good) - Medium impact
+        generator = UIImpactFeedbackGenerator(style: .medium)
+    case 4:
+        // Zone 4 (Weak) - Light impact
+        generator = UIImpactFeedbackGenerator(style: .light)
+    case 5:
+        // Zone 5 (Miss) - No haptic
+        return
+    default:
+        return
+    }
+
+    generator.prepare()
+    generator.impactOccurred()
+}
+
+/// Trigger audio feedback based on zone and crit status
+func triggerAudioForZone(_ zone: Int, isCrit: Bool) {
+    // TODO: Implement zone-specific audio
+    // For MVP0, could use existing sounds or add zone-specific sounds
+    // Zone 1-3: Deal damage sound (with crit variation)
+    // Zone 4: Weak hit sound
+    // Zone 5: Miss sound
+}

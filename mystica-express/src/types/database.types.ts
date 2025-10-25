@@ -190,11 +190,11 @@ export type Database = {
       combatsessions: {
         Row: {
           applied_enemy_pools: Json | null
-          applied_loot_pools: Json | null
           combat_level: number
           combat_log: Json | null
           created_at: string
           enemy_rating: number | null
+          enemy_style_id: string
           enemy_type_id: string
           id: string
           location_id: string
@@ -208,11 +208,11 @@ export type Database = {
         }
         Insert: {
           applied_enemy_pools?: Json | null
-          applied_loot_pools?: Json | null
           combat_level: number
           combat_log?: Json | null
           created_at?: string
           enemy_rating?: number | null
+          enemy_style_id?: string
           enemy_type_id: string
           id?: string
           location_id: string
@@ -226,11 +226,11 @@ export type Database = {
         }
         Update: {
           applied_enemy_pools?: Json | null
-          applied_loot_pools?: Json | null
           combat_level?: number
           combat_log?: Json | null
           created_at?: string
           enemy_rating?: number | null
+          enemy_style_id?: string
           enemy_type_id?: string
           id?: string
           location_id?: string
@@ -491,6 +491,51 @@ export type Database = {
           },
         ]
       }
+      enemyloot: {
+        Row: {
+          created_at: string | null
+          drop_weight: number
+          enemy_type_id: string
+          guaranteed: boolean
+          id: string
+          lootable_id: string
+          lootable_type: string
+        }
+        Insert: {
+          created_at?: string | null
+          drop_weight?: number
+          enemy_type_id: string
+          guaranteed?: boolean
+          id?: string
+          lootable_id: string
+          lootable_type: string
+        }
+        Update: {
+          created_at?: string | null
+          drop_weight?: number
+          enemy_type_id?: string
+          guaranteed?: boolean
+          id?: string
+          lootable_id?: string
+          lootable_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "enemyloot_enemy_type_id_fkey"
+            columns: ["enemy_type_id"]
+            isOneToOne: false
+            referencedRelation: "enemytypes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "enemyloot_enemy_type_id_fkey"
+            columns: ["enemy_type_id"]
+            isOneToOne: false
+            referencedRelation: "v_enemy_realized_stats"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       enemypoolmembers: {
         Row: {
           created_at: string
@@ -567,59 +612,95 @@ export type Database = {
       enemytypes: {
         Row: {
           ai_personality_traits: Json | null
-          atk_accuracy: number
-          atk_power: number
+          atk_accuracy_normalized: number
+          atk_power_normalized: number
           base_hp: number
-          def_accuracy: number
-          def_power: number
+          def_accuracy_normalized: number
+          def_power_normalized: number
           dialogue_guidelines: string | null
           dialogue_tone: string | null
           id: string
           name: string
-          style_id: string
           tier_id: number
         }
         Insert: {
           ai_personality_traits?: Json | null
-          atk_accuracy?: number
-          atk_power?: number
+          atk_accuracy_normalized?: number
+          atk_power_normalized?: number
           base_hp?: number
-          def_accuracy?: number
-          def_power?: number
+          def_accuracy_normalized?: number
+          def_power_normalized?: number
           dialogue_guidelines?: string | null
           dialogue_tone?: string | null
           id?: string
           name: string
-          style_id: string
           tier_id: number
         }
         Update: {
           ai_personality_traits?: Json | null
-          atk_accuracy?: number
-          atk_power?: number
+          atk_accuracy_normalized?: number
+          atk_power_normalized?: number
           base_hp?: number
-          def_accuracy?: number
-          def_power?: number
+          def_accuracy_normalized?: number
+          def_power_normalized?: number
           dialogue_guidelines?: string | null
           dialogue_tone?: string | null
           id?: string
           name?: string
-          style_id?: string
           tier_id?: number
         }
         Relationships: [
-          {
-            foreignKeyName: "fk_enemy_types_style"
-            columns: ["style_id"]
-            isOneToOne: false
-            referencedRelation: "styledefinitions"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "fk_enemy_types_tier"
             columns: ["tier_id"]
             isOneToOne: false
             referencedRelation: "tiers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      enemytypestyles: {
+        Row: {
+          created_at: string | null
+          enemy_type_id: string
+          id: string
+          style_id: string
+          weight_multiplier: number
+        }
+        Insert: {
+          created_at?: string | null
+          enemy_type_id: string
+          id?: string
+          style_id: string
+          weight_multiplier?: number
+        }
+        Update: {
+          created_at?: string | null
+          enemy_type_id?: string
+          id?: string
+          style_id?: string
+          weight_multiplier?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "enemytypestyles_enemy_type_id_fkey"
+            columns: ["enemy_type_id"]
+            isOneToOne: false
+            referencedRelation: "enemytypes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "enemytypestyles_enemy_type_id_fkey"
+            columns: ["enemy_type_id"]
+            isOneToOne: false
+            referencedRelation: "v_enemy_realized_stats"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "enemytypestyles_style_id_fkey"
+            columns: ["style_id"]
+            isOneToOne: false
+            referencedRelation: "styledefinitions"
             referencedColumns: ["id"]
           },
         ]
@@ -1066,125 +1147,6 @@ export type Database = {
         }
         Relationships: []
       }
-      lootpoolentries: {
-        Row: {
-          created_at: string
-          drop_weight: number
-          id: string
-          loot_pool_id: string
-          lootable_id: string
-          lootable_type: string
-        }
-        Insert: {
-          created_at?: string
-          drop_weight?: number
-          id?: string
-          loot_pool_id: string
-          lootable_id: string
-          lootable_type: string
-        }
-        Update: {
-          created_at?: string
-          drop_weight?: number
-          id?: string
-          loot_pool_id?: string
-          lootable_id?: string
-          lootable_type?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "fk_loot_pool_entries_pool"
-            columns: ["loot_pool_id"]
-            isOneToOne: false
-            referencedRelation: "lootpools"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_loot_pool_entries_pool"
-            columns: ["loot_pool_id"]
-            isOneToOne: false
-            referencedRelation: "v_loot_pool_material_weights"
-            referencedColumns: ["loot_pool_id"]
-          },
-        ]
-      }
-      lootpools: {
-        Row: {
-          combat_level: number
-          created_at: string
-          filter_type: string
-          filter_value: string | null
-          id: string
-          name: string
-        }
-        Insert: {
-          combat_level: number
-          created_at?: string
-          filter_type: string
-          filter_value?: string | null
-          id?: string
-          name: string
-        }
-        Update: {
-          combat_level?: number
-          created_at?: string
-          filter_type?: string
-          filter_value?: string | null
-          id?: string
-          name?: string
-        }
-        Relationships: []
-      }
-      lootpooltierweights: {
-        Row: {
-          created_at: string
-          loot_pool_id: string
-          tier_name: string
-          weight_multiplier: number
-        }
-        Insert: {
-          created_at?: string
-          loot_pool_id: string
-          tier_name: string
-          weight_multiplier?: number
-        }
-        Update: {
-          created_at?: string
-          loot_pool_id?: string
-          tier_name?: string
-          weight_multiplier?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "fk_loot_pool_tier_weights_pool"
-            columns: ["loot_pool_id"]
-            isOneToOne: false
-            referencedRelation: "lootpools"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_loot_pool_tier_weights_pool"
-            columns: ["loot_pool_id"]
-            isOneToOne: false
-            referencedRelation: "v_loot_pool_material_weights"
-            referencedColumns: ["loot_pool_id"]
-          },
-          {
-            foreignKeyName: "fk_loot_pool_tier_weights_tier"
-            columns: ["tier_name"]
-            isOneToOne: false
-            referencedRelation: "materialstrengthtiers"
-            referencedColumns: ["tier_name"]
-          },
-          {
-            foreignKeyName: "fk_loot_pool_tier_weights_tier"
-            columns: ["tier_name"]
-            isOneToOne: false
-            referencedRelation: "v_material_tiers"
-            referencedColumns: ["tier_name"]
-          },
-        ]
-      }
       materialinstances: {
         Row: {
           created_at: string
@@ -1214,13 +1176,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "materials"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_material_instances_material"
-            columns: ["material_id"]
-            isOneToOne: false
-            referencedRelation: "v_loot_pool_material_weights"
-            referencedColumns: ["material_id"]
           },
           {
             foreignKeyName: "fk_material_instances_material"
@@ -1315,13 +1270,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "materials"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_material_stacks_material"
-            columns: ["material_id"]
-            isOneToOne: false
-            referencedRelation: "v_loot_pool_material_weights"
-            referencedColumns: ["material_id"]
           },
           {
             foreignKeyName: "fk_material_stacks_material"
@@ -1659,29 +1607,32 @@ export type Database = {
         Row: {
           created_at: string
           description: string | null
-          enemy_atk_add: number
-          enemy_def_add: number
-          enemy_hp_add: number
+          difficulty_multiplier: number
+          display_name: string
+          gold_multiplier: number
           id: number
           tier_num: number
+          xp_multiplier: number
         }
         Insert: {
           created_at?: string
           description?: string | null
-          enemy_atk_add?: number
-          enemy_def_add?: number
-          enemy_hp_add?: number
+          difficulty_multiplier?: number
+          display_name: string
+          gold_multiplier?: number
           id?: number
           tier_num: number
+          xp_multiplier?: number
         }
         Update: {
           created_at?: string
           description?: string | null
-          enemy_atk_add?: number
-          enemy_def_add?: number
-          enemy_hp_add?: number
+          difficulty_multiplier?: number
+          display_name?: string
+          gold_multiplier?: number
           id?: number
           tier_num?: number
+          xp_multiplier?: number
         }
         Relationships: []
       }
@@ -2029,15 +1980,30 @@ export type Database = {
       }
       v_enemy_realized_stats: {
         Row: {
-          atk: number | null
-          combat_rating: number | null
-          def: number | null
-          hp: number | null
+          atk_accuracy_normalized: number | null
+          atk_power_normalized: number | null
+          base_hp: number | null
+          def_accuracy_normalized: number | null
+          def_power_normalized: number | null
+          difficulty_multiplier: number | null
+          gold_multiplier: number | null
           id: string | null
           name: string | null
+          realized_hp: number | null
+          tier_display_name: string | null
+          tier_id: number | null
           tier_num: number | null
+          xp_multiplier: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fk_enemy_types_tier"
+            columns: ["tier_id"]
+            isOneToOne: false
+            referencedRelation: "tiers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       v_item_total_stats: {
         Row: {
@@ -2062,14 +2028,6 @@ export type Database = {
             referencedColumns: ["rarity"]
           },
         ]
-      }
-      v_loot_pool_material_weights: {
-        Row: {
-          final_weight: number | null
-          loot_pool_id: string | null
-          material_id: string | null
-        }
-        Relationships: []
       }
       v_material_tiers: {
         Row: {
