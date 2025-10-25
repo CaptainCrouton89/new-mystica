@@ -73,19 +73,6 @@ struct MainMenuView: View {
                     }
                     .buttonStyle(PlainButtonStyle())
                     .fadeIn(delay: 0.6)
-                    
-                    Button {
-                        audioManager.playMenuButtonClick()
-                        navigationManager.navigateTo(.testAnimations(monsterId: "07ba5f91-662d-4820-8a99-eee4c301f2ca"))
-                    } label: {
-                        MenuOptionView(
-                            title: "Test Animations",
-                            icon: "play.rectangle.fill",
-                            gradientColors: [Color.purple, Color.pink]
-                        )
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                    .fadeIn(delay: 0.8)
                 }
                 .padding(.horizontal, 32)
                 

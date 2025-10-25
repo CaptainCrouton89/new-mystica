@@ -108,7 +108,14 @@ struct BattleView: View {
     }
 
     var body: some View {
-        BaseView(title: "Battle") {
+        BaseView(title: "Battle", customBackAction: {
+            // Abandon the combat session when user leaves via back arrow
+            Task {
+                await viewModel.abandonCombat()
+                // Navigate back
+                navigationManager.navigateBack()
+            }
+        }) {
             ZStack {
                 // Main combat content with background loading
                 if case .loaded(let session) = viewModel.combatState {

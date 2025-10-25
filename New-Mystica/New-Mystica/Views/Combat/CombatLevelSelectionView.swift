@@ -31,11 +31,8 @@ struct CombatLevelSelectionView: View {
             VStack(spacing: 20) {
                 // Header with title
                 VStack(spacing: 8) {
-                    TitleText("Select Combat Level")
+                    NormalText("Select Combat Level")
                         .foregroundColor(Color.textPrimary)
-
-                    NormalText("Choose your challenge")
-                        .foregroundColor(Color.textSecondary)
                 }
 
                 // Level selection grid (scrollable)
@@ -46,7 +43,7 @@ struct CombatLevelSelectionView: View {
                         }
                     }
                     .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
+                    .padding(.vertical, 8)
                 }
                 .frame(maxHeight: 400)
 

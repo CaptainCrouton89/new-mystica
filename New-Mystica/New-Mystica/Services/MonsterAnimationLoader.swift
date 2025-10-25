@@ -9,6 +9,55 @@ import Foundation
 import SwiftUI
 import Combine
 
+// MARK: - Animation Metadata Models
+
+struct SpriteFrame: Codable {
+    let frame: Int
+    let x: Double
+    let y: Double
+    let width: Double
+    let height: Double
+}
+
+struct SpriteSize: Codable {
+    let w: Double
+    let h: Double
+    
+    var cgSize: CGSize {
+        CGSize(width: w, height: h)
+    }
+}
+
+struct SpriteMetadata: Codable {
+    let image: String
+    let size: SpriteSize
+    let frameSize: SpriteSize
+    let frameCount: Int
+    let cols: Int
+    let rows: Int
+}
+
+struct AnimationData: Codable {
+    let frames: [SpriteFrame]
+    let meta: SpriteMetadata
+    
+    // MARK: - Convenience Initializers
+    
+    /// Decode from JSON data
+    static func from(jsonData: Data) throws -> AnimationData {
+        let decoder = JSONDecoder()
+        return try decoder.decode(AnimationData.self, from: jsonData)
+    }
+    
+    /// Decode from JSON string
+    static func from(jsonString: String) throws -> AnimationData {
+        guard let data = jsonString.data(using: .utf8) else {
+            throw NSError(domain: "AnimationData", code: 1, userInfo: [NSLocalizedDescriptionKey: "Invalid JSON string"])
+        }
+        return try from(jsonData: data)
+    }
+}
+
 /// Service for loading monster animation data from R2 storage
 /// Loads both PNG sprite sheets and JSON animation metadata
 ///
