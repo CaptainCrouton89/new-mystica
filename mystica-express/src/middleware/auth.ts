@@ -44,6 +44,31 @@ const supabaseAuth = createClient(
  */
 export const authenticate = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    // DEV-ONLY: Check for dev bypass key (local development only)
+    if (env.NODE_ENV === 'development' && env.DEV_BYPASS_KEY) {
+      const devToken = req.headers['x-dev-token'] as string | undefined;
+      const devUserId = req.headers['x-dev-user-id'] as string | undefined;
+      const devDeviceId = req.headers['x-dev-device-id'] as string | undefined;
+      const devEmail = req.headers['x-dev-email'] as string | undefined;
+
+      if (devToken === env.DEV_BYPASS_KEY && devUserId) {
+        logger.warn('⚠️  [AUTH] DEV MODE: Bypassing auth with dev token', {
+          userId: devUserId,
+          isAnonymous: !!devDeviceId
+        });
+
+        // Support both email-based and anonymous device-based auth
+        req.user = {
+          id: devUserId,
+          email: devEmail || null,
+          device_id: devDeviceId || null,
+          account_type: devDeviceId ? 'anonymous' : 'email'
+        };
+        next();
+        return;
+      }
+    }
+
     const authHeader = req.headers.authorization;
 
     logger.info('🔒 [AUTH] Authenticating request', {

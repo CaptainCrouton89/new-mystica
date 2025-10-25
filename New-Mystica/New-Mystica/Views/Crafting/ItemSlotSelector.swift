@@ -88,10 +88,11 @@ struct ItemSlotSelector: View {
             // Item Details
             VStack(spacing: 2) {
                 // Item Name
-                NormalText(item.baseType.capitalized)
+                NormalText(item.name)
                     .font(FontManager.body)
                     .foregroundColor(Color.textPrimary)
                     .lineLimit(2)
+                    .truncationMode(.tail)
                     .multilineTextAlignment(.center)
                     .minimumScaleFactor(0.8)
 

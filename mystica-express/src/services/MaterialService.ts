@@ -3,7 +3,9 @@ import { NotImplementedError, NotFoundError, ValidationError, BusinessLogicError
 import { MaterialRepository } from '../repositories/MaterialRepository.js';
 import { ImageCacheRepository } from '../repositories/ImageCacheRepository.js';
 import { ItemRepository } from '../repositories/ItemRepository.js';
+import { StyleRepository } from '../repositories/StyleRepository.js';
 import { ImageGenerationService } from './ImageGenerationService.js';
+import { NameDescriptionService } from './NameDescriptionService.js';
 import { MaterialInstance, CreateImageCacheData } from '../types/repository.types.js';
 import { computeComboHash } from '../utils/hash.js';
 import { getMaterialImageUrl } from '../utils/image-url.js';
@@ -17,18 +19,24 @@ export class MaterialService {
   private materialRepository: MaterialRepository;
   private imageCacheRepository: ImageCacheRepository;
   private itemRepository: ItemRepository;
+  private styleRepository: StyleRepository;
   private imageGenerationService: ImageGenerationService;
+  private nameDescriptionService: NameDescriptionService;
 
   constructor(
     materialRepository?: MaterialRepository,
     imageCacheRepository?: ImageCacheRepository,
     itemRepository?: ItemRepository,
-    imageGenerationService?: ImageGenerationService
+    styleRepository?: StyleRepository,
+    imageGenerationService?: ImageGenerationService,
+    nameDescriptionService?: NameDescriptionService
   ) {
     this.materialRepository = materialRepository || new MaterialRepository();
     this.imageCacheRepository = imageCacheRepository || new ImageCacheRepository();
     this.itemRepository = itemRepository || new ItemRepository();
+    this.styleRepository = styleRepository || new StyleRepository();
     this.imageGenerationService = imageGenerationService || new ImageGenerationService();
+    this.nameDescriptionService = nameDescriptionService || new NameDescriptionService();
   }
 
   /**
@@ -176,7 +184,43 @@ export class MaterialService {
         image_url: '' // Will be filled by ImageGenerationService
       }));
 
-      imageUrl = await this.imageGenerationService.generateImage(item.item_type_id, materialReferences);
+      // Gather data for name/description generation
+      const itemTypeForGeneration = await this.itemRepository.findWithMaterials(itemId, userId);
+      if (!itemTypeForGeneration?.item_type?.name) {
+        throw new ValidationError('Item type name is missing for image generation');
+      }
+      const itemTypeName = itemTypeForGeneration.item_type.name;
+      const materialNames = allMaterials
+        .map(m => m.material?.name)
+        .filter(Boolean) as string[];
+
+      // Generate image and name/description in parallel
+      const [generatedImageUrl, nameDescResult] = await Promise.all([
+        this.imageGenerationService.generateImage(item.item_type_id, materialReferences),
+        this.nameDescriptionService.generateForItem(itemTypeName, materialNames)
+          .catch(error => {
+            console.error('Name/description generation failed:', error);
+            return null; // Return null on failure, continue with crafting
+          })
+      ]);
+
+      imageUrl = generatedImageUrl;
+
+      // Store name/description if generation succeeded
+      if (nameDescResult) {
+        try {
+          await this.itemRepository.updateItemNameDescription(
+            itemId,
+            userId,
+            nameDescResult.name,
+            nameDescResult.description
+          );
+          console.log(`✅ Stored generated name: "${nameDescResult.name}"`);
+        } catch (error) {
+          console.error('Failed to store name/description:', error);
+          // Don't throw - continue with crafting even if storage fails
+        }
+      }
 
       // Create cache entry
       cacheEntry = await this.imageCacheRepository.createCacheEntry({
@@ -248,7 +292,7 @@ export class MaterialService {
 
     return {
       success: true,
-      updated_item: this.transformItemToApiFormat(updatedItem, craftCount),
+      updated_item: await this.transformItemToApiFormat(updatedItem, craftCount),
       is_first_craft: isFirstCraft,
       craft_count: craftCount,
       image_url: imageUrl,
@@ -368,7 +412,43 @@ export class MaterialService {
         image_url: '' // Will be filled by ImageGenerationService
       }));
 
-      imageUrl = await this.imageGenerationService.generateImage(item.item_type_id, materialReferences);
+      // Gather data for name/description generation
+      const itemTypeForGeneration = await this.itemRepository.findWithMaterials(itemId, userId);
+      if (!itemTypeForGeneration?.item_type?.name) {
+        throw new ValidationError('Item type name is missing for image generation');
+      }
+      const itemTypeName = itemTypeForGeneration.item_type.name;
+      const materialNames = allMaterials
+        .map(m => m.material?.name)
+        .filter(Boolean) as string[];
+
+      // Generate image and name/description in parallel
+      const [generatedImageUrl, nameDescResult] = await Promise.all([
+        this.imageGenerationService.generateImage(item.item_type_id, materialReferences),
+        this.nameDescriptionService.generateForItem(itemTypeName, materialNames)
+          .catch(error => {
+            console.error('Name/description generation failed:', error);
+            return null; // Return null on failure, continue with crafting
+          })
+      ]);
+
+      imageUrl = generatedImageUrl;
+
+      // Store name/description if generation succeeded
+      if (nameDescResult) {
+        try {
+          await this.itemRepository.updateItemNameDescription(
+            itemId,
+            userId,
+            nameDescResult.name,
+            nameDescResult.description
+          );
+          console.log(`✅ Stored generated name: "${nameDescResult.name}"`);
+        } catch (error) {
+          console.error('Failed to store name/description:', error);
+          // Don't throw - continue with crafting even if storage fails
+        }
+      }
 
       // Create cache entry
       cacheEntry = await this.imageCacheRepository.createCacheEntry({
@@ -439,7 +519,7 @@ export class MaterialService {
 
     return {
       success: true,
-      updated_item: this.transformItemToApiFormat(updatedItem, craftCount),
+      updated_item: await this.transformItemToApiFormat(updatedItem, craftCount),
       gold_spent: goldCost,
       replaced_material: {
         id: oldInstance.id,
@@ -450,7 +530,7 @@ export class MaterialService {
           id: oldMaterial.id,
           name: oldMaterial.name,
           stat_modifiers: oldMaterial.stat_modifiers,
-          description: oldMaterial.description || undefined,
+          description: oldMaterial.description ?? undefined,
           base_drop_weight: oldMaterial.base_drop_weight
         } : {} as any
       },
@@ -464,7 +544,7 @@ export class MaterialService {
           id: oldMaterial.id,
           name: oldMaterial.name,
           stat_modifiers: oldMaterial.stat_modifiers,
-          description: oldMaterial.description || undefined,
+          description: oldMaterial.description ?? undefined,
           base_drop_weight: oldMaterial.base_drop_weight
         } : {} as any
       },
@@ -497,45 +577,51 @@ export class MaterialService {
    * Transform ItemWithDetails from repository to API Item format
    * Maps to iOS EnhancedPlayerItem structure
    */
-  private transformItemToApiFormat(itemWithDetails: any, craftCount: number = 1): any {
+  private async transformItemToApiFormat(itemWithDetails: any, craftCount: number = 1): Promise<any> {
     // Extract the item type name as base_type
-    const baseType = itemWithDetails.item_type?.name || 'Unknown';
-    const category = itemWithDetails.item_type?.category || 'weapon';
-    const rarity = itemWithDetails.item_type?.rarity || 'common';
+    const baseType = itemWithDetails.name ?? itemWithDetails.item_type?.name ?? 'Unknown';
+    const description = itemWithDetails.description ?? itemWithDetails.item_type?.description ?? null;
+    const category = itemWithDetails.item_type?.category ?? 'weapon';
+    const rarity = itemWithDetails.item_type?.rarity ?? 'common';
+
+    // Transform applied materials and fetch style names
+    const applied_materials = await Promise.all(
+      (itemWithDetails.materials || []).map(async (m: any) => {
+        const styleId = m.material?.style_id || '00000000-0000-0000-0000-000000000000';
+
+        // Fetch style definition - don't swallow errors
+        const style = await this.styleRepository.findById(styleId);
+        const styleName = style?.style_name;
+
+        return {
+          material_id: m.material?.id || '',
+          style_id: styleId,
+          style_name: styleName,
+          slot_index: m.slot_index,
+          material: {
+            id: m.material?.id || '',
+            name: m.material?.name || '',
+            description: m.material?.description,
+            style_id: styleId,
+            style_name: styleName,
+            stat_modifiers: m.material?.stat_modifiers || {},
+            image_url: undefined
+          }
+        };
+      })
+    );
 
     return {
       id: itemWithDetails.id,
       base_type: baseType,
+      description: description,
+      name: itemWithDetails.name || null,
       item_type_id: itemWithDetails.item_type_id,
       category: category,
       level: itemWithDetails.level,
       rarity: rarity,
-      applied_materials: itemWithDetails.materials?.map((m: any) => ({
-        material_id: m.material?.id || '',
-        style_id: m.material?.style_id || '00000000-0000-0000-0000-000000000000',
-        slot_index: m.slot_index,
-        material: {
-          id: m.material?.id || '',
-          name: m.material?.name || '',
-          description: m.material?.description,
-          style_id: m.material?.style_id || '00000000-0000-0000-0000-000000000000',
-          stat_modifiers: m.material?.stat_modifiers || {},
-          image_url: undefined
-        }
-      })) || [],
-      materials: itemWithDetails.materials?.map((m: any) => ({
-        material_id: m.material?.id || '',
-        style_id: m.material?.style_id || '00000000-0000-0000-0000-000000000000',
-        slot_index: m.slot_index,
-        material: {
-          id: m.material?.id || '',
-          name: m.material?.name || '',
-          description: m.material?.description,
-          style_id: m.material?.style_id || '00000000-0000-0000-0000-000000000000',
-          stat_modifiers: m.material?.stat_modifiers || {},
-          image_url: undefined
-        }
-      })) || [],
+      applied_materials,
+      materials: applied_materials,
       computed_stats: itemWithDetails.current_stats || {},
       material_combo_hash: itemWithDetails.material_combo_hash || null,
       generated_image_url: itemWithDetails.generated_image_url || null,

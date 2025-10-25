@@ -1,81 +1,107 @@
-# Testing Equipment Endpoints
+# Testing Backend Endpoints
 
-## Key Learnings
+## Dev Auth Bypass (Local Development Only)
 
-### Authentication
-- **Register new device:** `POST /api/v1/auth/register-device` with `{"device_id": "<valid-uuid>"}`
-- Device ID must be a valid UUID (use `python3 -c "import uuid; print(uuid.uuid4())"` to generate)
-- Response includes `access_token` in `data.session.access_token` (wrapped response format)
-- Token expiration: 30 days (2592000 seconds)
-- Legacy tokens may fail with "invalid JWT structure" if expired
+For local testing, use the **dev bypass authentication** header to skip JWT token generation.
 
-**Quick token generation:**
+**Key location:** `mystica-express/.env.local` → `DEV_BYPASS_KEY`
+
+### Email-Based User
 ```bash
-# Generate fresh device and extract token
-curl -s "http://localhost:3000/api/v1/auth/register-device" \
-  -X POST -H "Content-Type: application/json" \
-  -d "{\"device_id\":\"$(python3 -c 'import uuid; print(uuid.uuid4())')\"}" \
-  | python3 -c "import sys, json; print(json.load(sys.stdin)['data']['session']['access_token'])"
+curl -X GET http://localhost:3000/api/v1/inventory \
+  -H "X-Dev-Token: a0527824305b2d74a9d4386fea1fae904dad4876c12329e72c7fcdba067f5920" \
+  -H "X-Dev-User-Id: 123e4567-e89b-12d3-a456-426614174000" \
+  -H "X-Dev-Email: admin@mystica.app"
 ```
 
-### Equipment Data Structure
+### Anonymous Device User
+```bash
+curl -X GET http://localhost:3000/api/v1/inventory \
+  -H "X-Dev-Token: a0527824305b2d74a9d4386fea1fae904dad4876c12329e72c7fcdba067f5920" \
+  -H "X-Dev-User-Id: a7f99fed-262b-43e2-a88c-a8c5e4720577" \
+  -H "X-Dev-Device-Id: EBC2A413-66A2-4566-9339-0B5B1DE4A788"
+```
+
+**Requirements:**
+- ✅ Only works in `NODE_ENV=development`
+- ✅ `X-Dev-Token` must match `DEV_BYPASS_KEY` in `.env.local` exactly
+- ✅ `X-Dev-User-Id` is required
+- ✅ `X-Dev-Device-Id` (anonymous) OR `X-Dev-Email` (email-based) are optional
+- ⚠️ Logs a warning so you know bypass is active
+
+---
+
+## Predefined Test Users
+
+Use these user IDs with the dev bypass:
+
+- **Admin (email):** `123e4567-e89b-12d3-a456-426614174000`
+- **Email User:** `550e8400-e29b-41d4-a716-446655440000`
+- **Anonymous (device):** `a7f99fed-262b-43e2-a88c-a8c5e4720577`
+
+---
+
+## Response Structures
+
+### Equipment Endpoint
 The `/api/v1/equipment` endpoint returns a **wrapped response**:
 ```json
 {
   "success": true,
   "data": {
     "slots": {
-      "weapon": { PlayerItem or null },
-      "offhand": { PlayerItem or null },
-      ...
+      "weapon": { "PlayerItem or null" },
+      "offhand": { "PlayerItem or null" }
     },
-    "total_stats": { atkPower, atkAccuracy, defPower, defAccuracy },
-    "equipment_count": number
+    "total_stats": { "atkPower": 0, "atkAccuracy": 0, "defPower": 0, "defAccuracy": 0 },
+    "equipment_count": 0
   },
   "timestamp": "2025-10-23T03:49:18.974Z"
 }
 ```
 
-**PlayerItem structure (flattened, not nested):**
+### PlayerItem Structure
 ```json
 {
   "id": "uuid",
-  "base_type": "Sword",           // String (not nested ItemType object)
+  "base_type": "Sword",
   "item_type_id": "uuid",
   "category": "weapon",
   "level": 3,
   "rarity": "epic",
   "applied_materials": [],
-  "computed_stats": { ... },
+  "computed_stats": { },
   "is_styled": false,
   "is_equipped": true,
   "generated_image_url": "https://..."
 }
 ```
 
-**Swift model fix:** `PlayerItem.swift` was updated to use `baseType: String`, `itemTypeId: String`, and `category: String` as flat fields instead of expecting a nested `itemType: ItemType` object.
+---
 
-### Database
-- `UserEquipment` table must have rows for ALL 8 slots (even if `item_id` is null)
-- Test user `6a7a9353-e4d9-4ae0-b3a8-0736b77a8a99` has items equipped
+## Database Notes
+
+- `UserEquipment` table must have rows for **ALL 8 slots** (even if `item_id` is null)
 - ItemTypes exist; no need to create them
+- Test user `6a7a9353-e4d9-4ae0-b3a8-0736b77a8a99` has items equipped
 
-### Frontend
-When adding detailed logging to decode errors:
-- Log the raw response string before throwing (helps debug nil issues)
-- Remove FileLogger references if that class doesn't exist (linter may add them)
-- Equipment and Auth services both had this issue
+---
 
-### Quick Test
+## Complete Test Example
+
 ```bash
-# Complete workflow: register device, get token, test equipment endpoint
-TOKEN=$(curl -s "http://localhost:3000/api/v1/auth/register-device" \
-  -X POST -H "Content-Type: application/json" \
-  -d "{\"device_id\":\"$(python3 -c 'import uuid; print(uuid.uuid4())')\"}" \
-  | python3 -c "import sys, json; print(json.load(sys.stdin)['data']['session']['access_token'])")
-
+# Test as admin user
 curl -s "http://localhost:3000/api/v1/equipment" \
-  -H "Authorization: Bearer $TOKEN" | python3 -m json.tool
+  -H "X-Dev-Token: a0527824305b2d74a9d4386fea1fae904dad4876c12329e72c7fcdba067f5920" \
+  -H "X-Dev-User-Id: 123e4567-e89b-12d3-a456-426614174000" \
+  -H "X-Dev-Email: admin@mystica.app" | python3 -m json.tool
 ```
 
-**Expected response:** Wrapped format with `success: true`, `data` containing `slots`, `total_stats`, and `equipment_count`. New users will have empty slots (`{}`), existing users will have PlayerItem objects in equipped slots.
+Expected response: Wrapped format with `success: true`, `data` containing `slots`, `total_stats`, and `equipment_count`.
+
+---
+
+## Notes
+
+- **Swift model:** `PlayerItem.swift` uses flat fields (`baseType`, `itemTypeId`, `category`) instead of nested objects
+- **Response format:** All endpoints use wrapped format with `success`, `data`, and `timestamp` fields

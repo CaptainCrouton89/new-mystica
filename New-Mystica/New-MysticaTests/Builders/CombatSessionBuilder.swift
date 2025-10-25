@@ -15,10 +15,11 @@ class CombatSessionBuilder {
     private var turnNumber = 1
     private var currentTurnOwner = "player"
     private var status = CombatStatus.active
-    private var enemy = Enemy.testData()
-    private var playerStats = ItemStats.testData()
-    private var playerHp: Double? = 100.0
-    private var enemyHp: Double? = 80.0
+    private var enemy = CombatEnemy.testData()
+    private var playerStats = CombatPlayerStats.testData()
+    private var weaponConfig = WeaponConfig.testData()
+    private var playerHp: Double = 100.0
+    private var enemyHp: Double = 80.0
     private var expiresAt: String? = nil
 
     init() {}
@@ -55,22 +56,27 @@ class CombatSessionBuilder {
         return self
     }
 
-    func withEnemy(_ enemy: Enemy) -> CombatSessionBuilder {
+    func withEnemy(_ enemy: CombatEnemy) -> CombatSessionBuilder {
         self.enemy = enemy
         return self
     }
 
-    func withPlayerStats(_ stats: ItemStats) -> CombatSessionBuilder {
+    func withPlayerStats(_ stats: CombatPlayerStats) -> CombatSessionBuilder {
         self.playerStats = stats
         return self
     }
 
-    func withPlayerHp(_ hp: Double?) -> CombatSessionBuilder {
+    func withWeaponConfig(_ config: WeaponConfig) -> CombatSessionBuilder {
+        self.weaponConfig = config
+        return self
+    }
+
+    func withPlayerHp(_ hp: Double) -> CombatSessionBuilder {
         self.playerHp = hp
         return self
     }
 
-    func withEnemyHp(_ hp: Double?) -> CombatSessionBuilder {
+    func withEnemyHp(_ hp: Double) -> CombatSessionBuilder {
         self.enemyHp = hp
         return self
     }
@@ -108,21 +114,21 @@ class CombatSessionBuilder {
 
     func asPlayerVictory() -> CombatSessionBuilder {
         return self
-            .withStatus(.playerWon)
+            .withStatus(.victory)
             .withEnemyHp(0.0)
             .withPlayerHp(Double.random(in: 10...60))
     }
 
     func asPlayerDefeat() -> CombatSessionBuilder {
         return self
-            .withStatus(.enemyWon)
+            .withStatus(.defeat)
             .withPlayerHp(0.0)
             .withEnemyHp(Double.random(in: 10...60))
     }
 
     func asRetreated() -> CombatSessionBuilder {
         return self
-            .withStatus(.retreated)
+            .withStatus(.abandoned)
             .withPlayerHp(Double.random(in: 5...40))
             .withEnemyHp(Double.random(in: 20...80))
     }
@@ -202,11 +208,12 @@ class CombatSessionBuilder {
             sessionId: sessionId,
             playerId: playerId,
             enemyId: enemyId,
-            turnNumber: turnNumber,
-            currentTurnOwner: currentTurnOwner,
             status: status,
             enemy: enemy,
             playerStats: playerStats,
+            weaponConfig: weaponConfig,
+            turnNumber: turnNumber,
+            currentTurnOwner: currentTurnOwner,
             playerHp: playerHp,
             enemyHp: enemyHp,
             expiresAt: expiresAt
@@ -438,5 +445,109 @@ class EnemyBuilder {
             EnemyBuilder().asUndead().build(),
             EnemyBuilder().asElemental().build()
         ]
+    }
+}
+
+// MARK: - Test Data Extensions
+
+extension CombatEnemy {
+    static func testData(
+        id: String = "enemy_123",
+        type: String = "goblin",
+        name: String = "Forest Goblin",
+        level: Int = 5,
+        atk: Int = 15,
+        def: Int = 10,
+        hp: Int = 100,
+        styleId: String = "style_001",
+        dialogueTone: String = "aggressive",
+        personalityTraits: [String] = ["cunning", "quick"]
+    ) -> CombatEnemy {
+        return CombatEnemy(
+            id: id,
+            type: type,
+            name: name,
+            level: level,
+            atk: atk,
+            def: def,
+            hp: hp,
+            styleId: styleId,
+            dialogueTone: dialogueTone,
+            personalityTraits: personalityTraits
+        )
+    }
+}
+
+extension CombatPlayerStats {
+    static func testData(
+        atkPower: Double = 20.0,
+        atkAccuracy: Double = 75.0,
+        defPower: Double = 15.0,
+        defAccuracy: Double = 70.0,
+        hp: Double = 100.0
+    ) -> CombatPlayerStats {
+        return CombatPlayerStats(
+            atkPower: atkPower,
+            atkAccuracy: atkAccuracy,
+            defPower: defPower,
+            defAccuracy: defAccuracy,
+            hp: hp
+        )
+    }
+}
+
+extension WeaponConfig {
+    static func testData(
+        pattern: String = "single_arc",
+        spinDegPerS: Int = 180,
+        adjustedBands: AdjustedBands = AdjustedBands.testData()
+    ) -> WeaponConfig {
+        return WeaponConfig(
+            pattern: pattern,
+            spinDegPerS: spinDegPerS,
+            adjustedBands: adjustedBands
+        )
+    }
+}
+
+extension AdjustedBands {
+    static func testData(
+        degInjure: Double = 30.0,
+        degMiss: Double = 60.0,
+        degGraze: Double = 90.0,
+        degNormal: Double = 270.0,
+        degCrit: Double = 300.0
+    ) -> AdjustedBands {
+        return AdjustedBands(
+            degInjure: degInjure,
+            degMiss: degMiss,
+            degGraze: degGraze,
+            degNormal: degNormal,
+            degCrit: degCrit
+        )
+    }
+}
+
+extension Enemy {
+    static func testData(
+        id: String? = "legacy_enemy_123",
+        name: String? = "Legacy Forest Goblin",
+        level: Int = 5,
+        stats: ItemStats = ItemStats.testData(),
+        specialAbilities: [String] = ["quick_strike"],
+        goldMin: Int = 20,
+        goldMax: Int = 50,
+        materialDropPool: [String] = ["wood", "bone"]
+    ) -> Enemy {
+        return Enemy(
+            id: id,
+            name: name,
+            level: level,
+            stats: stats,
+            specialAbilities: specialAbilities,
+            goldMin: goldMin,
+            goldMax: goldMax,
+            materialDropPool: materialDropPool
+        )
     }
 }

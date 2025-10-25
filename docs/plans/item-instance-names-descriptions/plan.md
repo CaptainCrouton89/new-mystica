@@ -1,473 +1,456 @@
-# Implementation Plan: AI-Generated Item Instance Names & Descriptions
-
-**Status:** Investigation Phase
-**Created:** 2025-10-24
-**Agents Investigating:** 6 context-engineer agents
-
----
-
-## Overview
-
-Enable every item instance to have a unique, AI-generated name and description that reflects its crafted materials and style, instead of using the generic item type name.
-
----
-
-## Problem Statement
-
-### Current State
-- Item instances reference `item_type_id` for name/description
-- All instances of "Sword" are named "Sword" (generic)
-- Crafted items with unique material combinations share the same generic name
-- AI generation exists in `scripts/generate-item-description.ts` but isn't integrated into the crafting flow
-
-### Desired State
-- Each item instance has unique name and description columns
-- When materials are applied, AI generates creative names like "Crystaline Ironwood Blade"
-- AI generates 2-sentence visual descriptions reflecting material fusion
-- Names and descriptions are stored per-instance and displayed throughout the app
-- Fallback to item type name/description if generation fails
-
----
-
-## User Experience
-
-### Before
-```
-Player crafts: Sword + [iron, crystal, wood]
-Result:
-  Name: "Sword"
-  Description: "A basic sword"
-```
-
-### After
-```
-Player crafts: Sword + [iron, crystal, wood]
-Result:
-  Name: "Crystaline Ironwood Blade"
-  Description: "A sleek sword with an iron core wrapped in crystalline segments,
-                with a wooden hilt embedded with glowing crystal shards. The blade
-                gleams with an ethereal light that pulses through the wood grain patterns."
-```
-
----
-
-## Technical Requirements
-
-### Functional Requirements
-1. **Name Generation:** Use OpenAI `generateObject` to create unique item names
-2. **Description Generation:** Generate 2-sentence visual descriptions reflecting material fusion
-3. **Timing:** Generate name + description when materials are applied (same time as image generation)
-4. **Storage:** Persist name and description on item instance in PostgreSQL
-5. **Display:** Show generated names everywhere items appear (inventory, equipment, combat, etc.)
-6. **Fallback:** If generation fails, use item type name/description as fallback
-7. **Backward Compatibility:** Existing items without names should fallback to item type
-
-### Non-Functional Requirements
-- Generation time: <3 seconds (same as image generation, can run in parallel)
-- Cost: ~$0.0001-0.0005 per name/description (OpenAI gpt-4.1-mini)
-- No breaking changes to existing API contracts during transition
-- Frontend gracefully handles missing name/description fields
-
----
-
-## Investigation Agents (In Progress)
-
-| Agent ID | Focus Area | Status |
-|----------|-----------|--------|
-| agent_179969 | Database schema migration patterns | Running |
-| agent_651426 | Item repository and service patterns | Running |
-| agent_292836 | Material application and crafting flow | Running |
-| agent_577724 | API response types and schemas | Running |
-| agent_541761 | Frontend item display patterns (SwiftUI) | Running |
-| agent_593245 | Frontend API service layer patterns | Running |
-
----
-
-## High-Level Implementation Phases
-
-### Phase 1: Database & Backend Foundation
-**Goal:** Add storage for names/descriptions and update data layer
-
-#### Tasks:
-1. **Database Migration**
-   - Create migration file: `0XX_add_item_instance_names_descriptions.sql`
-   - Add columns to `Items` table:
-     ```sql
-     ALTER TABLE Items
-       ADD COLUMN name VARCHAR(100),
-       ADD COLUMN description TEXT;
-     ```
-   - Backfill existing items: copy from `ItemTypes.name` and `ItemTypes.description`
-   - Apply to remote Supabase
-
-2. **Type Regeneration**
-   - Run `pnpm supabase:types` to regenerate database types
-   - Verify `Items` Row/Insert/Update types include new columns
-
-3. **Repository Layer**
-   - Update `ItemRepository.ts`:
-     - SELECT queries include name, description
-     - Add `updateItemNameDescription(itemId, name, description)` method
-     - Ensure all item queries return new fields
-   - Handle NULL → fallback to `item_type.name` in queries
-
-4. **Service Layer - Core Updates**
-   - Update `ItemService.ts`:
-     - Item creation sets name/description from item_type (default)
-     - All response methods return name/description
-     - Add fallback logic for NULL columns
-
-**Deliverables:**
-- Migration file applied to remote DB
-- Updated ItemRepository with new methods
-- ItemService returns name/description in all responses
-
-**Risks:**
-- Breaking existing API clients if not backward compatible
-- Performance impact of additional columns in queries
-
----
-
-### Phase 2: AI Integration
-**Goal:** Integrate OpenAI name/description generation into crafting flow
-
-#### Tasks:
-1. **Port Script Logic to Service**
-   - Create `ImageGenerationService.generateItemNameAndDescription()` method
-   - Import OpenAI SDK and `generateObject`
-   - Use existing prompt/schema from `scripts/generate-item-description.ts`
-   - Return `{ name: string, description: string }`
-
-2. **Integrate into Crafting Flow**
-   - Update `MaterialService.applyMaterialsToItem()`:
-     - Call `generateItemNameAndDescription()` alongside image generation
-     - Pass item type and material names to AI
-     - Store generated name + description on item via ItemRepository
-   - Run AI generation in parallel with image generation (both async)
-   - Handle generation failures gracefully (fallback to item type)
-
-3. **Error Handling**
-   - Add retry logic (2 attempts)
-   - Log generation failures
-   - On failure: set name/description to NULL (will fallback to item type)
-
-4. **Testing**
-   - Unit tests for name/description generation
-   - Integration tests for crafting flow
-   - Verify fallback behavior
-
-**Deliverables:**
-- `ImageGenerationService.generateItemNameAndDescription()` method
-- MaterialService integration complete
-- Error handling and fallback logic tested
-
-**Risks:**
-- AI generation adds latency (~1-3s)
-- OpenAI API failures could block crafting
-- Cost increase for crafting operations
-
----
-
-### Phase 3: Backend API Layer
-**Goal:** Update API types and responses to expose names/descriptions
-
-#### Tasks:
-1. **API Type Definitions**
-   - Update `mystica-express/src/types/api.types.ts`:
-     - Add `name: string` to `Item` interface
-     - Add `description: string` to `Item` interface
-     - Remove reliance on `item.item_type.name` in response builders
-
-2. **Repository Types**
-   - Update `mystica-express/src/types/repository.types.ts`:
-     - Add fields to `ItemWithDetails` type
-     - Add fields to `CreateItemData` type
-
-3. **Zod Schemas**
-   - Update `mystica-express/src/types/schemas.ts` if needed
-   - Validate new fields in request/response schemas
-
-4. **Controller Updates**
-   - Update `ItemController.ts`:
-     - Return `name` and `description` from item instance (not item_type)
-     - Update all response transformations
-   - Check other controllers returning items:
-     - InventoryController
-     - EquipmentController
-     - CombatController (rewards)
-
-5. **API Testing**
-   - Test all endpoints returning items
-   - Verify name/description in responses
-   - Test fallback behavior for old items
-
-**Deliverables:**
-- Updated API types
-- All controllers return name/description
-- API tests pass
-
-**Risks:**
-- Breaking changes to API contracts
-- Frontend compatibility during rollout
-
----
-
-### Phase 4: Frontend Data Layer (Swift)
-**Goal:** Update Swift models to decode and store instance names/descriptions
-
-#### Tasks:
-1. **Update Item Model**
-   - Update `New-Mystica/New-Mystica/Models/Item.swift`:
-     - Add `name: String` property
-     - Add `description: String?` property
-     - Update `CodingKeys` enum to decode from API
-     - Remove computed properties that reference `itemType.name`
-   - Handle backward compatibility for items without name/description
-
-2. **Update API Services**
-   - Find all API service files that decode items
-   - Update response models to expect name/description
-   - Add fallback logic during transition period
-
-3. **Data Flow Testing**
-   - Verify API → Model decoding works
-   - Test with and without name/description present
-   - Verify fallback to itemType fields
-
-**Deliverables:**
-- Updated Swift Item model
-- API services decode new fields
-- Backward compatibility handled
-
-**Risks:**
-- Breaking changes to existing local data
-- SwiftData model changes may require migration
-
----
-
-### Phase 5: Frontend UI Layer (SwiftUI)
-**Goal:** Display AI-generated names throughout the app
-
-#### Tasks:
-1. **Identify Display Locations**
-   - Inventory lists/grids
-   - Item detail modals
-   - Equipment screens
-   - Crafting result screens
-   - Combat reward screens
-   - Any other item cards/lists
-
-2. **Update Views**
-   - Replace `item.itemType.name` → `item.name`
-   - Replace `item.itemType.description` → `item.description`
-   - Ensure fallback logic if fields are nil
-
-3. **UI Testing**
-   - Test all screens with new names
-   - Verify fallback for old items
-   - Check text truncation/wrapping for long names
-   - Verify descriptions render properly
-
-**Deliverables:**
-- All views display item.name
-- UI handles long names gracefully
-- Descriptions display properly
-
-**Risks:**
-- Long AI-generated names may break layouts
-- Need to handle text overflow/truncation
-
----
-
-## Dependencies
-
-### External Services
-- **OpenAI API** (gpt-4.1-mini) - Already in use
-- **Supabase** - Already in use
-
-### Existing Code
-- `scripts/generate-item-description.ts` - Schema and prompt already exist
-- `ImageGenerationService` - Pattern for AI integration
-- `MaterialService.applyMaterialsToItem()` - Hook point for generation
-
-### Environment Variables
-- `OPENAI_API_KEY` - Already configured
-
----
-
-## Rollout Strategy
-
-### Option A: Big Bang (Recommended)
-1. Deploy backend with migration and AI generation
-2. Backfill existing items with type names
-3. Deploy frontend with new models
-4. All new crafted items get AI names immediately
-
-**Pros:**
-- Clean, one-time change
-- No complex compatibility logic
-
-**Cons:**
-- Requires coordinated backend + frontend deploy
-
-### Option B: Gradual Rollout
-1. Deploy backend with columns but no AI generation (NULL allowed)
-2. Deploy frontend with fallback logic
-3. Enable AI generation for new items only
-4. Backfill existing items later
-
-**Pros:**
-- Lower risk, can test incrementally
-
-**Cons:**
-- More complex fallback logic
-- Longer transition period
-
-**Recommendation:** Option A - cleaner and faster for pre-production
-
----
-
-## Testing Strategy
-
-### Backend Tests
-- [ ] Unit test: `generateItemNameAndDescription()` with various inputs
-- [ ] Unit test: Fallback logic when AI generation fails
-- [ ] Integration test: Crafting flow with name/description generation
-- [ ] Integration test: ItemRepository returns name/description
-- [ ] Integration test: All API endpoints return new fields
-
-### Frontend Tests
-- [ ] Unit test: Item model decoding with/without name/description
-- [ ] UI test: All item display views show correct names
-- [ ] UI test: Long names are truncated properly
-- [ ] UI test: Fallback to itemType.name works
-
----
-
-## Success Metrics
-
-### Functional Metrics
-- [ ] 100% of newly crafted items have AI-generated names
-- [ ] 100% of item display locations show instance names (not type names)
-- [ ] AI generation success rate >95%
-- [ ] Fallback logic works for failed generations
-
-### Performance Metrics
-- [ ] Name/description generation <3 seconds
-- [ ] No increase in crafting endpoint latency (parallel generation)
-- [ ] Database queries not significantly slower
-
-### Cost Metrics
-- [ ] OpenAI cost per craft: <$0.001
-- [ ] Total monthly cost increase acceptable
-
----
-
-## Risks & Mitigations
-
-| Risk | Impact | Mitigation |
-|------|--------|-----------|
-| AI generation failures block crafting | High | Fallback to item type name, retry logic |
-| Long names break UI layouts | Medium | Text truncation, max length validation |
-| Database migration causes downtime | Medium | Use non-blocking ALTER TABLE, backfill separately |
-| Frontend backward compatibility issues | Medium | Deploy backend first, test thoroughly |
-| Cost increase from AI calls | Low | Monitor costs, use gpt-4.1-mini (cheap model) |
-
----
-
-## Open Questions (To Be Resolved After Investigation)
-
-### Database Layer
-- [ ] What is the exact migration file naming pattern?
-- [ ] How are migrations applied to remote Supabase?
-- [ ] Are there any constraints on the Items table that would block adding columns?
-- [ ] Should we add indexes on name column for future search features?
-
-### Backend Layer
-- [ ] Where exactly does MaterialService call ImageGenerationService?
-- [ ] Can name/description generation run in parallel with image generation?
-- [ ] What is the exact response format from ItemRepository?
-- [ ] Are there other services that create items (not just MaterialService)?
-
-### Frontend Layer
-- [ ] What is the exact structure of the Swift Item model?
-- [ ] How many views display item names?
-- [ ] Is there a global item display component or are they all custom?
-- [ ] How is SwiftData handling model changes?
-
----
-
-## Next Steps
-
-1. **Wait for investigation agents to complete** (6 agents running)
-2. **Synthesize investigation findings** into detailed implementation tasks
-3. **Create detailed sub-plans** for each phase
-4. **Get approval** on approach and rollout strategy
-5. **Begin Phase 1** implementation
-
----
-
-## Investigation Agent Details
-
-### agent_179969: Database Schema Migration Patterns
-**Investigating:**
-- Migration file naming conventions
-- ALTER TABLE patterns in existing migrations
-- Migration application process (local vs remote)
-- Type regeneration workflow
-
-### agent_651426: Item Repository and Service Patterns
-**Investigating:**
-- ItemRepository query patterns
-- How item_type data is joined/nested
-- ItemService transformation patterns
-- Where item.item_type.name is currently used
-
-### agent_292836: Material Application and Crafting Flow
-**Investigating:**
-- Complete crafting flow from material application to DB update
-- Where ImageGenerationService is called
-- MaterialService update patterns
-- Integration points for AI generation
-
-### agent_577724: API Response Types and Schemas
-**Investigating:**
-- Current Item type definition in api.types.ts
-- Zod schema validation patterns
-- Controller response formats
-- Repository type definitions
-
-### agent_541761: Frontend Item Display Patterns (SwiftUI)
-**Investigating:**
-- All SwiftUI views displaying item names
-- Current Item model structure
-- Where item.itemType.name is accessed
-- UI components that need updates
-
-### agent_593245: Frontend API Service Layer Patterns
-**Investigating:**
-- API service architecture
-- Item decoding patterns (Codable)
-- All endpoints returning item data
-- Data flow: API → Model → View
-
----
-
-## Appendix: Code References
-
-### Existing AI Generation
-- `scripts/generate-item-description.ts` - OpenAI generateObject implementation
-- System prompt and schema already defined
-- Output format: `{ name: string, description: string }`
-
-### Key Integration Points
-- `MaterialService.applyMaterialsToItem()` - Hook for AI generation
-- `ImageGenerationService` - Pattern for async AI calls
-- `ItemRepository` - Data persistence layer
-
-### Frontend Display Locations (To Be Confirmed)
-- Inventory views
-- Equipment views
-- Item detail modals
-- Crafting result screens
-- Combat reward screens
+# Implementation Plan – AI-Generated Item Instance Names & Descriptions
+
+# Overview
+overview:
+  related_items:
+    feature_specs: []
+    user_stories: []
+    user_flows: []
+  related_docs: |
+    - "docs/plans/item-instance-names-descriptions/investigation-synthesis.md"
+    - "docs/investigations/item-repository-service-patterns.md"
+    - "docs/investigations/frontend-item-display-patterns.md"
+    - "docs/investigations/material-crafting-flow.md"
+    - "docs/investigations/item-api-response-types.md"
+    - "docs/api-contracts.yaml"
+    - "scripts/generate-item-description.ts"
+
+# Problem
+problem: |
+  **Current State:**
+  All item instances use generic names from their ItemType (e.g., all swords are "Sword"). When players craft unique material combinations, the items still show generic names, missing an opportunity for personalization and immersion.
+
+  **Impact:**
+  - Reduced player attachment to crafted items
+  - No visual distinction between different material combinations
+  - Existing AI description generation script exists but isn't integrated into crafting flow
+  - Frontend displays crude capitalization of snake_case (`iron_sword` → `Iron Sword`) instead of proper names
+
+# Solution
+solution: |
+  Add `name` and `description` columns directly to the `Items` table to store AI-generated, instance-specific text. When materials are applied to an item (MaterialService.applyMaterial line 179), generate unique names and descriptions using OpenAI's generateObject API (same pattern as image generation). Update 4 backend service transformation points and 4 frontend display components to use instance fields with fallback to ItemType defaults. This provides immediate value for crafted items while maintaining backward compatibility for existing items.
+
+# Current System
+current_system:
+  description: |
+    **Database Layer:**
+    - `Items` table references `item_type_id` for name/description
+    - Repository methods use JOIN queries: `itemtypes(name, description, ...)`
+    - No instance-level naming fields exist
+
+    **Backend Service Layer:**
+    - MaterialService.applyMaterial() at line 179 handles "first craft" logic
+    - Image generation runs synchronously when `isFirstCraft = true`
+    - 4 transformation points access name via `item.item_type?.name || 'Unknown'`:
+      * InventoryService.ts:115
+      * EquipmentService.ts:307
+      * MaterialService.ts:502
+      * ItemController.ts:64
+
+    **AI Generation:**
+    - Existing script at `scripts/generate-item-description.ts` uses OpenAI generateObject
+    - Not integrated into backend services
+    - Schema and prompts already defined
+
+    **Frontend:**
+    - PlayerItem model has `baseType: String` property
+    - 4 display components use `item.baseType.capitalized`:
+      * ItemRow.swift:74 (inventory lists)
+      * ItemDetailModal.swift:126 (equipment details)
+      * InventoryItemDetailModal.swift:47 (inventory details)
+      * ItemSlotSelector.swift:91 (crafting interface)
+
+# Changes Required
+changes_required:
+  - path: "mystica-express/supabase/migrations/202510241900_add_item_instance_names_descriptions.sql"
+    changes: |
+      - CREATE new timestamped migration file
+      - ALTER TABLE Items ADD COLUMN name VARCHAR(100) (nullable for backward compat)
+      - ALTER TABLE Items ADD COLUMN description TEXT (nullable)
+      - Use IF NOT EXISTS pattern for idempotency
+      - No indexes initially (can add later for search features)
+
+  - path: "mystica-express/src/services/NameDescriptionService.ts"
+    changes: |
+      - CREATE new service following ImageGenerationService pattern
+      - Port generateItemDescription() logic from scripts/generate-item-description.ts
+      - Add method generateForItem(itemType, materials, styles): Promise<{name: string, description: string}>
+      - Import OpenAI SDK and use generateObject with existing schema
+      - Add retry logic (2 attempts) and error handling
+      - Log generation failures for monitoring
+
+  - path: "mystica-express/src/services/MaterialService.ts"
+    changes: |
+      - Import NameDescriptionService at top of file
+      - At line 179 (in isFirstCraft block), add parallel name/description generation
+      - Call nameDescriptionService.generateForItem() with item type and materials
+      - Store results via ItemRepository.updateItemNameDescription()
+      - Handle generation failures gracefully (NULL → fallback to item_type)
+      - Run in parallel with image generation (both async)
+
+  - path: "mystica-express/src/repositories/ItemRepository.ts"
+    changes: |
+      - Add name, description to all SELECT queries (existing JOIN patterns)
+      - Create new method updateItemNameDescription(itemId, name, description)
+      - Ensure findWithMaterials(), findWithItemType(), findAllWithDetails() return new fields
+      - No change to insert logic initially (NULL by default)
+
+  - path: "mystica-express/src/services/InventoryService.ts"
+    changes: |
+      - Update transformation at line 115
+      - Change: base_type: itemWithDetails.item_type?.name || 'Unknown'
+      - To: base_type: itemWithDetails.name || itemWithDetails.item_type?.name || 'Unknown'
+      - Add description field to response transformation
+      - description: itemWithDetails.description || itemWithDetails.item_type?.description
+
+  - path: "mystica-express/src/services/EquipmentService.ts"
+    changes: |
+      - Update transformation at line 307
+      - Change: base_type: item.item_type?.name || 'Unknown'
+      - To: base_type: item.name || item.item_type?.name || 'Unknown'
+      - Add description fallback logic
+
+  - path: "mystica-express/src/services/MaterialService.ts"
+    changes: |
+      - Update transformation at line 502 (response formatting)
+      - Change: base_type: updatedItem.item_type?.name || 'Unknown'
+      - To: base_type: updatedItem.name || updatedItem.item_type?.name || 'Unknown'
+      - Add description fallback logic
+
+  - path: "mystica-express/src/controllers/ItemController.ts"
+    changes: |
+      - Update transformation at line 64 (upgrade endpoint)
+      - Change: base_type: item.item_type?.name || 'Unknown'
+      - To: base_type: item.name || item.item_type?.name || 'Unknown'
+      - Add description fallback logic
+
+  - path: "mystica-express/src/types/api.types.ts"
+    changes: |
+      - Update Item interface to include name?: string, description?: string
+      - Update PlayerItem interface if exists
+      - Ensure response types are consistent across services
+
+  - path: "New-Mystica/New-Mystica/Models/Item.swift"
+    changes: |
+      - Add name: String property to PlayerItem struct
+      - Add description: String? property (nullable)
+      - Update CodingKeys enum to decode name/description from API
+      - Remove or deprecate baseType property (replaced by name)
+      - Add computed displayName for fallback if needed
+
+  - path: "New-Mystica/New-Mystica/Views/Inventory/ItemRow.swift"
+    changes: |
+      - Update line 74: Replace item.baseType.capitalized with item.name
+      - Add text truncation if name is very long
+      - Ensure UI handles multi-line wrapping
+
+  - path: "New-Mystica/New-Mystica/Views/Equipment/ItemDetailModal.swift"
+    changes: |
+      - Update line 126: Replace item.baseType.capitalized with item.name
+      - Add description display if item.description is not nil
+      - Test layout with long names/descriptions
+
+  - path: "New-Mystica/New-Mystica/Views/Inventory/InventoryItemDetailModal.swift"
+    changes: |
+      - Update line 47: Replace item.baseType.capitalized with item.name
+      - Add description display section
+      - Ensure scrolling works for long descriptions
+
+  - path: "New-Mystica/New-Mystica/Views/Crafting/ItemSlotSelector.swift"
+    changes: |
+      - Update line 91: Replace item.baseType.capitalized with item.name
+      - Handle potential nil values during transition
+
+# Task Breakdown
+task_breakdown:
+  - id: "T1"
+    description: |
+      **Database Schema Migration**
+      Create and apply migration adding `name` and `description` columns to Items table. Use nullable columns for backward compatibility. Apply to remote Supabase and regenerate TypeScript types.
+    agent: "junior-engineer"
+    depends_on: []
+    files:
+      - "mystica-express/supabase/migrations/202510241900_add_item_instance_names_descriptions.sql"
+    exit_criteria: |
+      - Migration file created with timestamp pattern
+      - Applied successfully to remote Supabase (no errors)
+      - `pnpm supabase:types` regenerates types with name/description fields
+      - Items table schema includes new nullable columns
+
+  - id: "T2"
+    description: |
+      **Backend Type Definitions**
+      Update TypeScript API types and repository types to include name and description fields. Ensure all interfaces are consistent across services and controllers.
+    agent: "junior-engineer"
+    depends_on: ["T1"]
+    files:
+      - "mystica-express/src/types/api.types.ts"
+      - "mystica-express/src/types/repository.types.ts"
+    exit_criteria: |
+      - Item/PlayerItem interfaces include name?: string, description?: string
+      - No TypeScript compilation errors
+      - Types match database schema from T1
+
+  - id: "T3"
+    description: |
+      **ItemRepository Updates**
+      Update repository queries to SELECT name and description, add updateItemNameDescription() method following existing update patterns. Ensure all detail methods (findWithMaterials, findWithItemType, findAllWithDetails) return new fields.
+    agent: "junior-engineer"
+    depends_on: ["T1"]
+    files:
+      - "mystica-express/src/repositories/ItemRepository.ts"
+    exit_criteria: |
+      - All SELECT queries include name, description
+      - New updateItemNameDescription(itemId, name, description) method exists
+      - Method follows existing update patterns (uses supabase client)
+      - Returns updated item with new fields
+
+  - id: "T4"
+    description: |
+      **NameDescriptionService Creation**
+      Port AI generation logic from scripts/generate-item-description.ts into new backend service. Follow ImageGenerationService pattern for consistency. Include retry logic, error handling, and logging.
+    agent: "programmer"
+    depends_on: ["T2"]
+    files:
+      - "mystica-express/src/services/NameDescriptionService.ts"
+      - "scripts/generate-item-description.ts"
+    exit_criteria: |
+      - Service class created with generateForItem(itemType, materials, styles) method
+      - Uses OpenAI SDK generateObject with existing schema
+      - Includes retry logic (2 attempts) and comprehensive error handling
+      - Returns {name: string, description: string} or throws with logged error
+      - Unit tests pass (generation success, generation failure, retry logic)
+
+  - id: "T5"
+    description: |
+      **MaterialService Integration**
+      Integrate NameDescriptionService into MaterialService.applyMaterial() at line 179. Run generation in parallel with image generation when isFirstCraft=true. Store results via ItemRepository.
+    agent: "programmer"
+    depends_on: ["T3", "T4"]
+    files:
+      - "mystica-express/src/services/MaterialService.ts"
+    exit_criteria: |
+      - NameDescriptionService imported and instantiated
+      - Generation called at line 179 in isFirstCraft block
+      - Runs in parallel with image generation (Promise.all or separate awaits)
+      - Results stored via ItemRepository.updateItemNameDescription()
+      - Graceful handling of generation failures (NULL stored, logs error)
+      - Integration test passes: craft item → name/description generated and stored
+
+  - id: "T6"
+    description: |
+      **Backend API Transformation Updates (4 locations)**
+      Update all service transformation points to use item instance name with fallback to item_type.name. Ensure consistent pattern across InventoryService, EquipmentService, MaterialService, ItemController.
+    agent: "programmer"
+    depends_on: ["T3"]
+    files:
+      - "mystica-express/src/services/InventoryService.ts"
+      - "mystica-express/src/services/EquipmentService.ts"
+      - "mystica-express/src/services/MaterialService.ts"
+      - "mystica-express/src/controllers/ItemController.ts"
+    exit_criteria: |
+      - All 4 transformation points updated with fallback pattern: item.name || item.item_type?.name || 'Unknown'
+      - Description fields added to responses with same fallback pattern
+      - No breaking changes to API response structure
+      - API endpoint tests pass for /inventory, /equipment, /items/:id, /items/:id/materials/apply
+
+  - id: "T7"
+    description: |
+      **Backend Build Validation**
+      Run full backend build and test suite to ensure no regressions. Fix any TypeScript errors or test failures from database/service changes.
+    agent: "junior-engineer"
+    depends_on: ["T5", "T6"]
+    files:
+      - "mystica-express/"
+    exit_criteria: |
+      - `pnpm build` completes without errors
+      - `pnpm test` passes all existing tests
+      - No TypeScript compilation errors
+      - Backend server starts successfully with `pnpm dev`
+
+  - id: "T8"
+    description: |
+      **Frontend PlayerItem Model Update**
+      Update Swift PlayerItem model to include name and description properties. Update CodingKeys for API decoding. Add backward compatibility logic for transition period.
+    agent: "junior-engineer"
+    depends_on: ["T7"]
+    files:
+      - "New-Mystica/New-Mystica/Models/Item.swift"
+    exit_criteria: |
+      - PlayerItem struct includes name: String and description: String? properties
+      - CodingKeys enum maps to backend snake_case fields
+      - Decoding handles missing fields gracefully (fallback to baseType if needed)
+      - EnhancedPlayerItem updated if applicable
+
+  - id: "T9"
+    description: |
+      **Frontend UI Display Updates (4 components)**
+      Update all SwiftUI components displaying item names to use item.name instead of item.baseType.capitalized. Add text truncation for long names. Add description display where appropriate.
+    agent: "programmer"
+    depends_on: ["T8"]
+    files:
+      - "New-Mystica/New-Mystica/Views/Inventory/ItemRow.swift"
+      - "New-Mystica/New-Mystica/Views/Equipment/ItemDetailModal.swift"
+      - "New-Mystica/New-Mystica/Views/Inventory/InventoryItemDetailModal.swift"
+      - "New-Mystica/New-Mystica/Views/Crafting/ItemSlotSelector.swift"
+    exit_criteria: |
+      - All 4 components updated to display item.name
+      - Text truncation added for very long names (lineLimit or truncationMode)
+      - Description displayed in detail modals (ItemDetailModal, InventoryItemDetailModal)
+      - UI handles nil/empty values gracefully
+      - No layout breaking for long text
+
+  - id: "T10"
+    description: |
+      **Frontend Build Validation**
+      Build iOS app for simulator and run unit tests. Verify all views compile and display correctly with new model structure.
+    agent: "junior-engineer"
+    depends_on: ["T9"]
+    files:
+      - "New-Mystica/"
+    exit_criteria: |
+      - `./build.sh` completes without errors (iOS Simulator build)
+      - Unit tests pass: `xcodebuild test -scheme New-Mystica -configuration Debug -destination "platform=iOS Simulator,name=iPhone 17 Pro"`
+      - App launches in simulator without crashes
+      - Item views display correctly (tested manually in simulator)
+
+  - id: "T11"
+    description: |
+      **End-to-End Integration Testing**
+      Test complete flow: craft item with materials → verify AI-generated name/description → verify display in all UI locations. Test fallback for old items without custom names.
+    agent: "senior-engineer"
+    depends_on: ["T10"]
+    files:
+      - "mystica-express/src/services/MaterialService.ts"
+      - "New-Mystica/New-Mystica/Views/"
+    exit_criteria: |
+      - Craft new item via API → name and description generated and stored in database
+      - New item displays custom name in all 4 frontend components
+      - Old items (NULL name) display fallback ItemType name correctly
+      - Generation failures don't block crafting (fallback to NULL/ItemType name)
+      - No console errors or warnings in backend or frontend
+
+# Parallel Execution Strategy
+parallel_execution:
+  batch_1:
+    tasks: ["T1", "T2"]
+    description: "Database schema and type definitions (independent, can run in parallel)"
+
+  batch_2:
+    tasks: ["T3", "T4"]
+    description: "Repository updates and AI service creation (both depend on Batch 1)"
+
+  batch_3:
+    tasks: ["T5", "T6"]
+    description: "Service integration and API transformations (depend on T3/T4)"
+
+  batch_4:
+    tasks: ["T7"]
+    description: "Backend validation (depends on all backend tasks)"
+
+  batch_5:
+    tasks: ["T8", "T9"]
+    description: "Frontend model and UI updates (can run in parallel, depend on T7)"
+
+  batch_6:
+    tasks: ["T10"]
+    description: "Frontend validation (depends on all frontend tasks)"
+
+  batch_7:
+    tasks: ["T11"]
+    description: "End-to-end integration testing (depends on everything)"
+
+# Data/Schema Changes
+data_schema_changes:
+  migrations:
+    - file: "mystica-express/supabase/migrations/202510241900_add_item_instance_names_descriptions.sql"
+      summary: |
+        ALTER TABLE Items ADD COLUMN name VARCHAR(100) (nullable)
+        ALTER TABLE Items ADD COLUMN description TEXT (nullable)
+        Uses IF NOT EXISTS for idempotency
+        No backfill initially (NULL values fallback to item_type)
+
+  api_changes:
+    - endpoint: "GET /inventory"
+      changes: "Returns name and description fields for each item (nullable, fallback to item_type)"
+    - endpoint: "GET /equipment"
+      changes: "Returns name and description for equipped items"
+    - endpoint: "POST /items/{id}/materials/apply"
+      changes: "Generates and returns name/description for newly crafted items"
+    - endpoint: "GET /items/{id}"
+      changes: "Returns name and description fields"
+    - endpoint: "POST /items/{id}/upgrade"
+      changes: "Returns name and description in upgrade response"
+
+# Integration Points
+integration_points:
+  - location: "MaterialService.ts:179"
+    description: "AI generation integration point (parallel with image generation)"
+    pattern: |
+      if (isFirstCraft) {
+        const [imageUrl, nameDesc] = await Promise.all([
+          imageGenerationService.generateComboImage(...),
+          nameDescriptionService.generateForItem(itemType, materials, styles)
+        ]);
+        await itemRepository.updateItemNameDescription(itemId, nameDesc.name, nameDesc.description);
+      }
+
+  - location: "Service transformations"
+    description: "Fallback pattern for API responses"
+    pattern: |
+      base_type: item.name || item.item_type?.name || 'Unknown'
+      description: item.description || item.item_type?.description
+
+# Risk Assessment
+risks:
+  high_priority:
+    - risk: "AI generation failures block crafting"
+      mitigation: "Graceful fallback to NULL (uses item_type name), comprehensive error logging, retry logic"
+
+    - risk: "Multiple service transformations break during deployment"
+      mitigation: "Comprehensive integration tests, staged rollout (backend first, test with old frontend)"
+
+  medium_priority:
+    - risk: "Long AI-generated names break UI layouts"
+      mitigation: "Max length validation (100 chars), text truncation in SwiftUI views, test with edge cases"
+
+    - risk: "Frontend backward compatibility issues"
+      mitigation: "Nullable fields with fallback logic, deploy backend first and verify old frontend still works"
+
+  low_priority:
+    - risk: "Cost increase from AI calls"
+      mitigation: "Monitor OpenAI usage, use gpt-4.1-mini (cheapest model), only generate on first craft"
+
+# Expected Result
+expected_result:
+  outcome: |
+    When a player crafts an item by applying materials, the item receives a unique AI-generated name and description that reflects the material combination. For example:
+    - Crafting Sword + [iron, crystal, wood] produces "Crystaline Ironwood Blade"
+    - All 4 frontend views (ItemRow, ItemDetailModal, InventoryItemDetailModal, ItemSlotSelector) display the custom name
+    - Item detail modals show the 2-sentence visual description
+    - Existing items without custom names gracefully fall back to their ItemType name
+    - Generation failures don't block crafting (NULL stored, fallback displayed)
+
+  example: |
+    **Before:**
+    - Player crafts Sword with iron + crystal + wood
+    - Item shows: "Sword" (generic, from ItemType)
+    - Description: "A basic sword" (generic)
+
+    **After:**
+    - Player crafts Sword with iron + crystal + wood
+    - Item shows: "Crystaline Ironwood Blade" (AI-generated, unique)
+    - Description: "A sleek sword with an iron core wrapped in crystalline segments, with a wooden hilt embedded with glowing crystal shards. The blade gleams with an ethereal light that pulses through the wood grain patterns."
+    - If AI generation fails → falls back to "Sword" (no blocking)
+
+# Notes
+notes:
+  - "Investigation synthesis: docs/plans/item-instance-names-descriptions/investigation-synthesis.md"
+  - "AI script reference: scripts/generate-item-description.ts (existing OpenAI generateObject implementation)"
+  - "Image generation pattern: mystica-express/src/services/ImageGenerationService.ts (follow this pattern)"
+  - "Total estimated time: 10-16 hours (per investigation synthesis)"
+  - "Cost per generation: ~$0.0001-0.0005 (gpt-4.1-mini)"
+  - "Rollout strategy: Big Bang (deploy backend + frontend together, cleaner for pre-production)"
+
+# Next
+next: "/manage-project/implement/execute item-instance-names-descriptions"

@@ -22,8 +22,6 @@ type EnemyRealizedStats = Database['public']['Views']['v_enemy_realized_stats'][
 // Enemy-specific interfaces
 export interface EnemyTypeWithPersonality extends EnemyType {
   ai_personality_traits: Record<string, any> | null;
-  example_taunts: string[] | null;
-  appearance_data: Record<string, any> | null;
 }
 
 export interface EnemyStats {
@@ -469,7 +467,7 @@ export class EnemyRepository extends BaseRepository<EnemyType> {
   /**
    * Hydrate personality JSON fields with type safety
    *
-   * Handles JSON/TEXT fields: ai_personality_traits, example_taunts, appearance_data
+   * Handles JSON/TEXT fields: ai_personality_traits
    *
    * @param enemy - Raw enemy type from database
    * @returns Enemy with typed personality data
@@ -477,9 +475,7 @@ export class EnemyRepository extends BaseRepository<EnemyType> {
   private hydratePersonalityData(enemy: EnemyType): EnemyTypeWithPersonality {
     const result: EnemyTypeWithPersonality = {
       ...enemy,
-      ai_personality_traits: null,
-      example_taunts: null,
-      appearance_data: null
+      ai_personality_traits: null
     };
 
     // Type-safe JSON parsing with fallbacks
@@ -494,26 +490,6 @@ export class EnemyRepository extends BaseRepository<EnemyType> {
       console.warn(`Invalid ai_personality_traits JSON for enemy ${enemy.id}:`, e);
     }
 
-    try {
-      if (enemy.example_taunts) {
-        const parsed = typeof enemy.example_taunts === 'string'
-          ? JSON.parse(enemy.example_taunts)
-          : enemy.example_taunts;
-        result.example_taunts = Array.isArray(parsed) ? parsed : null;
-      }
-    } catch (e) {
-      console.warn(`Invalid example_taunts JSON for enemy ${enemy.id}:`, e);
-    }
-
-    try {
-      if (enemy.appearance_data) {
-        result.appearance_data = typeof enemy.appearance_data === 'string'
-          ? JSON.parse(enemy.appearance_data)
-          : enemy.appearance_data as Record<string, any>;
-      }
-    } catch (e) {
-      console.warn(`Invalid appearance_data JSON for enemy ${enemy.id}:`, e);
-    }
 
     return result;
   }

@@ -8,6 +8,10 @@
 
 import Foundation
 
+enum RepositoryError: Error {
+    case invalidData(String)
+}
+
 final class DefaultCombatRepository: CombatRepository {
     private let apiClient: APIClient
 
@@ -63,6 +67,10 @@ final class DefaultCombatRepository: CombatRepository {
             body: request
         )
 
+        guard let combatStatus = CombatStatus(rawValue: response.combatStatus) else {
+            throw RepositoryError.invalidData("Invalid combat status: \(response.combatStatus)")
+        }
+
         return CombatAction(
             type: .attack,
             performerId: "player",
@@ -72,7 +80,7 @@ final class DefaultCombatRepository: CombatRepository {
             damageBlocked: nil,
             playerHpRemaining: response.playerHpRemaining,
             enemyHpRemaining: response.enemyHpRemaining,
-            combatStatus: CombatStatus(rawValue: response.combatStatus) ?? .ongoing,
+            combatStatus: combatStatus,
             turnNumber: response.turnNumber,
             rewards: response.rewards
         )
@@ -99,6 +107,10 @@ final class DefaultCombatRepository: CombatRepository {
             body: request
         )
 
+        guard let combatStatus = CombatStatus(rawValue: response.combatStatus) else {
+            throw RepositoryError.invalidData("Invalid combat status: \(response.combatStatus)")
+        }
+
         return CombatAction(
             type: .defend,
             performerId: "player",
@@ -108,7 +120,7 @@ final class DefaultCombatRepository: CombatRepository {
             damageBlocked: response.damageBlocked,
             playerHpRemaining: response.playerHpRemaining,
             enemyHpRemaining: response.enemyHpRemaining,
-            combatStatus: CombatStatus(rawValue: response.combatStatus) ?? .ongoing,
+            combatStatus: combatStatus,
             turnNumber: response.turnNumber,
             rewards: response.rewards
         )

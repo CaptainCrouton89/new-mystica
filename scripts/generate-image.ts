@@ -120,16 +120,23 @@ async function generateImageWithReplicate(
   }
 
   // Run prediction
-  const output = await replicate.run(modelName as `${string}/${string}`, { input }) as any;
+  const output = await replicate.run(modelName as `${string}/${string}`, { input }) as { url?: () => string } | { url?: () => string }[] | null | undefined;
 
   // Handle output - both Nano Banana and Seedream return objects with url() method
   let imageUrl: string;
 
-  if (typeof output?.url === 'function') {
+  if (!output) {
+    throw new Error('No output returned from Replicate');
+  }
+
+  if (typeof output.url === 'function') {
     // Nano Banana returns object with url() method
     imageUrl = output.url();
   } else if (Array.isArray(output) && output.length > 0) {
     // Seedream returns array of objects with url() method
+    if (!output[0]) {
+      throw new Error('First output item is undefined');
+    }
     imageUrl = typeof output[0].url === 'function' ? output[0].url() : output[0];
   } else {
     throw new Error('No image returned from Replicate');

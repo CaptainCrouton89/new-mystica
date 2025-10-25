@@ -1,70 +1,91 @@
 # repositories/ - CLAUDE.md
 
-This directory contains the repository layer for data access, following the repository pattern with a `BaseRepository<T>` base class.
+Repository layer for data access. All repositories extend `BaseRepository<T>` except `StyleRepository` (read-only singleton).
 
 ## Core Patterns
 
 ### BaseRepository<T>
-All repositories extend `BaseRepository<T>` (BaseRepository.ts). Provides:
+Base class at `BaseRepository.ts`. Provides:
 - `findById(id)` - Find single entity by UUID
 - `findMany(filters, options)` - Query with filters, pagination, sorting
 - `create(data)` - Insert new record
 - `update(id, data)` - Update existing record
 - `delete(id)` - Delete record
-- RPC query building via `this.rpc(functionName, params)`
+- `rpc(functionName, params)` - RPC query building
 
-### Repository Naming
-- Class: `{Entity}Repository` (e.g., `ItemRepository`, `CombatRepository`)
-- Table name: Passed to `super(tableName, client)` in constructor
-- File: `{Entity}Repository.ts`
-
-### Type Safety
-- Use `Database` types from `src/types/database.types.ts`
-- Define `Row` and `Insert` type aliases in each repository
-- Never use `any` type - look up proper types from database.types.ts
-
-### Constructor Pattern
+**Constructor Pattern:**
 ```typescript
-export class ItemRepository extends BaseRepository<Item> {
+export class ItemRepository extends BaseRepository<ItemRow> {
   constructor(client: SupabaseClient = supabase) {
-    super('PlayerItems', client);
+    super('items', client);
   }
 }
 ```
 
-## Domain-Specific Repositories
+### Type Safety
+- Use `Database` types from `src/types/database.types.ts`
+- Define `Row` and `Insert` type aliases in each repository
+- Never use `any` type
 
-### Core Game Entities
-- **ItemRepository** - Player inventory, item CRUD, equipped state queries, image generation metadata, nested queries for materials and stats
+## Domain Repositories
+
+**Core Game:**
+- **ItemRepository** - Item CRUD, ownership validation, nested queries for types/materials, history audit trail, image metadata (combo_hash, generated_image_url, image_generation_status)
 - **ItemTypeRepository** - Base item types, stats, rarity definitions
 - **EquipmentRepository** - Equipment slots, equipped items per slot
-- **MaterialRepository** - Materials, stacks (composite PK), instances, application logic, atomic transactions
+- **MaterialRepository** - Materials, stacks (composite PK: user_id/material_id/style_id), instances, atomic transactions
 - **WeaponRepository** - Weapon-specific queries and stat calculations
 
-### Combat & Progression
+**Combat & Progression:**
 - **CombatRepository** - Combat logs, turn history, battle transactions
-- **EnemyRepository** - Enemy types, spawning, difficulty scaling
+- **EnemyRepository** - Enemy types, tiers, styles, pools, realized stats via `v_enemy_realized_stats` view
 - **ProfileRepository** - User profiles, stats, progression data
 - **ProgressionRepository** - Level, experience, unlocks
 
-### World & Items
+**World:**
 - **LocationRepository** - Geospatial queries, enemy/loot pool matching, weighted random selection
 - **LoadoutRepository** - Saved equipment configurations
 - **PetRepository** - Pet inventory, active pet state
 
-### Supporting Data
-- **StyleRepository** - Material styles, visual effects
+**Supporting:**
+- **StyleRepository** - Read-only style lookups (singleton export)
 - **RarityRepository** - Rarity tiers and bonuses
 - **AnalyticsRepository** - User engagement metrics
 - **ImageCacheRepository** - Generated item image cache
 
-## Common Patterns
+## Special Implementations
+
+### StyleRepository (Non-BaseRepository)
+Read-only singleton pattern (doesn't extend BaseRepository). Exports `styleRepository` singleton instance.
+
+Methods:
+- `findAll()` - All styles ordered by spawn_rate (desc), style_name (asc)
+- `findById(styleId)` - Throws DatabaseError if not found
+- `findByName(styleName)` - Returns null if not found
+- `exists(styleId)` - Boolean check
+
+Uses Supabase client directly (no base class methods).
+
+### EnemyRepository Stats via View
+Uses PostgreSQL view `v_enemy_realized_stats` instead of manual calculation:
+- Formula: `base + offset + (tier_adds * (tier_num - 1))`
+- Method: `getEnemyRealizedStats(enemyTypeId)` returns `EnemyStats`
+- Fields: `atk`, `def`, `hp`, `combat_rating`
+
+Includes personality data hydration:
+- Parses JSON field `ai_personality_traits` with try-catch fallback
+- Returns typed `EnemyTypeWithPersonality` interface
+
+Pool management methods:
+- `findEnemyPoolWithMembers(poolId)` - Pool with enemy type members
+- `createEnemyPool(poolData)` - Admin operation
+- `addEnemyToPool(poolData)` - Admin operation
 
 ### N+1 Prevention with Nested Queries
-ItemRepository and MaterialRepository use nested Supabase queries to fetch related data in a single request:
+ItemRepository and MaterialRepository use nested Supabase queries:
 
 ```typescript
-// ItemRepository - Single query fetches item + type + materials + material templates
+// Single request fetches item + type + materials + material templates
 async findWithMaterials(itemId: string): Promise<ItemWithDetails> {
   const { data } = await this.client
     .from('items')
@@ -73,10 +94,7 @@ async findWithMaterials(itemId: string): Promise<ItemWithDetails> {
       itemtypes(*),
       itemmaterials(
         *,
-        materialinstances:material_instance_id(
-          *,
-          materials(*)
-        )
+        materialinstances:material_instance_id(*, materials(*))
       )
     `)
     .eq('id', itemId)
@@ -85,10 +103,9 @@ async findWithMaterials(itemId: string): Promise<ItemWithDetails> {
 ```
 
 ### MaterialStack Composite Primary Key (user_id, material_id, style_id)
-MaterialRepository handles 3-column composite keys with manual WHERE clauses (no native PK support in Supabase):
+Manual WHERE clauses for 3-column composite keys (Supabase has no native multi-column PK support):
 
 ```typescript
-// Styles stack separately - same material with different style_id = different row
 async findStackByUser(userId: string, materialId: string, styleId: string) {
   return await this.client
     .from('materialstacks')
@@ -100,24 +117,11 @@ async findStackByUser(userId: string, materialId: string, styleId: string) {
 }
 ```
 
-**Key insight:** `incrementStack()` performs upserts by checking if composite key exists, then inserting or updating accordingly.
-
-### Image Generation Metadata
-ItemRepository tracks material combo images across three fields:
-
-```typescript
-item.material_combo_hash;       // Hash of applied material IDs + style IDs
-item.generated_image_url;       // URL to generated image (or base if no materials)
-item.image_generation_status;   // 'pending' | 'generating' | 'complete' | 'failed'
-```
-
-Methods: `updateImageData(itemId, userId, comboHash, imageUrl, status)`
-
 ### RPC Transactions
-Atomic multi-table operations use Supabase RPC functions. Examples:
+Atomic multi-table operations via Supabase RPC functions:
 
 ```typescript
-// ItemRepository - process_item_upgrade RPC
+// ItemRepository
 async processUpgrade(userId, itemId, goldCost, newLevel, newStats) {
   return this.rpc('process_item_upgrade', {
     p_user_id: userId,
@@ -128,64 +132,32 @@ async processUpgrade(userId, itemId, goldCost, newLevel, newStats) {
   });
 }
 
-// MaterialRepository - apply_material_to_item RPC
-async applyMaterialToItemAtomic(userId, itemId, materialId, styleId, slotIndex) {
-  return this.rpc('apply_material_to_item', {
-    p_user_id: userId,
-    p_item_id: itemId,
-    p_material_id: materialId,
-    p_style_id: styleId,
-    p_slot_index: slotIndex
-  });
-}
+// MaterialRepository - atomic operations
+applyMaterialToItemAtomic()
+removeMaterialFromItemAtomic()
+replaceMaterialOnItemAtomic()
 ```
 
-**MaterialRepository atomic operations:** `applyMaterialToItemAtomic()`, `removeMaterialFromItemAtomic()`, `replaceMaterialOnItemAtomic()`
-
 ### LocationRepository Pool Systems
-Two complementary systems for combat enemy selection and loot drops:
+Enemy pools determine spawning; loot pools determine drops.
 
-**Enemy Pools:** Determine which enemies spawn at a location
-- Query `enemypools` via `combat_level` + location filters
-- Get members via `enemypoolmembers` table (enemy_type_id + spawn_weight pairs)
-- Use `selectRandomEnemy(poolMembers)` for weighted random selection
-- Pool filters built via `buildPoolFilter()`: `universal` | `location_type` | `state` | `country`
+**Enemy Pools:** Query `enemypools` → `enemypoolmembers` → weighted random selection via `selectRandomEnemy()`
 
-**Loot Pools:** Determine drops from defeated enemies
-- Query `lootpools` via same `combat_level` + location filters
-- Get entries via `lootpoolentries` (polymorphic: material or item_type + drop_weight)
-- Get tier weights via `lootpooltierweights` (common/uncommon/rare/epic/legendary multipliers)
-- Use `selectRandomLoot(entries, tierWeights, enemyStyleId, dropCount)` for multi-drop selection
-- Loot drops inherit `style_id` from defeated enemy for material styling
+**Loot Pools:** Query `lootpools` → `lootpoolentries` (polymorphic: material or item_type) → `selectRandomLoot()` for multi-drop
 
-**Weighted Random Selection Pattern:**
+Weighted random pattern:
 ```typescript
-// Used by selectRandomEnemy() and selectRandomLoot()
 const totalWeight = entries.reduce((sum, e) => sum + e.weight, 0);
 const randomValue = Math.random() * totalWeight;
 let currentWeight = 0;
 for (const entry of entries) {
   currentWeight += entry.weight;
-  if (randomValue <= currentWeight) return entry; // Selected
+  if (randomValue <= currentWeight) return entry;
 }
 ```
 
-### Filters & Options
-`findMany()` supports:
-```typescript
-findMany(
-  { user_id: userId, rarity: 'epic' },  // filters
-  {
-    limit: 10,
-    offset: 0,
-    orderBy: 'created_at',
-    ascending: false
-  }
-)
-```
-
-### Batch Operations (for Combat Loot Distribution)
-MaterialRepository provides batch increment for distributing loot rewards to players:
+### Batch Operations
+MaterialRepository batch increment for loot distribution:
 
 ```typescript
 async batchIncrementStacks(updates: Array<{
@@ -196,20 +168,19 @@ async batchIncrementStacks(updates: Array<{
 }>): Promise<MaterialStackRow[]>
 ```
 
-Useful for loot distribution after combat encounters.
-
 ### Item History Tracking
-ItemRepository maintains audit trail of item events:
+ItemRepository audit trail:
 
 ```typescript
 async addHistoryEvent(itemId, userId, eventType, eventData);
 async getItemHistory(itemId, userId): Promise<ItemHistoryEvent[]>
 ```
 
-Supported event types: `'level_up'`, `'material_applied'`, `'equipped'`, etc.
+Event types: `'level_up'`, `'material_applied'`, `'equipped'`, etc.
 
-### Error Handling
-Throw custom errors from `src/utils/errors.ts`:
+## Error Handling
+
+Use custom errors from `src/utils/errors.ts`:
 - `NotFoundError` - Entity doesn't exist
 - `ValidationError` - Data invalid
 - `UnauthorizedError` - User lacks permission

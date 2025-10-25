@@ -5,11 +5,11 @@
  * Repositories are responsible for data access and persistence operations.
  */
 
-import { Stats, Material, MaterialStack, AppliedMaterial } from './api.types';
+import { AppliedMaterial, Material, MaterialStack, Stats } from './api.types';
 import { Database } from './database.types';
 
 // Re-export API types for repository use
-export { Stats, Material, MaterialStack, AppliedMaterial };
+export { AppliedMaterial, Material, MaterialStack, Stats };
 
 // ============================================================================
 // Base Repository Types
@@ -53,6 +53,8 @@ export interface ItemWithDetails {
   material_combo_hash: string | null;
   generated_image_url: string | null;
   image_generation_status: 'pending' | 'generating' | 'complete' | 'failed' | null;
+  name: string;           // Custom instance name
+  description: string;    // Custom instance description
   created_at: string;
 
   // Related entities
@@ -98,6 +100,8 @@ export interface UpdateItemData {
   material_combo_hash?: string | null;
   generated_image_url?: string | null;
   image_generation_status?: 'pending' | 'generating' | 'complete' | 'failed';
+  name?: string;           // Custom instance name
+  description?: string;    // Custom instance description
 }
 
 // ============================================================================
@@ -477,6 +481,8 @@ export interface WeaponWithItem {
     item_type_id: string;
     level: number;
     is_styled: boolean;
+    name?: string;           // Custom instance name
+    description?: string;    // Custom instance description
     created_at: string;
   };
 }

@@ -128,14 +128,18 @@ class PlayerItemBuilder {
 
         return PlayerItem(
             id: id,
-            itemType: finalItemType,
+            baseType: finalItemType.name.lowercased(),
+            itemTypeId: finalItemType.id,
+            category: finalItemType.category,
             level: level,
             rarity: rarity,
             appliedMaterials: appliedMaterials,
             isStyled: isStyled,
             computedStats: computedStats,
             isEquipped: isEquipped,
-            generatedImageUrl: generatedImageUrl
+            generatedImageUrl: generatedImageUrl,
+            name: finalItemType.name,
+            description: finalItemType.description
         )
     }
 

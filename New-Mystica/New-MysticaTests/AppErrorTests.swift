@@ -17,7 +17,11 @@ final class AppErrorTests: XCTestCase {
         let description = error.errorDescription
 
         XCTAssertNotNil(description)
-        XCTAssertTrue(description?.contains("Network error") ?? false)
+        guard let description = description else {
+            XCTFail("Error description was nil")
+            return
+        }
+        XCTAssertTrue(description.contains("Network error"))
     }
 
     func testNetworkErrorRecoverySuggestion() {
@@ -25,7 +29,11 @@ final class AppErrorTests: XCTestCase {
         let suggestion = error.recoverySuggestion
 
         XCTAssertNotNil(suggestion)
-        XCTAssertTrue(suggestion?.contains("internet connection") ?? false)
+        guard let suggestion = suggestion else {
+            XCTFail("Recovery suggestion was nil")
+            return
+        }
+        XCTAssertTrue(suggestion.contains("internet connection"))
     }
 
     // MARK: - Server Error Tests
@@ -35,8 +43,16 @@ final class AppErrorTests: XCTestCase {
         let description = error.errorDescription
 
         XCTAssertNotNil(description)
-        XCTAssertTrue(description?.contains("500") ?? false)
-        XCTAssertTrue(description?.contains("Internal Server Error") ?? false)
+        guard let description = description else {
+            XCTFail("Error description was nil")
+            return
+        }
+        XCTAssertTrue(description.contains("500"))
+        guard let description = description else {
+            XCTFail("Error description was nil")
+            return
+        }
+        XCTAssertTrue(description.contains("Internal Server Error"))
     }
 
     func testServerErrorWithoutMessage() {
@@ -44,7 +60,11 @@ final class AppErrorTests: XCTestCase {
         let description = error.errorDescription
 
         XCTAssertNotNil(description)
-        XCTAssertTrue(description?.contains("404") ?? false)
+        guard let description = description else {
+            XCTFail("Error description was nil")
+            return
+        }
+        XCTAssertTrue(description.contains("404"))
     }
 
     func testServerErrorRecoverySuggestion() {
@@ -52,7 +72,11 @@ final class AppErrorTests: XCTestCase {
         let suggestion = error.recoverySuggestion
 
         XCTAssertNotNil(suggestion)
-        XCTAssertTrue(suggestion?.contains("server") ?? false)
+        guard let suggestion = suggestion else {
+            XCTFail("Recovery suggestion was nil")
+            return
+        }
+        XCTAssertTrue(suggestion.contains("server"))
     }
 
     // MARK: - Invalid Response Tests
@@ -71,8 +95,16 @@ final class AppErrorTests: XCTestCase {
         let description = error.errorDescription
 
         XCTAssertNotNil(description)
-        XCTAssertTrue(description?.contains("decode") ?? false)
-        XCTAssertTrue(description?.contains("name") ?? false)
+        guard let description = description else {
+            XCTFail("Error description was nil")
+            return
+        }
+        XCTAssertTrue(description.contains("decode"))
+        guard let description = description else {
+            XCTFail("Error description was nil")
+            return
+        }
+        XCTAssertTrue(description.contains("name"))
     }
 
     // MARK: - No Device ID Tests
@@ -139,7 +171,11 @@ final class AppErrorTests: XCTestCase {
         let description = error.errorDescription
 
         XCTAssertNotNil(description)
-        XCTAssertTrue(description?.contains("User ID is missing") ?? false)
+        guard let description = description else {
+            XCTFail("Error description was nil")
+            return
+        }
+        XCTAssertTrue(description.contains("User ID is missing"))
     }
 
     // MARK: - Unknown Error Tests
@@ -150,7 +186,11 @@ final class AppErrorTests: XCTestCase {
         let description = error.errorDescription
 
         XCTAssertNotNil(description)
-        XCTAssertTrue(description?.contains("Unknown error") ?? false)
+        guard let description = description else {
+            XCTFail("Error description was nil")
+            return
+        }
+        XCTAssertTrue(description.contains("Unknown error"))
     }
 
     // MARK: - Error Mapping Tests

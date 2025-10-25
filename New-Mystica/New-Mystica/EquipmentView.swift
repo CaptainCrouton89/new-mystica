@@ -533,5 +533,7 @@ private let mockPlayerItem = PlayerItem(
     isStyled: false,
     computedStats: ItemStats(atkPower: 0.4, atkAccuracy: 0.25, defPower: 0.25, defAccuracy: 0.1),
     isEquipped: true,
-    generatedImageUrl: nil
+    generatedImageUrl: nil,
+    name: "Magic Sword",
+    description: "A powerful magical sword"
 )

@@ -56,7 +56,7 @@ export class StyleRepository {
   /**
    * Find style definition by ID
    */
-  async findById(styleId: string): Promise<StyleDefinition | null> {
+  async findById(styleId: string): Promise<StyleDefinition> {
     try {
       const { data, error } = await this.client
         .from('styledefinitions')

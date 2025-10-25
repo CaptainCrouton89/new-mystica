@@ -567,57 +567,45 @@ export type Database = {
       enemytypes: {
         Row: {
           ai_personality_traits: Json | null
-          appearance_data: Json | null
-          atk_offset: number
-          base_atk: number
-          base_def: number
-          base_dialogue_prompt: string | null
+          atk_accuracy: number
+          atk_power: number
           base_hp: number
-          def_offset: number
+          def_accuracy: number
+          def_power: number
+          dialogue_guidelines: string | null
           dialogue_tone: string | null
-          example_taunts: Json | null
-          hp_offset: number
           id: string
           name: string
           style_id: string
           tier_id: number
-          verbosity: string | null
         }
         Insert: {
           ai_personality_traits?: Json | null
-          appearance_data?: Json | null
-          atk_offset?: number
-          base_atk?: number
-          base_def?: number
-          base_dialogue_prompt?: string | null
+          atk_accuracy?: number
+          atk_power?: number
           base_hp?: number
-          def_offset?: number
+          def_accuracy?: number
+          def_power?: number
+          dialogue_guidelines?: string | null
           dialogue_tone?: string | null
-          example_taunts?: Json | null
-          hp_offset?: number
           id?: string
           name: string
           style_id: string
           tier_id: number
-          verbosity?: string | null
         }
         Update: {
           ai_personality_traits?: Json | null
-          appearance_data?: Json | null
-          atk_offset?: number
-          base_atk?: number
-          base_def?: number
-          base_dialogue_prompt?: string | null
+          atk_accuracy?: number
+          atk_power?: number
           base_hp?: number
-          def_offset?: number
+          def_accuracy?: number
+          def_power?: number
+          dialogue_guidelines?: string | null
           dialogue_tone?: string | null
-          example_taunts?: Json | null
-          hp_offset?: number
           id?: string
           name?: string
           style_id?: string
           tier_id?: number
-          verbosity?: string | null
         }
         Relationships: [
           {
@@ -808,6 +796,7 @@ export type Database = {
         Row: {
           created_at: string
           current_stats: Json | null
+          description: string | null
           generated_image_url: string | null
           id: string
           image_generation_status: string | null
@@ -815,11 +804,13 @@ export type Database = {
           item_type_id: string
           level: number
           material_combo_hash: string | null
+          name: string | null
           user_id: string
         }
         Insert: {
           created_at?: string
           current_stats?: Json | null
+          description?: string | null
           generated_image_url?: string | null
           id?: string
           image_generation_status?: string | null
@@ -827,11 +818,13 @@ export type Database = {
           item_type_id: string
           level?: number
           material_combo_hash?: string | null
+          name?: string | null
           user_id: string
         }
         Update: {
           created_at?: string
           current_stats?: Json | null
+          description?: string | null
           generated_image_url?: string | null
           id?: string
           image_generation_status?: string | null
@@ -839,6 +832,7 @@ export type Database = {
           item_type_id?: string
           level?: number
           material_combo_hash?: string | null
+          name?: string | null
           user_id?: string
         }
         Relationships: [

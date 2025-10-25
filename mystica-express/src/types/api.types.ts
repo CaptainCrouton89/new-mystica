@@ -49,6 +49,8 @@ export interface Item {
   is_styled?: boolean;
   materials?: AppliedMaterial[];
   item_type?: ItemType;
+  name?: string | null;           // Custom instance name
+  description?: string | null;    // Custom instance description
   created_at: string;
   updated_at: string;
 }
@@ -73,6 +75,8 @@ export interface PlayerItem {
   is_styled: boolean;
   is_equipped: boolean;
   equipped_slot: string | null;
+  name?: string | null;           // Custom instance name
+  description?: string | null;    // Custom instance description
 }
 
 /**
@@ -109,6 +113,7 @@ export interface AppliedMaterial {
   id: string;
   material_id: string;
   style_id: string;
+  style_name?: string;
   slot_index: number;
   material: Material;
 }
@@ -556,8 +561,6 @@ export interface EnemyType {
   display_name: string;
   personality_traits: string[];
   dialogue_tone: 'aggressive' | 'sarcastic' | 'condescending' | 'chaotic' | 'political';
-  example_taunts: string[];
-  verbosity: 'terse' | 'moderate' | 'verbose';
   tier_id: number;
   style_id: string;
 }

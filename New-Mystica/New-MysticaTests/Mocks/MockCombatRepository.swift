@@ -111,7 +111,10 @@ class MockCombatRepository: CombatRepository {
             type: .attack,
             performerId: "player",
             damageDealt: damage,
-            result: enemyHp <= 0 ? "Enemy defeated!" : "Attack successful"
+            result: enemyHp <= 0 ? "Enemy defeated!" : "Attack successful",
+            playerHpRemaining: playerHp,
+            enemyHpRemaining: enemyHp,
+            combatStatus: enemyHp <= 0 ? .victory : .ongoing
         )
 
         return mockCombatAction
@@ -142,8 +145,12 @@ class MockCombatRepository: CombatRepository {
         mockCombatAction = CombatAction.testData(
             type: .defend,
             performerId: "player",
-            damageDealt: damageReduction,
-            result: playerHp <= 0 ? "Player defeated!" : "Defense successful"
+            damageDealt: nil,
+            result: playerHp <= 0 ? "Player defeated!" : "Defense successful",
+            damageBlocked: damageReduction,
+            playerHpRemaining: playerHp,
+            enemyHpRemaining: enemyHp,
+            combatStatus: playerHp <= 0 ? .defeat : .ongoing
         )
 
         return mockCombatAction
@@ -166,10 +173,9 @@ class MockCombatRepository: CombatRepository {
         let experienceEarned = won ? Int.random(in: 100...200) : Int.random(in: 25...50)
 
         mockCombatRewards = CombatRewards.testData(
+            result: won ? "victory" : "defeat",
             goldEarned: goldEarned,
-            experienceEarned: experienceEarned,
-            itemsDropped: won ? [EnhancedPlayerItem.testData()] : [],
-            materialsDropped: won ? [MaterialDrop.testData()] : []
+            experienceEarned: experienceEarned
         )
 
         return mockCombatRewards
@@ -212,10 +218,9 @@ class MockCombatRepository: CombatRepository {
 
         // Partial rewards for retreating
         let partialRewards = CombatRewards.testData(
+            result: "defeat",
             goldEarned: Int.random(in: 5...15),
-            experienceEarned: Int.random(in: 10...25),
-            itemsDropped: [],
-            materialsDropped: []
+            experienceEarned: Int.random(in: 10...25)
         )
 
         return (rewards: partialRewards, message: "You retreated from combat safely.")
@@ -346,30 +351,102 @@ extension CombatAction {
         type: CombatActionType = .attack,
         performerId: String = "player",
         damageDealt: Double? = 15.0,
-        result: String? = "Hit for 15 damage"
+        result: String? = "Hit for 15 damage",
+        hitZone: String? = "body",
+        damageBlocked: Double? = nil,
+        playerHpRemaining: Double? = 85.0,
+        enemyHpRemaining: Double? = 65.0,
+        combatStatus: CombatStatus = .ongoing,
+        turnNumber: Int? = 1,
+        rewards: CombatRewards? = nil
     ) -> CombatAction {
-        return CombatAction(
-            type: type,
-            performerId: performerId,
-            damageDealt: damageDealt,
-            result: result
-        )
+        // Explicit null handling with clear intent
+        let jsonString = """
+        {
+            "type": "\(type.rawValue)",
+            "performer_id": "\(performerId)",
+            "damage_dealt": \(damageDealt.flatMap { String($0) }.jsonRepresentation),
+            "result": \(result.jsonRepresentation),
+            "hit_zone": \(hitZone.jsonRepresentation),
+            "damage_blocked": \(damageBlocked.flatMap { String($0) }.jsonRepresentation),
+            "player_hp_remaining": \(playerHpRemaining.flatMap { String($0) }.jsonRepresentation),
+            "enemy_hp_remaining": \(enemyHpRemaining.flatMap { String($0) }.jsonRepresentation),
+            "combat_status": "\(combatStatus.rawValue)",
+            "turn_number": \(turnNumber.flatMap { String($0) }.jsonRepresentation),
+            "rewards": null
+        }
+        """
+        return try! JSONDecoder().decode(CombatAction.self, from: jsonString.data(using: .utf8)!)
+    }
+
+    // Extension to provide consistent JSON representation for optionals
+    private extension Optional {
+        func jsonRepresentation<T: CustomStringConvertible>(
+            stringConverter: (T) -> String = { String(describing: $0) },
+            stringFormatter: ((String) -> String)? = nil
+        ) -> String {
+            guard let value = self as? T else {
+                return "null"
+            }
+
+            let stringValue = stringConverter(value)
+            return stringFormatter?(stringValue) ?? stringValue
+        }
+
+        // Specific method for string optionals with quotes
+        func jsonStringRepresentation() -> String {
+            return jsonRepresentation(
+                stringConverter: { $0 },
+                stringFormatter: { "\"\($0)\"" }
+            )
+        }
+
+        // Specific method for numeric optionals
+        func jsonNumericRepresentation() -> String {
+            return jsonRepresentation()
+        }
+    }
+
+    // Convenience methods for JSON serialization
+    private extension Optional where Wrapped == String {
+        var jsonRepresentation: String {
+            return jsonStringRepresentation()
+        }
+    }
+
+    private extension Optional where Wrapped: Numeric {
+        var jsonRepresentation: String {
+            return jsonNumericRepresentation()
+        }
     }
 }
 
 extension CombatRewards {
     static func testData(
+        result: String = "victory",
         goldEarned: Int = 75,
-        experienceEarned: Int = 150,
-        itemsDropped: [EnhancedPlayerItem] = [],
-        materialsDropped: [MaterialDrop] = []
+        experienceEarned: Int? = 150,
+        itemsDropped: [ItemDrop]? = nil,
+        materialsDropped: [MaterialDrop]? = nil
     ) -> CombatRewards {
-        return CombatRewards(
-            goldEarned: goldEarned,
-            experienceEarned: experienceEarned,
-            itemsDropped: itemsDropped,
-            materialsDropped: materialsDropped
-        )
+        let json = """
+        {
+            "result": "\(result)",
+            "currencies": { "gold": \(goldEarned) },
+            "items": \(itemsDropped != nil ? "[]" : "null"),
+            "materials": \(materialsDropped != nil ? "[]" : "null"),
+            "experience": \(experienceEarned != nil ? "\(experienceEarned!)" : "null"),
+            "combat_history": {
+                "location_id": "test_location",
+                "total_attempts": 1,
+                "victories": 1,
+                "defeats": 0,
+                "current_streak": 1,
+                "longest_streak": 1
+            }
+        }
+        """
+        return try! JSONDecoder().decode(CombatRewards.self, from: json.data(using: .utf8)!)
     }
 }
 
@@ -378,13 +455,18 @@ extension MaterialDrop {
         materialId: String = "material_123",
         name: String = "Goblin Hide",
         styleId: String = "style_1",
-        quantity: Int? = 2
+        styleName: String = "Dark Style",
+        imageUrl: String? = "https://example.com/goblin_hide.png"
     ) -> MaterialDrop {
-        return MaterialDrop(
-            materialId: materialId,
-            name: name,
-            styleId: styleId,
-            quantity: quantity
-        )
+        let json = """
+        {
+            "material_id": "\(materialId)",
+            "name": "\(name)",
+            "style_id": "\(styleId)",
+            "style_name": "\(styleName)",
+            "image_url": \(imageUrl != nil ? "\"\(imageUrl!)\"" : "null")
+        }
+        """
+        return try! JSONDecoder().decode(MaterialDrop.self, from: json.data(using: .utf8)!)
     }
 }
