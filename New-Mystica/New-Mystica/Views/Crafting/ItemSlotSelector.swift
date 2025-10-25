@@ -82,7 +82,7 @@ struct ItemSlotSelector: View {
             .clipShape(RoundedRectangle(cornerRadius: .cornerRadiusLarge))
             .overlay(
                 RoundedRectangle(cornerRadius: .cornerRadiusLarge)
-                    .stroke(rarityBorderColor(for: item), lineWidth: 3)
+                    .stroke(Color.rarityBorderColor(for: item.rarity), lineWidth: 3)
             )
 
             // Item Details
@@ -141,21 +141,6 @@ struct ItemSlotSelector: View {
         }
     }
 
-    private func rarityBorderColor(for item: EnhancedPlayerItem) -> Color {
-        // Rarity mapping based on agent_292442:18-27 design system
-        // Since EnhancedPlayerItem doesn't have rarity property, derive from level and styling
-        if item.isEquipped {
-            return Color.accent // epic/pink for equipped items
-        } else if item.isStyled {
-            return Color.accentSecondary // legendary/cyan for styled items
-        } else if item.level >= 10 {
-            return Color.orange // rare/orange for high level
-        } else if item.level >= 5 {
-            return Color.blue // uncommon/blue for mid level
-        } else {
-            return Color.borderSubtle // common/grey for low level
-        }
-    }
 }
 
 // MARK: - Preview

@@ -125,7 +125,7 @@ struct UnifiedItemDetailModal<Item: ItemDetailDisplayable, ActionButtons: View>:
                 .padding(.horizontal, 20)
                 .padding(.vertical, 16)
             }
-            .background(getRarityBackgroundColor())
+            .background(Color.rarityBackgroundColor(for: item.rarity))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
@@ -150,23 +150,23 @@ struct UnifiedItemDetailModal<Item: ItemDetailDisplayable, ActionButtons: View>:
         HStack(spacing: 12) {
             SmallText("Lvl.\(item.level)", size: 12)
                 .bold()
-                .foregroundColor(getRarityColor())
+                .foregroundColor(Color.rarityBorderColor(for: item.rarity))
 
             Spacer()
 
             SmallText(item.rarity.uppercased(), size: 12)
                 .bold()
-                .foregroundColor(getRarityColor())
+                .foregroundColor(Color.rarityBorderColor(for: item.rarity))
         }
         .frame(maxWidth: .infinity)
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
         .background(
             RoundedRectangle(cornerRadius: .cornerRadiusStandard)
-                .fill(getRarityColor().opacity(0.15))
+                .fill(Color.rarityBorderColor(for: item.rarity).opacity(0.15))
                 .overlay(
                     RoundedRectangle(cornerRadius: .cornerRadiusStandard)
-                        .stroke(getRarityColor(), lineWidth: 1)
+                        .stroke(Color.rarityBorderColor(for: item.rarity), lineWidth: 1)
                 )
         )
     }
@@ -179,7 +179,7 @@ struct UnifiedItemDetailModal<Item: ItemDetailDisplayable, ActionButtons: View>:
                     .fill(Color.backgroundCard)
                     .overlay(
                         RoundedRectangle(cornerRadius: .cornerRadiusStandard)
-                            .stroke(getRarityColor(), lineWidth: 6)
+                            .stroke(Color.rarityBorderColor(for: item.rarity), lineWidth: 6)
                     )
 
                 if let imageUrl = item.generatedImageUrl, let url = URL(string: imageUrl) {
@@ -230,7 +230,7 @@ struct UnifiedItemDetailModal<Item: ItemDetailDisplayable, ActionButtons: View>:
         VStack(spacing: 12) {
             Image(systemName: getItemIcon())
                 .font(.system(size: 72, weight: .medium))
-                .foregroundColor(getRarityColor())
+                .foregroundColor(Color.rarityBorderColor(for: item.rarity))
 
             NormalText("No Image")
                 .foregroundColor(Color.textSecondary)
@@ -395,40 +395,6 @@ struct UnifiedItemDetailModal<Item: ItemDetailDisplayable, ActionButtons: View>:
     }
 
     // MARK: - Helper Methods
-
-    private func getRarityColor() -> Color {
-        switch item.rarity.lowercased() {
-        case "common":
-            return .gray
-        case "uncommon":
-            return .green
-        case "rare":
-            return .blue
-        case "epic":
-            return .purple
-        case "legendary":
-            return .orange
-        default:
-            return .gray
-        }
-    }
-
-    private func getRarityBackgroundColor() -> Color {
-        switch item.rarity.lowercased() {
-        case "common":
-            return Color.rarityCommon
-        case "uncommon":
-            return Color.rarityUncommon
-        case "rare":
-            return Color.rarityRare
-        case "epic":
-            return Color.rarityEpic
-        case "legendary":
-            return Color.rarityLegendary
-        default:
-            return Color.rarityCommon
-        }
-    }
 
     private func getItemIcon() -> String {
         let lowercased = item.baseType.lowercased()

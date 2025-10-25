@@ -82,7 +82,7 @@ struct UpgradeCompleteModal: View {
                 .frame(width: 160, height: 160)
                 .overlay(
                     RoundedRectangle(cornerRadius: .cornerRadiusExtraLarge)
-                        .stroke(getRarityColor(), lineWidth: 3)
+                        .stroke(Color.rarityBorderColor(for: item.rarity), lineWidth: 3)
                 )
 
             if let imageUrl = item.generatedImageUrl, let url = URL(string: imageUrl) {
@@ -111,7 +111,7 @@ struct UpgradeCompleteModal: View {
         VStack(spacing: 8) {
             Image(systemName: getItemIcon())
                 .font(.system(size: 48, weight: .medium))
-                .foregroundColor(getRarityColor())
+                .foregroundColor(Color.rarityBorderColor(for: item.rarity))
 
             SmallText("No Image")
                 .foregroundColor(Color.textSecondary)
@@ -302,23 +302,6 @@ struct UpgradeCompleteModal: View {
 
     private func dismissModal() {
         dismiss()
-    }
-
-    private func getRarityColor() -> Color {
-        switch item.rarity.lowercased() {
-        case "common":
-            return Color.borderSubtle
-        case "uncommon":
-            return Color.success
-        case "rare":
-            return Color.accentSecondary
-        case "epic":
-            return Color.accent
-        case "legendary":
-            return Color.warning
-        default:
-            return Color.borderSubtle
-        }
     }
 
     private func getItemIcon() -> String {

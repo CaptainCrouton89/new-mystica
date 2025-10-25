@@ -173,7 +173,7 @@ private struct ItemSelectionCard: View {
                     } else {
                         ZStack {
                             RoundedRectangle(cornerRadius: .cornerRadiusSmall)
-                                .fill(getRarityColor())
+                                .fill(Color.rarityBorderColor(for: item.rarity))
                                 .frame(width: 48, height: 48)
 
                             Image(systemName: getIconForItemType(item.baseType))
@@ -265,20 +265,6 @@ private struct ItemSelectionCard: View {
             return "Level \(item.level) \(item.baseType.capitalized)"
         } else {
             return item.baseType.capitalized
-        }
-    }
-
-    private func getRarityColor() -> Color {
-        // Based on level for now, could be enhanced with actual rarity
-        switch item.level {
-        case 1...5:
-            return Color.borderSubtle
-        case 6...10:
-            return Color.accentSecondary
-        case 11...20:
-            return Color.accent
-        default:
-            return Color.warning
         }
     }
 

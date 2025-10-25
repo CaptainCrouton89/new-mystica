@@ -63,7 +63,7 @@ struct ItemRow: View {
                 .clipShape(RoundedRectangle(cornerRadius: 8))
                 .overlay(
                     RoundedRectangle(cornerRadius: 8)
-                        .stroke(colorForRarity(item.rarity), lineWidth: 2)
+                        .stroke(Color.rarityBorderColor(for: item.rarity), lineWidth: 2)
                 )
                 .overlay(
                     // Equipped indicator overlay
@@ -171,10 +171,10 @@ struct ItemRow: View {
         }
         .background(
             RoundedRectangle(cornerRadius: 12)
-                .fill(colorForRarityBackground(item.rarity))
+                .fill(Color.rarityBackgroundColor(for: item.rarity))
                 .overlay(
                     RoundedRectangle(cornerRadius: 12)
-                        .stroke(colorForRarity(item.rarity), lineWidth: 1)
+                        .stroke(Color.rarityBorderColor(for: item.rarity), lineWidth: 1)
                 )
         )
     }
@@ -199,40 +199,6 @@ struct ItemRow: View {
             return "pawprint.fill"
         } else {
             return "cube.fill"
-        }
-    }
-
-    private func colorForRarity(_ rarity: String) -> Color {
-        switch rarity.lowercased() {
-        case "common":
-            return .gray
-        case "uncommon":
-            return .green
-        case "rare":
-            return .blue
-        case "epic":
-            return .purple
-        case "legendary":
-            return .orange
-        default:
-            return .gray
-        }
-    }
-
-    private func colorForRarityBackground(_ rarity: String) -> Color {
-        switch rarity.lowercased() {
-        case "common":
-            return Color.rarityCommon
-        case "uncommon":
-            return Color.rarityUncommon
-        case "rare":
-            return Color.rarityRare
-        case "epic":
-            return Color.rarityEpic
-        case "legendary":
-            return Color.rarityLegendary
-        default:
-            return Color.rarityCommon
         }
     }
 

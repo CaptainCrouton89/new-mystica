@@ -40,6 +40,13 @@ extension Color {
     static let rarityEpic = Color(hex: "332D33")           // Purple at 0.05 opacity on #2F2F2F
     static let rarityLegendary = Color(hex: "39352D")      // Orange at 0.05 opacity on #2F2F2F
 
+    // Rarity Border/Stroke Colors
+    static let rarityCommonBorder = Color(hex: "808080")   // Gray for common rarity borders
+    static let rarityUncommonBorder = Color(hex: "00AA00") // Green for uncommon rarity borders
+    static let rarityRareBorder = Color(hex: "0055FF")     // Blue for rare rarity borders
+    static let rarityEpicBorder = Color(hex: "AA00AA")     // Purple for epic rarity borders
+    static let rarityLegendaryBorder = Color(hex: "FF8800") // Orange for legendary rarity borders
+
     init(hex: String) {
         let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
         var int: UInt64 = 0
@@ -55,7 +62,7 @@ extension Color {
         default:
             (a, r, g, b) = (1, 1, 1, 0)
         }
-        
+
         self.init(
             .sRGB,
             red: Double(r) / 255,
@@ -63,5 +70,41 @@ extension Color {
             blue:  Double(b) / 255,
             opacity: Double(a) / 255
         )
+    }
+
+    /// Get rarity border color based on rarity string value
+    static func rarityBorderColor(for rarity: String) -> Color {
+        switch rarity.lowercased() {
+        case "common":
+            return .rarityCommonBorder
+        case "uncommon":
+            return .rarityUncommonBorder
+        case "rare":
+            return .rarityRareBorder
+        case "epic":
+            return .rarityEpicBorder
+        case "legendary":
+            return .rarityLegendaryBorder
+        default:
+            return .rarityCommonBorder
+        }
+    }
+
+    /// Get rarity background color based on rarity string value
+    static func rarityBackgroundColor(for rarity: String) -> Color {
+        switch rarity.lowercased() {
+        case "common":
+            return .rarityCommon
+        case "uncommon":
+            return .rarityUncommon
+        case "rare":
+            return .rarityRare
+        case "epic":
+            return .rarityEpic
+        case "legendary":
+            return .rarityLegendary
+        default:
+            return .rarityCommon
+        }
     }
 }

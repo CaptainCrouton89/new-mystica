@@ -104,23 +104,6 @@ struct EquipmentSlotView: View {
         }
     }
 
-    /// Get rarity color for equipped items
-    private func getRarityColor() -> Color {
-        guard let item = item else {
-            return Color.borderSubtle
-        }
-
-        switch item.rarity.lowercased() {
-        case "common":
-            return Color.borderSubtle
-        case "rare", "legendary":
-            return Color.accentSecondary // Neon blue
-        case "epic":
-            return Color.accent // Neon pink
-        default:
-            return Color.borderSubtle
-        }
-    }
 }
 
 // MARK: - Stats Display Component
@@ -237,7 +220,7 @@ struct EquipmentView: View {
                     item: item,
                     badges: [
                         .level,
-                        .primary(label: "Rarity", color: getRarityColor(for: item)),
+                        .primary(label: "Rarity", color: Color.rarityBorderColor(for: item.rarity)),
                         .secondary(label: "Type", color: Color.textSecondary)
                     ]
                 ) {
@@ -561,20 +544,6 @@ struct EquipmentView: View {
         }
     }
 
-    private func getRarityColor(for item: PlayerItem) -> Color {
-        switch item.rarity.lowercased() {
-        case "common":
-            return Color.borderSubtle
-        case "rare":
-            return Color.success
-        case "epic":
-            return Color.accent
-        case "legendary":
-            return Color.warning
-        default:
-            return Color.borderSubtle
-        }
-    }
 }
 
 // MARK: - Preview

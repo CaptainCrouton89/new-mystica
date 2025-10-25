@@ -279,15 +279,15 @@ private struct ItemCard: View {
                 .multilineTextAlignment(.center)
                 .minimumScaleFactor(0.8)
 
-            // Style Badge
-            Text(item.styleName)
+            // Rarity Badge
+            Text(item.rarity.capitalized)
                 .font(.system(size: 10, weight: .medium))
-                .foregroundColor(.textPrimary)
+                .foregroundColor(.white)
                 .padding(.horizontal, 6)
                 .padding(.vertical, 2)
                 .background(
                     Capsule()
-                        .fill(Color.accentSecondary.opacity(0.3))
+                        .fill(Color.rarityBorderColor(for: item.rarity))
                 )
         }
         .padding(12)
@@ -296,47 +296,9 @@ private struct ItemCard: View {
                 .fill(Color.backgroundCard)
                 .overlay(
                     RoundedRectangle(cornerRadius: .cornerRadiusSmall)
-                        .stroke(colorForRarity(item.rarity).opacity(0.6), lineWidth: 2)
+                        .stroke(Color.rarityBorderColor(for: item.rarity), lineWidth: 2)
                 )
         )
-    }
-
-    private func iconForCategory(_ category: String) -> String {
-        switch category.lowercased() {
-        case "weapon":
-            return "sword.fill"
-        case "offhand":
-            return "shield.fill"
-        case "head":
-            return "crown.fill"
-        case "armor":
-            return "figure.dress.fill"
-        case "feet":
-            return "shoeprints.fill"
-        case "accessory", "accessory_1", "accessory_2":
-            return "diamond.fill"
-        case "pet":
-            return "pawprint.fill"
-        default:
-            return "questionmark.circle.fill"
-        }
-    }
-
-    private func colorForRarity(_ rarity: String) -> Color {
-        switch rarity.lowercased() {
-        case "common":
-            return .gray
-        case "uncommon":
-            return .green
-        case "rare":
-            return .blue
-        case "epic":
-            return .purple
-        case "legendary":
-            return .orange
-        default:
-            return .gray
-        }
     }
 }
 
