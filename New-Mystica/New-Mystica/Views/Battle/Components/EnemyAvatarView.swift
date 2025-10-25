@@ -32,35 +32,34 @@ struct EnemyAvatarView: View {
     }
 
     private var enemyAnimationView: some View {
-        let animationPath = getEnemyAnimationPath(enemy)
+        let imageName = getEnemyImageName(enemy)
 
-        return AnimatedSpriteView(
-            folderPath: animationPath,
-            frameRate: 12.0,
-            size: CGSize(width: 80, height: 80)
-        )
+        return Image(imageName)
+            .resizable()
+            .aspectRatio(contentMode: .fit)
+            .frame(width: 80, height: 80)
     }
 
-    private func getEnemyAnimationPath(_ enemy: Enemy) -> String {
+    private func getEnemyImageName(_ enemy: Enemy) -> String {
         guard let name = enemy.name?.lowercased() else {
-            return "sprites/enemies/bird man/attack"
+            return "bird_man"
         }
 
         switch name {
         case let n where n.contains("bird") || n.contains("birdman"):
-            return "sprites/enemies/bird man/attack"
+            return "bird_man"
         case let n where n.contains("wolf"):
-            return "sprites/enemies/bird man/attack" // Fallback for now
+            return "wolf"
         case let n where n.contains("golem"):
-            return "sprites/enemies/bird man/attack" // Fallback for now
+            return "golem"
         case let n where n.contains("dragon"):
-            return "sprites/enemies/bird man/attack" // Fallback for now
+            return "dragon"
         case let n where n.contains("warrior"):
-            return "sprites/enemies/bird man/attack" // Fallback for now
+            return "warrior"
         case let n where n.contains("spirit"):
-            return "sprites/enemies/bird man/attack" // Fallback for now
+            return "spirit"
         default:
-            return "sprites/enemies/bird man/attack"
+            return "bird_man"
         }
     }
 }
