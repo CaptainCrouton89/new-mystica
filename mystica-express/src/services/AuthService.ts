@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js';
 import { env } from '../config/env.js';
 import { supabase as supabaseAdmin } from '../config/supabase.js';
 import { ProfileRepository } from '../repositories/ProfileRepository.js';
+import { EquipmentRepository } from '../repositories/EquipmentRepository.js';
 import { generateAnonymousToken } from '../utils/jwt.js';
 import { v4 as uuidv4 } from 'uuid';
 import {
@@ -81,9 +82,11 @@ const supabaseAuth = createClient(
 );
 export class AuthService {
   private profileRepository: ProfileRepository;
+  private equipmentRepository: EquipmentRepository;
 
   constructor() {
     this.profileRepository = new ProfileRepository();
+    this.equipmentRepository = new EquipmentRepository();
   }
 
   async registerDevice(request: DeviceRegistrationRequest): Promise<DeviceAuthResponse> {
@@ -110,9 +113,10 @@ export class AuthService {
       let userProfile: UserProfile;
 
       if (existingUser) {
-        
+
         userId = existingUser.id;
         await this.profileRepository.updateLastLogin(userId);
+        await this.equipmentRepository.initializeUserSlots(userId);
 
         const balances = await this.profileRepository.getAllCurrencyBalances(userId);
         userProfile = {
@@ -174,6 +178,7 @@ export class AuthService {
             isNewUser = false;
 
             await this.ensureCurrencyBalance(userId);
+            await this.equipmentRepository.initializeUserSlots(userId);
             const balances = await this.profileRepository.getAllCurrencyBalances(userId);
 
             userProfile = {
@@ -201,8 +206,9 @@ export class AuthService {
             throw mapSupabaseError(insertError);
           }
         } else {
-          
+
           await this.initializeCurrencyBalance(userId);
+          await this.equipmentRepository.initializeUserSlots(userId);
 
           userProfile = {
             id: userId,
@@ -212,7 +218,7 @@ export class AuthService {
             username: null,
             vanity_level: 0,
             avg_item_level: 0,
-            gold: 500, 
+            gold: 500,
             gems: 0,
             total_stats: {
               atkPower: 0,
@@ -534,11 +540,12 @@ export class AuthService {
           avg_item_level: 0
         });
 
-      if (profileError && profileError.code !== '23505') { 
+      if (profileError && profileError.code !== '23505') {
         console.error('Failed to create user profile:', profileError);
       } else if (!profileError || profileError.code === '23505') {
-        
+
         await this.initializeCurrencyBalance(userId);
+        await this.equipmentRepository.initializeUserSlots(userId);
       }
     } catch (error) {
       console.error('Email user profile creation error:', error);
