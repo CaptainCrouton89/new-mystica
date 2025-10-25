@@ -14,9 +14,10 @@
  * - Performance tracking via generation_time_ms
  */
 
-import { BaseRepository } from './BaseRepository.js';
+import { PlayerCombatHistory } from '../types/api.types.js';
+import { Database, Json } from '../types/database.types.js';
 import { DatabaseError, ValidationError } from '../utils/errors.js';
-import { Database } from '../types/database.types.js';
+import { BaseRepository } from './BaseRepository.js';
 
 // Type aliases for cleaner code
 type AnalyticsEvent = Database['public']['Tables']['analyticsevents']['Row'];
@@ -29,7 +30,7 @@ type EnemyChatterInsert = Database['public']['Tables']['enemychatterlog']['Inser
 
 export class AnalyticsRepository extends BaseRepository<AnalyticsEvent> {
   constructor() {
-    super('analyticsevents');
+    super("analyticsevents");
   }
 
   // =====================================
@@ -45,15 +46,19 @@ export class AnalyticsRepository extends BaseRepository<AnalyticsEvent> {
    * @throws ValidationError if eventName is empty
    * @throws DatabaseError on insert failure
    */
-  async logEvent(userId: string | null, eventName: string, properties: any = null): Promise<void> {
+  async logEvent(
+    userId: string | null,
+    eventName: string,
+    properties: Record<string, unknown> | null = null
+  ): Promise<void> {
     if (!eventName.trim()) {
-      throw new ValidationError('Event name cannot be empty');
+      throw new ValidationError("Event name cannot be empty");
     }
 
     const eventData: AnalyticsEventInsert = {
       user_id: userId,
       event_name: eventName,
-      properties: properties
+      properties: properties as unknown as Json,
     };
 
     await this.create(eventData);
@@ -67,15 +72,18 @@ export class AnalyticsRepository extends BaseRepository<AnalyticsEvent> {
    * @returns Array of analytics events ordered by timestamp desc
    * @throws DatabaseError on query failure
    */
-  async getEventsByUser(userId: string, eventName?: string): Promise<AnalyticsEvent[]> {
+  async getEventsByUser(
+    userId: string,
+    eventName?: string
+  ): Promise<AnalyticsEvent[]> {
     let query = this.client
-      .from('analyticsevents')
-      .select('*')
-      .eq('user_id', userId)
-      .order('timestamp', { ascending: false });
+      .from("analyticsevents")
+      .select("*")
+      .eq("user_id", userId)
+      .order("timestamp", { ascending: false });
 
     if (eventName) {
-      query = query.eq('event_name', eventName);
+      query = query.eq("event_name", eventName);
     }
 
     const { data, error } = await query;
@@ -84,7 +92,11 @@ export class AnalyticsRepository extends BaseRepository<AnalyticsEvent> {
       throw new DatabaseError(`Failed to get events by user: ${error.message}`);
     }
 
-    return data || [];
+    if (!data) {
+      throw new DatabaseError("No data returned from user events query");
+    }
+
+    return data;
   }
 
   /**
@@ -102,23 +114,29 @@ export class AnalyticsRepository extends BaseRepository<AnalyticsEvent> {
     eventName?: string
   ): Promise<AnalyticsEvent[]> {
     let query = this.client
-      .from('analyticsevents')
-      .select('*')
-      .gte('timestamp', startTime)
-      .lte('timestamp', endTime)
-      .order('timestamp', { ascending: false });
+      .from("analyticsevents")
+      .select("*")
+      .gte("timestamp", startTime)
+      .lte("timestamp", endTime)
+      .order("timestamp", { ascending: false });
 
     if (eventName) {
-      query = query.eq('event_name', eventName);
+      query = query.eq("event_name", eventName);
     }
 
     const { data, error } = await query;
 
     if (error) {
-      throw new DatabaseError(`Failed to get events by time range: ${error.message}`);
+      throw new DatabaseError(
+        `Failed to get events by time range: ${error.message}`
+      );
     }
 
-    return data || [];
+    if (!data) {
+      throw new DatabaseError("No data returned from time range query");
+    }
+
+    return data;
   }
 
   /**
@@ -133,20 +151,24 @@ export class AnalyticsRepository extends BaseRepository<AnalyticsEvent> {
    */
   async getEventCounts(
     eventName: string,
-    groupBy: 'hour' | 'day' | 'week'
+    groupBy: "hour" | "day" | "week"
   ): Promise<Record<string, number>> {
-    const { data, error } = await this.client.rpc('get_event_counts', {
+    const { data, error } = await this.client.rpc("get_event_counts", {
       p_event_name: eventName,
-      p_group_by: groupBy
+      p_group_by: groupBy,
     });
 
     if (error) {
       throw new DatabaseError(`Failed to get event counts: ${error.message}`);
     }
 
+    if (!data) {
+      throw new DatabaseError("No event count data returned");
+    }
+
     // Transform array of {period, count} to object
     const result: Record<string, number> = {};
-    (data || []).forEach((row: any) => {
+    data.forEach((row: { period: string; count: number }) => {
       result[row.period] = row.count;
     });
 
@@ -182,11 +204,11 @@ export class AnalyticsRepository extends BaseRepository<AnalyticsEvent> {
       event_type: eventType,
       generated_dialogue: dialogue,
       generation_time_ms: generationTimeMs,
-      was_ai_generated: wasAI
+      was_ai_generated: wasAI,
     };
 
     const { error } = await this.client
-      .from('combatchatterlog')
+      .from("combatchatterlog")
       .insert(chatterData);
 
     if (error) {
@@ -203,16 +225,21 @@ export class AnalyticsRepository extends BaseRepository<AnalyticsEvent> {
    */
   async getPetChatterBySession(sessionId: string): Promise<CombatChatterLog[]> {
     const { data, error } = await this.client
-      .from('combatchatterlog')
-      .select('*')
-      .eq('session_id', sessionId)
-      .order('timestamp', { ascending: true });
+      .from("combatchatterlog")
+      .select("*")
+      .eq("session_id", sessionId)
+      .order("timestamp", { ascending: true });
 
     if (error) {
-      throw new DatabaseError(`Failed to get pet chatter by session: ${error.message}`);
+      throw new DatabaseError(
+        `Failed to get pet chatter by session: ${error.message}`
+      );
     }
 
-    return data || [];
+    if (!data) {
+      throw new DatabaseError("No data returned from query");
+    }
+    return data;
   }
 
   /**
@@ -222,18 +249,25 @@ export class AnalyticsRepository extends BaseRepository<AnalyticsEvent> {
    * @returns Array of chatter logs ordered by timestamp desc
    * @throws DatabaseError on query failure
    */
-  async getPetChatterByPersonality(personalityType: string): Promise<CombatChatterLog[]> {
+  async getPetChatterByPersonality(
+    personalityType: string
+  ): Promise<CombatChatterLog[]> {
     const { data, error } = await this.client
-      .from('combatchatterlog')
-      .select('*')
-      .eq('personality_type', personalityType)
-      .order('timestamp', { ascending: false });
+      .from("combatchatterlog")
+      .select("*")
+      .eq("personality_type", personalityType)
+      .order("timestamp", { ascending: false });
 
     if (error) {
-      throw new DatabaseError(`Failed to get pet chatter by personality: ${error.message}`);
+      throw new DatabaseError(
+        `Failed to get pet chatter by personality: ${error.message}`
+      );
     }
 
-    return data || [];
+    if (!data) {
+      throw new DatabaseError("No data returned from query");
+    }
+    return data;
   }
 
   /**
@@ -245,20 +279,27 @@ export class AnalyticsRepository extends BaseRepository<AnalyticsEvent> {
    */
   async getAvgGenerationTime(personalityType: string): Promise<number> {
     const { data, error } = await this.client
-      .from('combatchatterlog')
-      .select('generation_time_ms')
-      .eq('personality_type', personalityType)
-      .not('generation_time_ms', 'is', null);
+      .from("combatchatterlog")
+      .select("generation_time_ms")
+      .eq("personality_type", personalityType)
+      .not("generation_time_ms", "is", null);
 
     if (error) {
-      throw new DatabaseError(`Failed to get avg generation time: ${error.message}`);
+      throw new DatabaseError(
+        `Failed to get avg generation time: ${error.message}`
+      );
     }
 
     if (!data || data.length === 0) {
-      return 0;
+      throw new DatabaseError(
+        "No generation time data found for given personality type"
+      );
     }
 
-    const total = data.reduce((sum, row) => sum + (row.generation_time_ms || 0), 0);
+    const total = data.reduce(
+      (sum, row) => sum + (row.generation_time_ms || 0),
+      0
+    );
     return total / data.length;
   }
 
@@ -283,7 +324,7 @@ export class AnalyticsRepository extends BaseRepository<AnalyticsEvent> {
     enemyTypeId: string,
     eventType: string,
     dialogue: string,
-    playerContext: any,
+    playerContext: PlayerCombatHistory,
     generationTimeMs: number,
     wasAI: boolean
   ): Promise<void> {
@@ -292,13 +333,13 @@ export class AnalyticsRepository extends BaseRepository<AnalyticsEvent> {
       enemy_type_id: enemyTypeId,
       event_type: eventType,
       generated_dialogue: dialogue,
-      player_metadata: playerContext,
+      player_metadata: playerContext as unknown as Json,
       generation_time_ms: generationTimeMs,
-      was_ai_generated: wasAI
+      was_ai_generated: wasAI,
     };
 
     const { error } = await this.client
-      .from('enemychatterlog')
+      .from("enemychatterlog")
       .insert(chatterData);
 
     if (error) {
@@ -313,18 +354,25 @@ export class AnalyticsRepository extends BaseRepository<AnalyticsEvent> {
    * @returns Array of chatter logs ordered by timestamp
    * @throws DatabaseError on query failure
    */
-  async getEnemyChatterBySession(sessionId: string): Promise<EnemyChatterLog[]> {
+  async getEnemyChatterBySession(
+    sessionId: string
+  ): Promise<EnemyChatterLog[]> {
     const { data, error } = await this.client
-      .from('enemychatterlog')
-      .select('*')
-      .eq('session_id', sessionId)
-      .order('timestamp', { ascending: true });
+      .from("enemychatterlog")
+      .select("*")
+      .eq("session_id", sessionId)
+      .order("timestamp", { ascending: true });
 
     if (error) {
-      throw new DatabaseError(`Failed to get enemy chatter by session: ${error.message}`);
+      throw new DatabaseError(
+        `Failed to get enemy chatter by session: ${error.message}`
+      );
     }
 
-    return data || [];
+    if (!data) {
+      throw new DatabaseError("No data returned from query");
+    }
+    return data;
   }
 
   /**
@@ -336,16 +384,21 @@ export class AnalyticsRepository extends BaseRepository<AnalyticsEvent> {
    */
   async getEnemyChatterByType(enemyTypeId: string): Promise<EnemyChatterLog[]> {
     const { data, error } = await this.client
-      .from('enemychatterlog')
-      .select('*')
-      .eq('enemy_type_id', enemyTypeId)
-      .order('timestamp', { ascending: false });
+      .from("enemychatterlog")
+      .select("*")
+      .eq("enemy_type_id", enemyTypeId)
+      .order("timestamp", { ascending: false });
 
     if (error) {
-      throw new DatabaseError(`Failed to get enemy chatter by type: ${error.message}`);
+      throw new DatabaseError(
+        `Failed to get enemy chatter by type: ${error.message}`
+      );
     }
 
-    return data || [];
+    if (!data) {
+      throw new DatabaseError("No data returned from query");
+    }
+    return data;
   }
 
   /**
@@ -357,20 +410,25 @@ export class AnalyticsRepository extends BaseRepository<AnalyticsEvent> {
    */
   async getAvgEnemyChatterGenerationTime(enemyTypeId: string): Promise<number> {
     const { data, error } = await this.client
-      .from('enemychatterlog')
-      .select('generation_time_ms')
-      .eq('enemy_type_id', enemyTypeId)
-      .not('generation_time_ms', 'is', null);
+      .from("enemychatterlog")
+      .select("generation_time_ms")
+      .eq("enemy_type_id", enemyTypeId)
+      .not("generation_time_ms", "is", null);
 
     if (error) {
-      throw new DatabaseError(`Failed to get avg enemy generation time: ${error.message}`);
+      throw new DatabaseError(
+        `Failed to get avg enemy generation time: ${error.message}`
+      );
     }
 
     if (!data || data.length === 0) {
       return 0;
     }
 
-    const total = data.reduce((sum, row) => sum + (row.generation_time_ms || 0), 0);
+    const total = data.reduce(
+      (sum, row) => sum + (row.generation_time_ms || 0),
+      0
+    );
     return total / data.length;
   }
 
@@ -389,26 +447,31 @@ export class AnalyticsRepository extends BaseRepository<AnalyticsEvent> {
    */
   async getEventsByProperty(
     propertyPath: string,
-    value: any,
+    value: unknown,
     eventName?: string
   ): Promise<AnalyticsEvent[]> {
     let query = this.client
-      .from('analyticsevents')
-      .select('*')
+      .from("analyticsevents")
+      .select("*")
       .eq(`properties->${propertyPath}`, JSON.stringify(value))
-      .order('timestamp', { ascending: false });
+      .order("timestamp", { ascending: false });
 
     if (eventName) {
-      query = query.eq('event_name', eventName);
+      query = query.eq("event_name", eventName);
     }
 
     const { data, error } = await query;
 
     if (error) {
-      throw new DatabaseError(`Failed to query events by property: ${error.message}`);
+      throw new DatabaseError(
+        `Failed to query events by property: ${error.message}`
+      );
     }
 
-    return data || [];
+    if (!data) {
+      throw new DatabaseError("No data returned from query");
+    }
+    return data;
   }
 
   /**
@@ -422,17 +485,25 @@ export class AnalyticsRepository extends BaseRepository<AnalyticsEvent> {
   async getUniquePropertyValues(
     propertyPath: string,
     eventName?: string
-  ): Promise<any[]> {
-    const { data, error } = await this.client.rpc('get_unique_property_values', {
-      p_property_path: propertyPath,
-      p_event_name: eventName
-    });
+  ): Promise<unknown[]> {
+    const { data, error } = await this.client.rpc(
+      "get_unique_property_values",
+      {
+        p_property_path: propertyPath,
+        p_event_name: eventName,
+      }
+    );
 
     if (error) {
-      throw new DatabaseError(`Failed to get unique property values: ${error.message}`);
+      throw new DatabaseError(
+        `Failed to get unique property values: ${error.message}`
+      );
     }
 
-    return data || [];
+    if (!data) {
+      throw new DatabaseError("No data returned from query");
+    }
+    return data;
   }
 
   // =====================================
@@ -446,21 +517,28 @@ export class AnalyticsRepository extends BaseRepository<AnalyticsEvent> {
    * @returns Array of created events
    * @throws DatabaseError on bulk insert failure
    */
-  async logEventsBatch(events: AnalyticsEventInsert[]): Promise<AnalyticsEvent[]> {
+  async logEventsBatch(
+    events: AnalyticsEventInsert[]
+  ): Promise<AnalyticsEvent[]> {
     if (events.length === 0) {
       return [];
     }
 
     const { data, error } = await this.client
-      .from('analyticsevents')
+      .from("analyticsevents")
       .insert(events)
       .select();
 
     if (error) {
-      throw new DatabaseError(`Failed to batch insert events: ${error.message}`);
+      throw new DatabaseError(
+        `Failed to batch insert events: ${error.message}`
+      );
     }
 
-    return data || [];
+    if (!data) {
+      throw new DatabaseError("No data returned from query");
+    }
+    return data;
   }
 
   /**
@@ -475,9 +553,9 @@ export class AnalyticsRepository extends BaseRepository<AnalyticsEvent> {
     cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
 
     const { error, count } = await this.client
-      .from('analyticsevents')
-      .delete({ count: 'exact' })
-      .lt('timestamp', cutoffDate.toISOString());
+      .from("analyticsevents")
+      .delete({ count: "exact" })
+      .lt("timestamp", cutoffDate.toISOString());
 
     if (error) {
       throw new DatabaseError(`Failed to cleanup old events: ${error.message}`);

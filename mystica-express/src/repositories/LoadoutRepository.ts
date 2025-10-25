@@ -20,6 +20,11 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 type Loadout = Database['public']['Tables']['loadouts']['Row'];
 type LoadoutSlot = Database['public']['Tables']['loadoutslots']['Row'];
 
+type LoadoutInsert = Database['public']['Tables']['loadouts']['Insert'];
+type LoadoutUpdate = Database['public']['Tables']['loadouts']['Update'];
+type LoadoutSlotInsert = Database['public']['Tables']['loadoutslots']['Insert'];
+type LoadoutSlotUpdate = Database['public']['Tables']['loadoutslots']['Update'];
+
 /**
  * Repository for loadout and loadout slots management
  *
@@ -106,13 +111,15 @@ export class LoadoutRepository extends BaseRepository<Loadout> {
    */
   async createLoadout(data: CreateLoadoutData): Promise<Loadout> {
     try {
+      const insertData: LoadoutInsert = {
+        user_id: data.user_id,
+        name: data.name,
+        is_active: data.is_active || false
+      };
+
       const { data: created, error } = await this.client
         .from('loadouts')
-        .insert({
-          user_id: data.user_id,
-          name: data.name,
-          is_active: data.is_active || false
-        })
+        .insert(insertData)
         .select()
         .single();
 
@@ -120,7 +127,7 @@ export class LoadoutRepository extends BaseRepository<Loadout> {
         throw mapSupabaseError(error);
       }
 
-      return created as Loadout;
+      return created;
     } catch (error: any) {
       // Handle unique constraint violation for (user_id, name)
       if (error.code === '23505' && error.constraint === 'unique_loadout_name') {
@@ -142,9 +149,14 @@ export class LoadoutRepository extends BaseRepository<Loadout> {
    */
   async updateLoadoutName(loadoutId: string, name: string): Promise<Loadout> {
     try {
+      const updateData: LoadoutUpdate = {
+        name,
+        updated_at: new Date().toISOString()
+      };
+
       const { data: updated, error } = await this.client
         .from('loadouts')
-        .update({ name, updated_at: new Date().toISOString() })
+        .update(updateData)
         .eq('id', loadoutId)
         .select()
         .single();
@@ -156,7 +168,7 @@ export class LoadoutRepository extends BaseRepository<Loadout> {
         throw mapSupabaseError(error);
       }
 
-      return updated as Loadout;
+      return updated;
     } catch (error: any) {
       // Handle unique constraint violation for (user_id, name)
       if (error.code === '23505' && error.constraint === 'unique_loadout_name') {
@@ -257,7 +269,7 @@ export class LoadoutRepository extends BaseRepository<Loadout> {
     }
 
     // Insert new slots (only non-null assignments)
-    const slotInserts: { loadout_id: string; slot_name: string; item_id: string | null }[] = [];
+    const slotInserts: LoadoutSlotInsert[] = [];
     for (const [slotName, itemId] of Object.entries(slots)) {
       if (itemId !== null) {
         slotInserts.push({
@@ -279,9 +291,13 @@ export class LoadoutRepository extends BaseRepository<Loadout> {
     }
 
     // Update loadout timestamp
+    const loadoutUpdate: LoadoutUpdate = {
+      updated_at: new Date().toISOString()
+    };
+
     await this.client
       .from('loadouts')
-      .update({ updated_at: new Date().toISOString() })
+      .update(loadoutUpdate)
       .eq('id', loadoutId);
   }
 
@@ -568,7 +584,7 @@ export class LoadoutRepository extends BaseRepository<Loadout> {
   /**
    * Map database loadout with slots to LoadoutWithSlots interface
    */
-  private mapLoadoutWithSlots(data: any): LoadoutWithSlots {
+  private mapLoadoutWithSlots(data: Loadout & { loadoutslots?: LoadoutSlot[] }): LoadoutWithSlots {
     const slots: LoadoutWithSlots['slots'] = {
       weapon: null,
       offhand: null,

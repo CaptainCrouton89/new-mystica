@@ -21,11 +21,15 @@ import {
   QueryFilter
 } from '../types/repository.types.js';
 
-// Location-related type aliases from database schema
+// Database row types
 type Location = Database['public']['Tables']['locations']['Row'];
 type EnemyPool = Database['public']['Tables']['enemypools']['Row'];
-type LootPool = Database['public']['Tables']['lootpools']['Row'];
-type LootPoolTierWeight = Database['public']['Tables']['lootpooltierweights']['Row'];
+
+// Supabase generated Insert/Update types - use these for strong typing
+type LocationInsert = Database['public']['Tables']['locations']['Insert'];
+type LocationUpdate = Database['public']['Tables']['locations']['Update'];
+type EnemyPoolInsert = Database['public']['Tables']['enemypools']['Insert'];
+type EnemyPoolMemberInsert = Database['public']['Tables']['enemypoolmembers']['Insert'];
 
 /**
  * Pool filter types for matching logic
@@ -98,41 +102,41 @@ export class LocationRepository extends BaseRepository<Location> {
 
   /**
    * Find locations by type (e.g., 'restaurant', 'park', 'shopping_mall')
-   * Enriches results with API contract fields
+   *
+   * @param locationType - Location type to filter by
+   * @returns Array of locations matching the type
+   * @throws DatabaseError on query failure
    */
-  async findByType(locationType: string): Promise<any[]> {
-    const locations = await this.findMany({ location_type: locationType });
-    return this.enrichLocations(locations);
+  async findByType(locationType: string): Promise<Location[]> {
+    return await this.findMany({ location_type: locationType });
   }
 
   /**
    * Find locations by region (state and country codes)
-   * Enriches results with API contract fields
+   *
+   * @param stateCode - State/province code (e.g., 'CA')
+   * @param countryCode - Country code (e.g., 'US')
+   * @returns Array of locations in the specified region
+   * @throws DatabaseError on query failure
    */
-  async findByRegion(stateCode: string, countryCode: string): Promise<any[]> {
-    const locations = await this.findMany({
+  async findByRegion(stateCode: string, countryCode: string): Promise<Location[]> {
+    return await this.findMany({
       state_code: stateCode,
       country_code: countryCode
     });
-    return this.enrichLocations(locations);
   }
 
   /**
    * Get all locations with optional pagination
-   * Enriches results with API contract fields
+   *
+   * @param limit - Maximum number of results (optional)
+   * @param offset - Number of results to skip (optional)
+   * @returns Array of all locations (paginated if limit provided)
+   * @throws DatabaseError on query failure
    */
-  async findAll(limit?: number, offset?: number): Promise<any[]> {
+  async findAll(limit?: number, offset?: number): Promise<Location[]> {
     const pagination = limit ? { limit, offset: offset || 0 } : undefined;
-    const locations = await this.findMany({}, { pagination });
-    return this.enrichLocations(locations);
-  }
-
-  /**
-   * Helper method to enrich locations (no longer adds deprecated fields)
-   * Note: enemy_level and material_drop_pool removed - use pool-based system instead
-   */
-  private enrichLocations(locations: Location[]): Location[] {
-    return locations;
+    return await this.findMany({}, { pagination });
   }
 
   // ============================================================================
@@ -305,30 +309,25 @@ export class LocationRepository extends BaseRepository<Location> {
 
   /**
    * Get loot pool tier weights for given pool IDs
+   * DEPRECATED - lootpooltierweights table has been deleted
    * These multipliers affect material drop rates based on MaterialStrengthTiers
    */
-  async getLootPoolTierWeights(poolIds: string[]): Promise<LootPoolTierWeight[]> {
+  async getLootPoolTierWeights(poolIds: string[]): Promise<any[]> {
     if (poolIds.length === 0) return [];
 
-    const { data, error } = await this.client
-      .from('lootpooltierweights')
-      .select('*')
-      .in('loot_pool_id', poolIds);
-
-    if (error) {
-      throw new DatabaseError(`Failed to fetch loot pool tier weights: ${error.message}`);
-    }
-
-    return data || [];
+    // TODO: T3 will refactor loot system to use enemyloot table
+    // For now, return empty array to prevent crashes
+    return [];
   }
 
   /**
    * Select random loot from pool entries with tier weight multipliers
    * Returns array of loot drops with style inheritance from enemy
+   * DEPRECATED - Will be replaced by enemyloot queries in T3
    */
   selectRandomLoot(
     poolEntries: any[],
-    tierWeights: LootPoolTierWeight[],
+    tierWeights: any[],
     enemyStyleId: string = 'normal',
     dropCount: number = 1
   ): LootDrop[] {

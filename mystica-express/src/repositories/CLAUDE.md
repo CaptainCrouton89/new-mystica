@@ -37,8 +37,8 @@ export class ItemRepository extends BaseRepository<ItemRow> {
 - **WeaponRepository** - Weapon-specific queries and stat calculations
 
 **Combat & Progression:**
-- **CombatRepository** - Combat logs, turn history, battle transactions
-- **EnemyRepository** - Enemy types, tiers, styles, pools, realized stats via `v_enemy_realized_stats` view
+- **CombatRepository** - PostgreSQL-only session management with TTL expiry (60min), combat log events, player combat history analytics, chatter logging
+- **EnemyRepository** - Enemy types with normalized stats, tiers, polymorphic enemyloot queries
 - **ProfileRepository** - User profiles, stats, progression data
 - **ProgressionRepository** - Level, experience, unlocks
 
@@ -66,20 +66,61 @@ Methods:
 
 Uses Supabase client directly (no base class methods).
 
-### EnemyRepository Stats via View
-Uses PostgreSQL view `v_enemy_realized_stats` instead of manual calculation:
-- Formula: `base + offset + (tier_adds * (tier_num - 1))`
-- Method: `getEnemyRealizedStats(enemyTypeId)` returns `EnemyStats`
-- Fields: `atk`, `def`, `hp`, `combat_rating`
+### CombatRepository (PostgreSQL Session Management)
+Manages active combat sessions with TTL-based expiry.
 
-Includes personality data hydration:
-- Parses JSON field `ai_personality_traits` with try-catch fallback
-- Returns typed `EnemyTypeWithPersonality` interface
+**Session Lifecycle:**
+- `createSession()` - Create new session, validates no existing active session
+- `getActiveSession(sessionId)` - Get session by ID with expiry check (null if expired/completed)
+- `getUserActiveSession(userId)` - Get most recent incomplete session within TTL
+- `completeSession(sessionId, result)` - Mark session complete with outcome ('victory', 'defeat', 'escape', 'abandoned')
+- `deleteSession(sessionId)` - Emergency cleanup (permanent delete)
 
-Pool management methods:
-- `findEnemyPoolWithMembers(poolId)` - Pool with enemy type members
-- `createEnemyPool(poolData)` - Admin operation
-- `addEnemyToPool(poolData)` - Admin operation
+**Session Expiry:**
+- TTL: 60 minutes from `created_at` timestamp
+- `isSessionExpired(createdAt)` - Check if session is older than TTL
+- `cleanupExpiredSessions()` - Batch mark expired sessions as 'abandoned'
+
+**Combat Log Events:**
+- `addLogEvent(combatId, event)` - Insert turn-by-turn event (seq, ts, actor, eventType, payload)
+- `getLogEvents(combatId)` - Get all events ordered by seq
+- `getLogEventsByActor(combatId, actor)` - Filter events by player/enemy
+
+**Player Combat History:**
+- `getPlayerHistory(userId, locationId)` - Per-location history (attempts, victories, defeats, streaks)
+- `updatePlayerHistory(userId, locationId, result)` - Call RPC to update history atomically
+- `incrementAttempts(userId, locationId)` - Increment attempt count on session start
+
+**Analytics:**
+- `getUserCombatStats(userId)` - Aggregated stats across all locations
+- `getTopLocations(userId, limit)` - Top locations by win rate
+
+**Chatter Logging (AI Dialogue):**
+- `getPlayerCombatContext(userId, locationId)` - Get combat history for dialogue generation
+- `logChatterAttempt(logEntry)` - Log AI dialogue attempts (non-throwing for reliability)
+
+### EnemyRepository (Normalized Stat System)
+Manages enemy types with direct stat calculation and polymorphic loot.
+
+**Enemy Type Queries:**
+- `findEnemyTypeById(id)` - Get enemy type or null
+- `findAllEnemyTypes(options)` - Get all enemies with optional limit/offset/sort
+- `findEnemyTypesByTier(tierId)` - Get enemies in tier
+- `findEnemyTypesByStyle(styleId)` - Get enemies with style
+- `getStylesForEnemyType(enemyTypeId)` - Get available styles for enemy
+
+**Stats Calculation:**
+- `getEnemyTypeWithTier(enemyTypeId)` - Join enemy to tier data
+- `getEnemyRealizedStats(enemyTypeId, combatLevel)` - Compute stats using `StatsService`
+  - Formula: `base_stat × tier.difficulty_multiplier` for ATK/DEF
+  - HP: `base_hp × tier.difficulty_multiplier` (no level scaling)
+  - Returns typed `EnemyRealizedStats` interface
+
+**Loot System:**
+- `getEnemyLootTable(enemyTypeId, lootableType?)` - Get polymorphic enemyloot entries with type-specific fields
+  - Optional filter for 'material' | 'item_type'
+  - Transforms `lootable_id` → `material_id` or `item_type_id` based on `lootable_type`
+  - Returns entries with type-specific fields instead of generic lootable_id
 
 ### N+1 Prevention with Nested Queries
 ItemRepository and MaterialRepository use nested Supabase queries:

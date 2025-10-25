@@ -43,7 +43,7 @@ features:
     status: "planned"
 
   - id: "F-02"
-    description: "Combat System - Timing-based combat with attack multiplier dial, stat calculations, and turn-based flow"
+    description: "Combat System - Zone-based combat with 5-zone hit system (zone multipliers 0.5x-1.5x, variable crit chances 0-100%), normalized enemy stats scaling with player level (atk/def = normalized × combat_level × tier.difficulty_multiplier), absolute HP scaling with tier only (hp = base_hp × tier.difficulty_multiplier), accuracy-based zone probability distribution, and turn-based flow"
     priority: "critical"
     status: "planned"
 
@@ -58,7 +58,7 @@ features:
     status: "planned"
 
   - id: "F-05"
-    description: "Material Drop System - Enemies drop gold (always) and materials (60% chance), with 5% styled rate and level-scaled rewards"
+    description: "Material Drop System - Enemies drop gold (always, 10 × combat_level × tier.gold_multiplier) and materials (always, 1 per combat) from direct enemyloot table with weighted selection. Styled enemies (style_id != 'normal') drop materials with matching style_id for visual consistency. Tier-based loot design: Tier 1 enemies drop common materials, Tier 3-5 drop epic materials. Optional item drops (weighted random with failure case). XP rewards scale with tier (20 × combat_level × tier.xp_multiplier)."
     priority: "critical"
     status: "planned"
 
@@ -300,12 +300,12 @@ success_metrics:
 notes: |
   Core gameplay loop:
   1. Navigate to real-world location using map
-  2. Discover location-specific enemy with level = player average item level
-  3. Engage in timing-based combat (attack dial + defense dial)
-  4. Defeat enemy → receive gold + material drops (60% chance, 5% styled)
-  5. Apply materials to base items (max 3 materials per item)
+  2. Discover location-specific enemy from matching EnemyPool (combat_level = player avg_item_level)
+  3. Engage in zone-based combat (5-zone attack + defense with crit mechanics)
+  4. Defeat enemy → receive gold (10 × level × tier.gold_multiplier), material (1 weighted random from enemyloot), optional item drop, XP (20 × level × tier.xp_multiplier)
+  5. Apply materials to base items (max 3 materials per item, inherits style_id if styled enemy)
   6. Upgrade items with gold to increase level and stats
-  7. Equip stronger items and repeat with harder enemies
+  7. Equip stronger items and repeat with harder enemies (tier-scaled difficulty)
 
   Key differentiators:
   - Tactical combat with skill-based timing (attack AND defense dials)
@@ -328,16 +328,23 @@ notes: |
   - Drop Frequency: Tier-based system controls how often materials drop per location using tier multipliers (common=1.0, epic=0.15)
 
   Location System Details:
-  - Pool Union System: Locations fetch union of (location_type ∪ state ∪ lat ∪ lng ∪ generic) material pools
-  - Combat Level Filtering: Final pool filtered by player's combat level for appropriate difficulty
+  - Enemy Pool System: Locations match EnemyPools by combat_level and filter criteria (location_type, state, country, coordinates)
+  - Weighted enemy selection: EnemyPoolMembers use spawn_weight for rare/common enemy distribution
+  - Loot System: Direct enemyloot table queries (lootable_type + lootable_id polymorphic FK)
+  - Style Inheritance: Enemies with style_id drop materials with matching style_id
   - MVP0: 30 hardcoded SF locations with instant spawns, no cooldowns
   - MVP1+: Dynamic location cooldowns and full geolocation-based pool generation
+  - Deprecated: LootPools system removed in favor of direct enemy loot tables
 
   Combat Mechanics:
-  - Attack dial: Timing determines damage multiplier (atkAccuracy = hit window size)
-  - Defense dial: Timing determines damage reduction % (defAccuracy = block window size)
-  - atkPower scales base damage, defPower scales reduction percentage
-  - Enemy stats scale to player's average equipped item level
+  - Zone-based hit system: 5 zones with multipliers (zone 1: 1.5x perfect, zone 5: 0.5x miss)
+  - Crit mechanics: Zone-based crit chances (100% → 75% → 50% → 25% → 0%) with variable bonus ranges
+  - Accuracy affects zone probability: High accuracy (0.8-1.0) → 80-100% zone 1-2 hits
+  - Enemy accuracy simulated: calculateZoneProbabilities(atk_accuracy_normalized) with smooth anchor curves
+  - Player input: Timing determines zone hit (attack AND defense dials)
+  - Enemy stats scale with player level: base_stat = normalized × combat_level × tier.difficulty_multiplier
+  - HP scales with tier ONLY: enemy_hp = base_hp × tier.difficulty_multiplier (NO combat_level factor)
+  - Damage calculation: base_stat × zone_multiplier × crit_multiplier (if crit rolls)
 
   Progression Systems:
   - Item levels: Spend gold to level up items (stats scale proportionally)

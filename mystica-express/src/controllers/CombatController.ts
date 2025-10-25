@@ -4,7 +4,7 @@ import { enemyChatterService } from '../services/EnemyChatterService.js';
 import { chatterService } from '../services/ChatterService.js';
 import { ValidationError, NotFoundError, ExternalAPIError, NotImplementedError } from '../utils/errors.js';
 import type { EnemyChatterRequest, StartCombatRequest, AttackRequest, CompleteCombatRequest, DefenseRequest, PetChatterRequest, AbandonCombatRequest } from '../types/schemas.js';
-import type { CombatEventDetails } from '../types/combat.types.js';
+import type { CombatEventDetails } from '../types/api.types.js';
 import { logger } from '../utils/logger.js';
 
 /**
@@ -106,14 +106,30 @@ export class CombatController {
 
       // If session exists, fetch full recovery data for client
       if (session) {
-        const recoveryData = await combatService.getCombatSessionForRecovery(session.id, userId);
-        logger.info('🎯 [getActiveSession] Returning recovery data', {
-          sessionId: recoveryData.session_id,
-          playerId: recoveryData.player_id,
-          enemyId: recoveryData.enemy_id,
-          turnNumber: recoveryData.turn_number
-        });
-        res.json({ session: recoveryData });
+        try {
+          const recoveryData = await combatService.getCombatSessionForRecovery(session.id, userId);
+          logger.info('🎯 [getActiveSession] Returning recovery data', {
+            sessionId: recoveryData.session_id,
+            playerId: recoveryData.player_id,
+            enemyId: recoveryData.enemy_id,
+            turnNumber: recoveryData.turn_number
+          });
+          res.json({ session: recoveryData });
+        } catch (error) {
+          // Handle expired session (missing enemy style in cache)
+          if (error instanceof Error && error.message.includes('Enemy style not found in cache')) {
+            logger.warn('⚠️  [getActiveSession] Session expired (missing cache), deleting and returning null', {
+              sessionId: session.id,
+              userId
+            });
+            // Delete expired session
+            await combatService.abandonCombat(session.id);
+            // Return null to trigger new session creation on client
+            res.json({ session: null });
+          } else {
+            throw error;
+          }
+        }
       } else {
         logger.info('ℹ️  [getActiveSession] No active session, returning null');
         res.json({ session: null });
@@ -237,8 +253,8 @@ export class CombatController {
         accuracy: accuracy || 0,
         is_critical: is_critical || false,
         turn_number,
-        player_hp_percentage: player_hp_pct * 100, // Convert 0.0-1.0 to 0-100
-        enemy_hp_percentage: enemy_hp_pct * 100,   // Convert 0.0-1.0 to 0-100
+        player_hp_pct: player_hp_pct, // 0.0-1.0 range
+        enemy_hp_pct: enemy_hp_pct,   // 0.0-1.0 range
       };
 
       // Generate dialogue using EnemyChatterService

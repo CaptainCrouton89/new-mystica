@@ -22,44 +22,21 @@ struct EnemyDialogueBubble: View {
             if isVisible {
                 VStack(alignment: .center, spacing: 4) {
                     Text(dialogue.text)
-                        .font(.system(size: 16))
+                        .font(FontManager.body)
                         .foregroundColor(.white)
                         .lineLimit(3)
                         .multilineTextAlignment(.center)
                 }
                 .padding(12)
                 .background(
-                    GeometryReader { geometry in
-                        ZStack {
-                            // Rounded rectangle background
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(toneColor())
-
-                            // Triangle tail
-                            Triangle()
-                                .fill(toneColor())
-                                .frame(width: 20, height: 10)
-                                .offset(y: geometry.size.height)
-                        }
-                    }
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(toneColor())
                 )
                 .transition(.asymmetric(
                     insertion: .scale(scale: 0.8).combined(with: .opacity).animation(.easeIn(duration: 0.3)),
                     removal: .scale(scale: 0.95).combined(with: .opacity).animation(.easeOut(duration: 0.5))
                 ))
             }
-        }
-    }
-
-    /// Custom triangle shape for bubble tail
-    private struct Triangle: Shape {
-        func path(in rect: CGRect) -> Path {
-            var path = Path()
-            path.move(to: CGPoint(x: rect.midX, y: 0))
-            path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
-            path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
-            path.closeSubpath()
-            return path
         }
     }
 }

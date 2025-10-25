@@ -53,15 +53,17 @@ struct CombatSession: APIModel {
 // This type is no longer needed as CombatSession now matches the backend response
 typealias CombatStartResponse = CombatSession
 
-// MARK: - Combat Enemy Model
+// MARK: - Combat Enemy Model (uses realized stats from backend)
 struct CombatEnemy: APIModel {
     let id: String
     let type: String
     let name: String
     let level: Int
-    let atk: Int
-    let def: Int
-    let hp: Int
+    let atkPower: Double      // Realized attack power (normalized × scaling formula)
+    let atkAccuracy: Double   // Realized attack accuracy (normalized × scaling formula)
+    let defPower: Double      // Realized defense power (normalized × scaling formula)
+    let defAccuracy: Double   // Realized defense accuracy (normalized × scaling formula)
+    let hp: Double            // Realized HP (base_hp × tier.difficulty_multiplier)
     let styleId: String
     let dialogueTone: String
     let personalityTraits: [String]
@@ -71,8 +73,10 @@ struct CombatEnemy: APIModel {
         case type
         case name
         case level
-        case atk
-        case def
+        case atkPower = "atk_power"
+        case atkAccuracy = "atk_accuracy"
+        case defPower = "def_power"
+        case defAccuracy = "def_accuracy"
         case hp
         case styleId = "style_id"
         case dialogueTone = "dialogue_tone"
@@ -82,10 +86,10 @@ struct CombatEnemy: APIModel {
     // Computed property to convert to legacy Enemy format for compatibility
     var stats: ItemStats {
         return ItemStats(
-            atkPower: Double(atk),
-            atkAccuracy: 0, // Not provided in combat enemy response
-            defPower: Double(def),
-            defAccuracy: 0  // Not provided in combat enemy response
+            atkPower: atkPower,
+            atkAccuracy: atkAccuracy,
+            defPower: defPower,
+            defAccuracy: defAccuracy
         )
     }
 }
@@ -164,12 +168,18 @@ struct Enemy: APIModel {
 struct CombatAction: APIModel {
     let type: CombatActionType
     let performerId: String
+
+    // NEW: Zone hit information for both player and enemy
+    let playerDamage: ZoneHitInfo?
+    let enemyDamage: ZoneHitInfo?
+
+    // Legacy fields for backwards compatibility (deprecated)
     let damageDealt: Double?
     let result: String?
     let hitZone: String? // For tracking zone hit for haptic/audio feedback
     let damageBlocked: Double? // For defense tracking
 
-    // NEW: Enhanced response fields for optimized combat flow
+    // Enhanced response fields for optimized combat flow
     let playerHpRemaining: Double?
     let enemyHpRemaining: Double?
     let combatStatus: CombatStatus
@@ -179,10 +189,14 @@ struct CombatAction: APIModel {
     enum CodingKeys: String, CodingKey {
         case type
         case performerId = "performer_id"
+        case playerDamage = "player_damage"
+        case enemyDamage = "enemy_damage"
+        // Legacy
         case damageDealt = "damage_dealt"
         case result
         case hitZone = "hit_zone"
         case damageBlocked = "damage_blocked"
+        // Current
         case playerHpRemaining = "player_hp_remaining"
         case enemyHpRemaining = "enemy_hp_remaining"
         case combatStatus = "combat_status"
@@ -284,51 +298,80 @@ struct MaterialDrop: APIModel {
     }
 }
 
-// MARK: - Combat Action Result Models
-struct AttackResult: APIModel {
-    let hitZone: String
-    let baseMultiplier: Double
-    let critBonusMultiplier: Double?
-    let damageDealt: Double
-    let playerHpRemaining: Double
-    let enemyHpRemaining: Double
-    let enemyDamage: Double
-    let combatStatus: String
-    let turnNumber: Int
-    let rewards: CombatRewards?  // NEW: rewards included in attack response
+// MARK: - Zone Hit Information (matches backend ZoneHitInfo)
+struct ZoneHitInfo: APIModel {
+    let zone: Int  // 1-5
+    let zoneMultiplier: Double
+    let critOccurred: Bool  // Frontend uses this for "CRITICAL HIT!" animations
+    let critMultiplier: Double?  // null when no crit, otherwise 1.0-2.0x
+    let finalDamage: Double
 
     enum CodingKeys: String, CodingKey {
+        case zone
+        case zoneMultiplier = "zone_multiplier"
+        case critOccurred = "crit_occurred"
+        case critMultiplier = "crit_multiplier"
+        case finalDamage = "final_damage"
+    }
+}
+
+// MARK: - Combat Action Result Models
+struct AttackResult: APIModel {
+    let playerDamage: ZoneHitInfo  // NEW: Detailed zone and crit info for player attack
+    let enemyDamage: ZoneHitInfo   // NEW: Detailed zone and crit info for enemy attack
+    let playerHpRemaining: Double
+    let enemyHpRemaining: Double
+    let combatStatus: String
+    let turnNumber: Int?
+    let rewards: CombatRewards?  // Included when combat ends
+
+    // Legacy fields for backwards compatibility (deprecated)
+    let hitZone: String?
+    let baseMultiplier: Double?
+    let critBonusMultiplier: Double?
+    let damageDealt: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case playerDamage = "player_damage"
+        case enemyDamage = "enemy_damage"
+        case playerHpRemaining = "player_hp_remaining"
+        case enemyHpRemaining = "enemy_hp_remaining"
+        case combatStatus = "combat_status"
+        case turnNumber = "turn_number"
+        case rewards
+        // Legacy
         case hitZone = "hit_zone"
         case baseMultiplier = "base_multiplier"
         case critBonusMultiplier = "crit_bonus_multiplier"
         case damageDealt = "damage_dealt"
-        case playerHpRemaining = "player_hp_remaining"
-        case enemyHpRemaining = "enemy_hp_remaining"
-        case enemyDamage = "enemy_damage"
-        case combatStatus = "combat_status"
-        case turnNumber = "turn_number"
-        case rewards
     }
 }
 
 struct DefenseResult: APIModel {
-    let damageBlocked: Double
-    let damageTaken: Double
+    let playerDamage: ZoneHitInfo  // NEW: Detailed zone and crit info for player defense
+    let enemyDamage: ZoneHitInfo   // NEW: Detailed zone and crit info for enemy attack
     let playerHpRemaining: Double
-    let enemyHpRemaining: Double  // NEW: enemy HP consistency with AttackResult
+    let enemyHpRemaining: Double
     let combatStatus: String
-    let hitZone: String  // NEW: hit zone for consistency
-    let turnNumber: Int  // NEW: turn number for consistency
-    let rewards: CombatRewards?  // NEW: rewards included in defense response
+    let turnNumber: Int?
+    let rewards: CombatRewards?  // Included when combat ends
+
+    // Legacy fields for backwards compatibility (deprecated)
+    let damageBlocked: Double?
+    let damageTaken: Double?
+    let hitZone: String?
 
     enum CodingKeys: String, CodingKey {
-        case damageBlocked = "damage_blocked"
-        case damageTaken = "damage_taken"
+        case playerDamage = "player_damage"
+        case enemyDamage = "enemy_damage"
         case playerHpRemaining = "player_hp_remaining"
         case enemyHpRemaining = "enemy_hp_remaining"
         case combatStatus = "combat_status"
-        case hitZone = "hit_zone"
         case turnNumber = "turn_number"
         case rewards
+        // Legacy
+        case damageBlocked = "damage_blocked"
+        case damageTaken = "damage_taken"
+        case hitZone = "hit_zone"
     }
 }

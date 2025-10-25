@@ -12,16 +12,9 @@ import {
 } from '../utils/errors.js';
 import { ProfileRepository } from '../repositories/ProfileRepository.js';
 
-/**
- * EconomyService - Centralized currency management for New Mystica
- *
- * Provides atomic currency operations with transaction logging, balance validation,
- * and audit trails. Acts as a thin wrapper over ProfileRepository RPC functions.
- */
 export class EconomyService {
   private profileRepository: ProfileRepository;
 
-  // Valid transaction source types (currency addition)
   private readonly validSourceTypes: TransactionSourceType[] = [
     'combat_victory',
     'daily_quest',
@@ -31,7 +24,6 @@ export class EconomyService {
     'profile_init'
   ];
 
-  // Valid transaction sink types (currency deduction)
   private readonly validSinkTypes: TransactionSinkType[] = [
     'item_upgrade',
     'material_replacement',
@@ -43,13 +35,6 @@ export class EconomyService {
     this.profileRepository = new ProfileRepository();
   }
 
-  // ============================================================================
-  // Core Currency Operations
-  // ============================================================================
-
-  /**
-   * Add currency to user's balance with transaction logging
-   */
   async addCurrency(
     userId: string,
     currency: 'GOLD' | 'GEMS',
@@ -58,7 +43,7 @@ export class EconomyService {
     sourceId?: string,
     metadata?: object
   ): Promise<CurrencyOperationResult> {
-    // Input validation
+    
     if (amount <= 0) {
       throw new ValidationError('Amount must be positive');
     }
@@ -68,7 +53,7 @@ export class EconomyService {
     }
 
     try {
-      // Call RPC function for atomic operation
+      
       const response = await this.profileRepository.addCurrencyWithLogging(
         userId,
         currency,
@@ -98,9 +83,6 @@ export class EconomyService {
     }
   }
 
-  /**
-   * Deduct currency from user's balance with validation and transaction logging
-   */
   async deductCurrency(
     userId: string,
     currency: 'GOLD' | 'GEMS',
@@ -109,7 +91,7 @@ export class EconomyService {
     sourceId?: string,
     metadata?: object
   ): Promise<CurrencyOperationResult> {
-    // Input validation
+    
     if (amount <= 0) {
       throw new ValidationError('Amount must be positive');
     }
@@ -119,7 +101,7 @@ export class EconomyService {
     }
 
     try {
-      // Call RPC function for atomic operation with balance check
+      
       const response = await this.profileRepository.deductCurrencyWithLogging(
         userId,
         currency,
@@ -144,7 +126,7 @@ export class EconomyService {
         newBalance: response.data!.new_balance,
         transactionId: response.data!.transaction_id,
         currency,
-        amount: -amount // Negative to indicate deduction
+        amount: -amount 
       };
     } catch (error) {
       if (error instanceof InsufficientFundsError || error instanceof ValidationError || error instanceof DatabaseError) {
@@ -154,9 +136,6 @@ export class EconomyService {
     }
   }
 
-  /**
-   * Get current balance for a specific currency type
-   */
   async getCurrencyBalance(userId: string, currency: 'GOLD' | 'GEMS'): Promise<number> {
     try {
       const balance = await this.profileRepository.getCurrencyBalance(userId, currency);
@@ -169,9 +148,6 @@ export class EconomyService {
     }
   }
 
-  /**
-   * Get all currency balances for a user
-   */
   async getAllBalances(userId: string): Promise<CurrencyBalances> {
     try {
       const balances = await this.profileRepository.getAllCurrencyBalances(userId);
@@ -184,13 +160,6 @@ export class EconomyService {
     }
   }
 
-  // ============================================================================
-  // Validation Methods
-  // ============================================================================
-
-  /**
-   * Check if user has sufficient funds without modifying balance
-   */
   async validateSufficientFunds(
     userId: string,
     currency: 'GOLD' | 'GEMS',
@@ -200,9 +169,6 @@ export class EconomyService {
     return currentBalance >= amount;
   }
 
-  /**
-   * Get detailed affordability information including shortfall
-   */
   async getAffordabilityCheck(
     userId: string,
     currency: 'GOLD' | 'GEMS',
@@ -219,27 +185,14 @@ export class EconomyService {
     };
   }
 
-  // ============================================================================
-  // Helper Methods
-  // ============================================================================
-
-  /**
-   * Validate transaction source type
-   */
   private isValidSourceType(sourceType: string): sourceType is TransactionSourceType {
     return this.validSourceTypes.includes(sourceType as TransactionSourceType);
   }
 
-  /**
-   * Validate transaction sink type
-   */
   private isValidSinkType(sinkType: string): sinkType is TransactionSinkType {
     return this.validSinkTypes.includes(sinkType as TransactionSinkType);
   }
 
-  /**
-   * Extract current balance from RPC error message
-   */
   private extractCurrentBalance(message: string): number {
     const match = message.match(/have:\s*(\d+)/);
     return match ? parseInt(match[1], 10) : 0;

@@ -37,8 +37,7 @@ export class EnemyController {
           def_power,
           def_accuracy,
           base_hp,
-          tier_id,
-          style_id
+          tier_id
         `)
         .order('name');
 

@@ -6,14 +6,14 @@ import { PetRepository } from '../repositories/PetRepository.js';
 import { ProfileRepository } from '../repositories/ProfileRepository.js';
 import { WeaponRepository } from '../repositories/WeaponRepository.js';
 import {
+  EquipmentSlot,
   InventoryResponse,
   Item,
   MaterialStack,
   PaginationParams,
   Rarity,
   Stats,
-  UpgradeResult,
-  EquipmentSlot
+  UpgradeResult
 } from '../types/api.types';
 import { Database } from '../types/database.types.js';
 import {
@@ -30,7 +30,6 @@ import { computeComboHash } from '../utils/hash.js';
 import { profileService } from './ProfileService';
 import { statsService } from './StatsService';
 
-// Repository return types
 type ItemRow = Database['public']['Tables']['items']['Row'];
 type ItemTypeRow = Database['public']['Tables']['itemtypes']['Row'];
 type ItemHistoryEvent = {
@@ -42,7 +41,6 @@ type ItemHistoryEvent = {
   created_at: string;
 };
 
-// Service response types
 export interface WeaponCombatStats {
   weapon: any;
   adjusted_bands: {
@@ -82,10 +80,6 @@ export interface ChatterMessage {
   type?: string;
 }
 
-
-/**
- * Handles individual item operations and upgrades
- */
 export class ItemService {
   private itemRepository: ItemRepository;
   private itemTypeRepository: ItemTypeRepository;
@@ -104,15 +98,8 @@ export class ItemService {
     this.materialRepository = new MaterialRepository();
     this.imageCacheRepository = new ImageCacheRepository();
   }
-  /**
-   * Get detailed item information by ID
-   * - Fetches item with all associated data
-   * - Includes applied materials and computed stats
-   * - Validates user ownership
-   */
   async getItemDetails(userId: string, itemId: string): Promise<Item> {
     try {
-      // Fetch item with all related data using repository
       const itemWithDetails = await this.itemRepository.findWithMaterials(itemId, userId);
 
       if (!itemWithDetails) {
@@ -139,7 +126,6 @@ export class ItemService {
         throw new ValidationError('Missing required base item identifiers');
       }
 
-      // Map category to EquipmentSlot (accessory becomes accessory_1 for slot purposes)
       const category = itemWithDetails.item_type.category as 'weapon' | 'offhand' | 'head' | 'armor' | 'feet' | 'accessory' | 'pet';
       const equipmentSlot: EquipmentSlot = category === 'accessory' ? 'accessory_1' : category;
 
@@ -175,7 +161,6 @@ export class ItemService {
           throw new ValidationError('Item level is missing or invalid');
         }
 
-        // computeItemStatsForLevel expects item_type with base_stats_normalized and rarity
         const statsInput: { item_type: { base_stats_normalized: Stats; rarity: string } } = {
           item_type: {
             base_stats_normalized: baseStats,
@@ -195,11 +180,6 @@ export class ItemService {
     }
   }
 
-  /**
-   * Get upgrade cost for item
-   * - Calculates gold cost for next level
-   * - Returns current level and cost information
-   */
   async getUpgradeCost(userId: string, itemId: string): Promise<{
     current_level: number;
     next_level: number;
@@ -208,7 +188,6 @@ export class ItemService {
     can_afford: boolean;
   }> {
     try {
-      // 1. Validate user owns item and get current level using repository
       const item = await this.itemRepository.findById(itemId, userId);
 
       if (!item) {
@@ -218,12 +197,10 @@ export class ItemService {
       const currentLevel = item.level;
       const nextLevel = currentLevel + 1;
 
-      // 2. Calculate upgrade cost using formula: cost = 100 * Math.pow(1.5, level - 1)
       const baseCost = Math.floor(100 * Math.pow(1.5, currentLevel - 1));
       const balanceOffset = Math.max(0, Math.floor((currentLevel - 1) / 9)) * 10;
       const goldCost = Math.max(0, baseCost - balanceOffset);
 
-      // 3. Get user's current gold using repository
       const playerGold = await this.profileRepository.getCurrencyBalance(userId, 'GOLD');
       const canAfford = playerGold >= goldCost;
 
@@ -242,35 +219,25 @@ export class ItemService {
     }
   }
 
-  /**
-   * Upgrade item level using gold
-   * - Costs gold based on current level (exponential scaling)
-   * - Increases base stats linearly with level
-   * - Updates average item level trigger
-   */
   async upgradeItem(userId: string, itemId: string): Promise<UpgradeResult> {
     try {
-      // 1. Get upgrade cost info (validates ownership)
       const costInfo = await this.getUpgradeCost(userId, itemId);
 
       if (!costInfo.can_afford) {
         throw new BusinessLogicError(`Insufficient gold. Need ${costInfo.gold_cost}, have ${costInfo.player_gold}`);
       }
 
-      // 2. Get item details for stats calculation using repository
       const itemWithDetails = await this.itemRepository.findWithItemType(itemId, userId);
 
       if (!itemWithDetails) {
         throw new NotFoundError('Item', itemId);
       }
 
-      // Transform to format expected by statsService
       const item = {
         ...itemWithDetails,
         item_type: itemWithDetails.item_type
       };
 
-      // 3. Calculate stats before and after upgrade
       const statsBefore = statsService.computeItemStatsForLevel(item, costInfo.current_level);
       const statsAfter = statsService.computeItemStatsForLevel(item, costInfo.next_level);
       const statIncrease: Stats = {
@@ -280,7 +247,6 @@ export class ItemService {
         defAccuracy: statsAfter.defAccuracy - statsBefore.defAccuracy
       };
 
-      // 4. Perform atomic transaction using repository
       try {
         await this.itemRepository.processUpgrade(
           userId,
@@ -291,7 +257,6 @@ export class ItemService {
         );
       } catch (transactionError) {
 
-        // If the RPC function doesn't exist, perform manual transaction
         await this.performManualUpgradeTransaction(
           userId,
           itemId,
@@ -301,11 +266,8 @@ export class ItemService {
         );
       }
 
-      // 5. Update vanity level
       await profileService.updateVanityLevel(userId);
 
-      // 6. Return upgrade result
-      // Create updated item for response
       const updatedItem: Item = {
         id: item.id,
         user_id: item.user_id,
@@ -329,7 +291,6 @@ export class ItemService {
         updated_at: new Date().toISOString()
       };
 
-      // Get new gold balance and vanity level after upgrade
       const newGoldBalance = await this.profileRepository.getCurrencyBalance(userId, 'GOLD');
       const profile = await this.profileRepository.findById(userId);
 
@@ -348,9 +309,6 @@ export class ItemService {
     }
   }
 
-  /**
-   * Manual transaction for item upgrade when RPC is not available
-   */
   private async performManualUpgradeTransaction(
     userId: string,
     itemId: string,
@@ -358,10 +316,7 @@ export class ItemService {
     newLevel: number,
     newStats: Stats
   ): Promise<void> {
-    // Start a manual transaction using multiple operations
-    // Note: Supabase doesn't support true transactions via client, so this is best effort
 
-    // 1. Deduct gold using repository (includes balance check and transaction logging)
     try {
       await this.profileRepository.deductCurrency(
         userId,
@@ -375,51 +330,32 @@ export class ItemService {
       throw new BusinessLogicError('Insufficient gold for upgrade');
     }
 
-    // 2. Update item level and stats using repository
     await this.itemRepository.update(itemId, {
       level: newLevel,
-      current_stats: newStats as any // Stats type needs to be compatible with Json type
+      current_stats: newStats
     });
   }
 
-  /**
-   * Get material stacks for user inventory
-   * - Queries MaterialStacks table with JOIN to Materials and StyleDefinitions
-   * - Returns materials grouped by material_id + style_id with quantities
-   */
   private async getMaterialStacks(userId: string): Promise<MaterialStack[]> {
     try {
       const data = await this.materialRepository.findStacksByUserWithDetails(userId);
 
       return data.map(stack => ({
         material_id: stack.material_id,
-        material_name: stack.materials.name,
+        material_name: stack.materials!.name,
         style_id: stack.style_id,
-        style_name: stack.styledefinitions.style_name,
+        style_name: stack.styledefinitions!.style_name,
         quantity: stack.quantity,
-        is_styled: stack.styledefinitions.style_name !== 'normal'
+        is_styled: stack.styledefinitions!.style_name !== 'normal'
       }));
     } catch (error) {
       throw new Error(`Failed to get material stacks: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
-  /**
-   * Get storage limits for items and materials from user profile
-   * - Default: 100 items, 200 materials
-   * - Enhanced: 1000 items, 2000 materials (with IAP)
-   */
   private async getStorageLimits(userId: string): Promise<{items_max: number, materials_max: number}> {
     try {
-      // For now, return default limits since storage_upgrades column doesn't exist yet
-      // TODO: Add storage_upgrades column to users table for IAP expansion
-      // const { data: user, error } = await supabase
-      //   .from('users')
-      //   .select('storage_upgrades')
-      //   .eq('id', userId)
-      //   .single();
 
-      // Default: no storage upgrades implemented yet
       const hasStorageUpgrade = false;
 
       return {
@@ -431,12 +367,6 @@ export class ItemService {
     }
   }
 
-  /**
-   * Get all items owned by a user with pagination support
-   * - Joins with UserEquipment to determine equipped status
-   * - Computes stats for each item using stat calculation service
-   * - Supports filtering by item type, rarity, or equipped status
-  */
   async getUserInventory(userId: string, options?: PaginationParams): Promise<InventoryResponse> {
     try {
       const paginationInput: PaginationParams = options ?? {
@@ -477,7 +407,6 @@ export class ItemService {
         inventoryResult?.pagination?.limit ?? paginationInput.limit ?? transformedItems.length;
       const totalItems = Math.min(totalCount, limit ?? totalCount);
 
-      // Get material inventory and storage limits
       const materialStacks = await this.getMaterialStacks(userId);
       const totalMaterials = materialStacks.reduce((sum, stack) => sum + stack.quantity, 0);
       const storageLimits = await this.getStorageLimits(userId);
@@ -498,14 +427,6 @@ export class ItemService {
     }
   }
 
-  /**
-   * Create new item for user (used in ProfileService.initializeProfile() and loot drops)
-   * - Validates itemTypeId exists in ItemTypes table
-   * - Creates item record with default level 1
-   * - Adds creation history event
-   * - Creates weapon/pet data if applicable based on item category
-   * - Returns complete item details
-   */
   async createItem(userId: string, itemTypeId: string, level?: number): Promise<ItemWithDetails> {
     try {
       const createData: CreateItemData = {
@@ -554,15 +475,9 @@ export class ItemService {
     }
   }
 
-  /**
-   * Calculate final item stats with rarity, level, and material modifiers
-   * - Uses stat computation formula from F-03/F-06 specs
-   * - Applies rarity multiplier and level scaling
-   * - Applies zero-sum material modifiers
-   */
   async computeItemStats(item: ItemRow, itemType: ItemTypeRow, materials?: any[]): Promise<Stats> {
     try {
-      // Transform to format expected by statsService
+      
       const apiItem = {
         id: item.id,
         user_id: item.user_id,
@@ -591,16 +506,9 @@ export class ItemService {
     }
   }
 
-  /**
-   * Sum stats from all 8 equipped items for combat calculations
-   * - Queries UserEquipment for all 8 slots
-   * - Computes stats for each equipped item
-   * - Sums all stats together
-   * - Includes combat rating calculation
-   */
   async getPlayerTotalStats(userId: string): Promise<PlayerTotalStats> {
     try {
-      // Get all equipped items
+      
       const equippedItems = await this.itemRepository.findEquippedByUser(userId);
 
       let totalStats: Stats = {
@@ -613,18 +521,15 @@ export class ItemService {
       const slots: PlayerTotalStats['slots'] = {};
       let totalLevel = 0;
 
-      // Process each equipped item
       for (const itemData of equippedItems) {
         const item = this.transformToApiItem(itemData);
 
-        // Compute stats for this item
         const itemStats = await this.computeItemStats(
           { ...itemData, created_at: itemData.created_at } as any,
           itemData.item_type as any,
           itemData.materials
         );
 
-        // Add to total stats
         totalStats.atkPower += itemStats.atkPower;
         totalStats.atkAccuracy += itemStats.atkAccuracy;
         totalStats.defPower += itemStats.defPower;
@@ -632,7 +537,6 @@ export class ItemService {
 
         totalLevel += itemData.level;
 
-        // Add to slots (need to determine slot from equipment table)
         const slotName = itemData.item_type.category as keyof PlayerTotalStats['slots'];
         if (slotName) {
           slots[slotName] = {
@@ -642,7 +546,6 @@ export class ItemService {
         }
       }
 
-      // Calculate combat rating (simple sum of all stats)
       const combatRating = totalStats.atkPower + totalStats.atkAccuracy +
                           totalStats.defPower + totalStats.defAccuracy;
 
@@ -657,11 +560,6 @@ export class ItemService {
     }
   }
 
-  /**
-   * Record item lifecycle events for audit trail
-   * - Validates ownership first
-   * - Inserts into itemhistory table
-   */
   async addHistoryEvent(
     itemId: string,
     userId: string,
@@ -675,11 +573,6 @@ export class ItemService {
     }
   }
 
-  /**
-   * Retrieve complete history for an item
-   * - Validates ownership first
-   * - Returns events ordered by created_at DESC
-   */
   async getItemHistory(itemId: string, userId: string): Promise<ItemHistoryEvent[]> {
     try {
       return await this.itemRepository.getItemHistory(itemId, userId);
@@ -688,11 +581,6 @@ export class ItemService {
     }
   }
 
-  /**
-   * Calculate weapon timing effectiveness for combat
-   * - Uses WeaponRepository for combat calculations
-   * - Calls PostgreSQL RPC functions for accuracy-adjusted bands
-   */
   async getWeaponCombatStats(weaponItemId: string, playerAccuracy: number): Promise<WeaponCombatStats> {
     try {
       const stats = await this.weaponRepository.getWeaponCombatStats(weaponItemId, playerAccuracy);
@@ -717,17 +605,11 @@ export class ItemService {
     }
   }
 
-  /**
-   * Create weapon timing data when weapon item is created
-   * - Uses WeaponRepository with MVP0 constraints
-   * - Only single_arc pattern allowed
-   * - Default hit bands and spin speed
-   */
   async createWeaponData(itemId: string): Promise<any> {
     try {
       const payload: any = {
         item_id: itemId,
-        pattern: 'single_arc', // MVP0 constraint
+        pattern: 'single_arc',
         deg_injure: 5.0,
         deg_miss: 45.0,
         deg_graze: 60.0,
@@ -741,11 +623,6 @@ export class ItemService {
     }
   }
 
-  /**
-   * Create pet record when pet item is created
-   * - Uses PetRepository for pet creation
-   * - Validates item category is 'pet'
-   */
   async createPetData(itemId: string): Promise<any> {
     try {
       return await this.petRepository.createPet(itemId);
@@ -754,11 +631,6 @@ export class ItemService {
     }
   }
 
-  /**
-   * Set pet personality and optional custom name
-   * - Uses PetRepository with validation
-   * - Validates custom name if provided
-   */
   async assignPetPersonality(
     itemId: string,
     userId: string,
@@ -766,7 +638,7 @@ export class ItemService {
     customName?: string
   ): Promise<void> {
     try {
-      // Validate ownership first by trying to find the item
+      
       const existingItem = await this.itemRepository.findById(itemId, userId);
       if (!existingItem) {
         throw new NotFoundError('Item', itemId);
@@ -774,7 +646,6 @@ export class ItemService {
 
       await this.petRepository.updatePetPersonality(itemId, personalityId, customName);
 
-      // Add history event
       await this.addHistoryEvent(itemId, userId, 'personality_assigned', {
         personality_id: personalityId,
         custom_name: customName
@@ -787,26 +658,20 @@ export class ItemService {
     }
   }
 
-  /**
-   * Add dialogue to pet chatter history with size limits
-   * - Uses PetRepository with automatic truncation
-   * - Validates ownership
-   */
   async updatePetChatter(
     itemId: string,
     userId: string,
     message: ChatterMessage
   ): Promise<void> {
     try {
-      // Validate ownership first by trying to find the item
+      
       const existingItem = await this.itemRepository.findById(itemId, userId);
       if (!existingItem) {
         throw new NotFoundError('Item', itemId);
       }
 
-      await this.petRepository.addChatterMessage(itemId, message, 50); // Max 50 messages
+      await this.petRepository.addChatterMessage(itemId, message, 50); 
 
-      // Add history event
       await this.addHistoryEvent(itemId, userId, 'chatter_updated', {
         message_preview: message.text.substring(0, 50) + (message.text.length > 50 ? '...' : '')
       });
@@ -818,16 +683,6 @@ export class ItemService {
     }
   }
 
-  /**
-   * Remove material from item slot and return to inventory
-   * - Validates ownership and slot occupancy
-   * - Calculates gold cost (100 × item level)
-   * - Checks affordability via EconomyService
-   * - Removes MaterialInstance from slot
-   * - Returns material to MaterialStacks (+1 quantity)
-   * - Recalculates item stats and updates combo hash
-   * - Updates/clears generated image URL
-   */
   async removeMaterial(itemId: string, slotIndex: number, userId: string): Promise<{
     success: boolean;
     item: Item;
@@ -842,13 +697,12 @@ export class ItemService {
     new_gold_balance: number;
   }> {
     try {
-      // 1. Validate item ownership
+      
       const item = await this.itemRepository.findById(itemId, userId);
       if (!item) {
         throw new NotFoundError('Item', itemId);
       }
 
-      // 2. Validate slot_index (0-2) and check if occupied
       if (slotIndex < 0 || slotIndex > 2) {
         throw new ValidationError('Slot index must be between 0 and 2');
       }
@@ -858,41 +712,35 @@ export class ItemService {
         throw new BusinessLogicError(`Slot ${slotIndex} is empty`);
       }
 
-      // 3. Calculate gold cost: 100 × item level
       const goldCost = 100 * item.level;
 
-      // 4. Check affordability via EconomyService
       const canAfford = await this.profileRepository.getCurrencyBalance(userId, 'GOLD') >= goldCost;
       if (!canAfford) {
         const currentBalance = await this.profileRepository.getCurrencyBalance(userId, 'GOLD');
         throw new BusinessLogicError(`Insufficient gold. Need ${goldCost}, have ${currentBalance}`);
       }
 
-      // 5. Get material instance before removal for return data
       const materialInstances = await this.materialRepository.findMaterialsByItem(itemId);
       const materialToRemove = materialInstances.find(m => m.slot_index === slotIndex);
       if (!materialToRemove) {
         throw new BusinessLogicError(`No material found in slot ${slotIndex}`);
       }
 
-      // 6. Deduct gold via EconomyService
       const economyService = (await import('./EconomyService.js')).economyService;
       await economyService.deductCurrency(
         userId,
         'GOLD',
         goldCost,
-        'material_replacement', // Using existing transaction type for material operations
+        'material_replacement', 
         itemId,
         { operation: 'remove_material', slot_index: slotIndex }
       );
 
-      // 7. Remove MaterialInstance and return to inventory atomically
       await this.materialRepository.removeMaterialFromItemAtomic(
         itemId,
         slotIndex
       );
 
-      // 8. Recalculate item stats with remaining materials
       const updatedItem = await this.itemRepository.findWithMaterials(itemId, userId);
       if (!updatedItem) {
         throw new NotFoundError('Item', itemId);
@@ -915,36 +763,31 @@ export class ItemService {
         currentStats = statsService.computeItemStatsForLevel(statsInput, updatedItem.level);
       }
 
-      // 9. Update material_combo_hash
       const materialIds = remainingMaterials.map(m => m.material_id).filter(Boolean);
       const styleIds = remainingMaterials.map(m => m.style_id || '00000000-0000-0000-0000-000000000000');
       const comboHash = materialIds.length > 0 ? computeComboHash(materialIds, styleIds) : null;
 
-      // 10. Update image URL (revert to base or clear if no materials)
       let imageUrl: string | null = null;
       if (materialIds.length > 0 && comboHash) {
-        // Check cache for remaining combo
+        
         const cacheEntry = await this.imageCacheRepository.findByComboHash(updatedItem.item_type_id, comboHash);
         if (cacheEntry) {
           imageUrl = cacheEntry.image_url;
         }
-        // Note: Not generating new images on removal - that's handled by apply/replace operations
+        
       } else {
-        // No materials remain - reset to base image from ItemType
+        
         const itemType = await this.itemTypeRepository.findById(updatedItem.item_type_id);
         if (itemType?.base_image_url && itemType.base_image_url.trim() !== '') {
           imageUrl = itemType.base_image_url;
         }
-        // If no base_image_url, imageUrl remains null (same as before)
+        
       }
 
-      // 11. Update item with new hash and image URL
       await this.itemRepository.updateImageData(itemId, userId, comboHash || '', imageUrl || '', 'complete');
 
-      // 12. Get new gold balance
       const newGoldBalance = await this.profileRepository.getCurrencyBalance(userId, 'GOLD');
 
-      // 13. Transform updated item to API format
       const apiItem: Item = {
         id: updatedItem.id,
         user_id: updatedItem.user_id,
@@ -990,15 +833,6 @@ export class ItemService {
     }
   }
 
-  /**
-   * Discard/sell item for gold compensation
-   * - Validates item ownership
-   * - Checks if item is equipped and unequips if necessary
-   * - Calculates gold compensation based on item level
-   * - Deletes item from PlayerItems table
-   * - Adds gold to user's balance via EconomyService
-   * - Returns confirmation details
-   */
   async discardItem(itemId: string, userId: string): Promise<{
     success: boolean;
     gold_earned: number;
@@ -1006,7 +840,7 @@ export class ItemService {
     item_name: string;
   }> {
     try {
-      // 1. Validate ownership and get item details
+      
       const item = await this.itemRepository.findWithItemType(itemId, userId);
 
       if (!item) {
@@ -1015,26 +849,22 @@ export class ItemService {
 
       const itemName = item.item_type.name;
 
-      // 2. Check if item is currently equipped and unequip if necessary
       const isEquipped = await this.checkIfItemEquipped(itemId, userId);
       if (isEquipped) {
-        // Import equipmentService dynamically to avoid circular dependency
+        
         const { equipmentService } = await import('./EquipmentService.js');
         const slotName = this.mapCategoryToSlotName(item.item_type.category);
         await equipmentService.unequipItem(userId, slotName);
       }
 
-      // 3. Calculate gold compensation based on item level
-      // Use a formula that gives reasonable compensation: level * 10 + base 25 gold
       const goldEarned = Math.max(25, item.level * 10);
 
-      // 4. Add gold to user's balance via EconomyService
       const { economyService } = await import('./EconomyService.js');
       const currencyResult = await economyService.addCurrency(
         userId,
         'GOLD',
         goldEarned,
-        'admin', // Using admin as source type for item discard compensation
+        'admin', 
         itemId,
         {
           item_id: itemId,
@@ -1044,14 +874,12 @@ export class ItemService {
         }
       );
 
-      // 5. Add history event before deletion
       await this.addHistoryEvent(itemId, userId, 'discarded', {
         item_name: itemName,
         gold_earned: goldEarned,
         reason: 'player_discard'
       });
 
-      // 6. Delete item from database
       await this.itemRepository.deleteItem(itemId, userId);
 
       return {
@@ -1068,16 +896,9 @@ export class ItemService {
     }
   }
 
-  /**
-   * Create starter item for new user registration
-   * - Selects random common rarity item type
-   * - Creates item at level 1 with no materials
-   * - Adds creation history event
-   * - Creates weapon/pet data if applicable
-   */
   async initializeStarterInventory(userId: string): Promise<ItemWithDetails> {
     try {
-      // Get random common rarity item type using repository
+      
       const selectedItemType = await this.itemTypeRepository.getRandomByRarity('common');
 
       if (!selectedItemType) {
@@ -1093,14 +914,6 @@ export class ItemService {
     }
   }
 
-  // ============================================================================
-  // Private Helper Methods
-  // ============================================================================
-
-  /**
-   * Check if item is currently equipped by user
-   * - Queries UserEquipment table to see if item is in any slot
-   */
   private async checkIfItemEquipped(itemId: string, userId: string): Promise<boolean> {
     try {
       const equippedItems = await this.itemRepository.findEquippedByUser(userId);
@@ -1110,10 +923,6 @@ export class ItemService {
     }
   }
 
-  /**
-   * Map item category to equipment slot name for unequipping
-   * - Maps item categories to the slot names used by EquipmentService
-   */
   private mapCategoryToSlotName(category: string): string {
     switch (category) {
       case 'weapon':
@@ -1127,8 +936,7 @@ export class ItemService {
       case 'feet':
         return 'feet';
       case 'accessory':
-        // For accessories, we need to check which slot it's in
-        // For simplicity, default to accessory_1 (EquipmentService will handle finding the correct slot)
+
         return 'accessory_1';
       case 'pet':
         return 'pet';
@@ -1137,9 +945,6 @@ export class ItemService {
     }
   }
 
-  /**
-   * Transform repository ItemWithDetails to API Item type
-   */
   private transformToApiItem(itemData: ItemWithDetails): Item {
     return {
       id: itemData.id,
@@ -1161,7 +966,7 @@ export class ItemService {
         description: itemData.item_type.description
       },
       created_at: itemData.created_at,
-      updated_at: itemData.created_at // Repository doesn't track updated_at separately
+      updated_at: itemData.created_at
     };
   }
 
@@ -1170,7 +975,6 @@ export class ItemService {
       throw new ValidationError('Empty item data provided');
     }
 
-    // Type assertion to allow property access on dynamic database result
     const data = itemData as any;
 
     const defaultStats: Stats = {
@@ -1180,7 +984,6 @@ export class ItemService {
       defAccuracy: 0
     };
 
-    // Strict validation of base stats
     const baseStats: Stats = (() => {
       if (data.base_stats && typeof data.base_stats === 'object') {
         return data.base_stats as Stats;
@@ -1194,7 +997,6 @@ export class ItemService {
       return defaultStats;
     })();
 
-    // Validate current_stats
     const currentStats: Stats = (() => {
       if (data.current_stats && typeof data.current_stats === 'object') {
         return data.current_stats as Stats;
@@ -1204,7 +1006,6 @@ export class ItemService {
 
     const materials = Array.isArray(data.materials) ? data.materials : [];
 
-    // Validate and create item_type
     const itemType = data.item_type ? (() => {
       if (!data.item_type.id) {
         throw new ValidationError('Missing item type ID');
@@ -1213,7 +1014,6 @@ export class ItemService {
         throw new ValidationError('Missing item type name');
       }
 
-      // Map category to EquipmentSlot
       const category = data.item_type.category as 'weapon' | 'offhand' | 'head' | 'armor' | 'feet' | 'accessory' | 'pet';
       const equipmentSlot: EquipmentSlot = category === 'accessory' ? 'accessory_1' : category;
 
@@ -1228,7 +1028,6 @@ export class ItemService {
       };
     })() : undefined;
 
-    // Validate required base fields
     if (!data.id || !data.user_id || !data.item_type_id) {
       throw new ValidationError('Missing critical item identifiers');
     }

@@ -7,8 +7,12 @@
  * - Enemy selection for combat encounters
  */
 
-import { EnemyRepository, EnemyTypeWithPersonality, EnemyStats } from '../repositories/EnemyRepository.js';
+import { EnemyRepository } from '../repositories/EnemyRepository.js';
+import { Database } from '../types/database.types.js';
 import { NotFoundError } from '../utils/errors.js';
+
+// Type alias for enemy type from database
+type EnemyType = Database['public']['Tables']['enemytypes']['Row'];
 
 // R2 configuration
 const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL || 'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev';
@@ -204,7 +208,7 @@ export class EnemyService {
   /**
    * Extract personality traits
    */
-  private extractPersonalityTraits(enemy: EnemyTypeWithPersonality): {
+  private extractPersonalityTraits(enemy: EnemyType): {
     aggression: number;
     intelligence: number;
     cunning: number;
