@@ -10,12 +10,14 @@ class AudioManager: ObservableObject {
     @Published var isEnabled: Bool = true
     private var audioPlayers: [String: AVAudioPlayer] = [:]
     private var backgroundMusicPlayer: AVAudioPlayer?
+    private var battleMusicPlayer: AVAudioPlayer?
     private let audioSession = AVAudioSession.sharedInstance()
 
     private init() {
         setupAudioSession()
         preloadAudioFiles()
         loadBackgroundMusic()
+        loadBattleMusic()
     }
     
     // MARK: - Audio Session Setup
@@ -248,6 +250,56 @@ class AudioManager: ObservableObject {
     func setBackgroundMusicVolume(_ volume: Float) {
         let clampedVolume = max(0.0, min(1.0, volume))
         backgroundMusicPlayer?.volume = clampedVolume
+    }
+
+    // MARK: - Battle Music
+
+    private func loadBattleMusic() {
+        // Load Battle audio from Assets.xcassets dataset
+        guard let asset = NSDataAsset(name: "Battle") else {
+            print("❌ [AUDIO] Could not find Battle dataset in Assets.xcassets")
+            return
+        }
+
+        do {
+            let player = try AVAudioPlayer(data: asset.data)
+            player.numberOfLoops = -1 // Loop infinitely
+            player.volume = 0.5
+            player.prepareToPlay()
+            battleMusicPlayer = player
+            print("✅ [AUDIO] Successfully loaded Battle background music")
+        } catch {
+            print("❌ [AUDIO] Failed to load battle music: \(error)")
+        }
+    }
+
+    func playBattleMusic() {
+        guard isEnabled else {
+            print("⚠️ [AUDIO] Battle music playback skipped - audio disabled")
+            return
+        }
+
+        if battleMusicPlayer == nil {
+            print("❌ [AUDIO] Battle music player not initialized")
+            return
+        }
+
+        battleMusicPlayer?.play()
+        print("🎵 [AUDIO] Playing battle music")
+    }
+
+    func pauseBattleMusic() {
+        battleMusicPlayer?.pause()
+    }
+
+    func stopBattleMusic() {
+        battleMusicPlayer?.stop()
+        battleMusicPlayer?.currentTime = 0
+    }
+
+    func setBattleMusicVolume(_ volume: Float) {
+        let clampedVolume = max(0.0, min(1.0, volume))
+        battleMusicPlayer?.volume = clampedVolume
     }
 }
 
