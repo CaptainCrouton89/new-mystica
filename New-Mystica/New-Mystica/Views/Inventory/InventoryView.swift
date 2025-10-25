@@ -33,36 +33,14 @@ struct InventoryView: View {
                     }
                 }
             }
-            .sheet(isPresented: $viewModel.showingUpgradeConfirmationModal) {
+            .sheet(isPresented: .constant(viewModel.upgradeModalState != .none)) {
+                // Single upgrade modal that handles all upgrade states
                 Group {
-                    if let item = viewModel.selectedItemForDetail,
-                       let costInfo = viewModel.pendingUpgradeCostInfo,
-                       let statsBefore = viewModel.lastUpgradeStatsBefore {
+                    switch viewModel.upgradeModalState {
+                    case .none:
+                        EmptyView()
 
-                        // Calculate projected stats for confirmation modal
-                        // For now, we'll estimate based on typical stat increases
-                        // In a real implementation, the backend should provide projected stats
-                        let projectedStats = calculateProjectedStats(from: statsBefore)
-
-                        UpgradeCompleteModal(
-                            item: item,
-                            goldSpent: costInfo.goldCost,
-                            newGoldBalance: costInfo.playerGold - costInfo.goldCost,
-                            statsBefore: statsBefore,
-                            statsAfter: projectedStats,
-                            isConfirmation: true,
-                            onConfirm: {
-                                Task {
-                                    await viewModel.performUpgrade(itemId: item.id)
-                                }
-                            },
-                            onUpgradeAgain: nil,
-                            onReturnToInventory: {
-                                viewModel.showingUpgradeConfirmationModal = false
-                                viewModel.selectedItemForDetail = nil
-                            }
-                        )
-                    } else {
+                    case .confirmationLoading:
                         VStack {
                             ProgressView()
                             Text("Loading upgrade details...")
@@ -72,28 +50,61 @@ struct InventoryView: View {
                         }
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .background(Color.backgroundPrimary)
-                    }
-                }
-            }
-            .sheet(isPresented: $viewModel.showingUpgradeCompleteModal) {
-                if let upgradeResult = viewModel.lastUpgradeResult {
-                    UpgradeCompleteModal(
-                        item: upgradeResult.item,
-                        goldSpent: upgradeResult.goldSpent,
-                        newGoldBalance: upgradeResult.newGoldBalance,
-                        statsBefore: viewModel.lastUpgradeStatsBefore ?? ItemStats(atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0),
-                        statsAfter: upgradeResult.item.computedStats,
-                        isConfirmation: false,
-                        onConfirm: nil,
-                        onUpgradeAgain: {
-                            Task {
-                                await viewModel.handleUpgradeAction()
-                            }
-                        },
-                        onReturnToInventory: {
-                            viewModel.showingUpgradeCompleteModal = false
+
+                    case .confirmation(_, let costInfo, let statsBefore):
+                        if let item = viewModel.selectedItemForDetail {
+                            let projectedStats = calculateProjectedStats(from: statsBefore)
+
+                            UpgradeCompleteModal(
+                                item: item,
+                                goldSpent: costInfo.goldCost,
+                                newGoldBalance: costInfo.playerGold - costInfo.goldCost,
+                                statsBefore: statsBefore,
+                                statsAfter: projectedStats,
+                                isConfirmation: true,
+                                onConfirm: {
+                                    Task {
+                                        await viewModel.performUpgrade(itemId: item.id)
+                                    }
+                                },
+                                onUpgradeAgain: nil,
+                                onReturnToInventory: {
+                                    viewModel.upgradeModalState = .none
+                                    viewModel.selectedItemForDetail = nil
+                                }
+                            )
                         }
-                    )
+
+                    case .upgrading:
+                        VStack {
+                            ProgressView()
+                            Text("Upgrading item...")
+                                .font(FontManager.body)
+                                .foregroundColor(Color.textSecondary)
+                                .padding(.top, 8)
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(Color.backgroundPrimary)
+
+                    case .complete(let upgradeResult, let statsBefore):
+                        UpgradeCompleteModal(
+                            item: upgradeResult.item,
+                            goldSpent: upgradeResult.goldSpent,
+                            newGoldBalance: upgradeResult.newGoldBalance,
+                            statsBefore: statsBefore,
+                            statsAfter: upgradeResult.item.computedStats,
+                            isConfirmation: false,
+                            onConfirm: nil,
+                            onUpgradeAgain: {
+                                Task {
+                                    await viewModel.handleUpgradeAction()
+                                }
+                            },
+                            onReturnToInventory: {
+                                viewModel.upgradeModalState = .none
+                            }
+                        )
+                    }
                 }
             }
             .overlay(sellConfirmationOverlay)
