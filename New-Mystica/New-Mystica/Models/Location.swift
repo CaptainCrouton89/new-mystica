@@ -16,6 +16,7 @@ struct Location: APIModel, Identifiable {
     let locationType: String
     let stateCode: String
     let countryCode: String
+    let imageUrl: String?           // R2 URL to location-specific image (replaces SF Symbol icons)
     let enemyLevel: Int?           // Deprecated field - optional for backward compatibility
     let materialDropPool: [String]? // Deprecated field - optional for backward compatibility
     let distanceMeters: Double?     // Only present in nearby queries, not in detail queries
@@ -28,6 +29,7 @@ struct Location: APIModel, Identifiable {
         case locationType = "location_type"
         case stateCode = "state_code"
         case countryCode = "country_code"
+        case imageUrl = "image_url"
         case enemyLevel = "enemy_level"
         case materialDropPool = "material_drop_pool"
         case distanceMeters = "distance_meters"

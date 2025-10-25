@@ -241,6 +241,7 @@ export interface LocationWithDistance {
   location_type: string;
   state_code: string;
   country_code: string;
+  image_url: string;
   distance_meters: number;
 }
 

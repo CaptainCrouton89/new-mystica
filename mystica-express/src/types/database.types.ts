@@ -2478,6 +2478,7 @@ export type Database = {
           country_code: string
           distance_meters: number
           id: string
+          image_url: string
           lat: number
           lng: number
           location_type: string
