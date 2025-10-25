@@ -27,7 +27,9 @@ function validateR2EnvVars(): void {
   const required = [
     'CLOUDFLARE_ACCOUNT_ID',
     'R2_ACCESS_KEY_ID',
-    'R2_SECRET_ACCESS_KEY'
+    'R2_SECRET_ACCESS_KEY',
+    'R2_BUCKET_NAME',
+    'R2_PUBLIC_URL'
   ];
   const missing = required.filter(key => !process.env[key]);
 
@@ -36,23 +38,26 @@ function validateR2EnvVars(): void {
   }
 }
 
-// Validate R2 configuration env vars
-validateR2EnvVars();
+// Lazy config - validates only when accessed
+function getR2Config() {
+  validateR2EnvVars();
 
-if (!process.env.R2_BUCKET_NAME) {
-  throw new Error('R2_BUCKET_NAME environment variable is required');
+  return {
+    bucket: process.env.R2_BUCKET_NAME!,
+    publicUrl: process.env.R2_PUBLIC_URL!,
+    accountId: process.env.CLOUDFLARE_ACCOUNT_ID!,
+    accessKeyId: process.env.R2_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
+  };
 }
 
-if (!process.env.R2_PUBLIC_URL) {
-  throw new Error('R2_PUBLIC_URL environment variable is required');
-}
-
+// For backwards compatibility
 const R2_CONFIG = {
-  bucket: process.env.R2_BUCKET_NAME,
-  publicUrl: process.env.R2_PUBLIC_URL,
-  accountId: process.env.CLOUDFLARE_ACCOUNT_ID!,
-  accessKeyId: process.env.R2_ACCESS_KEY_ID!,
-  secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
+  get bucket() { return getR2Config().bucket; },
+  get publicUrl() { return getR2Config().publicUrl; },
+  get accountId() { return getR2Config().accountId; },
+  get accessKeyId() { return getR2Config().accessKeyId; },
+  get secretAccessKey() { return getR2Config().secretAccessKey; }
 };
 
 interface R2ClientConfig {
@@ -229,6 +234,150 @@ export async function getMultipleAssetUrls(
   }
 
   return urls;
+}
+
+/**
+ * Monster sprite asset paths structure
+ */
+export interface MonsterAssetPaths {
+  base_url: string;
+  sprites: {
+    [key: string]: {
+      image_url: string;
+      atlas_url: string;
+    };
+  };
+}
+
+/**
+ * Upload all monster assets (base + sprites) to R2
+ *
+ * Expected directory structure:
+ * {spritePath}/
+ *   ├── base.png
+ *   ├── idle_sample1.png
+ *   ├── idle_sample1.json
+ *   ├── attack_sample1.png
+ *   ├── attack_sample1.json
+ *   └── ...
+ *
+ * R2 structure:
+ * monsters/{uuid}/base.png
+ * monsters/{uuid}/sprites/idle_sample1.png
+ * monsters/{uuid}/sprites/idle_sample1.json
+ *
+ * @param monsterId - Monster UUID from database
+ * @param spritePath - Local path to sprite directory
+ * @returns Object with all uploaded asset URLs
+ */
+export async function uploadMonsterAssets(
+  monsterId: string,
+  spritePath: string
+): Promise<MonsterAssetPaths> {
+  const client = createR2Client();
+
+  // Upload base image
+  const basePath = path.join(spritePath, 'base.png');
+  if (!fs.existsSync(basePath)) {
+    throw new Error(`Base image not found: ${basePath}`);
+  }
+
+  const baseKey = `monsters/${monsterId}/base.png`;
+  const baseBuffer = fs.readFileSync(basePath);
+
+  await client.send(new PutObjectCommand({
+    Bucket: R2_CONFIG.bucket,
+    Key: baseKey,
+    Body: baseBuffer,
+    ContentType: 'image/png',
+  }));
+
+  const base_url = buildPublicUrl(baseKey);
+  console.log(`  ✓ Uploaded base: ${baseKey}`);
+
+  // Find and upload all sprite files
+  const files = fs.readdirSync(spritePath);
+  const spriteFiles = files.filter(f =>
+    f !== 'base.png' && (f.endsWith('.png') || f.endsWith('.json'))
+  );
+
+  const sprites: MonsterAssetPaths['sprites'] = {};
+  const uploadPromises: Promise<void>[] = [];
+
+  // Group sprites by base name (e.g., "idle_sample1")
+  const spriteGroups = new Map<string, { png?: string; json?: string }>();
+
+  for (const file of spriteFiles) {
+    const baseName = file.replace(/\.(png|json)$/, '');
+    const ext = path.extname(file).slice(1);
+
+    if (!spriteGroups.has(baseName)) {
+      spriteGroups.set(baseName, {});
+    }
+
+    const group = spriteGroups.get(baseName)!;
+    if (ext === 'png') {
+      group.png = file;
+    } else if (ext === 'json') {
+      group.json = file;
+    }
+  }
+
+  // Upload each sprite group in parallel
+  for (const [baseName, { png, json }] of spriteGroups) {
+    if (!png) {
+      console.warn(`  ⚠️  Skipping ${baseName}: no PNG file found`);
+      continue;
+    }
+
+    const uploadSprite = async () => {
+      // Upload PNG
+      const pngPath = path.join(spritePath, png);
+      const pngKey = `monsters/${monsterId}/sprites/${png}`;
+      const pngBuffer = fs.readFileSync(pngPath);
+
+      await client.send(new PutObjectCommand({
+        Bucket: R2_CONFIG.bucket,
+        Key: pngKey,
+        Body: pngBuffer,
+        ContentType: 'image/png',
+      }));
+
+      const image_url = buildPublicUrl(pngKey);
+
+      // Upload JSON atlas if exists
+      let atlas_url = '';
+      if (json) {
+        const jsonPath = path.join(spritePath, json);
+        const jsonKey = `monsters/${monsterId}/sprites/${json}`;
+        const jsonBuffer = fs.readFileSync(jsonPath);
+
+        await client.send(new PutObjectCommand({
+          Bucket: R2_CONFIG.bucket,
+          Key: jsonKey,
+          Body: jsonBuffer,
+          ContentType: 'application/json',
+        }));
+
+        atlas_url = buildPublicUrl(jsonKey);
+      }
+
+      sprites[baseName] = { image_url, atlas_url };
+      console.log(`  ✓ Uploaded sprite: ${baseName}`);
+    };
+
+    uploadPromises.push(uploadSprite());
+  }
+
+  // Wait for all sprite uploads to complete
+  await Promise.all(uploadPromises);
+
+  console.log(`  ✅ Uploaded ${Object.keys(sprites).length} sprite pairs`);
+
+  return {
+    base_url,
+    sprites
+  };
 }
 
 export { normalizeNameForR2, buildR2Key, buildPublicUrl };

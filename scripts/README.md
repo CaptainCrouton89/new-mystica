@@ -22,6 +22,7 @@ pnpm install
 
 ### Monster Generation
 - **generate-raw-monster.ts** - Monster character generation with personality-based descriptions
+- **import-monsters-from-animator.ts** - Import monsters from character-animator pipeline into database
 
 ### Utility Image Generation
 - **generate-arbitrary-image.ts** - Arbitrary objects with background removal
@@ -44,8 +45,11 @@ pnpm generate-image --type "Magic Wand" --materials "wood,crystal"
 # Standalone material (batch mode available)
 pnpm generate-raw-image "Coffee" --type material --upload
 
-# Monster with personality
+# Monster with personality (deprecated - use import-monsters for production)
 pnpm generate-raw-monster "Spray Paint Goblin"
+
+# Import monsters from character-animator CSV
+pnpm import-monsters --batch
 
 # Arbitrary object with no background
 pnpm generate-arbitrary "magical glowing orb"
@@ -119,7 +123,103 @@ pnpm generate-raw-image "Coffee" --type material --upload --remove-background
 - Optional background removal with `--remove-background`
 - Uses 10 hardcoded reference images for style consistency
 
-### 3. generate-raw-monster.ts - Monster Characters
+### 3. import-monsters-from-animator.ts - Monster Database Import ⭐ NEW
+
+Import monsters from the character-animator pipeline into the production database. This replaces the deprecated `generate-raw-monster.ts` workflow for production use.
+
+**Flow:** CSV → AI Metadata → Database (get UUID) → R2 Upload (UUID-based paths)
+
+```bash
+# Import all monsters from CSV (default paths)
+pnpm import-monsters --batch
+
+# Import specific monsters
+pnpm import-monsters "scifi_alien_warrior_001" "horror_zombie_016"
+
+# Custom CSV and sprites paths
+pnpm import-monsters --batch \
+  --csv /path/to/monsters.csv \
+  --sprites /path/to/character-sprites
+
+# Dry run (test without DB/R2 writes)
+pnpm import-monsters --batch --dry-run
+
+# Skip existing monsters
+pnpm import-monsters --batch --skip-existing
+```
+
+**Key Features:**
+- **Generates AI metadata** via OpenAI GPT-4o-mini:
+  - Human-readable names from filenames
+  - Personality traits (aggression, intelligence, cunning, hostility)
+  - Dialogue tone and guidelines
+  - Combat stats (HP, attack/defense power/accuracy)
+  - Tier assignment based on description keywords
+- **Database integration:**
+  - Inserts into `enemytypes` table
+  - Gets UUID for R2 path structure
+  - Validates required environment variables
+- **R2 upload:**
+  - UUID-based paths: `monsters/{uuid}/base.png`, `monsters/{uuid}/sprites/*`
+  - Uploads base image + all sprite sheets (PNG + JSON atlases)
+  - Parallel uploads for performance
+- **Character-animator integration:**
+  - Reads from `characters_200.csv` (or custom path)
+  - Expects sprite structure: `{filename}-greenscreen/base.png` + sprite files
+  - Compatible with character-animator pipeline output
+
+**CSV Format:**
+```csv
+description,filename
+a menacing alien warrior with glowing purple armor,scifi_alien_warrior_001
+a robotic assassin with red glowing eyes,scifi_robot_assassin_002
+```
+
+**Expected Sprite Directory Structure:**
+```
+character-sprites/
+├── scifi_alien_warrior_001-greenscreen/
+│   ├── base.png
+│   ├── idle_sample1.png
+│   ├── idle_sample1.json
+│   ├── attack_sample1.png
+│   ├── attack_sample1.json
+│   ├── damage_sample1.png
+│   ├── damage_sample1.json
+│   ├── death_sample1.png
+│   └── death_sample1.json
+└── horror_zombie_016-greenscreen/
+    └── ...
+```
+
+**R2 Output Structure (UUID-based):**
+```
+monsters/
+└── {uuid}/
+    ├── base.png
+    └── sprites/
+        ├── idle_sample1.png
+        ├── idle_sample1.json
+        ├── attack_sample1.png
+        └── ...
+```
+
+**API Access:**
+```bash
+# Get monster by ID (returns full data + image URLs)
+curl http://localhost:3000/api/v1/enemies/{uuid}
+
+# List all monsters
+curl http://localhost:3000/api/v1/enemies?limit=50&offset=0
+```
+
+**See also:** `character-animator/README.md` for the full animation pipeline.
+
+---
+
+### 3b. generate-raw-monster.ts - Monster Characters (DEPRECATED)
+
+⚠️ **Deprecated:** Use `import-monsters-from-animator.ts` for production. This script remains for manual one-off generations.
 
 Generate monster character images with personality-based AI descriptions.
 
@@ -144,6 +244,7 @@ pnpm generate-raw-monster "Feral Unicorn" --format jpg
 - Dynamic poses showing character personality
 - Chibi/super-deformed character aesthetic
 - Batch mode processes `docs/seed-data-monsters.json`
+- **Does NOT upload to database or use UUID-based R2 paths**
 
 ### 4. generate-arbitrary-image.ts - Utility Objects
 
@@ -252,6 +353,11 @@ CLOUDFLARE_ACCOUNT_ID=...
 R2_ACCESS_KEY_ID=...
 R2_SECRET_ACCESS_KEY=...
 R2_BUCKET_NAME=mystica-assets  # Optional, defaults to mystica-assets
+R2_PUBLIC_URL=...            # Public base URL for R2 assets
+
+# Database (REQUIRED for import-monsters-from-animator.ts)
+SUPABASE_URL=...             # Supabase project URL
+SUPABASE_SERVICE_ROLE_KEY=... # Service role key (admin access)
 ```
 
 ## R2 Storage Integration
@@ -281,11 +387,22 @@ mystica-assets/
 ├── items/no-background/{snake_case_name}.png
 ├── materials/{snake_case_name}.png
 ├── materials/no-background/{snake_case_name}.png
-├── monsters/{snake_case_name}.png
+├── monsters/
+│   ├── cuphead/{snake_case_name}.png  # Legacy structure (deprecated)
+│   └── {uuid}/                        # NEW: UUID-based structure
+│       ├── base.png
+│       └── sprites/
+│           ├── idle_sample1.png
+│           ├── idle_sample1.json
+│           └── ...
 └── image-refs/{original_filename}.png (10 hardcoded references)
 ```
 
 **Public URL:** `https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/{path}`
+
+**Monster Import Architecture:**
+- **Legacy:** `generate-raw-monster.ts` uses `monsters/cuphead/{name}.png`
+- **Production:** `import-monsters-from-animator.ts` uses `monsters/{uuid}/` with full sprite support
 
 ### Wrangler CLI (Alternative)
 
@@ -342,7 +459,8 @@ Landscape prompts add depth layers and atmospheric perspective.
 **Batch Generation Estimates:**
 - 101 items/materials: ~$0.20-1.00 (images) + ~$0.01-0.05 (descriptions)
 - With background removal: ~$0.40-2.00 total
-- 5 monsters: ~$0.01-0.05 (images) + ~$0.0005-0.0025 (descriptions)
+- 5 monsters (generate-raw-monster): ~$0.01-0.05 (images) + ~$0.0005-0.0025 (descriptions)
+- 200 monsters (import-monsters): ~$0.03 (AI metadata only, sprites pre-generated)
 
 ### Error Handling
 
@@ -465,8 +583,37 @@ This allows importing functions without executing CLI:
 import { generateRawImage } from './generate-raw-image.js';
 ```
 
+## Monster Import Workflow
+
+For production monster imports from the character-animator pipeline:
+
+```bash
+# 1. Generate and animate characters (see character-animator/README.md)
+cd character-animator
+python mass_generate_characters.py characters_200.csv --aspect-ratio 9:16
+python process_folder.py character-animations/generated/batch_*/ --landscape
+python animate_characters.py character-animations/processed/ --config animation_config.json
+python trim_and_loop.py character-animations/animated/batch_*/ --sprites
+
+# 2. Import into database and upload to R2
+cd ../scripts
+pnpm import-monsters --batch \
+  --csv ../character-animator/characters_200.csv \
+  --sprites ../character-animator/character-animations/character-sprites
+
+# 3. Verify via API
+curl http://localhost:3000/api/v1/enemies | jq '.monsters | length'
+```
+
+**Integration Points:**
+- `character-animator/` - Python pipeline for generating and animating sprites
+- `scripts/import-monsters-from-animator.ts` - TypeScript bridge to database/R2
+- `mystica-express/src/routes/enemies.ts` - API endpoints for monster data
+- `mystica-express/src/services/EnemyService.ts` - Business logic for monster retrieval
+
 ## See Also
 
+- **character-animator/README.md** - Full animation pipeline documentation
 - **Project CLAUDE.md** - Backend architecture, database schema, migration status
 - **docs/CLAUDE.md** - YAML documentation system and validation
 - **docs/external/gemini-image-generation.md** - Gemini API reference
