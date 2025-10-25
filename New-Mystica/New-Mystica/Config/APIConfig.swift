@@ -12,6 +12,13 @@ struct APIConfig {
     /// API base URL - loaded from build configuration via Info.plist
     /// Can be overridden via environment variable API_BASE_URL for testing
     static let baseURL: String = {
+        // Log build configuration
+        #if DEBUG
+        print("🏗️ [APIConfig] Build Configuration: DEBUG")
+        #else
+        print("🏗️ [APIConfig] Build Configuration: RELEASE")
+        #endif
+
         // Check for environment variable override first (for testing/debugging)
         if let envURL = ProcessInfo.processInfo.environment["API_BASE_URL"] {
             print("🔧 [APIConfig] Using API_BASE_URL from environment: \(envURL)")
@@ -24,10 +31,8 @@ struct APIConfig {
             return bundleURL
         }
 
-        // Fallback to development URL (should not happen in normal builds)
-        let fallbackURL = "http://localhost:3000/api/v1"
-        print("⚠️ [APIConfig] Using fallback URL: \(fallbackURL)")
-        return fallbackURL
+        // No fallback - crash if configuration is missing
+        fatalError("❌ [APIConfig] CRITICAL: API_BASE_URL not configured. Check Info.plist and build configuration.")
     }()
 
     /// R2 Asset CDN base URL

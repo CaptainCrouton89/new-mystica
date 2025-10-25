@@ -12,6 +12,7 @@ COPY package.json ./
 COPY pnpm-lock.yaml ./
 COPY tsconfig.json ./
 COPY src ./src
+COPY public ./public
 
 # Install dependencies
 RUN pnpm install --frozen-lockfile --force

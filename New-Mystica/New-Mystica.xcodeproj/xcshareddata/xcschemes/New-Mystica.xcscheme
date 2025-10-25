@@ -67,7 +67,7 @@
          <EnvironmentVariable
             key = "API_BASE_URL"
             value = "http://localhost:3000/api/v1"
-            isEnabled = "YES">
+            isEnabled = "NO">
          </EnvironmentVariable>
          <EnvironmentVariable
             key = "OS_ACTIVITY_MODE"
