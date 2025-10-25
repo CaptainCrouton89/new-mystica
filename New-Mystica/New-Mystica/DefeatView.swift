@@ -10,20 +10,19 @@ import SwiftData
 
 struct DefeatView: View {
     @EnvironmentObject private var navigationManager: NavigationManager
+    @Environment(AppState.self) var appState
 
-    // Combat stats passed from previous combat session
-    let totalDamageDealt: Double
-    let turnsSurvived: Int
-    let highestMultiplier: Double
+    // Combat stats from AppState (populated by CombatViewModel on defeat)
+    private var totalDamageDealt: Double {
+        appState.lastCombatMetadata?.totalDamageDealt ?? 0
+    }
 
-    init(
-        totalDamageDealt: Double = 0,
-        turnsSurvived: Int = 0,
-        highestMultiplier: Double = 1.0
-    ) {
-        self.totalDamageDealt = totalDamageDealt
-        self.turnsSurvived = turnsSurvived
-        self.highestMultiplier = highestMultiplier
+    private var turnsSurvived: Int {
+        appState.lastCombatMetadata?.turnsSurvived ?? 0
+    }
+
+    private var highestMultiplier: Double {
+        appState.lastCombatMetadata?.highestMultiplier ?? 1.0
     }
 
     var body: some View {
@@ -175,11 +174,37 @@ private struct StatCard: View {
 
 // MARK: - Preview
 #Preview {
-    DefeatView(
+    // Create preview AppState with mock combat metadata
+    let previewAppState = AppState()
+    let mockMetadata = CombatMetadata(
         totalDamageDealt: 127.5,
         turnsSurvived: 8,
-        highestMultiplier: 2.3
+        highestMultiplier: 2.3,
+        combatHistory: CombatHistory(
+            locationId: "preview-location",
+            totalAttempts: 1,
+            victories: 0,
+            defeats: 1,
+            currentStreak: 0,
+            longestStreak: 0
+        ),
+        enemy: CombatEnemy(
+            id: "preview-enemy",
+            type: "goblin",
+            name: "Goblin Scout",
+            level: 3,
+            atk: 15,
+            def: 10,
+            hp: 50,
+            styleId: "normal",
+            dialogueTone: "aggressive",
+            personalityTraits: ["cocky"]
+        )
     )
-    .modelContainer(for: Item.self, inMemory: true)
-    .environmentObject(NavigationManager())
+    previewAppState.setLastCombatMetadata(mockMetadata)
+
+    return DefeatView()
+        .modelContainer(for: Item.self, inMemory: true)
+        .environmentObject(NavigationManager())
+        .environment(previewAppState)
 }
