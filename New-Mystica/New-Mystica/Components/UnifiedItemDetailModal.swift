@@ -1,20 +1,88 @@
 //
-//  InventoryItemDetailModal.swift
+//  UnifiedItemDetailModal.swift
 //  New-Mystica
 //
-//  Modal view for displaying detailed inventory item information
-//  Adapted from ItemDetailModal to work with EnhancedPlayerItem
+//  Unified modal view for displaying detailed item information
+//  Used by both EquipmentView and InventoryView
 //
 
 import SwiftUI
 import SwiftData
 
-struct InventoryItemDetailModal: View {
-    let item: EnhancedPlayerItem
-    let onEquip: () async -> Void
-    let onCraft: () -> Void
-    let onUpgrade: () -> Void
-    let onSell: () -> Void
+// MARK: - Item Detail Displayable Protocol
+
+protocol ItemDetailDisplayable {
+    var id: String { get }
+    var name: String { get }
+    var description: String? { get }
+    var baseType: String { get }
+    var level: Int { get }
+    var rarity: String { get }
+    var computedStats: ItemStats { get }
+    var generatedImageUrl: String? { get }
+    var isStyled: Bool { get }
+    var isEquipped: Bool { get }
+    var category: String { get }
+
+    var formattedMaterials: [MaterialDisplayInfo] { get }
+    var primaryBadgeValue: String { get }
+    var secondaryBadgeValue: String { get }
+}
+
+struct MaterialDisplayInfo: Hashable {
+    let name: String
+    let styleName: String?
+}
+
+// MARK: - Protocol Conformance
+
+extension PlayerItem: ItemDetailDisplayable {
+    var formattedMaterials: [MaterialDisplayInfo] {
+        appliedMaterials.map { MaterialDisplayInfo(name: $0.capitalized, styleName: nil) }
+    }
+
+    var primaryBadgeValue: String {
+        rarity.capitalized
+    }
+
+    var secondaryBadgeValue: String {
+        category.capitalized
+    }
+}
+
+extension EnhancedPlayerItem: ItemDetailDisplayable {
+    var formattedMaterials: [MaterialDisplayInfo] {
+        appliedMaterials.map {
+            MaterialDisplayInfo(
+                name: $0.material?.name ?? "Unknown Material",
+                styleName: $0.material?.styleName
+            )
+        }
+    }
+
+    var primaryBadgeValue: String {
+        isEquipped ? "Equipped" : "Inventory"
+    }
+
+    var secondaryBadgeValue: String {
+        "\(craftCount)x"
+    }
+}
+
+// MARK: - Badge Configuration
+
+enum BadgeType {
+    case level
+    case primary(label: String, color: Color)
+    case secondary(label: String, color: Color)
+}
+
+// MARK: - Unified Item Detail Modal
+
+struct UnifiedItemDetailModal<Item: ItemDetailDisplayable, ActionButtons: View>: View {
+    let item: Item
+    let badges: [BadgeType]
+    @ViewBuilder let actionButtons: () -> ActionButtons
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.audioManager) private var audioManager
@@ -33,17 +101,18 @@ struct InventoryItemDetailModal: View {
                     itemStatsView
 
                     // Materials section (if any)
-                    if !item.appliedMaterials.isEmpty {
+                    if !item.formattedMaterials.isEmpty {
                         materialsView
                     }
 
                     // Action buttons
-                    actionButtonsView
+                    actionButtons()
+                        .padding(.bottom, 16)
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 16)
             }
-            .background(Color.backgroundPrimary)
+            .background(getRarityColor().opacity(0.1))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
@@ -68,10 +137,10 @@ struct InventoryItemDetailModal: View {
         ZStack {
             RoundedRectangle(cornerRadius: 16)
                 .fill(Color.backgroundCard)
-                .frame(height: 280)
+                .frame(width: 280, height: 280)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
-                        .stroke(Color.accentSecondary, lineWidth: 3)
+                        .stroke(getRarityColor(), lineWidth: 3)
                 )
 
             if let imageUrl = item.generatedImageUrl, let url = URL(string: imageUrl) {
@@ -81,7 +150,7 @@ struct InventoryItemDetailModal: View {
                         image
                             .resizable()
                             .aspectRatio(contentMode: .fill)
-                            .frame(height: 280)
+                            .frame(width: 280, height: 280)
                             .clipped()
                     },
                     placeholder: {
@@ -110,22 +179,20 @@ struct InventoryItemDetailModal: View {
     private var itemMetadataView: some View {
         VStack(spacing: 12) {
             HStack(spacing: 16) {
-                // Level badge
-                Badge(label: "Level", value: "\(item.level)", color: Color.accentSecondary)
-
-                // Rarity badge (placeholder - not available on EnhancedPlayerItem)
-                Badge(label: "Status", value: item.isEquipped ? "Equipped" : "Inventory", color: item.isEquipped ? Color.accent : Color.textSecondary)
-
-                // Craft count badge
-                Badge(label: "Crafted", value: "\(item.craftCount)x", color: Color.warning)
+                ForEach(Array(badges.enumerated()), id: \.offset) { _, badge in
+                    badgeView(for: badge)
+                }
             }
 
-            // Styled indicator
-            if item.isStyled {
+            // Styled indicator (hide if style is "normal")
+            if item.isStyled,
+               let firstMaterial = item.formattedMaterials.first,
+               let styleName = firstMaterial.styleName,
+               styleName.lowercased() != "normal" {
                 HStack {
                     Image(systemName: "paintbrush.fill")
                         .font(.system(size: 14))
-                    NormalText("Styled Item", size: 14)
+                    NormalText(styleName, size: 14)
                 }
                 .foregroundColor(Color.accent)
                 .padding(.horizontal, 12)
@@ -146,6 +213,18 @@ struct InventoryItemDetailModal: View {
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 12)
             }
+        }
+    }
+
+    @ViewBuilder
+    private func badgeView(for badge: BadgeType) -> some View {
+        switch badge {
+        case .level:
+            Badge(label: "Level", value: "\(item.level)", color: Color.accentSecondary)
+        case .primary(let label, let color):
+            Badge(label: label, value: item.primaryBadgeValue, color: color)
+        case .secondary(let label, let color):
+            Badge(label: label, value: item.secondaryBadgeValue, color: color)
         }
     }
 
@@ -211,13 +290,13 @@ struct InventoryItemDetailModal: View {
             TitleText("Ingredients", size: 20)
 
             VStack(alignment: .leading, spacing: 8) {
-                ForEach(item.appliedMaterials, id: \.self) { material in
+                ForEach(item.formattedMaterials, id: \.self) { material in
                     HStack {
                         Image(systemName: "circle.fill")
                             .font(.system(size: 6))
                             .foregroundColor(Color.accent)
 
-                        NormalText(material.material?.name ?? "Unknown Material")
+                        NormalText(material.name)
                             .foregroundColor(Color.textPrimary)
 
                         Spacer()
@@ -242,136 +321,22 @@ struct InventoryItemDetailModal: View {
         )
     }
 
-    // MARK: - Action Buttons View
-    private var actionButtonsView: some View {
-        VStack(spacing: 12) {
-            // Primary actions row (Upgrade & Craft)
-            HStack(spacing: 12) {
-                // Upgrade button
-                Button {
-                    audioManager.playMenuButtonClick()
-                    dismiss()
-                    Task {
-                        try? await Task.sleep(for: .milliseconds(300))
-                        onUpgrade()
-                    }
-                } label: {
-                    HStack {
-                        Image(systemName: "arrow.up.circle.fill")
-                        NormalText("Upgrade")
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color.accent.opacity(0.15))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color.accent, lineWidth: 2)
-                            )
-                    )
-                    .foregroundColor(Color.accent)
-                }
-                .buttonStyle(PlainButtonStyle())
-
-                // Craft button
-                Button {
-                    audioManager.playMenuButtonClick()
-                    dismiss()
-                    Task {
-                        try? await Task.sleep(for: .milliseconds(300))
-                        onCraft()
-                    }
-                } label: {
-                    HStack {
-                        Image(systemName: "hammer.fill")
-                        NormalText("Craft")
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color.accentSecondary.opacity(0.15))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(Color.accentSecondary, lineWidth: 2)
-                            )
-                    )
-                    .foregroundColor(Color.accentSecondary)
-                }
-                .buttonStyle(PlainButtonStyle())
-            }
-
-            // Equip button
-            Button {
-                audioManager.playMenuButtonClick()
-                dismiss()
-                Task {
-                    try? await Task.sleep(for: .milliseconds(300))
-                    await onEquip()
-                }
-            } label: {
-                HStack {
-                    Image(systemName: "checkmark.shield.fill")
-                    NormalText("Equip Item")
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(Color.success.opacity(0.15))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(Color.success, lineWidth: 2)
-                        )
-                )
-                .foregroundColor(Color.success)
-            }
-            .buttonStyle(PlainButtonStyle())
-            .disabled(item.isEquipped)
-            .opacity(item.isEquipped ? 0.5 : 1.0)
-
-            // Sell button
-            Button {
-                audioManager.playMenuButtonClick()
-                dismiss()
-                onSell()
-            } label: {
-                HStack {
-                    Image(systemName: "dollarsign.circle.fill")
-                    NormalText("Sell Item")
-                }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(Color.alert.opacity(0.15))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(Color.alert, lineWidth: 2)
-                        )
-                )
-                .foregroundColor(Color.alert)
-            }
-            .buttonStyle(PlainButtonStyle())
-        }
-        .padding(.bottom, 16)
-    }
-
     // MARK: - Helper Methods
 
     private func getRarityColor() -> Color {
-        // Based on level and styling status since rarity isn't available
-        if item.isEquipped {
-            return Color.accent
-        } else if item.isStyled {
-            return Color.accentSecondary
-        } else if item.level >= 10 {
-            return Color.orange
-        } else if item.level >= 5 {
-            return Color.blue
-        } else {
-            return Color.borderSubtle
+        switch item.rarity.lowercased() {
+        case "common":
+            return .gray
+        case "uncommon":
+            return .green
+        case "rare":
+            return .blue
+        case "epic":
+            return .purple
+        case "legendary":
+            return .orange
+        default:
+            return .gray
         }
     }
 
@@ -468,8 +433,45 @@ private struct StatDetailRow: View {
 }
 
 // MARK: - Preview
-#Preview("Inventory Item Detail Modal") {
-    InventoryItemDetailModal(
+#Preview("Unified Item Detail Modal - Equipment") {
+    UnifiedItemDetailModal(
+        item: PlayerItem(
+            id: "550e8400-e29b-41d4-a716-446655440000",
+            baseType: "Magic Sword",
+            itemTypeId: "550e8400-e29b-41d4-a716-446655440001",
+            category: "weapon",
+            level: 5,
+            rarity: "epic",
+            appliedMaterials: ["steel", "crystal"],
+            isStyled: true,
+            computedStats: ItemStats(
+                atkPower: 0.45,
+                atkAccuracy: 0.85,
+                defPower: 0.12,
+                defAccuracy: 0.60
+            ),
+            isEquipped: true,
+            generatedImageUrl: nil,
+            name: "Magic Sword",
+            description: "A powerful magical sword"
+        ),
+        badges: [
+            .level,
+            .primary(label: "Rarity", color: Color.accent),
+            .secondary(label: "Type", color: Color.textSecondary)
+        ]
+    ) {
+        VStack(spacing: 12) {
+            TextButton("Unequip Item") { }
+        }
+    }
+    .modelContainer(for: Item.self, inMemory: true)
+    .environmentObject(NavigationManager())
+    .environment(AppState.shared)
+}
+
+#Preview("Unified Item Detail Modal - Inventory") {
+    UnifiedItemDetailModal(
         item: EnhancedPlayerItem(
             id: "550e8400-e29b-41d4-a716-446655440000",
             baseType: "Magic Sword",
@@ -492,28 +494,13 @@ private struct StatDetailRow: View {
                         statModifiers: StatModifier(atkPower: 5, atkAccuracy: 0, defPower: 0, defAccuracy: 0),
                         imageUrl: nil
                     )
-                ),
-                ItemMaterialApplication(
-                    materialId: "crystal",
-                    styleId: "ethereal",
-                    slotIndex: 1,
-                    appliedAt: "2025-10-23T06:00:00Z",
-                    material: ItemMaterialApplication.MaterialDetail(
-                        id: "crystal",
-                        name: "Crystal",
-                        description: nil,
-                        styleId: "ethereal",
-                        styleName: "Ethereal",
-                        statModifiers: StatModifier(atkPower: 10, atkAccuracy: 0, defPower: 0, defAccuracy: 0),
-                        imageUrl: nil
-                    )
                 )
             ],
             materials: [],
             computedStats: ItemStats(
-                atkPower: 45.0,
+                atkPower: 0.45,
                 atkAccuracy: 0.85,
-                defPower: 12.0,
+                defPower: 0.12,
                 defAccuracy: 0.60
             ),
             materialComboHash: "abc123",
@@ -524,19 +511,16 @@ private struct StatDetailRow: View {
             isEquipped: false,
             equippedSlot: nil
         ),
-        onEquip: {
-            print("Equip tapped")
-        },
-        onCraft: {
-            print("Craft tapped")
-        },
-        onUpgrade: {
-            print("Upgrade tapped")
-        },
-        onSell: {
-            print("Sell tapped")
+        badges: [
+            .level,
+            .primary(label: "Status", color: Color.textSecondary),
+            .secondary(label: "Crafted", color: Color.warning)
+        ]
+    ) {
+        VStack(spacing: 12) {
+            TextButton("Equip Item") { }
         }
-    )
+    }
     .modelContainer(for: Item.self, inMemory: true)
     .environmentObject(NavigationManager())
     .environment(AppState.shared)
