@@ -7,6 +7,32 @@
 import Foundation
 import Observation
 
+// MARK: - Upgrade Modal State Machine
+enum UpgradeModalState: Equatable {
+    case none
+    case confirmationLoading(itemId: String)
+    case confirmation(itemId: String, costInfo: UpgradeCostInfo, statsBefore: ItemStats)
+    case upgrading(itemId: String)
+    case complete(upgradeResult: UpgradeResult, statsBefore: ItemStats)
+
+    static func == (lhs: UpgradeModalState, rhs: UpgradeModalState) -> Bool {
+        switch (lhs, rhs) {
+        case (.none, .none):
+            return true
+        case (.confirmationLoading(let id1), .confirmationLoading(let id2)):
+            return id1 == id2
+        case (.confirmation(let id1, _, _), .confirmation(let id2, _, _)):
+            return id1 == id2
+        case (.upgrading(let id1), .upgrading(let id2)):
+            return id1 == id2
+        case (.complete, .complete):
+            return true
+        default:
+            return false
+        }
+    }
+}
+
 /// Manages inventory state with paginated loading and item operations.
 @Observable
 final class InventoryViewModel {
@@ -45,14 +71,10 @@ final class InventoryViewModel {
     var isNavigatingToCraft: Bool = false
     var isNavigatingToUpgrade: Bool = false
 
-    // MARK: - Upgrade State
+    // MARK: - Upgrade State (using state machine)
+    var upgradeModalState: UpgradeModalState = .none
     var upgradeCostData: Loadable<UpgradeCostInfo> = .idle
     var upgradeInProgress: Bool = false
-    var showingUpgradeConfirmationModal: Bool = false  // Shows modal in confirmation mode
-    var showingUpgradeCompleteModal: Bool = false  // Shows modal in completion mode
-    var lastUpgradeResult: UpgradeResult?
-    var lastUpgradeStatsBefore: ItemStats?
-    var pendingUpgradeCostInfo: UpgradeCostInfo?  // Stores cost info for confirmation modal
 
     // MARK: - Error State
     var currentError: AppError?
@@ -368,11 +390,8 @@ final class InventoryViewModel {
         }
         FileLogger.shared.log("✅ handleUpgradeAction starting with item: \(item.baseType) (id: \(item.id))", level: .info, category: "Inventory")
 
-        // Close detail modal but keep selectedItemForDetail for upgrade confirmation modal
-        showingItemDetailModal = false
-
-        // Fetch upgrade cost and show confirmation modal
-        await fetchUpgradeCostAndShowConfirmation(itemId: item.id)
+        // Keep detail modal open, transition to confirmation loading state
+        await fetchUpgradeCostAndTransitionToConfirmation(itemId: item.id)
     }
 
     private func handleCraftNavigation(with item: EnhancedPlayerItem) async {
@@ -550,47 +569,58 @@ final class InventoryViewModel {
         }
     }
 
-    private func fetchUpgradeCostAndShowConfirmation(itemId: String) async {
+    private func fetchUpgradeCostAndTransitionToConfirmation(itemId: String) async {
         upgradeCostData = .loading
+
+        // Set loading state
+        await MainActor.run {
+            upgradeModalState = .confirmationLoading(itemId: itemId)
+        }
 
         do {
             let costInfo = try await repository.fetchUpgradeCost(itemId: itemId)
             upgradeCostData = .loaded(costInfo)
 
-            // Store cost info and current stats for the confirmation modal
+            // Transition to confirmation state with all needed data
             await MainActor.run {
-                pendingUpgradeCostInfo = costInfo
                 if let item = selectedItemForDetail {
-                    lastUpgradeStatsBefore = item.computedStats
+                    upgradeModalState = .confirmation(
+                        itemId: itemId,
+                        costInfo: costInfo,
+                        statsBefore: item.computedStats
+                    )
                 }
-                showingUpgradeConfirmationModal = true
             }
 
             FileLogger.shared.log("✅ Fetched upgrade cost: \(costInfo.goldCost) gold for level \(costInfo.currentLevel) -> \(costInfo.nextLevel)", level: .info, category: "Inventory")
         } catch let error as AppError {
             upgradeCostData = .error(error)
             handleError(error)
+            upgradeModalState = .none
             FileLogger.shared.log("❌ Failed to fetch upgrade cost: \(error)", level: .error, category: "Inventory")
         } catch {
             let appError = AppError.unknown(error)
             upgradeCostData = .error(appError)
             handleError(appError)
+            upgradeModalState = .none
             FileLogger.shared.log("❌ Failed to fetch upgrade cost: \(appError)", level: .error, category: "Inventory")
         }
     }
 
     func performUpgrade(itemId: String) async {
         upgradeInProgress = true
-
-        // Close confirmation modal first
-        await MainActor.run {
-            showingUpgradeConfirmationModal = false
-        }
-
         defer { upgradeInProgress = false }
 
-        // Stats before upgrade are already cached when showing confirmation modal
-        // No need to cache again here
+        // Extract statsBefore from current state before transitioning
+        var statsBefore: ItemStats = ItemStats(atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0)
+        if case .confirmation(_, _, let stats) = upgradeModalState {
+            statsBefore = stats
+        }
+
+        // Transition to upgrading state (this keeps the modal open)
+        await MainActor.run {
+            upgradeModalState = .upgrading(itemId: itemId)
+        }
 
         do {
             let upgradeResult = try await repository.upgradeItem(itemId: itemId)
@@ -627,16 +657,17 @@ final class InventoryViewModel {
                     selectedItemForDetail = upgradedItem
                 }
 
-                // Store the upgrade result and show the completion modal
-                lastUpgradeResult = upgradeResult
-                showingUpgradeCompleteModal = true
+                // Transition to complete state with the upgrade result
+                upgradeModalState = .complete(upgradeResult: upgradeResult, statsBefore: statsBefore)
             }
 
             FileLogger.shared.log("✅ Item upgraded successfully to level \(upgradeResult.item.level)", level: .info, category: "Inventory")
 
         } catch let error as AppError {
+            upgradeModalState = .none
             handleError(error)
         } catch {
+            upgradeModalState = .none
             handleError(.unknown(error))
         }
     }
