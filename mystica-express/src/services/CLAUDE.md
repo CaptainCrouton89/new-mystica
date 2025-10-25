@@ -35,6 +35,7 @@ All services use custom error classes from `src/utils/errors.ts`:
 - **NotFoundError** - Entity doesn't exist
 - **UnauthorizedError** - User lacks permission
 - **ConflictError** - State conflict
+- **BusinessLogicError** - Domain constraints violated
 - **ExternalAPIError** - AI/external service failures
 
 ### 3. Repository Pattern
@@ -61,8 +62,12 @@ Services delegate data access to repositories extending `BaseRepository<T>`.
 - Combat and loot pool selection
 
 **EquipmentService** (✅ Fully Implemented)
-- Equipment slot management (8 hardcoded slots)
-- Item equipping/unequipping with stat modifications
+- Equipment slot management (8 hardcoded slots: weapon, offhand, head, armor, feet, accessory_1, accessory_2, pet)
+- Methods: `getEquippedItems()`, `equipItem()`, `unequipItem()`
+- Automatic accessory slot selection for dual-accessory system
+- Stat aggregation from equipped items using StatsService
+- Atomic equip/unequip operations via repository transactions
+- Slot-to-category mapping with validation
 
 **InventoryService** (✅ Fully Implemented)
 - Player item queries with pagination
@@ -84,6 +89,17 @@ Services delegate data access to repositories extending `BaseRepository<T>`.
 - Zone probability distribution calculation for combat accuracy (5-zone system with smooth interpolation)
 - Zone hit simulation and critical damage multipliers by zone (zone 1: 50% crit, zone 5: no crit)
 - Comprehensive input validation (all stats must sum to 1.0, materials ≤3, items ≤8)
+
+**MaterialService** (✅ Fully Implemented)
+- Material application to items with slot management (max 3 materials per item)
+- Methods: `getAllMaterials()`, `getMaterialInventory()`, `applyMaterial()`
+- Combo hash computation for material combinations to enable image caching
+- Image generation on first craft via ImageGenerationService with caching
+- Item name/description AI generation on first craft
+- Stat computation including base stats + material modifiers
+- Style tracking and styled item flagging
+- Craft count tracking per combo hash
+- Graceful error handling for image generation failures
 
 ## AI-Powered Services
 
@@ -124,7 +140,6 @@ Services delegate data access to repositories extending `BaseRepository<T>`.
 
 ## In-Progress / Partially Implemented
 
-**MaterialService** (⚠️) - Material application and style system
 **ItemService** (⚠️) - Item creation and stat calculation (depends on StatsService for calculations)
 
 ## Testing Services
@@ -140,9 +155,10 @@ Services delegate data access to repositories extending `BaseRepository<T>`.
 
 ## Important Notes
 
-- **Error Handling:** Services throw errors early. No silent failures or fallback behavior. Throw appropriate custom errors (ValidationError, NotFoundError, ExternalAPIError, etc.).
+- **Error Handling:** Services throw errors early. No silent failures or fallback behavior. Throw appropriate custom errors (ValidationError, NotFoundError, BusinessLogicError, ExternalAPIError, etc.).
 - **Type Safety:** Use proper types from `database.types.ts` - never use `any`
 - **Async/Await:** All database/AI operations are async
 - **Module Resolution:** Import with `.js` extensions
 - **AI Timeouts:** All external API calls must have reasonable timeouts (2s for dialogue, longer for generation)
 - **Analytics Logging:** AI service usage should be logged for monitoring quality
+- **Material Slot Limits:** Maximum 3 materials per item, accessories max 2 slots
