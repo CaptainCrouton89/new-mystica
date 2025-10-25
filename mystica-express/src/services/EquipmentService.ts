@@ -1,7 +1,8 @@
 import { EquipmentSlots, EquipResult, Stats, Item, ItemType, PlayerStats, EquipmentSlot, PlayerItem } from '../types/api.types';
 import { NotImplementedError, ValidationError, mapSupabaseError } from '../utils/errors';
-import { EquipmentRepository } from '../repositories/EquipmentRepository.js';
+import { EquipmentRepository, ItemWithBasicDetails } from '../repositories/EquipmentRepository.js';
 import { ItemRepository } from '../repositories/ItemRepository.js';
+import { statsService } from './StatsService.js';
 
 export class EquipmentService {
   private equipmentRepository: EquipmentRepository;
@@ -14,9 +15,8 @@ export class EquipmentService {
 
   async getEquippedItems(userId: string): Promise<{ slots: EquipmentSlots; total_stats: Stats }> {
     try {
-      
+
       const repositorySlots = await this.equipmentRepository.findEquippedByUser(userId);
-      const total_stats = await this.equipmentRepository.computeTotalStats(userId);
 
       const slots: EquipmentSlots = {
         weapon: repositorySlots.weapon ? this.transformRepositoryItemToPlayerItem(repositorySlots.weapon, true) : undefined,
@@ -28,6 +28,23 @@ export class EquipmentService {
         accessory_2: repositorySlots.accessory_2 ? this.transformRepositoryItemToPlayerItem(repositorySlots.accessory_2, true) : undefined,
         pet: repositorySlots.pet ? this.transformRepositoryItemToPlayerItem(repositorySlots.pet, true) : undefined
       };
+
+      // Calculate total stats from individual items (now with proper level and rarity multipliers)
+      const total_stats: Stats = {
+        atkPower: 0,
+        atkAccuracy: 0,
+        defPower: 0,
+        defAccuracy: 0
+      };
+
+      Object.values(slots).forEach(item => {
+        if (item) {
+          total_stats.atkPower += item.computed_stats.atkPower;
+          total_stats.atkAccuracy += item.computed_stats.atkAccuracy;
+          total_stats.defPower += item.computed_stats.defPower;
+          total_stats.defAccuracy += item.computed_stats.defAccuracy;
+        }
+      });
 
       return { slots, total_stats };
     } catch (error) {
@@ -223,43 +240,40 @@ export class EquipmentService {
     }
   }
 
-  private transformRepositoryItemToPlayerItem(repositoryItem: any, isEquipped: boolean): PlayerItem {
-    if (!repositoryItem?.item_type) {
-      throw new Error('Repository item missing item_type data');
-    }
-
-    const appliedMaterials = repositoryItem.materials ?? [];
-
-    const baseStats = repositoryItem.item_type.base_stats_normalized ?? this.getNormalizedStatsForCategory(repositoryItem.item_type.category);
-
-    let computedStats = baseStats;
-    if (repositoryItem.current_stats) {
-      const stats = repositoryItem.current_stats;
-      const isNormalized = stats.atkPower <= 1 && stats.atkAccuracy <= 1 &&
-                          stats.defPower <= 1 && stats.defAccuracy <= 1;
-      if (isNormalized) {
-        computedStats = stats;
+  private transformRepositoryItemToPlayerItem(repositoryItem: ItemWithBasicDetails, isEquipped: boolean): PlayerItem {
+    // Use StatsService to properly compute stats with level and rarity multipliers
+    const itemWithType = {
+      item_type: {
+        base_stats_normalized: repositoryItem.item_type.base_stats_normalized,
+        rarity: repositoryItem.item_type.rarity
       }
-    }
+    };
+
+    const computedStats = statsService.computeItemStatsForLevel(itemWithType, repositoryItem.level);
+
+    // Determine the image URL
+    const generatedImageUrl = repositoryItem.generated_image_url
+      ? repositoryItem.generated_image_url
+      : `https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/items/default_${repositoryItem.item_type.category}.png`;
 
     return {
       id: repositoryItem.id,
-      base_type: repositoryItem.name ?? repositoryItem.item_type.name ?? 'Unknown',
-      description: repositoryItem.description ?? repositoryItem.item_type.description ?? null,
-      name: repositoryItem.name ?? null,
+      base_type: repositoryItem.item_type.name,
+      description: null,
+      name: repositoryItem.item_type.name,
       item_type_id: repositoryItem.item_type.id,
       category: repositoryItem.item_type.category,
       level: repositoryItem.level,
       rarity: repositoryItem.item_type.rarity,
-      applied_materials: appliedMaterials,
+      applied_materials: [],
       computed_stats: computedStats,
-      material_combo_hash: repositoryItem.material_combo_hash ?? null,
-      generated_image_url: repositoryItem.generated_image_url ?? `https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/items/default_${repositoryItem.item_type.category}.png`,
-      image_generation_status: repositoryItem.image_generation_status ?? null,
-      craft_count: 0, 
-      is_styled: repositoryItem.is_styled ?? false,
+      material_combo_hash: null,
+      generated_image_url: generatedImageUrl,
+      image_generation_status: null,
+      craft_count: 0,
+      is_styled: repositoryItem.is_styled,
       is_equipped: isEquipped,
-      equipped_slot: null 
+      equipped_slot: null
     };
   }
 }
