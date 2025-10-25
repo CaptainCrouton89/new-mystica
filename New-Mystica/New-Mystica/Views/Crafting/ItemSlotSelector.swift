@@ -29,7 +29,7 @@ struct ItemSlotSelector: View {
         VStack(spacing: 12) {
             // Plus icon placeholder
             ZStack {
-                RoundedRectangle(cornerRadius: 12)
+                RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                     .fill(Color.backgroundSecondary)
                     .frame(width: 80, height: 80)
 
@@ -38,7 +38,7 @@ struct ItemSlotSelector: View {
                     .foregroundColor(Color.textSecondary)
             }
             .overlay(
-                RoundedRectangle(cornerRadius: 12)
+                RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                     .stroke(Color.borderSubtle, lineWidth: 2)
                     .opacity(0.6)
             )
@@ -79,9 +79,9 @@ struct ItemSlotSelector: View {
                     fallbackIcon(for: item)
                 }
             }
-            .clipShape(RoundedRectangle(cornerRadius: 12))
+            .clipShape(RoundedRectangle(cornerRadius: .cornerRadiusLarge))
             .overlay(
-                RoundedRectangle(cornerRadius: 12)
+                RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                     .stroke(rarityBorderColor(for: item), lineWidth: 3)
             )
 
@@ -108,7 +108,7 @@ struct ItemSlotSelector: View {
 
     private func fallbackIcon(for item: EnhancedPlayerItem) -> some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 12)
+            RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                 .fill(Color.backgroundSecondary)
                 .frame(width: 80, height: 80)
 

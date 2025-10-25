@@ -91,7 +91,7 @@ struct PopupImage: View {
     
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 16)
+            RoundedRectangle(cornerRadius: .cornerRadiusExtraLarge)
                 .fill(backgroundColor)
                 .frame(height: height)
                 .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 4)
@@ -132,10 +132,10 @@ struct PopupContent: View {
                             .padding(.horizontal, 12)
                             .padding(.vertical, 6)
                             .background(
-                                RoundedRectangle(cornerRadius: 12)
+                                RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                                     .fill(Color.backgroundCard)
                                     .overlay(
-                                        RoundedRectangle(cornerRadius: 12)
+                                        RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                                             .stroke(Color.accentSecondary, lineWidth: 2)
                                     )
                             )
@@ -168,10 +168,10 @@ struct PopupActionButton: View {
                 .frame(maxWidth: .infinity)
                 .frame(height: 50)
                 .background(
-                    RoundedRectangle(cornerRadius: 12)
+                    RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                         .fill(Color.accentSecondary)
                         .overlay(
-                            RoundedRectangle(cornerRadius: 12)
+                            RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                                 .stroke(Color.textSecondary, lineWidth: 2)
                         )
                 )
@@ -220,10 +220,10 @@ extension View {
                 PopupContent(title: title, description: description)
             }
             .background(
-                RoundedRectangle(cornerRadius: 20)
+                RoundedRectangle(cornerRadius: .cornerRadiusXXL)
                     .fill(Color.backgroundPrimary)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 20)
+                        RoundedRectangle(cornerRadius: .cornerRadiusXXL)
                             .stroke(Color.accent, lineWidth: 2)
                     )
             )
@@ -256,10 +256,10 @@ extension View {
                 }
             }
             .background(
-                RoundedRectangle(cornerRadius: 20)
+                RoundedRectangle(cornerRadius: .cornerRadiusXXL)
                     .fill(Color.backgroundPrimary)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 20)
+                        RoundedRectangle(cornerRadius: .cornerRadiusXXL)
                             .stroke(Color.accent, lineWidth: 2)
                     )
             )

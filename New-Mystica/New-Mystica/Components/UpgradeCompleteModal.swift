@@ -77,11 +77,11 @@ struct UpgradeCompleteModal: View {
     // MARK: - Item Image View
     private var itemImageView: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 16)
+            RoundedRectangle(cornerRadius: .cornerRadiusExtraLarge)
                 .fill(Color.backgroundCard)
                 .frame(width: 160, height: 160)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 16)
+                    RoundedRectangle(cornerRadius: .cornerRadiusExtraLarge)
                         .stroke(getRarityColor(), lineWidth: 3)
                 )
 
@@ -103,7 +103,7 @@ struct UpgradeCompleteModal: View {
                 fallbackItemIcon
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .clipShape(RoundedRectangle(cornerRadius: .cornerRadiusExtraLarge))
         .padding(.top, 16)
     }
 
@@ -141,10 +141,10 @@ struct UpgradeCompleteModal: View {
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
             .background(
-                RoundedRectangle(cornerRadius: 12)
+                RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                     .fill(Color.accent.opacity(0.15))
                     .overlay(
-                        RoundedRectangle(cornerRadius: 12)
+                        RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                             .stroke(Color.accent, lineWidth: 2)
                     )
             )
@@ -191,10 +191,10 @@ struct UpgradeCompleteModal: View {
         }
         .padding(16)
         .background(
-            RoundedRectangle(cornerRadius: 12)
+            RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                 .fill(Color.backgroundCard)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 12)
+                    RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                         .stroke(Color.borderSubtle, lineWidth: 1)
                 )
         )
@@ -221,10 +221,10 @@ struct UpgradeCompleteModal: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
         .background(
-            RoundedRectangle(cornerRadius: 8)
+            RoundedRectangle(cornerRadius: .cornerRadiusSmall)
                 .fill(Color.warning.opacity(0.15))
                 .overlay(
-                    RoundedRectangle(cornerRadius: 8)
+                    RoundedRectangle(cornerRadius: .cornerRadiusSmall)
                         .stroke(Color.warning, lineWidth: 1)
                 )
         )
@@ -253,10 +253,10 @@ struct UpgradeCompleteModal: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
                     .background(
-                        RoundedRectangle(cornerRadius: 12)
+                        RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                             .fill(Color.success.opacity(0.15))
                             .overlay(
-                                RoundedRectangle(cornerRadius: 12)
+                                RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                                     .stroke(Color.success, lineWidth: 2)
                             )
                     )
@@ -281,10 +281,10 @@ struct UpgradeCompleteModal: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
                     .background(
-                        RoundedRectangle(cornerRadius: 12)
+                        RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                             .fill(Color.accent.opacity(0.15))
                             .overlay(
-                                RoundedRectangle(cornerRadius: 12)
+                                RoundedRectangle(cornerRadius: .cornerRadiusLarge)
                                     .stroke(Color.accent, lineWidth: 2)
                             )
                     )
@@ -399,7 +399,7 @@ private struct StatComparisonRow: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
         .background(
-            RoundedRectangle(cornerRadius: 8)
+            RoundedRectangle(cornerRadius: .cornerRadiusSmall)
                 .fill(Color.backgroundSecondary)
         )
     }
