@@ -44,16 +44,18 @@ struct NormalText: View {
 struct SmallText: View {
     let text: String
     let size: CGFloat
-    
-    init(_ text: String, size: CGFloat = 13) {
+    let color: Color?
+
+    init(_ text: String, size: CGFloat = 13, color: Color? = nil) {
         self.text = text
         self.size = size
+        self.color = color
     }
-    
+
     var body: some View {
         Text(text)
             .font(FontManager.caption)
-            .foregroundColor(Color.textSecondary)
+            .foregroundColor(color ?? Color.textSecondary)
             .kerning(0.2)
             .lineSpacing(1)
             .lineLimit(nil)
