@@ -53,9 +53,24 @@ pnpm generate-raw-image --batch materials --upload --remove-background
 ./docs/list-apis.sh --format curl
 ```
 
+## Deployment
+
+The backend is deployed via **Railway** using Docker containerization with Node.js 24:
+
+- **Dockerfile** - Builds and runs Express backend on port 3000
+- **railway.toml** - Railway platform config with health check at `/api/v1/health`
+- **nixpacks.toml** - Alternative Nixpacks build config (fallback)
+- **.dockerignore** - Excludes non-essentials (node_modules, dist, docs, etc.)
+
+Deployment is automatic on commit to the Railway platform. Local Docker testing:
+```bash
+docker build -t mystica:latest .
+docker run -p 3000:3000 mystica:latest
+```
+
 ## Key Technologies
 
-- **Backend:** Express.js 4.18.2, TypeScript 5.3.3, Zod 3.22.4
+- **Backend:** Express.js 4.18.2, TypeScript 5.3.3, Zod 3.22.4, Node.js 24
 - **Database:** Supabase PostgreSQL (remote, with PostGIS), @supabase/supabase-js 2.39.3
 - **Frontend:** SwiftUI (iOS 17+, macOS 14+), SwiftData, Google Maps SDK, CoreLocation
 - **AI Services:** Replicate (google/nano-banana, bytedance/seedream-4), OpenAI GPT-4.1-mini
