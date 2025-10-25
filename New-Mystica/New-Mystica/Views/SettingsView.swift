@@ -7,33 +7,12 @@ struct SettingsView: View {
     @Environment(\.navigationManager) private var navigationManager
 
     @State private var showingLogoutAlert = false
-    @State private var showingLogs = false
 
     var body: some View {
         SimpleNavigableView(title: "Settings") {
             ScrollView {
                 VStack(spacing: 20) {
                     Spacer().frame(height: 40)
-
-                    // Debug section
-                    VStack(spacing: 16) {
-                        TitleText("Debug", size: 20)
-
-                        TextButton("View Debug Logs") {
-                            showingLogs = true
-                        }
-                        .padding(.horizontal, 32)
-
-                        NormalText("View network requests, responses, and error logs")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 32)
-                    }
-
-                    Divider()
-                        .background(Color.borderSubtle)
-                        .padding(.horizontal, 32)
 
                     // Placeholder sections for future settings
                     VStack(spacing: 16) {
@@ -63,10 +42,6 @@ struct SettingsView: View {
                 .padding(.horizontal, 16)
             }
         }
-        // TODO: Implement LogViewerView
-        // .sheet(isPresented: $showingLogs) {
-        //     LogViewerView()
-        // }
         .alert("Logout", isPresented: $showingLogoutAlert) {
             Button("Cancel", role: .cancel) {
                 // Alert dismisses automatically

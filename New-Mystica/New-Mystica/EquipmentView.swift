@@ -30,7 +30,7 @@ struct EquipmentSlotView: View {
                                 .resizable()
                                 .aspectRatio(contentMode: .fill)
                                 .frame(width: 80, height: 80)
-                                .clipped()
+                                .clipShape(RoundedRectangle(cornerRadius: 12))
                         },
                         placeholder: {
                             ProgressView()
