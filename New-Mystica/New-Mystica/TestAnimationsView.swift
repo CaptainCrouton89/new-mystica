@@ -187,7 +187,7 @@ struct TestAnimationsView: View {
                             // Frame controls
                             VStack(spacing: 12) {
                                 // Frame info
-                                Text("Frame \(currentFrame + 1) of 4")
+                                Text("Frame \(currentFrame + 1) of \(animationData.frames.count)")
                                     .font(.headline)
                                     .foregroundColor(.white)
                                 
@@ -211,7 +211,7 @@ struct TestAnimationsView: View {
                                             .font(.title2)
                                             .foregroundColor(.white)
                                     }
-                                    .disabled(currentFrame >= 3)
+                                    .disabled(currentFrame >= animationData.frames.count - 1)
                                 }
                                 .padding()
                                 .background(Color.black.opacity(0.3))
@@ -230,7 +230,7 @@ struct TestAnimationsView: View {
                                                 currentFrame = Int(newValue)
                                             }
                                         ),
-                                        in: 0...3,
+                                        in: 0...Double(animationData.frames.count - 1),
                                         step: 1
                                     )
                                     .accentColor(.white)
@@ -311,7 +311,7 @@ struct TestAnimationsView: View {
         animationTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / frameRate, repeats: true) { _ in
             DispatchQueue.main.async {
                 withAnimation(.linear(duration: 1.0 / frameRate)) {
-                    currentFrame = (currentFrame + 1) % 4
+                    currentFrame = (currentFrame + 1) % animationData.frames.count
                 }
             }
         }
@@ -332,7 +332,8 @@ struct TestAnimationsView: View {
     }
     
     private func nextFrame() {
-        if currentFrame < 3 {
+        guard let animationData = loader.animationData else { return }
+        if currentFrame < animationData.frames.count - 1 {
             currentFrame += 1
         }
     }
