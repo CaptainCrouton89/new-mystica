@@ -1,164 +1,49 @@
 # Services Layer CLAUDE.md
 
-This directory contains business logic services for the New Mystica backend. Each service encapsulates domain operations and coordinates between repositories, external APIs, and middleware.
+Business logic services for the New Mystica backend. Each service encapsulates domain operations and coordinates between repositories, external APIs, and middleware.
 
-## Service Architecture
+## Patterns
 
-All services follow this pattern:
+**Constructor Injection** - Services receive dependencies via constructor with default instantiation
+**Error Handling** - Use custom error classes from `src/utils/errors.ts`: ValidationError, NotFoundError, UnauthorizedError, ConflictError, BusinessLogicError, ExternalAPIError
+**Repository Pattern** - Services delegate data access to repositories extending `BaseRepository<T>`
 
-```typescript
-export class MyService {
-  constructor(
-    private repository: MyRepository = new MyRepository(),
-    private otherService?: OtherService
-  ) {}
+## Core Services (✅ Fully Implemented)
 
-  async domainOperation(userId: string, data: ValidatedData): Promise<Result> {
-    // 1. Validate inputs early (throw ValidationError)
-    // 2. Check permissions (throw UnauthorizedError)
-    // 3. Query repositories
-    // 4. Execute business logic
-    // 5. Coordinate with other services if needed
-    // 6. Return result or throw domain error
-  }
-}
-```
+**EnemyService** - Enemy/monster retrieval, stat computation, R2 sprite URLs (UUID-based: `monsters/{uuid}/sprites/*`), personality traits from `ai_personality_traits` JSON
 
-## Key Service Patterns
+**CombatService** - Combat session lifecycle, turn execution (modular subdirectory: combat/types.ts, constants.ts, calculations.ts, session.ts, loot.ts, rewards.ts, combat-log.ts, turn-execution.ts), enemy selection, attack/defense with zone-based accuracy, reward application
 
-### 1. Constructor Injection
-Services receive dependencies via constructor with default instantiation for testability.
+**LocationService** - PostGIS geospatial queries, combat and loot pool selection
 
-### 2. Error Handling
-All services use custom error classes from `src/utils/errors.ts`:
-- **ValidationError** - Invalid input data
-- **NotFoundError** - Entity doesn't exist
-- **UnauthorizedError** - User lacks permission
-- **ConflictError** - State conflict
-- **BusinessLogicError** - Domain constraints violated
-- **ExternalAPIError** - AI/external service failures
+**EquipmentService** - 8 hardcoded slots (weapon, offhand, head, armor, feet, accessory_1, accessory_2, pet), getEquippedItems/equipItem/unequipItem, automatic dual-accessory selection, stat aggregation, atomic operations
 
-### 3. Repository Pattern
-Services delegate data access to repositories extending `BaseRepository<T>`.
+**InventoryService** - Player item queries with pagination, filtering (slot type, rarity, level), sorting (level, rarity, newest, name)
 
-## Core Services
+**LoadoutService** - Loadout CRUD and validation
 
-**EnemyService** (✅ Fully Implemented)
-- Enemy/monster data retrieval with complete stat computation
-- Returns `MonsterData` interface with personality, dialogue, and sprite animations
-- Methods: `getMonsterById()`, `getMonstersByIds()`, `listMonsters()`
-- R2 sprite URL construction (UUID-based paths: `monsters/{uuid}/sprites/*`)
-- Personality trait extraction from `ai_personality_traits` JSON
+**StatsService** - Item stats with quadratic formula (1 + 0.05 * (level - 1)²), material modifiers (±0.01), equipment aggregation across 8 slots, enemy realization (8x base * levelMult * diffMult), zone probability (5-zone smooth interpolation), zone crits (zone 1: 50%, zone 5: 0%)
 
-**CombatService** (✅ Fully Implemented)
-- Combat session lifecycle and turn execution using modular subdirectory structure
-- Subdirectories: `combat/types.ts`, `combat/constants.ts`, `combat/calculations.ts`, `combat/session.ts`, `combat/loot.ts`, `combat/rewards.ts`, `combat/combat-log.ts`, `combat/turn-execution.ts`
-- Enemy selection with weighted randomization
-- Attack/defense mechanics with zone-based accuracy
-- Reward application (gold, materials, items, XP)
-
-**LocationService** (✅ Fully Implemented)
-- PostGIS geospatial queries
-- Combat and loot pool selection
-
-**EquipmentService** (✅ Fully Implemented)
-- Equipment slot management (8 hardcoded slots: weapon, offhand, head, armor, feet, accessory_1, accessory_2, pet)
-- Methods: `getEquippedItems()`, `equipItem()`, `unequipItem()`
-- Automatic accessory slot selection for dual-accessory system
-- Stat aggregation from equipped items using StatsService
-- Atomic equip/unequip operations via repository transactions
-- Slot-to-category mapping with validation
-
-**InventoryService** (✅ Fully Implemented)
-- Player item queries with pagination
-- Filtering by slot type, rarity, level
-- Sorting (level, rarity, newest, name)
-
-**LoadoutService** (✅ Fully Implemented)
-- Loadout CRUD and validation
-
-**NameDescriptionService** (✅ Fully Implemented)
-- AI-generated names/descriptions using OpenAI GPT-4.1-mini
-- Structured Zod validation with exponential backoff
-
-**StatsService** (✅ Fully Implemented)
-- Item stat computation with level & rarity multipliers using quadratic formula: `1 + 0.05 * (level - 1)²`
-- Material modifier application and validation (normalized to ±0.01)
-- Equipment stat aggregation across 8 slots with per-slot contributions
-- Enemy stat realization with level, rarity, and difficulty multipliers (8x base * levelMult * diffMult)
-- Zone probability distribution calculation for combat accuracy (5-zone system with smooth interpolation)
-- Zone hit simulation and critical damage multipliers by zone (zone 1: 50% crit, zone 5: no crit)
-- Comprehensive input validation (all stats must sum to 1.0, materials ≤3, items ≤8)
-
-**MaterialService** (✅ Fully Implemented)
-- Material application to items with slot management (max 3 materials per item)
-- Methods: `getAllMaterials()`, `getMaterialInventory()`, `applyMaterial()`
-- Combo hash computation for material combinations to enable image caching
-- Image generation on first craft via ImageGenerationService with caching
-- Item name/description AI generation on first craft
-- Stat computation including base stats + material modifiers
-- Style tracking and styled item flagging
-- Craft count tracking per combo hash
-- Graceful error handling for image generation failures
+**MaterialService** - Apply to items (max 3 per item), combo hash computation, image generation on first craft, name/description AI generation, style tracking, craft count tracking
 
 ## AI-Powered Services
 
-**ChatterService** (✅ Fully Implemented - Implements F-11, F-12)
-- Pet personality-based dialogue generation using `ai` library (generateText)
-- OpenAI GPT-4.1-nano integration with 2-second timeout
-- Graceful fallback to pet's example_phrases on timeout (not error throwing)
-- Analytics logging for quality monitoring
-- Integrates player combat history for context
-- Enemy chatter generation with player history integration
+**ChatterService** - Pet personality dialogue via OpenAI GPT-4.1-nano, 2s timeout, fallback to example_phrases, analytics logging, player combat history
 
-**EnemyChatterService** (✅ Fully Implemented)
-- Contextual enemy dialogue during combat events
-- Uses `ai` library (generateObject) with Zod schema validation
-- 2-second timeout with generic fallback taunts on failure
-- Combat context-aware prompting (turn number, HP%, event type, critical hits)
-- Logs all dialogue attempts for analytics
-- Player combat history integration (win rate, streaks, attempts)
+**EnemyChatterService** - Enemy dialogue during combat, generateObject with Zod validation, 2s timeout with fallback taunts, context-aware (turn, HP%, events, crits), player history integration
 
-**AI Service Patterns:**
-- Use `ai` library (generateText for simple strings, generateObject for structured data)
-- Always include 2-second timeout via Promise.race() to prevent blocking
-- Graceful fallback behavior on timeout (fallback phrases/taunts) rather than error throwing
-- Throw ExternalAPIError only on API errors, not timeouts
-- Log all attempts for quality monitoring via AnalyticsRepository
-- Integrate combat context and player history into prompts
+**NameDescriptionService** - AI-generated names/descriptions via OpenAI, Zod validation, exponential backoff
+
+**AI Service Patterns:** Use `ai` library (generateText/generateObject), 2s timeout via Promise.race(), graceful fallback on timeout (not error throwing), ExternalAPIError only on API errors, analytics logging, combat context + player history in prompts
 
 ## Supporting Services
 
-**PetService** - Pet management and summoning
-**ProfileService** - User profile management
-**AuthService** - Authentication and authorization
-**ImageGenerationService** - AI image generation and R2 storage
-**StyleService** - Style system and material styles
-**AnalyticsService** - Combat and gameplay analytics
-**RarityService** - Rarity calculations
-**ProgressionService** - Level progression and XP tracking
-
-## In-Progress / Partially Implemented
-
-**ItemService** (⚠️) - Item creation and stat calculation (depends on StatsService for calculations)
-
-## Testing Services
-
-**Unit Tests** (`tests/unit/services/MyService.test.ts`):
-- Mock dependencies
-- Test isolated business logic
-- Use factories for test data
-
-**Integration Tests** (`tests/integration/myfeature.test.ts`):
-- Test full service with real repositories
-- Test error conditions and edge cases
+AuthService, ImageGenerationService (Replicate + R2 storage), StyleService, PetService, ProfileService, AnalyticsService, RarityService, ProgressionService
 
 ## Important Notes
 
-- **Error Handling:** Services throw errors early. No silent failures or fallback behavior. Throw appropriate custom errors (ValidationError, NotFoundError, BusinessLogicError, ExternalAPIError, etc.).
-- **Type Safety:** Use proper types from `database.types.ts` - never use `any`
-- **Async/Await:** All database/AI operations are async
-- **Module Resolution:** Import with `.js` extensions
-- **AI Timeouts:** All external API calls must have reasonable timeouts (2s for dialogue, longer for generation)
-- **Analytics Logging:** AI service usage should be logged for monitoring quality
-- **Material Slot Limits:** Maximum 3 materials per item, accessories max 2 slots
+- Error Handling: Throw early, never silent failures. Use appropriate custom errors.
+- Type Safety: Never `any` type, use `database.types.ts`
+- Module Resolution: Import with `.js` extensions
+- AI Timeouts: 2s for dialogue, longer for generation
+- Material Slots: Max 3 per item, 2 accessory slots
