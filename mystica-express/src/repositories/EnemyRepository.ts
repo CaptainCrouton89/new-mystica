@@ -226,19 +226,7 @@ export class EnemyRepository extends BaseRepository<EnemyType> {
     };
   }
 
-  // ============================================================================
-  // EnemyLoot Queries (Polymorphic FK Support)
-  // ============================================================================
-
-  /**
-   * Get enemy loot table with optional lootable_type filtering
-   *
-   * @param enemyTypeId - Enemy type UUID
-   * @param lootableType - Optional filter for 'material' or 'item_type'
-   * @returns Array of EnemyLoot entries
-   * @throws DatabaseError on query failure
-   */
-  async getEnemyLootTable(enemyTypeId: string, lootableType?: 'material' | 'item_type'): Promise<EnemyLoot[]> {
+  async getEnemyLootTable(enemyTypeId: string, lootableType?: 'material' | 'item_type'): Promise<Array<EnemyLoot & { material_id?: string; item_type_id?: string }>> {
     let query = this.client.from('enemyloot').select('*').eq('enemy_type_id', enemyTypeId);
 
     if (lootableType) {
@@ -251,6 +239,17 @@ export class EnemyRepository extends BaseRepository<EnemyType> {
       throw mapSupabaseError(error);
     }
 
-    return (data || []) as EnemyLoot[];
+    // Transform lootable_id to material_id or item_type_id based on lootable_type
+    return ((data || []) as EnemyLoot[]).map(entry => {
+      const transformed = { ...entry } as EnemyLoot & { material_id?: string; item_type_id?: string };
+
+      if (entry.lootable_type === 'material') {
+        transformed.material_id = entry.lootable_id;
+      } else if (entry.lootable_type === 'item_type') {
+        transformed.item_type_id = entry.lootable_id;
+      }
+
+      return transformed;
+    });
   }
 }
