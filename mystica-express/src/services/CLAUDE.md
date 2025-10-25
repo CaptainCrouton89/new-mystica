@@ -125,7 +125,7 @@ Services delegate data access to repositories extending `BaseRepository<T>`.
 ## In-Progress / Partially Implemented
 
 **MaterialService** (⚠️) - Material application and style system
-**ItemService** (⚠️) - Item creation and stat calculation
+**ItemService** (⚠️) - Item creation and stat calculation (depends on StatsService for calculations)
 
 ## Testing Services
 
