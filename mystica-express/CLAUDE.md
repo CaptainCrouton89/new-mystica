@@ -373,6 +373,24 @@ const { data, error } = await supabase
 
 **Port 3000 Auto-Kill:** `pnpm dev` runs `lsof -ti:3000 | xargs kill -9` before starting. This is intentional - nodemon doesn't always clean up on crash. Any process on port 3000 will be terminated.
 
+## Production Deployment (Railway)
+
+Configured for deployment via Railway using Nixpacks.
+
+**Build Configuration** (`nixpacks.toml`):
+- **Setup phase:** Node.js 24.x + pnpm
+- **Install:** `pnpm install`
+- **Build:** `pnpm build` (TypeScript → dist/)
+- **Start:** `pnpm start` (runs dist/server.js)
+
+**Railway Configuration** (`railway.json`):
+- **Builder:** Nixpacks
+- **Build command:** `pnpm install && pnpm build`
+- **Start command:** `pnpm start`
+- **Restart policy:** ON_FAILURE with max 10 retries
+
+**Note:** All required environment variables (SUPABASE_*, CLOUDFLARE_*, REPLICATE_API_TOKEN, OPENAI_API_KEY) must be configured in Railway project settings.
+
 ## API Versioning
 
 All routes prefixed with `/api/v1` (configured in src/app.ts:63). Health check at `/` returns endpoint directory.
