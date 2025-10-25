@@ -1035,6 +1035,7 @@ export type Database = {
           country_code: string | null
           created_at: string
           id: string
+          image_url: string | null
           lat: number
           lng: number
           location_type: string | null
@@ -1045,6 +1046,7 @@ export type Database = {
           country_code?: string | null
           created_at?: string
           id?: string
+          image_url?: string | null
           lat: number
           lng: number
           location_type?: string | null
@@ -1055,6 +1057,7 @@ export type Database = {
           country_code?: string | null
           created_at?: string
           id?: string
+          image_url?: string | null
           lat?: number
           lng?: number
           location_type?: string | null
