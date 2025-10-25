@@ -62,7 +62,7 @@ export interface PlayerItem {
   id: string;
   base_type: string;
   item_type_id: string;
-  category: 'weapon' | 'offhand' | 'head' | 'armor' | 'feet' | 'accessory' | 'pet';
+  category: EquipmentSlot;
   level: number;
   rarity: Rarity;
   applied_materials: AppliedMaterial[];

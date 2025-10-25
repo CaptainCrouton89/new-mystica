@@ -262,7 +262,7 @@ export class EquipmentService {
       description: null,
       name: repositoryItem.item_type.name,
       item_type_id: repositoryItem.item_type.id,
-      category: repositoryItem.item_type.category,
+      category: this.mapCategoryToEquipmentSlot(repositoryItem.item_type.category),
       level: repositoryItem.level,
       rarity: repositoryItem.item_type.rarity,
       applied_materials: [],

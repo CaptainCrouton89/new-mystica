@@ -2,7 +2,7 @@ import { ImageCacheRepository } from '../repositories/ImageCacheRepository.js';
 import { ItemRepository } from '../repositories/ItemRepository.js';
 import { MaterialRepository } from '../repositories/MaterialRepository.js';
 import { StyleRepository } from '../repositories/StyleRepository.js';
-import { AppliedMaterial, ApplyMaterialResult, Material, MaterialStackDetailed, PlayerItem } from '../types/api.types.js';
+import { AppliedMaterial, ApplyMaterialResult, Material, MaterialStackDetailed, PlayerItem, EquipmentSlot } from '../types/api.types.js';
 import { ItemWithDetails } from '../types/repository.types.js';
 import { BusinessLogicError, NotFoundError, ValidationError } from '../utils/errors.js';
 import { computeComboHash } from '../utils/hash.js';
@@ -289,12 +289,11 @@ export class MaterialService {
     })();
 
     const category = (() => {
-      const validCategories = ['weapon', 'armor', 'accessory', 'offhand', 'head', 'feet', 'pet'];
       const providedCategory = itemWithDetails.item_type?.category;
-      if (providedCategory && validCategories.includes(providedCategory)) {
-        return providedCategory as 'weapon' | 'armor' | 'accessory' | 'offhand' | 'head' | 'feet' | 'pet';
+      if (providedCategory) {
+        return this.mapCategoryToEquipmentSlot(providedCategory);
       }
-      return 'weapon'; 
+      return 'weapon';
     })();
 
     const rarity = (() => {
@@ -365,6 +364,37 @@ export class MaterialService {
       is_equipped: false,
       equipped_slot: null
     };
+  }
+
+  private mapCategoryToEquipmentSlot(category: string): EquipmentSlot {
+    switch (category) {
+      case 'weapon':
+      case 'sword':
+      case 'axe':
+      case 'staff':
+      case 'bow':
+        return 'weapon';
+      case 'offhand':
+      case 'shield':
+        return 'offhand';
+      case 'head':
+      case 'helmet':
+        return 'head';
+      case 'armor':
+      case 'chestplate':
+        return 'armor';
+      case 'feet':
+      case 'boots':
+        return 'feet';
+      case 'accessory':
+      case 'ring':
+      case 'necklace':
+        return 'accessory_1';
+      case 'pet':
+        return 'pet';
+      default:
+        throw new Error(`Unknown item category: ${category}`);
+    }
   }
 }
 
