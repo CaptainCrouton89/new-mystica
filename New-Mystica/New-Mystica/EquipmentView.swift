@@ -43,8 +43,7 @@ struct EquipmentSlotView: View {
                         Image(systemName: getSlotIcon())
                             .font(.system(size: 24, weight: .medium))
                             .foregroundColor(Color.borderSubtle)
-
-                        SmallText(getSlotDisplayName())
+                        SmallText(getSlotDisplayName(), size: 11)
                             .foregroundColor(Color.borderSubtle)
                             .multilineTextAlignment(.center)
                             .lineLimit(2)

@@ -54,7 +54,7 @@ struct SmallText: View {
 
     var body: some View {
         Text(text)
-            .font(FontManager.caption)
+            .font(FontManager.primary(size: size))
             .foregroundColor(color ?? Color.textSecondary)
             .kerning(0.2)
             .lineSpacing(1)
