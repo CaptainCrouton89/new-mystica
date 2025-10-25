@@ -10,15 +10,20 @@
  */
 
 import { SupabaseClient } from '@supabase/supabase-js';
-import { BaseRepository } from './BaseRepository.js';
 import { Database } from '../types/database.types.js';
-import { ValidationError, BusinessLogicError } from '../utils/errors.js';
+import { BusinessLogicError, ValidationError } from '../utils/errors.js';
+import { BaseRepository } from './BaseRepository.js';
 
 // Type aliases for cleaner code
 type Pet = Database['public']['Tables']['pets']['Row'];
 type PetInsert = Database['public']['Tables']['pets']['Insert'];
 type PetUpdate = Database['public']['Tables']['pets']['Update'];
-type PetPersonality = Database['public']['Tables']['petpersonalities']['Row'];
+type PetPersonality = Database['public']['Tables']['petpersonalities']['Row'] & {
+  personality_type: string;
+  display_name: string;
+  description?: string;
+  verbosity?: string;
+};
 
 export class PetRepository extends BaseRepository<Pet> {
   constructor(client?: SupabaseClient) {
@@ -144,7 +149,7 @@ export class PetRepository extends BaseRepository<Pet> {
    * @throws ValidationError if history exceeds size limits
    * @throws DatabaseError on update failure
    */
-  async updateChatterHistory(itemId: string, chatterHistory: any): Promise<void> {
+  async updateChatterHistory(itemId: string, chatterHistory: Database['public']['Tables']['pets']['Row']['chatter_history']): Promise<void> {
     // Validate chatter history size to prevent bloat
     this.validateChatterHistory(chatterHistory);
 
@@ -177,7 +182,7 @@ export class PetRepository extends BaseRepository<Pet> {
     }
 
     // Get existing history or initialize empty array
-    const history = (pet.chatter_history as any[]) || [];
+    const history = (pet.chatter_history as Array<{text: string, timestamp: string, type?: string}>) || [];
 
     // Add new message
     history.push(message);
@@ -309,7 +314,7 @@ export class PetRepository extends BaseRepository<Pet> {
       throw this.mapSupabaseError(error);
     }
 
-    return (data as any)?.itemtypes?.category === 'pet';
+    return data?.['itemtypes']?.[0]?.category === 'pet';
   }
 
   /**
@@ -319,7 +324,7 @@ export class PetRepository extends BaseRepository<Pet> {
    * @returns Enhanced pet data with related information
    * @throws DatabaseError on query failure
    */
-  async getPetWithDetails(itemId: string): Promise<any> {
+  async getPetWithDetails(itemId: string): Promise<(Pet & { items: any, petpersonalities: PetPersonality }) | null> {
     const { data, error } = await this.client
       .from('pets')
       .select(`
@@ -431,7 +436,7 @@ export class PetRepository extends BaseRepository<Pet> {
    * @param chatterHistory - History to validate
    * @throws ValidationError if history exceeds limits
    */
-  private validateChatterHistory(chatterHistory: any): void {
+  private validateChatterHistory(chatterHistory: Database['public']['Tables']['pets']['Row']['chatter_history']): void {
     if (!chatterHistory) {
       return; // null/undefined is valid
     }
@@ -461,7 +466,7 @@ export class PetRepository extends BaseRepository<Pet> {
    * @param error - Supabase error
    * @returns Appropriate domain error
    */
-  private mapSupabaseError(error: any): Error {
+  private mapSupabaseError(error: { code?: string, message?: string }): Error {
     // Check for CHECK constraint violation (pet item category)
     if (error.code === '23514' && error.message?.includes('check_pet_item_category')) {
       return new ValidationError('Item must be of category "pet"');

@@ -1,10 +1,10 @@
-import { Request, Response, NextFunction } from 'express';
+import { NextFunction, Request, Response } from 'express';
 import { itemService } from '../services/ItemService';
 import { materialService } from '../services/MaterialService';
 import type {
-  AssignPetPersonalityBody,
   AddPetChatterRequest,
   ApplyMaterialRequest,
+  AssignPetPersonalityBody,
   ReplaceMaterialRequest
 } from '../types/schemas.js';
 
@@ -237,32 +237,11 @@ export class ItemController {
   /**
    * POST /items/:item_id/materials/replace
    * Replace material in slot
+   * TODO: Implement replaceMaterial in MaterialService
    */
   replaceMaterial = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const userId = req.user!.id;
-      const { item_id } = req.params;
-      const { slot_index, new_material_id, new_style_id, gold_cost } = (req.validated?.body || req.body) as ReplaceMaterialRequest;
-
-      const result = await materialService.replaceMaterial({
-        userId,
-        itemId: item_id,
-        slotIndex: slot_index,
-        newMaterialId: new_material_id,
-        newStyleId: new_style_id,
-        goldCost: gold_cost
-      });
-
-      res.json({
-        item: result.updated_item,
-        stats: result.updated_item.current_stats,
-        image_url: result.updated_item.image_url,
-        gold_spent: result.gold_spent,
-        returned_material: result.refunded_material ? {
-          material_id: result.refunded_material.material_id,
-          style_id: result.refunded_material.style_id
-        } : undefined
-      });
+      throw new Error('replaceMaterial not yet implemented');
     } catch (error) {
       next(error);
     }

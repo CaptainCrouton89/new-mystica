@@ -14,6 +14,8 @@ import { Database } from '../types/database.types.js';
 
 // Type definitions from database schema
 type ItemTypeRow = Database['public']['Tables']['itemtypes']['Row'];
+type ItemTypeInsert = Database['public']['Tables']['itemtypes']['Insert'];
+type ItemTypeUpdate = Database['public']['Tables']['itemtypes']['Update'];
 
 /**
  * ItemTypeRepository handles all item type template operations
@@ -51,7 +53,7 @@ export class ItemTypeRepository extends BaseRepository<ItemTypeRow> {
       throw mapSupabaseError(error);
     }
 
-    return data as ItemTypeRow;
+    return data;
   }
 
   /**
@@ -76,7 +78,7 @@ export class ItemTypeRepository extends BaseRepository<ItemTypeRow> {
       throw mapSupabaseError(error);
     }
 
-    return (data || []) as ItemTypeRow[];
+    return data || [];
   }
 
   /**
@@ -105,7 +107,7 @@ export class ItemTypeRepository extends BaseRepository<ItemTypeRow> {
       throw mapSupabaseError(error);
     }
 
-    return (data || []) as ItemTypeRow[];
+    return data || [];
   }
 
   /**
@@ -134,7 +136,7 @@ export class ItemTypeRepository extends BaseRepository<ItemTypeRow> {
       throw mapSupabaseError(error);
     }
 
-    return (data || []) as ItemTypeRow[];
+    return data || [];
   }
 
   /**
@@ -167,7 +169,7 @@ export class ItemTypeRepository extends BaseRepository<ItemTypeRow> {
       throw mapSupabaseError(error);
     }
 
-    return (data || []) as ItemTypeRow[];
+    return data || [];
   }
 
   /**

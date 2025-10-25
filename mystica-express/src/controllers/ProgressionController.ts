@@ -1,17 +1,16 @@
-import { Request, Response, NextFunction } from 'express';
-import { progressionService } from '../services/ProgressionService.js';
-import { economyService } from '../services/EconomyService.js';
+import { NextFunction, Request, Response } from 'express';
 import { analyticsService } from '../services/AnalyticsService.js';
-import {
-  ValidationError,
-  NotFoundError,
-  ConflictError,
-  BusinessLogicError
-} from '../utils/errors.js';
+import { progressionService } from '../services/ProgressionService.js';
 import type {
-  ClaimLevelRewardRequest,
-  AwardExperienceRequest
+  AwardExperienceRequest,
+  ClaimLevelRewardRequest
 } from '../types/schemas.js';
+import {
+  BusinessLogicError,
+  ConflictError,
+  NotFoundError,
+  ValidationError
+} from '../utils/errors.js';
 
 // Import Express type extensions for req.user and req.validated
 import '../types/express.d.ts';
@@ -137,12 +136,12 @@ export class ProgressionController {
         xp_amount,
         source,
         source_id,
-        metadata
+        metadata as Record<string, string | number | boolean | null>
       );
 
       // Track analytics events
       for (const event of result.analytics_events) {
-        await analyticsService.trackEvent(user_id, event.event_type, event.metadata);
+        await analyticsService.trackEvent(user_id, event.event_type, event.metadata as Record<string, string | number | boolean | null>);
       }
 
       res.json({

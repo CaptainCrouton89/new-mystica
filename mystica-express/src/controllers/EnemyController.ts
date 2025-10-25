@@ -2,15 +2,21 @@ import { Request, Response, NextFunction } from 'express';
 import { supabase } from '../config/supabase.js';
 import type { LocationIdParams } from '../types/schemas.js';
 import type { Database } from '../types/database.types.js';
+import { EnemyService } from '../services/EnemyService.js';
 
 type EnemyType = Database['public']['Tables']['enemytypes']['Row'];
 type PlayerCombatHistory = Database['public']['Tables']['playercombathistory']['Row'];
 
 /**
  * Enemy Controller
- * Handles enemy-related endpoints for combat system
+ * Handles enemy-related endpoints for combat system and monster data
  */
 export class EnemyController {
+  private enemyService: EnemyService;
+
+  constructor(enemyService?: EnemyService) {
+    this.enemyService = enemyService || new EnemyService();
+  }
   /**
    * GET /enemies/types
    * Return all enemy personality data from database
@@ -31,8 +37,7 @@ export class EnemyController {
           def_power,
           def_accuracy,
           base_hp,
-          tier_id,
-          style_id
+          tier_id
         `)
         .order('name');
 
@@ -113,6 +118,51 @@ export class EnemyController {
         current_streak: historyData.current_streak,
         longest_streak: historyData.longest_streak,
         last_attempt: historyData.last_attempt
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * GET /enemies/:id
+   * Get complete monster data by ID with images and stats
+   * Public endpoint - no authentication required
+   */
+  getMonsterById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { id } = req.params;
+
+      const monster = await this.enemyService.getMonsterById(id);
+
+      res.json(monster);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * GET /enemies
+   * List all monsters with pagination
+   * Public endpoint - no authentication required
+   */
+  listMonsters = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : 50;
+      const offset = req.query.offset ? parseInt(req.query.offset as string) : 0;
+      const orderBy = (req.query.orderBy as 'name' | 'tier_id') || 'name';
+
+      const monsters = await this.enemyService.listMonsters({
+        limit,
+        offset,
+        orderBy
+      });
+
+      res.json({
+        monsters,
+        count: monsters.length,
+        limit,
+        offset
       });
     } catch (error) {
       next(error);

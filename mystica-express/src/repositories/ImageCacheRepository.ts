@@ -21,7 +21,7 @@ type ItemImageCacheInsert = Database['public']['Tables']['itemimagecache']['Inse
 
 export class ImageCacheRepository extends BaseRepository<ItemImageCacheRow> {
   constructor() {
-    super('itemimagecache' as any);
+    super('itemimagecache');
   }
 
   // ============================================================================
@@ -52,7 +52,7 @@ export class ImageCacheRepository extends BaseRepository<ItemImageCacheRow> {
       throw mapSupabaseError(error);
     }
 
-    return this.mapToItemImageCacheEntry(data as ItemImageCacheRow);
+    return data ? this.mapToItemImageCacheEntry(data) : null;
   }
 
   /**
@@ -108,13 +108,17 @@ export class ImageCacheRepository extends BaseRepository<ItemImageCacheRow> {
         if (existing) {
           return existing;
         }
-        // Fallback if somehow entry doesn't exist after constraint error
+        // Explicitly throw if no existing entry found
         throw new DatabaseError('UNIQUE constraint violation but entry not found', error);
       }
       throw mapSupabaseError(error);
     }
 
-    return this.mapToItemImageCacheEntry(created as ItemImageCacheRow);
+    if (!created) {
+      throw new DatabaseError('Failed to create cache entry - no data returned');
+    }
+
+    return this.mapToItemImageCacheEntry(created);
   }
 
   // ============================================================================
@@ -143,7 +147,11 @@ export class ImageCacheRepository extends BaseRepository<ItemImageCacheRow> {
       throw mapSupabaseError(error);
     }
 
-    return data as number;
+    if (typeof data !== 'number') {
+      throw new DatabaseError('Invalid craft count increment result');
+    }
+
+    return data;
   }
 
   /**
@@ -169,7 +177,7 @@ export class ImageCacheRepository extends BaseRepository<ItemImageCacheRow> {
       throw mapSupabaseError(error);
     }
 
-    return data.craft_count;
+    return data.craft_count ?? 0;
   }
 
   // ============================================================================
@@ -194,7 +202,11 @@ export class ImageCacheRepository extends BaseRepository<ItemImageCacheRow> {
       throw mapSupabaseError(error);
     }
 
-    return (data || []).map(row => this.mapToItemImageCacheEntry(row as ItemImageCacheRow));
+    if (!data) {
+      return [];
+    }
+
+    return data.map(row => this.mapToItemImageCacheEntry(row));
   }
 
   /**
@@ -215,7 +227,11 @@ export class ImageCacheRepository extends BaseRepository<ItemImageCacheRow> {
       throw mapSupabaseError(error);
     }
 
-    return (data || []).map(row => this.mapToItemImageCacheEntry(row as ItemImageCacheRow));
+    if (!data) {
+      return [];
+    }
+
+    return data.map(row => this.mapToItemImageCacheEntry(row));
   }
 
   /**
@@ -236,7 +252,11 @@ export class ImageCacheRepository extends BaseRepository<ItemImageCacheRow> {
       throw mapSupabaseError(error);
     }
 
-    return (data || []).map(row => this.mapToItemImageCacheEntry(row as ItemImageCacheRow));
+    if (!data) {
+      return [];
+    }
+
+    return data.map(row => this.mapToItemImageCacheEntry(row));
   }
 
   /**

@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 | Documentation | When to Read |
 |--------------|--------------|
-| [docs/ai-docs/backend.md](docs/ai-docs/backend.md) | Working on Express routes, controllers, services, middleware, tests, or any TypeScript backend code |
+| [docs/ai-docs/backend.md](docs/ai-docs/backend.md) | Working on Express routes, controllers, services, middleware, or any TypeScript backend code |
 | [docs/ai-docs/frontend.md](docs/ai-docs/frontend.md) | Working on SwiftUI views, navigation, UI components, or iOS/macOS app features |
 | [docs/ai-docs/ai-pipeline.md](docs/ai-docs/ai-pipeline.md) | Working on image generation, R2 storage, material application, or AI service integration |
 | [docs/ai-docs/database.md](docs/ai-docs/database.md) | Working with database schema, migrations, Supabase queries, or environment configuration |
@@ -30,14 +30,12 @@ Monorepo with Express/TypeScript backend (in migration), SwiftUI frontend, AI pi
 pnpm dev           # Hot reload with tsx + nodemon
 pnpm build         # Compile TS → dist/
 pnpm start         # Production mode
-pnpm test          # Run all tests (Jest)
 pnpm supabase:types # Generate types from remote DB
 ```
 
 ### Frontend (New-Mystica/)
 ```bash
 ./build.sh                          # Build for iOS Simulator. Run this when the user asks you to fix xcode build errors
-xcodebuild test -scheme New-Mystica -configuration Debug -destination "platform=iOS Simulator,name=iPhone 17 Pro" # Run unit tests
 ```
 
 ### AI Image Generation (scripts/)
@@ -57,7 +55,7 @@ pnpm generate-raw-image --batch materials --upload --remove-background
 
 ## Key Technologies
 
-- **Backend:** Express.js 4.18.2, TypeScript 5.3.3, Zod 3.22.4, Jest 30.2.0
+- **Backend:** Express.js 4.18.2, TypeScript 5.3.3, Zod 3.22.4
 - **Database:** Supabase PostgreSQL (remote, with PostGIS), @supabase/supabase-js 2.39.3
 - **Frontend:** SwiftUI (iOS 17+, macOS 14+), SwiftData, Google Maps SDK, CoreLocation
 - **AI Services:** Replicate (google/nano-banana, bytedance/seedream-4), OpenAI GPT-4.1-mini

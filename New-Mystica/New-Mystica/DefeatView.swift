@@ -174,36 +174,40 @@ private struct StatCard: View {
 
 // MARK: - Preview
 #Preview {
-    // Create preview AppState with mock combat metadata
-    let previewAppState = AppState()
-    let mockMetadata = CombatMetadata(
-        totalDamageDealt: 127.5,
-        turnsSurvived: 8,
-        highestMultiplier: 2.3,
-        combatHistory: CombatHistory(
-            locationId: "preview-location",
-            totalAttempts: 1,
-            victories: 0,
-            defeats: 1,
-            currentStreak: 0,
-            longestStreak: 0
-        ),
-        enemy: CombatEnemy(
-            id: "preview-enemy",
-            type: "goblin",
-            name: "Goblin Scout",
-            level: 3,
-            atk: 15,
-            def: 10,
-            hp: 50,
-            styleId: "normal",
-            dialogueTone: "aggressive",
-            personalityTraits: ["cocky"]
-        )
-    )
-    previewAppState.setLastCombatMetadata(mockMetadata)
+    @Previewable @State var previewAppState = AppState()
 
-    return DefeatView()
+    let _ = {
+        let mockMetadata = CombatMetadata(
+            totalDamageDealt: 127.5,
+            turnsSurvived: 8,
+            highestMultiplier: 2.3,
+            combatHistory: CombatHistory(
+                locationId: "preview-location",
+                totalAttempts: 1,
+                victories: 0,
+                defeats: 1,
+                currentStreak: 0,
+                longestStreak: 0
+            ),
+            enemy: CombatEnemy(
+                id: "preview-enemy",
+                type: "goblin",
+                name: "Goblin Scout",
+                level: 3,
+                atkPower: 15.0,
+                atkAccuracy: 0.6,
+                defPower: 10.0,
+                defAccuracy: 0.5,
+                hp: 50.0,
+                styleId: "normal",
+                dialogueTone: "aggressive",
+                personalityTraits: ["cocky"]
+            )
+        )
+        previewAppState.setLastCombatMetadata(mockMetadata)
+    }()
+
+    DefeatView()
         .modelContainer(for: Item.self, inMemory: true)
         .environmentObject(NavigationManager())
         .environment(previewAppState)

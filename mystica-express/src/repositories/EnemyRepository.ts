@@ -1,80 +1,52 @@
 /**
  * Enemy Repository - Combat enemy data access layer
  *
- * Handles enemy types, tiers, styles, pools, and combat statistics.
- * Uses v_enemy_realized_stats view for computed stats instead of manual calculation.
+ * Handles enemy types, tiers, enemyloot table, and combat-related queries.
+ * Refactored to support normalized stat system and direct enemyloot table queries.
  */
 
 import { SupabaseClient } from '@supabase/supabase-js';
-import { BaseRepository } from './BaseRepository.js';
 import { supabase } from '../config/supabase.js';
+import { StatsService } from '../services/StatsService.js';
+import type { EnemyLoot, EnemyRealizedStats } from '../types/api.types.js';
 import { Database } from '../types/database.types.js';
-import { mapSupabaseError, NotFoundError } from '../utils/errors.js';
+import { mapSupabaseError, NotFoundError, ValidationError } from '../utils/errors.js';
+import { BaseRepository } from './BaseRepository.js';
 
-// Type aliases for cleaner code
+// Type aliases
 type EnemyType = Database['public']['Tables']['enemytypes']['Row'];
-type EnemyPool = Database['public']['Tables']['enemypools']['Row'];
-type EnemyPoolMember = Database['public']['Tables']['enemypoolmembers']['Row'];
 type Tier = Database['public']['Tables']['tiers']['Row'];
-type StyleDefinition = Database['public']['Tables']['styledefinitions']['Row'];
-type EnemyRealizedStats = Database['public']['Views']['v_enemy_realized_stats']['Row'];
-
-// Enemy-specific interfaces
-export interface EnemyTypeWithPersonality extends EnemyType {
-  ai_personality_traits: Record<string, any> | null;
-}
-
-export interface EnemyStats {
-  atk: number;
-  def: number;
-  hp: number;
-  combat_rating: number;
-}
-
-export interface EnemyPoolWithMembers extends EnemyPool {
-  members: Array<EnemyPoolMember & { enemy_type: EnemyType }>;
-}
-
-export interface CreateEnemyPoolData {
-  name: string;
-  combat_level: number;
-  filter_type: string;
-  filter_value?: string | null;
-}
-
-export interface AddEnemyToPoolData {
-  enemy_pool_id: string;
-  enemy_type_id: string;
-  spawn_weight?: number;
-}
 
 /**
- * Enemy Repository
+ * Enemy Repository manages enemy-related database operations
  *
- * Responsibilities:
- * - Enemy type retrieval with personality data handling
- * - Enemy pool configuration management
- * - Tier-based stat calculation via v_enemy_realized_stats view
- * - Style-based enemy variants and spawn rates
- * - Enemy selection for combat encounters
+ * Key responsibilities:
+ * - Retrieve enemy types with normalized stats
+ * - Join enemytypes with tiers
+ * - Query enemyloot table with polymorphic foreign keys
+ * - Calculate realized stats using normalized system
+ * - Style-based enemy variant support
  */
 export class EnemyRepository extends BaseRepository<EnemyType> {
-  constructor(client: any = supabase) {
+  private statsService: StatsService;
+
+  constructor(client: SupabaseClient<Database> = supabase) {
     super('enemytypes', client);
+    this.statsService = new StatsService();
   }
 
   // ============================================================================
-  // Enemy Types
+  // Enemy Type Queries with Normalized Stats
   // ============================================================================
 
   /**
-   * Find enemy type by ID with personality data type safety
+   * Find enemy type by ID using normalized stat columns
    *
    * @param enemyTypeId - Enemy type UUID
-   * @returns Enemy type with typed personality data or null
+   * @returns Enemy type with normalized stats or null
    * @throws DatabaseError on query failure
    */
-  async findEnemyTypeById(enemyTypeId: string): Promise<EnemyTypeWithPersonality | null> {
+  async findEnemyTypeById(enemyTypeId: string): Promise<EnemyType | null> {
     const { data, error } = await this.client
       .from('enemytypes')
       .select('*')
@@ -88,21 +60,21 @@ export class EnemyRepository extends BaseRepository<EnemyType> {
       throw mapSupabaseError(error);
     }
 
-    return this.hydratePersonalityData(data as EnemyType);
+    return data as EnemyType;
   }
 
   /**
    * Find all enemy types with optional filtering
    *
    * @param options - Optional filter and sort parameters
-   * @returns Array of enemy types with personality data
+   * @returns Array of enemy types with normalized stats
    * @throws DatabaseError on query failure
    */
   async findAllEnemyTypes(options?: {
     limit?: number;
     offset?: number;
     orderBy?: 'name' | 'tier_id';
-  }): Promise<EnemyTypeWithPersonality[]> {
+  }): Promise<EnemyType[]> {
     let query = this.client.from('enemytypes').select('*');
 
     if (options?.orderBy) {
@@ -123,17 +95,17 @@ export class EnemyRepository extends BaseRepository<EnemyType> {
       throw mapSupabaseError(error);
     }
 
-    return (data || []).map(enemy => this.hydratePersonalityData(enemy as EnemyType));
+    return (data || []) as EnemyType[];
   }
 
   /**
    * Find enemy types by tier ID
    *
-   * @param tierId - Tier ID (references Tiers.id, not tier_num)
+   * @param tierId - Tier ID (references tiers.id)
    * @returns Array of enemy types in the tier
    * @throws DatabaseError on query failure
    */
-  async findEnemyTypesByTier(tierId: number): Promise<EnemyTypeWithPersonality[]> {
+  async findEnemyTypesByTier(tierId: number): Promise<EnemyType[]> {
     const { data, error } = await this.client
       .from('enemytypes')
       .select('*')
@@ -144,7 +116,7 @@ export class EnemyRepository extends BaseRepository<EnemyType> {
       throw mapSupabaseError(error);
     }
 
-    return (data || []).map(enemy => this.hydratePersonalityData(enemy as EnemyType));
+    return (data || []) as EnemyType[];
   }
 
   /**
@@ -154,7 +126,7 @@ export class EnemyRepository extends BaseRepository<EnemyType> {
    * @returns Array of enemy types with the style
    * @throws DatabaseError on query failure
    */
-  async findEnemyTypesByStyle(styleId: string): Promise<EnemyTypeWithPersonality[]> {
+  async findEnemyTypesByStyle(styleId: string): Promise<EnemyType[]> {
     const { data, error } = await this.client
       .from('enemytypes')
       .select('*')
@@ -165,27 +137,40 @@ export class EnemyRepository extends BaseRepository<EnemyType> {
       throw mapSupabaseError(error);
     }
 
-    return (data || []).map(enemy => this.hydratePersonalityData(enemy as EnemyType));
+    return (data || []) as EnemyType[];
   }
 
-  // ============================================================================
-  // Enemy Stats (via v_enemy_realized_stats view)
-  // ============================================================================
-
   /**
-   * Get enemy realized stats via v_enemy_realized_stats view
-   *
-   * Uses view instead of manual additive tier scaling calculation.
-   * Formula: base + offset + (tier_adds * (tier_num - 1))
+   * Get styles available for an enemy type
    *
    * @param enemyTypeId - Enemy type UUID
-   * @returns Computed stats with combat rating or null
+   * @returns Array of style IDs from enemytypestyles table
    * @throws DatabaseError on query failure
    */
-  async getEnemyRealizedStats(enemyTypeId: string): Promise<EnemyStats | null> {
+  async getStylesForEnemyType(enemyTypeId: string): Promise<string[]> {
     const { data, error } = await this.client
-      .from('v_enemy_realized_stats')
-      .select('atk, def, hp, combat_rating')
+      .from('enemytypestyles')
+      .select('style_id')
+      .eq('enemy_type_id', enemyTypeId);
+
+    if (error) {
+      throw mapSupabaseError(error);
+    }
+
+    return (data || []).map(row => row.style_id);
+  }
+
+  /**
+   * Find enemy type with associated tier information
+   *
+   * @param enemyTypeId - Enemy type UUID
+   * @returns Object containing enemy type and tier or null
+   * @throws DatabaseError on query failure
+   */
+  async getEnemyTypeWithTier(enemyTypeId: string): Promise<{ enemyType: EnemyType; tier: Tier } | null> {
+    const { data, error } = await this.client
+      .from('enemytypes')
+      .select('*, tiers(*)')
       .eq('id', enemyTypeId)
       .single();
 
@@ -196,301 +181,75 @@ export class EnemyRepository extends BaseRepository<EnemyType> {
       throw mapSupabaseError(error);
     }
 
-    // Handle nullable fields from view
-    if (!data.atk || !data.def || !data.hp || !data.combat_rating) {
-      throw new Error(`Incomplete stats for enemy type ${enemyTypeId}`);
+    // Type guard to ensure data contains the expected structure
+    const isTieredEnemyData = (data: unknown): data is EnemyType & { tiers: Tier } =>
+      typeof data === 'object' && data !== null && 'tiers' in data && (data as EnemyType & { tiers: Tier }).tiers !== null;
+
+    if (!isTieredEnemyData(data)) {
+      throw new NotFoundError('EnemyType', enemyTypeId);
+    }
+
+    // Destructure with type safety
+    const { tiers, ...enemyType } = data;
+
+    return {
+      enemyType: enemyType as EnemyType,
+      tier: tiers,
+    };
+  }
+
+  /**
+   * Get computed enemy realized stats using normalized stat system
+   *
+   * @param enemyTypeId - Enemy type UUID
+   * @param combatLevel - Player's combat level (avg_item_level)
+   * @returns Computed stats (base_atk, base_def, hp) or null if enemy not found
+   * @throws DatabaseError on query failure, error if tier not found
+   */
+  async getEnemyRealizedStats(enemyTypeId: string, combatLevel: number): Promise<EnemyRealizedStats | null> {
+    const tiered = await this.getEnemyTypeWithTier(enemyTypeId);
+    if (!tiered) {
+      return null;
+    }
+
+    const { enemyType, tier } = tiered;
+    const realizedStats = this.statsService.calculateEnemyRealizedStats(enemyType, combatLevel, tier);
+
+    // Calculate HP: base_hp × tier.difficulty_multiplier (NO level scaling)
+    if (!enemyType.base_hp || !tier.difficulty_multiplier) {
+      throw new ValidationError('Enemy type must have base_hp and tier must have difficulty_multiplier');
     }
 
     return {
-      atk: data.atk,
-      def: data.def,
-      hp: data.hp,
-      combat_rating: data.combat_rating
+      ...realizedStats,
+      hp: Math.floor(enemyType.base_hp * tier.difficulty_multiplier)
     };
   }
 
-  /**
-   * Compute combat rating via PostgreSQL function
-   *
-   * @param enemyTypeId - Enemy type UUID
-   * @returns Combat rating for matchmaking
-   * @throws DatabaseError on RPC failure
-   */
-  async computeCombatRating(enemyTypeId: string): Promise<number> {
-    const stats = await this.getEnemyRealizedStats(enemyTypeId);
+  async getEnemyLootTable(enemyTypeId: string, lootableType?: 'material' | 'item_type'): Promise<Array<EnemyLoot & { material_id?: string; item_type_id?: string }>> {
+    let query = this.client.from('enemyloot').select('*').eq('enemy_type_id', enemyTypeId);
 
-    if (!stats) {
-      throw new NotFoundError('enemy_type', enemyTypeId);
+    if (lootableType) {
+      query = query.eq('lootable_type', lootableType);
     }
 
-    return stats.combat_rating;
-  }
-
-  // ============================================================================
-  // Tiers
-  // ============================================================================
-
-  /**
-   * Find tier by ID
-   *
-   * @param tierId - Tier ID (primary key, not tier_num)
-   * @returns Tier data or null
-   * @throws DatabaseError on query failure
-   */
-  async findTierById(tierId: number): Promise<Tier | null> {
-    const { data, error } = await this.client
-      .from('tiers')
-      .select('*')
-      .eq('id', tierId)
-      .single();
+    const { data, error } = await query;
 
     if (error) {
-      if (error.code === 'PGRST116') {
-        return null;
+      throw mapSupabaseError(error);
+    }
+
+    // Transform lootable_id to material_id or item_type_id based on lootable_type
+    return ((data || []) as EnemyLoot[]).map(entry => {
+      const transformed = { ...entry } as EnemyLoot & { material_id?: string; item_type_id?: string };
+
+      if (entry.lootable_type === 'material') {
+        transformed.material_id = entry.lootable_id;
+      } else if (entry.lootable_type === 'item_type') {
+        transformed.item_type_id = entry.lootable_id;
       }
-      throw mapSupabaseError(error);
-    }
 
-    return data as Tier;
-  }
-
-  /**
-   * Get all tiers ordered by tier_num
-   *
-   * @returns Array of all tiers
-   * @throws DatabaseError on query failure
-   */
-  async getAllTiers(): Promise<Tier[]> {
-    const { data, error } = await this.client
-      .from('tiers')
-      .select('*')
-      .order('tier_num');
-
-    if (error) {
-      throw mapSupabaseError(error);
-    }
-
-    return (data || []) as Tier[];
-  }
-
-  // ============================================================================
-  // Styles
-  // ============================================================================
-
-  /**
-   * Find style definition by ID
-   *
-   * @param styleId - Style definition UUID
-   * @returns Style definition or null
-   * @throws DatabaseError on query failure
-   */
-  async findStyleById(styleId: string): Promise<StyleDefinition | null> {
-    const { data, error } = await this.client
-      .from('styledefinitions')
-      .select('*')
-      .eq('id', styleId)
-      .single();
-
-    if (error) {
-      if (error.code === 'PGRST116') {
-        return null;
-      }
-      throw mapSupabaseError(error);
-    }
-
-    return data as StyleDefinition;
-  }
-
-  /**
-   * Get all style definitions ordered by spawn_rate (descending)
-   *
-   * @returns Array of all style definitions
-   * @throws DatabaseError on query failure
-   */
-  async getAllStyles(): Promise<StyleDefinition[]> {
-    const { data, error } = await this.client
-      .from('styledefinitions')
-      .select('*')
-      .order('spawn_rate', { ascending: false });
-
-    if (error) {
-      throw mapSupabaseError(error);
-    }
-
-    return (data || []) as StyleDefinition[];
-  }
-
-  /**
-   * Find style definition by name
-   *
-   * @param styleName - Style name (unique)
-   * @returns Style definition or null
-   * @throws DatabaseError on query failure
-   */
-  async findStyleByName(styleName: string): Promise<StyleDefinition | null> {
-    const { data, error } = await this.client
-      .from('styledefinitions')
-      .select('*')
-      .eq('style_name', styleName)
-      .single();
-
-    if (error) {
-      if (error.code === 'PGRST116') {
-        return null;
-      }
-      throw mapSupabaseError(error);
-    }
-
-    return data as StyleDefinition;
-  }
-
-  // ============================================================================
-  // Pool Management (Admin Operations)
-  // ============================================================================
-
-  /**
-   * Create new enemy pool
-   *
-   * @param poolData - Pool configuration data
-   * @returns Created enemy pool
-   * @throws DatabaseError on insert failure
-   */
-  async createEnemyPool(poolData: CreateEnemyPoolData): Promise<EnemyPool> {
-    const { data, error } = await this.client
-      .from('enemypools')
-      .insert({
-        name: poolData.name,
-        combat_level: poolData.combat_level,
-        filter_type: poolData.filter_type,
-        filter_value: poolData.filter_value || null
-      })
-      .select()
-      .single();
-
-    if (error) {
-      throw mapSupabaseError(error);
-    }
-
-    return data as EnemyPool;
-  }
-
-  /**
-   * Add enemy to pool with spawn weight
-   *
-   * @param poolData - Pool membership data
-   * @throws DatabaseError on insert failure
-   */
-  async addEnemyToPool(poolData: AddEnemyToPoolData): Promise<void> {
-    const { error } = await this.client
-      .from('enemypoolmembers')
-      .insert({
-        enemy_pool_id: poolData.enemy_pool_id,
-        enemy_type_id: poolData.enemy_type_id,
-        spawn_weight: poolData.spawn_weight || 100
-      });
-
-    if (error) {
-      throw mapSupabaseError(error);
-    }
-  }
-
-  /**
-   * Remove enemy from pool
-   *
-   * @param poolId - Enemy pool UUID
-   * @param enemyTypeId - Enemy type UUID
-   * @returns true if removed, false if not found
-   * @throws DatabaseError on delete failure
-   */
-  async removeEnemyFromPool(poolId: string, enemyTypeId: string): Promise<boolean> {
-    const { error, count } = await this.client
-      .from('enemypoolmembers')
-      .delete({ count: 'exact' })
-      .eq('enemy_pool_id', poolId)
-      .eq('enemy_type_id', enemyTypeId);
-
-    if (error) {
-      throw mapSupabaseError(error);
-    }
-
-    return (count || 0) > 0;
-  }
-
-  /**
-   * Find enemy pool with members
-   *
-   * @param poolId - Enemy pool UUID
-   * @returns Pool with enemy type members or null
-   * @throws DatabaseError on query failure
-   */
-  async findEnemyPoolWithMembers(poolId: string): Promise<EnemyPoolWithMembers | null> {
-    // First get the pool
-    const { data: pool, error: poolError } = await this.client
-      .from('enemypools')
-      .select('*')
-      .eq('id', poolId)
-      .single();
-
-    if (poolError) {
-      if (poolError.code === 'PGRST116') {
-        return null;
-      }
-      throw mapSupabaseError(poolError);
-    }
-
-    // Then get members with enemy types
-    const { data: members, error: membersError } = await this.client
-      .from('enemypoolmembers')
-      .select(`
-        *,
-        enemy_type:enemytypes(*)
-      `)
-      .eq('enemy_pool_id', poolId);
-
-    if (membersError) {
-      throw mapSupabaseError(membersError);
-    }
-
-    return {
-      ...(pool as EnemyPool),
-      members: (members || []).map(member => ({
-        ...member,
-        enemy_type: member.enemy_type as EnemyType
-      }))
-    };
-  }
-
-  // ============================================================================
-  // Private Helper Methods
-  // ============================================================================
-
-  /**
-   * Hydrate personality JSON fields with type safety
-   *
-   * Handles JSON/TEXT fields: ai_personality_traits
-   *
-   * @param enemy - Raw enemy type from database
-   * @returns Enemy with typed personality data
-   */
-  private hydratePersonalityData(enemy: EnemyType): EnemyTypeWithPersonality {
-    const result: EnemyTypeWithPersonality = {
-      ...enemy,
-      ai_personality_traits: null
-    };
-
-    // Type-safe JSON parsing with fallbacks
-    try {
-      if (enemy.ai_personality_traits) {
-        result.ai_personality_traits = typeof enemy.ai_personality_traits === 'string'
-          ? JSON.parse(enemy.ai_personality_traits)
-          : enemy.ai_personality_traits as Record<string, any>;
-      }
-    } catch (e) {
-      // Log warning but don't throw - personality data is optional
-      console.warn(`Invalid ai_personality_traits JSON for enemy ${enemy.id}:`, e);
-    }
-
-
-    return result;
+      return transformed;
+    });
   }
 }

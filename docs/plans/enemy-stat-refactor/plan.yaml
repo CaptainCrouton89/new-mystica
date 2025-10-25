@@ -1,0 +1,374 @@
+# Implementation Plan – Enemy Stat & Loot System Refactor
+
+# Overview
+overview:
+  related_items:
+    feature_specs: []
+    user_stories: []
+    user_flows: []
+  related_docs: |
+    - "docs/EnemyStatRefactor.md" (primary requirements doc)
+    - "docs/api-contracts.yaml" (CombatSession, Enemy schemas)
+    - "docs/product-requirements.yaml" (F-02 Combat System)
+    - "docs/system-design.yaml" (Combat Service, Loot System)
+    - "mystica-express/src/types/database.types.ts" (current schema types)
+
+# Problem (for fixes/refactors)
+problem: |
+  Current enemy stat system uses absolute values that don't scale with player progression, resulting in
+  unbalanced combat at different levels. HP inflates at high levels creating HP sponge effects. Loot system
+  uses complex pool tables (lootpools, lootpoolentries, lootpooltierweights) that are overly complex for
+  simple enemy-specific drops. Database migrations are complete but application code still uses old stat
+  calculations and loot pool queries.
+
+# Solution
+solution: |
+  Refactor enemy stats to use normalized distribution (sum to 1.0) that scales with player combat level via
+  8 × combat_level × tier.difficulty_multiplier formula, matching player stat parity. HP becomes absolute
+  value multiplied only by tier (no level scaling) to maintain consistent combat duration. Replace loot pool
+  system with direct enemyloot table using polymorphic FK (lootable_type + lootable_id) for materials and
+  item_types. Update all combat code to use new stat calculations, zone-based accuracy system, and direct
+  loot queries. Ensure style inheritance (enemy.style_id → material.style_id) works correctly.
+
+# Current System
+current_system:
+  description: |
+    Database schema updated (2025-01-24):
+    - enemytypes: Has atk_power_normalized, def_power_normalized, atk_accuracy_normalized, def_accuracy_normalized (0-1.0, sum=1.0), base_hp (absolute)
+    - tiers: Has difficulty_multiplier, gold_multiplier, xp_multiplier (removed additive bonuses)
+    - enemyloot: New table with (enemy_type_id, lootable_type, lootable_id, drop_weight, guaranteed)
+    - combatsessions: Removed applied_loot_pools column (still in types due to cache, will update next migration)
+    - Deleted tables: lootpools, lootpoolentries, lootpooltierweights
+
+    Application code (outdated):
+    - mystica-express/src/services/CombatService.ts: Uses old stat calculation, references loot pools
+    - mystica-express/src/services/StatsService.ts: Old stat formulas with absolute values
+    - mystica-express/src/repositories/EnemyRepository.ts: Queries old schema
+    - mystica-express/src/controllers/CombatController.ts: Returns old stat structure
+
+    Zone system documented but not implemented:
+    - 5-zone hit system (zone 1-5 with multipliers 1.5x, 1.25x, 1.0x, 0.75x, 0.5x)
+    - Crit mechanics (100%, 75%, 50%, 25%, 0% crit chance by zone)
+    - Accuracy-based zone probability distribution (calculateZoneProbabilities function in EnemyStatRefactor.md:278-355)
+
+# Changes Required
+changes_required:
+  - path: "mystica-express/src/types/database.types.ts"
+    changes: |
+      - Re-run `pnpm supabase:types` to update with latest schema (remove applied_loot_pools from CombatSessions)
+      - Verify enemytypes has normalized stat columns, base_hp
+      - Verify tiers has multiplier columns (not additive)
+      - Verify enemyloot table exists with polymorphic structure
+      - Add TSDoc comments documenting normalized stat system and HP scaling rules
+
+  - path: "mystica-express/src/types/combat.types.ts"
+    changes: |
+      - Update EnemyStats interface to use normalized fields (atk_power_normalized, etc.)
+      - Add ZoneHitInfo type (used in API responses - MUST include crit information for frontend UI):
+        interface ZoneHitInfo {
+          zone: 1 | 2 | 3 | 4 | 5;
+          zone_multiplier: number;
+          crit_occurred: boolean;        // Frontend needs this to show "CRITICAL HIT!" UI
+          crit_multiplier: number | null;  // null when no crit, otherwise 1.0-2.0x (frontend shows exact bonus %)
+          final_damage: number;
+        }
+        NOTE: Frontend will display crit UI animations/effects based on crit_occurred flag and show the exact multiplier (e.g., "CRIT! 1.8x damage")
+      - Add ZoneDistribution type matching EnemyStatRefactor.md:262-268:
+        type ZoneDistribution = { zone1: number; zone2: number; zone3: number; zone4: number; zone5: number; }
+      - Add EnemyRealizedStats type with base_atk, base_def, hp (computed values)
+      - Add EnemyLoot type for repository queries:
+        interface EnemyLoot {
+          id: string;
+          enemy_type_id: string;
+          lootable_type: 'material' | 'item_type';
+          lootable_id: string;
+          drop_weight: number;
+          guaranteed: boolean;
+        }
+      - Remove references to loot pool types
+
+  - path: "mystica-express/src/services/StatsService.ts"
+    changes: |
+      - Add calculateZoneProbabilities(accuracy: number): ZoneDistribution function from EnemyStatRefactor.md:278-355
+      - Add simulateEnemyZoneHit(accuracy: number): 1 | 2 | 3 | 4 | 5 function
+        - Returns the zone number hit (1-5) based on weighted random using zone distribution
+        - Implementation: const dist = calculateZoneProbabilities(accuracy); return weightedRandomZone(dist);
+      - Add getCritMultiplier(zone: 1 | 2 | 3 | 4 | 5): number function
+        - ALWAYS returns a number (1.0 if no crit, or RNG-rolled bonus if crit occurs)
+        - Zone 1: 100% crit chance, rolls 1.5-2.0x
+        - Zone 2: 75% crit chance, rolls 1.2-1.7x
+        - Zone 3: 50% crit chance, rolls 1.1-1.5x
+        - Zone 4: 25% crit chance, rolls 1.1-1.2x
+        - Zone 5: 0% crit chance, returns 1.0x
+        - Note: API responses check (multiplier > 1.0) to set crit_occurred flag
+      - Add calculateEnemyRealizedStats(enemyType: EnemyType, combatLevel: number, tier: Tier): EnemyRealizedStats function
+        - enemy_base_atk = atk_power_normalized × 8 × combat_level × difficulty_multiplier
+        - enemy_base_def = def_power_normalized × 8 × combat_level × difficulty_multiplier
+        - enemy_hp = base_hp × difficulty_multiplier (NO combat_level factor)
+      - Update calculatePlayerStats to include zone multipliers in damage calculation
+      - Add applyZoneModifiers(baseStat: number, zone: 1 | 2 | 3 | 4 | 5, critMultiplier: number): number helper
+        - Applies zone multiplier (1.5x, 1.25x, 1.0x, 0.75x, 0.5x) and crit multiplier to base stat
+        - Returns: baseStat × zoneMultipliers[zone-1] × critMultiplier
+
+  - path: "mystica-express/src/repositories/EnemyRepository.ts"
+    changes: |
+      - Update getEnemyTypeById to select normalized stat columns (atk_power_normalized, etc.)
+      - Add getEnemyLootTable(enemy_type_id, lootable_type?): Promise<EnemyLoot[]> query
+      - Remove all loot pool query methods (getLootPoolsForLocation, etc.)
+      - Add getEnemyTypeWithTier(enemy_type_id) to join with tiers table
+      - Update return types to match new schema (remove absolute stat fields)
+
+  - path: "mystica-express/src/services/CombatService.ts"
+    changes: |
+      - Update startCombat to:
+        - Fetch enemy with normalized stats and tier
+        - Call StatsService.calculateEnemyRealizedStats(enemy, player.avg_item_level, tier)
+        - Store realized stats in session (not normalized)
+        - Remove loot pool queries and applied_loot_pools assignment
+      - Update executeAttack to:
+        - Simulate enemy zone hit using StatsService.simulateEnemyZoneHit(enemy.atk_accuracy_normalized)
+        - Apply zone multiplier and crit to enemy_base_atk
+        - Calculate final damage with zone modifiers
+      - Update executeDefense to:
+        - Use player's defense zone hit (from client input)
+        - Apply zone multiplier to player_base_def
+        - Calculate damage reduction with zone modifiers
+      - Update completeCombat to:
+        - Remove loot pool references
+        - Call new generateLoot method with direct enemy loot queries
+        - Apply style inheritance (enemy.style_id → material.style_id)
+      - Add generateLoot(enemyTypeId, enemyStyleId, combatLevel, tierMultipliers) method:
+        - Query enemyloot WHERE enemy_type_id = {id} AND lootable_type = 'material'
+        - Weighted random material selection
+        - Apply style_id = enemy.style_id if enemy.style_id !== 'normal'
+        - Query enemyloot WHERE lootable_type = 'item_type' (optional drop)
+        - Calculate gold = 10 × combat_level × tier.gold_multiplier
+        - Calculate xp = 20 × combat_level × tier.xp_multiplier
+        - Return { materials: [{material_id, style_id, quantity}], items: [], gold, xp }
+
+  - path: "mystica-express/src/controllers/CombatController.ts"
+    changes: |
+      - Update startCombat response to return realized stats (not normalized)
+      - Update completeCombat response: CombatRewards already uses MaterialStack type which includes style_id
+      - Add zone hit information to attack/defense responses using nested structure (CRITICAL for frontend UI):
+        {
+          player_damage: { zone, zone_multiplier, crit_occurred, crit_multiplier, final_damage },
+          enemy_damage: { zone, zone_multiplier, crit_occurred, crit_multiplier, final_damage },
+          player_hp_remaining, enemy_hp_remaining, combat_status
+        }
+        (Matches api-contracts.yaml:1230-1269 exactly)
+        IMPORTANT: Both player_damage AND enemy_damage MUST include crit_occurred boolean and crit_multiplier (null if no crit, actual multiplier if crit)
+        Frontend will use these fields to:
+        - Display "CRITICAL HIT!" animations/effects when crit_occurred=true
+        - Show exact damage bonus percentage (e.g., "1.6x CRIT DAMAGE")
+        - Apply different visual effects based on crit_multiplier magnitude
+      - Remove loot pool fields from responses
+      - Update API response schema to match api-contracts.yaml (CombatSession, Enemy, CombatRewards)
+
+  - path: "mystica-express/src/repositories/MaterialRepository.ts"
+    changes: |
+      - Update createMaterialStack to accept style_id parameter
+      - Update MaterialStack queries to filter by (user_id, material_id, style_id) composite key
+      - Add getMaterialStackByCompositeKey(user_id, material_id, style_id) method
+      - Ensure all material operations preserve style_id
+
+  - path: "mystica-express/src/services/MaterialService.ts"
+    changes: |
+      - Update applyMaterial to check style_id when creating MaterialInstance
+      - Update material combo hash calculation to include style_ids (sorted order)
+      - Ensure is_styled flag set correctly (ANY applied material has style_id !== 'normal')
+      - Update image generation to pass all style_ids for visual consistency
+
+  - path: "scripts/migrations/populate-enemyloot.sql" (NEW FILE)
+    changes: |
+      - Create SQL script to populate enemyloot table with initial loot assignments
+      - For each enemy type, insert material drops with weights
+      - Example: Spray Paint Goblin → Gum (100), Coffee (80), Feather (60)
+      - Higher tier enemies get better materials (Rainbow, Diamond for Tier 3-5)
+      - Optional item drops for rare loot (10% Enormous Key, 5% Umbrella)
+      - Set guaranteed=true for styled enemy guaranteed drops (if needed)
+
+  - path: "docs/api-contracts.yaml"
+    changes: |
+      - Update Enemy schema to use normalized stat fields (lines 382-404)
+      - Update CombatSession schema to remove applied_loot_pools (line 409)
+      - CombatRewards already includes style_id in materials array (verified at lines 1230-1269)
+      - Zone hit information already documented in attack/defend responses (lines 1230-1269)
+      - Verify all zone system documentation is accurate and complete
+
+  - path: "mystica-express/src/types/api.types.ts" (if exists)
+    changes: |
+      - Update API response types to match new combat/enemy schemas
+      - Add ZoneHitInfo type for attack/defense responses (if not already in combat.types.ts)
+      - CombatRewards already uses MaterialStack which includes style_id - no changes needed
+
+  - path: "tests/services/CombatService.test.ts" (if exists)
+    changes: |
+      - Update test fixtures to use normalized enemy stats
+      - Add tests for zone-based damage calculations
+      - Add tests for style inheritance in loot drops
+      - Add tests for HP scaling (tier only, not combat level)
+      - Update mocks to remove loot pool dependencies
+
+  - path: "tests/services/StatsService.test.ts" (if exists)
+    changes: |
+      - Add tests for calculateZoneProbabilities edge cases (accuracy 0.0, 0.5, 1.0)
+      - Add tests for simulateEnemyZoneHit distribution
+      - Add tests for crit multiplier RNG by zone
+      - Add tests for calculateEnemyRealizedStats formula accuracy
+      - Verify HP does NOT scale with combat_level
+
+# Task Breakdown
+task_breakdown:
+  - id: "T1"
+    description: "Regenerate database types and create zone/stat calculation utilities. Update database.types.ts to reflect new schema (remove applied_loot_pools, add normalized stats). Create ZoneDistribution and helper types in combat.types.ts. Implement calculateZoneProbabilities, simulateEnemyZoneHit, getCritMultiplier, and calculateEnemyRealizedStats in StatsService.ts following exact formulas from EnemyStatRefactor.md."
+    agent: "junior-engineer"
+    depends_on: []
+    files:
+      - "mystica-express/src/types/database.types.ts"
+      - "mystica-express/src/types/combat.types.ts"
+      - "mystica-express/src/services/StatsService.ts"
+    exit_criteria: "Types regenerated with no compile errors. Zone probability function returns valid distribution summing to 1.0. Crit multiplier returns correct ranges by zone. Realized stats formula matches specification (HP = base_hp × tier.difficulty_multiplier, atk/def = normalized × 8 × combat_level × tier × 10)."
+
+  - id: "T2"
+    description: "Update EnemyRepository to query new schema and support enemyloot table. Replace loot pool queries with getEnemyLootTable(enemy_type_id, lootable_type). Update getEnemyTypeById to select normalized stat columns. Add getEnemyTypeWithTier to join with tiers table. Remove all loot pool methods (getLootPoolsForLocation, etc.)."
+    agent: "junior-engineer"
+    depends_on: ["T1"]
+    files:
+      - "mystica-express/src/repositories/EnemyRepository.ts"
+      - "mystica-express/src/repositories/MaterialRepository.ts"
+    exit_criteria: "EnemyRepository queries use normalized fields. getEnemyLootTable returns correct polymorphic FK structure. MaterialRepository supports style_id in all queries. No references to lootpools/lootpoolentries tables. All queries compile and return correct types."
+
+  - id: "T3"
+    description: "Refactor CombatService to use new stat system, zone mechanics, and direct loot queries. Update startCombat to calculate realized stats (not query pools). Update executeAttack/executeDefense to simulate zone hits and apply modifiers. Replace generateLoot to query enemyloot table directly, apply style inheritance (enemy.style_id → material.style_id), calculate gold/XP with tier multipliers. Remove all loot pool logic."
+    agent: "programmer"
+    depends_on: ["T1", "T2"]
+    files:
+      - "mystica-express/src/services/CombatService.ts"
+      - "mystica-express/src/services/MaterialService.ts"
+    exit_criteria: "Combat uses zone-based damage calculation. Enemy attacks simulate zone hits using accuracy. Loot generation queries enemyloot table. Style inheritance works (styled enemies drop styled materials). Gold = 10 × level × tier.gold_multiplier, XP = 20 × level × tier.xp_multiplier. HP only scales with tier, not combat level. No loot pool references."
+
+  - id: "T4"
+    description: "Update CombatController to return new stat structure and zone information including critical hit data. Update startCombat response to include realized stats (base_atk, base_def, hp). Update attack/defense responses to include FULL zone hit info (zone, zone_multiplier, crit_occurred, crit_multiplier) for BOTH player_damage AND enemy_damage. Update completeCombat response to include material style_id. Remove loot pool fields from all responses. CRITICAL: Ensure crit_occurred boolean and crit_multiplier are included for frontend UI/UX."
+    agent: "junior-engineer"
+    depends_on: ["T3"]
+    files:
+      - "mystica-express/src/controllers/CombatController.ts"
+      - "mystica-express/src/types/api.types.ts"
+    exit_criteria: "API responses match api-contracts.yaml schemas. Zone information (including crit_occurred and crit_multiplier) included in attack/defense responses for both player and enemy. Material rewards include style_id. No applied_loot_pools field. Responses compile with correct TypeScript types. Crit data present for frontend consumption."
+
+  - id: "T6"
+    description: "Update api-contracts.yaml to document new combat system including critical hit mechanics. Update Enemy schema to use normalized stats (remove absolute fields). Remove applied_loot_pools from CombatSession. Add style_id to CombatRewards.material. Add COMPLETE zone hit information to attack/defend responses (zone, zone_multiplier, crit_occurred, crit_multiplier). Document zone system, crit mechanics, and HP scaling rules in descriptions. Explicitly note that frontend uses crit fields for UI/animations."
+    agent: "junior-engineer"
+    depends_on: ["T4"]
+    files:
+      - "docs/api-contracts.yaml"
+    exit_criteria: "API contract reflects new schema accurately. Enemy has normalized stat fields only. CombatSession has no applied_loot_pools. Material rewards include style_id. Zone mechanics AND crit mechanics documented with clear frontend usage notes. HP scaling rules clearly stated (tier only, not level). Crit fields (crit_occurred, crit_multiplier) documented in response schemas."
+
+  - id: "T7"
+    description: "Write comprehensive tests for zone mechanics and stat calculations. Test calculateZoneProbabilities edge cases (0.0, 0.5, 1.0 accuracy, verify sum=1.0). Test simulateEnemyZoneHit distribution over 1000 samples. Test crit multiplier RNG by zone. Test calculateEnemyRealizedStats formula (verify HP = base_hp × tier, atk/def scale with level). Test combat damage with zone multipliers. Test style inheritance in loot drops."
+    agent: "programmer"
+    depends_on: ["T3"]
+    files:
+      - "mystica-express/src/services/StatsService.test.ts"
+      - "mystica-express/src/services/CombatService.test.ts"
+    exit_criteria: "All tests pass. Zone probability distribution validated mathematically. Crit RNG tested for all zones. Realized stats match specification. Style inheritance verified (enemy.style_id = material.style_id). Combat flow tested end-to-end with new system. Test coverage >80% for modified services."
+
+  - id: "T8"
+    description: "Run enemyloot population script and validate database state. Execute populate-enemyloot.sql against Supabase database. Verify all enemy types have loot entries. Verify material weights follow tier progression. Test loot generation via combat endpoint. Validate style inheritance works in production database. Check for orphaned loot pool tables (should be deleted)."
+    agent: "junior-engineer"
+    depends_on: ["T6", "T7"]
+    files:
+      - "scripts/migrations/populate-enemyloot.sql"
+    exit_criteria: "Enemyloot table populated with all enemy types. Material drops follow tier design philosophy. Combat loot drops work correctly (verified via API). Styled enemies drop styled materials (verified in database). Old loot pool tables confirmed deleted. No database errors or constraint violations."
+
+  - id: "T9"
+    description: "Integration testing and validation. Run full combat flow (start → attack → defense → complete) via API. Verify zone mechanics work correctly (damage varies by zone/crit). Verify HP does NOT scale with combat level (only tier). Verify loot drops use enemyloot table (materials + optional items). Verify style inheritance (styled enemy → styled material → item.is_styled). Run build, fix any TypeScript errors. Update EnemyStatRefactor.md status to ✅ Complete."
+    agent: "senior-engineer"
+    depends_on: ["T8"]
+    files:
+      - "mystica-express/"
+      - "docs/EnemyStatRefactor.md"
+    exit_criteria: "Full combat flow works end-to-end. Zone-based damage calculation verified. HP scaling verified (tier only). Loot system verified (enemyloot table). Style inheritance verified. Build passes with no errors. Documentation updated to reflect completion. API responses match api-contracts.yaml."
+
+# Data/Schema Changes (if any)
+data_schema_changes:
+  migrations:
+    - file: "scripts/migrations/populate-enemyloot.sql"
+      summary: "✅ COMPLETED: Populate enemyloot table with initial material and item drop assignments for all enemy types, following tier-based loot design philosophy. Script created with tier-appropriate loot (common mats for Tier 1, epic for Tier 4-5), idempotent with ON CONFLICT DO NOTHING."
+
+  api_changes:
+    - endpoint: "POST /combat/start"
+      changes: "Response includes realized enemy stats (base_atk, base_def, hp) instead of normalized stats. No applied_loot_pools field."
+
+    - endpoint: "POST /combat/attack"
+      changes: "Response includes zone hit information (zone, zone_multiplier, crit_multiplier) in addition to damage values."
+
+    - endpoint: "POST /combat/defend"
+      changes: "Response includes zone hit information for defense effectiveness in addition to damage blocked."
+
+    - endpoint: "POST /combat/complete"
+      changes: "Rewards include material style_id field. Materials inherit enemy's style_id for visual consistency."
+
+# Expected Result
+expected_result:
+  outcome: |
+    Enemy combat stats scale linearly with player progression using normalized distribution system
+    (atk/def = normalized × 8 × combat_level × tier × 10). HP maintains consistent combat duration
+    (hp = base_hp × tier.difficulty_multiplier, NO combat_level factor). Zone-based combat provides
+    skill expression (5 zones with multipliers and crit chances). Loot system simplified to direct
+    enemyloot queries (no complex pool tables). Style inheritance ensures visual consistency
+    (styled enemy → styled material → styled item). All API endpoints return correct schema.
+    Full test coverage validates mechanics. Database populated with tier-appropriate loot tables.
+
+  example: |
+    Combat at level 10 vs Tier 2 (Normal) Spray Paint Goblin:
+    - Enemy base_atk = 0.33 × 8 × 10 × 1.0 × 10 = 264
+    - Enemy base_def = 0.33 × 8 × 10 × 1.0 × 10 = 264
+    - Enemy hp = 1200 × 1.0 = 1200 (tier only, NOT 12000)
+    - Enemy attack hits zone 2 (accuracy 0.6 → ~50% zone 1, ~45% zone 2, ~5% zones 3-5)
+    - Zone 2 multiplier = 1.25x, crit chance 75%, crit bonus 1.2-1.7x (if rolled)
+    - Final damage = 264 × 1.25 × (crit_multiplier if crit) = 330-561
+    - Loot: 1 material (Gum/Coffee/Feather weighted random), optional item, 100 gold, 200 XP
+    - If enemy has style_id='pixel_art', material gets style_id='pixel_art'
+
+# Implementation Clarifications
+implementation_clarifications:
+  type_signatures:
+    - "simulateEnemyZoneHit returns literal union type (1 | 2 | 3 | 4 | 5), not generic number"
+    - "getCritMultiplier ALWAYS returns number (1.0 if no crit), never null"
+    - "API responses use crit_multiplier: number | null where null means 'no crit occurred in response'"
+    - "ZoneHitInfo.crit_occurred = (crit_multiplier > 1.0) - check in controller, not service"
+    - "BOTH player_damage AND enemy_damage in attack/defense responses MUST include crit_occurred and crit_multiplier"
+    - "Frontend needs crit data for UI: crit_occurred triggers animations, crit_multiplier shows exact bonus (e.g., '1.6x CRIT!')"
+
+  existing_contracts:
+    - "CombatRewards already uses MaterialStack type which includes style_id field"
+    - "No changes needed to MaterialStack - style_id support already exists"
+    - "api-contracts.yaml already documents zone system at lines 1230-1269"
+    - "Attack/defense response structure already specified with player_damage/enemy_damage nested objects"
+
+  polymorphic_fk:
+    - "EnemyLoot queries return base interface { lootable_type, lootable_id, drop_weight, guaranteed }"
+    - "Application code determines FK target (materials vs item_types) via lootable_type discriminator"
+    - "No database-level FK constraints on polymorphic lootable_id - validation in application logic"
+
+  crit_mechanics:
+    - "Zone 5 has 0% crit chance but getCritMultiplier still returns 1.0 (no-op multiplier)"
+    - "Crit bonus ranges: Zone 1 (1.5-2.0x), Zone 2 (1.2-1.7x), Zone 3 (1.1-1.5x), Zone 4 (1.1-1.2x), Zone 5 (1.0x)"
+    - "Random roll occurs AFTER crit chance check passes - uniform distribution within range"
+
+# Notes (optional)
+notes:
+  - "Database migrations already applied (2025-01-24) - no additional schema changes needed"
+  - "Type regeneration will remove applied_loot_pools from CombatSessions once types refresh"
+  - "Zone probability distribution uses smooth anchor-driven curves (see EnemyStatRefactor.md:278-355)"
+  - "Crit mechanics can occur in ANY zone (even zone 5 via 0% chance), chance decreases linearly 100%→0%"
+  - "Loot design: Tier 1 = common materials, Tier 3-5 = epic materials, manual curation"
+  - "Style inheritance chain: enemy.style_id → material.style_id → item.is_styled"
+  - "EnemyStatRefactor.md is the source of truth for all formulas and mechanics"
+  - "Post-implementation: Update frontend to display zone information and styled material borders"
+  - "Consider adding v_enemy_realized_stats view after validation (pre-compute HP, store normalized stats)"
+
+# Next
+next: "/manage-project/implement/execute enemy-stat-refactor"
