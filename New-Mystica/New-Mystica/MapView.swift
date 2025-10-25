@@ -15,6 +15,10 @@ struct MapView: View, NavigableView {
     @State private var selectedLocationForCombat: Location?
 
     var navigationTitle: String { "Map" }
+    
+    init() {
+        print("🗺️ MapView: Initializing MapView")
+    }
 
 
     private func updatePositionToUserLocation() {
@@ -46,15 +50,21 @@ struct MapView: View, NavigableView {
                 }
             }
         }
+        .onAppear {
+            print("🗺️ MapView: View appeared - authorizationStatus: \(viewModel.authorizationStatus), locationPermissionDenied: \(viewModel.locationPermissionDenied), nearbyLocations: \(viewModel.nearbyLocations)")
+        }
         .task {
-                requestLocationPermissionIfNeeded()
+            print("🗺️ MapView: Task started - requesting location permission and starting updates")
+            requestLocationPermissionIfNeeded()
             viewModel.startLocationUpdates()
         }
         .onDisappear {
-                viewModel.stopLocationUpdates()
+            print("🗺️ MapView: View disappearing - stopping location updates")
+            viewModel.stopLocationUpdates()
         }
         .onChange(of: viewModel.userLocation?.latitude) { _, _ in
-                if let userLoc = viewModel.userLocation {
+            print("🗺️ MapView: User location changed - updating camera position")
+            if let userLoc = viewModel.userLocation {
                 withAnimation {
                     position = .camera(MapCamera(
                         centerCoordinate: userLoc,
@@ -113,6 +123,9 @@ struct MapView: View, NavigableView {
                     }
                 }
                 .ignoresSafeArea()
+                .onAppear {
+                    print("🗺️ MapView: Map appeared with \(locations.count) locations")
+                }
 
                 VStack(alignment: .trailing, spacing: 12) {
                     Button(action: {
@@ -133,9 +146,13 @@ struct MapView: View, NavigableView {
                 .padding(.trailing, 16)
             }
         } retry: {
+            print("🗺️ MapView: Retry button tapped - refreshing nearby locations")
             Task {
                 await viewModel.refreshNearbyLocations()
             }
+        }
+        .onAppear {
+            print("🗺️ MapView: mapContentView appeared with nearbyLocations state: \(viewModel.nearbyLocations)")
         }
     }
 
