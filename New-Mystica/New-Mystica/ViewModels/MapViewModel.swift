@@ -73,9 +73,9 @@ final class MapViewModel: NSObject, CLLocationManagerDelegate {
 
     func loadNearbyLocations() async {
         print("🗺️ MapViewModel: Loading nearby locations")
-        guard let currentLocation = userLocation else { 
+        guard let currentLocation = userLocation else {
             print("🗺️ MapViewModel: No user location available, skipping nearby locations load")
-            return 
+            return
         }
 
         print("🗺️ MapViewModel: User location available: \(currentLocation.latitude), \(currentLocation.longitude)")
@@ -83,11 +83,25 @@ final class MapViewModel: NSObject, CLLocationManagerDelegate {
 
         do {
             print("🗺️ MapViewModel: Fetching nearby locations from repository")
-            let locations = try await repository.fetchNearby(
+            var locations = try await repository.fetchNearby(
                 userLocation: (latitude: currentLocation.latitude, longitude: currentLocation.longitude),
                 radiusKm: 5.0
             )
             print("🗺️ MapViewModel: Successfully loaded \(locations.count) nearby locations")
+
+            // Auto-generate if no locations exist within 100m
+            if locations.isEmpty || !hasLocationWithin100m(locations: locations, userLocation: currentLocation) {
+                print("🗺️ MapViewModel: No locations within 100m, attempting auto-generate")
+                if let newLocation = try await repository.autoGenerate(
+                    userLocation: (latitude: currentLocation.latitude, longitude: currentLocation.longitude)
+                ) {
+                    print("🗺️ MapViewModel: Successfully auto-generated location: \(newLocation.name)")
+                    locations.append(newLocation)
+                } else {
+                    print("🗺️ MapViewModel: Auto-generate returned nil (location already exists)")
+                }
+            }
+
             nearbyLocations = .loaded(locations)
         } catch let error as AppError {
             print("🗺️ MapViewModel: AppError loading nearby locations: \(error)")
@@ -95,6 +109,16 @@ final class MapViewModel: NSObject, CLLocationManagerDelegate {
         } catch {
             print("🗺️ MapViewModel: Unknown error loading nearby locations: \(error)")
             nearbyLocations = .error(.unknown(error))
+        }
+    }
+
+    private func hasLocationWithin100m(locations: [Location], userLocation: CLLocationCoordinate2D) -> Bool {
+        let userCLLocation = CLLocation(latitude: userLocation.latitude, longitude: userLocation.longitude)
+
+        return locations.contains { location in
+            let locationCL = CLLocation(latitude: location.lat, longitude: location.lng)
+            let distance = userCLLocation.distance(from: locationCL)
+            return distance <= 100.0
         }
     }
 
@@ -161,6 +185,11 @@ final class MapViewModel: NSObject, CLLocationManagerDelegate {
             case .network:
                 print("🗺️ MapViewModel: Network error")
                 nearbyLocations = .error(.networkError(NSError(domain: "LocationService", code: -1, userInfo: [NSLocalizedDescriptionKey: "Location service network error"])))
+            case .locationUnknown:
+                print("🗺️ MapViewModel: Location unknown (likely simulator without location set)")
+                // Don't set error state immediately - wait for valid location
+                // Simulator often sends this error before getting actual location
+                break
             default:
                 print("🗺️ MapViewModel: Other CLError: \(clError)")
                 nearbyLocations = .error(.unknown(error))
