@@ -4,7 +4,7 @@ openapi: 3.0.0
 info:
   title: New Mystica API
   version: 2.5.0
-  description: RESTful API for New Mystica location-based RPG with 8-slot equipment system, loadout management (F-09), material-based item crafting system (F-04), item upgrades (F-06), pet personalities (F-11), enemy AI personalities (F-12), and style system (F-13)
+  description: RESTful API for New Mystica location-based RPG with 8-slot equipment system, loadout management (F-09), material-based item crafting system (F-04), item upgrades (F-06), pet personalities (F-11), enemy AI personalities (F-12), probabilistic enemy style selection (F-13), and style system
 servers:
   - url: https://api.mystica.app/v1
     description: Production server
@@ -380,31 +380,58 @@ components:
 
     Enemy:
       type: object
+      description: "Enemy instance with realized stats computed from normalized distribution. Stats scale with combat_level (player avg_item_level), HP scales with tier only."
       properties:
-        level:
+        enemy_type_id:
+          type: string
+          format: uuid
+          description: "Reference to EnemyTypes table"
+        name:
+          type: string
+          description: "Enemy display name"
+        tier_id:
           type: integer
-        stats:
+          description: "Tier ID (1-5)"
+        tier_multiplier:
+          type: number
+          description: "Tier difficulty multiplier (0.7 - 2.0)"
+        normalized_stats:
           type: object
+          description: "Base normalized stat distribution (sum = 1.0)"
           properties:
-            atkPower:
+            atk_power_normalized:
               type: number
-            atkAccuracy:
+              minimum: 0.0
+              maximum: 1.0
+            atk_accuracy_normalized:
               type: number
-            defPower:
+              minimum: 0.0
+              maximum: 1.0
+            def_power_normalized:
               type: number
-            defAccuracy:
+              minimum: 0.0
+              maximum: 1.0
+            def_accuracy_normalized:
               type: number
-        gold_min:
-          type: integer
-        gold_max:
-          type: integer
-        material_drop_pool:
-          type: array
-          items:
-            type: string
+              minimum: 0.0
+              maximum: 1.0
+        realized_stats:
+          type: object
+          description: "Computed stats for this combat session (atk/def = normalized × combat_level × tier.difficulty_multiplier)"
+          properties:
+            base_atk:
+              type: number
+              description: "Base attack before zone/crit modifiers"
+            base_def:
+              type: number
+              description: "Base defense before zone modifiers"
+            hp:
+              type: number
+              description: "Enemy HP = base_hp × tier.difficulty_multiplier (NO combat_level factor)"
 
     CombatSession:
       type: object
+      description: "Active combat session with zone-based mechanics. Enemy stats pre-computed at session start."
       properties:
         session_id:
           type: string
@@ -413,32 +440,62 @@ components:
           $ref: '#/components/schemas/Enemy'
         player_stats:
           type: object
+          description: "Player's aggregated equipment stats (sum of all equipped items)"
           properties:
-            atkPower:
+            base_atk:
               type: number
-            atkAccuracy:
+              description: "Base attack before zone/crit modifiers"
+            base_def:
               type: number
-            defPower:
+              description: "Base defense before zone modifiers"
+            hp:
               type: number
-            defAccuracy:
-              type: number
+              description: "Player HP (fixed, does not scale with level)"
+        combat_level:
+          type: integer
+          description: "Player's avg_item_level at combat start (determines enemy scaling)"
 
     CombatRewards:
       type: object
+      description: "Loot from combat victory. Materials always drop (1 weighted random from enemyloot). Items optional (weighted random with failure case). Gold/XP scale with tier."
       properties:
         gold:
           type: integer
-        material:
-          type: object
-          nullable: true
-          properties:
-            material_id:
-              type: string
-            name:
-              type: string
-            style_id:
-              type: string
-              description: Style ID referencing StyleDefinitions table from enemy drop source
+          description: "Gold reward (10 × combat_level × tier.gold_multiplier)"
+        xp:
+          type: integer
+          description: "XP reward (20 × combat_level × tier.xp_multiplier)"
+        materials:
+          type: array
+          description: "Material drops (always 1 per combat, style_id inherited from enemy if styled)"
+          items:
+            type: object
+            properties:
+              material_id:
+                type: string
+                format: uuid
+              name:
+                type: string
+              style_id:
+                type: string
+                description: "Style ID matching enemy's style_id (visual consistency)"
+              quantity:
+                type: integer
+                default: 1
+        items:
+          type: array
+          description: "Optional item drops (weighted random, may be empty)"
+          items:
+            type: object
+            properties:
+              item_type_id:
+                type: string
+                format: uuid
+              name:
+                type: string
+              rarity:
+                type: string
+                enum: [common, uncommon, rare, epic, legendary]
 
     UserProfile:
       type: object
@@ -515,9 +572,26 @@ components:
         generation_time_ms:
           type: integer
 
+    EnemyTypeStyleVariant:
+      type: object
+      description: A style variant option for an enemy type with probabilistic weight for selection
+      properties:
+        style_id:
+          type: string
+          format: uuid
+          description: UUID of the style definition
+        style_name:
+          type: string
+          description: Display name of the style (e.g., "red_paint", "blue_paint")
+        weight_multiplier:
+          type: number
+          format: float
+          description: Relative weight for probabilistic selection. Higher values = higher probability of selection at spawn time.
+        example: "1.5"
+
     EnemyType:
       type: object
-      description: Enemy personality type definition for F-12
+      description: Enemy personality type definition for F-12. At combat spawn, a style is probabilistically selected from available style_variants based on weight_multiplier.
       properties:
         type:
           type: string
@@ -541,6 +615,11 @@ components:
           items:
             type: string
           example: ["Too slow!", "Call that art?", "Graffiti > your fighting style"]
+        style_variants:
+          type: array
+          items:
+            $ref: '#/components/schemas/EnemyTypeStyleVariant'
+          description: Available style options for this enemy type. Each spawn independently selects one probabilistically based on weights.
 
     EnemyChatter:
       type: object
@@ -1121,7 +1200,8 @@ paths:
 
   /combat/attack:
     post:
-      summary: Execute attack with timing (F-02)
+      summary: Execute attack with zone-based timing (F-02)
+      description: Player attacks using zone system (5 zones). Player zone determined by input, enemy zone simulated based on accuracy.
       security:
         - BearerAuth: []
       requestBody:
@@ -1134,22 +1214,52 @@ paths:
                 session_id:
                   type: string
                   format: uuid
-                attack_accuracy:
-                  type: number
-                  format: float
-                  minimum: 0.0
-                  maximum: 1.0
-                  description: How close tap was to dial center (0=edge, 1=center)
+                player_zone:
+                  type: integer
+                  minimum: 1
+                  maximum: 5
+                  description: "Zone hit by player (1=perfect 1.5x, 2=great 1.25x, 3=good 1.0x, 4=poor 0.75x, 5=miss 0.5x)"
+              required: [session_id, player_zone]
       responses:
         '200':
-          description: Attack result
+          description: Attack result with zone information
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  damage_dealt:
-                    type: number
+                  player_damage:
+                    type: object
+                    properties:
+                      zone:
+                        type: integer
+                        description: "Player's zone hit (1-5)"
+                      zone_multiplier:
+                        type: number
+                        description: "Zone multiplier (0.5x - 1.5x)"
+                      crit_occurred:
+                        type: boolean
+                      crit_multiplier:
+                        type: number
+                        nullable: true
+                        description: "Crit bonus multiplier if crit occurred"
+                      final_damage:
+                        type: number
+                  enemy_damage:
+                    type: object
+                    properties:
+                      zone:
+                        type: integer
+                        description: "Enemy's simulated zone hit (1-5)"
+                      zone_multiplier:
+                        type: number
+                      crit_occurred:
+                        type: boolean
+                      crit_multiplier:
+                        type: number
+                        nullable: true
+                      final_damage:
+                        type: number
                   player_hp_remaining:
                     type: number
                   enemy_hp_remaining:
@@ -1160,8 +1270,8 @@ paths:
 
   /combat/defend:
     post:
-      summary: Execute defense with timing
-      description: Enemy's turn - player defends with dial timing
+      summary: Execute defense with zone-based timing
+      description: "Player defends with zone system. Defense zone determines damage reduction effectiveness."
       security:
         - BearerAuth: []
       requestBody:
@@ -1174,23 +1284,33 @@ paths:
                 session_id:
                   type: string
                   format: uuid
-                defense_accuracy:
-                  type: number
-                  format: float
-                  minimum: 0.0
-                  maximum: 1.0
+                defense_zone:
+                  type: integer
+                  minimum: 1
+                  maximum: 5
+                  description: "Zone hit by player during defense (1=perfect block, 5=poor block)"
+              required: [session_id, defense_zone]
       responses:
         '200':
-          description: Defense result
+          description: Defense result with zone effectiveness
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  damage_blocked:
-                    type: number
-                  damage_taken:
-                    type: number
+                  defense_effectiveness:
+                    type: object
+                    properties:
+                      zone:
+                        type: integer
+                        description: "Player's defense zone (1-5)"
+                      zone_multiplier:
+                        type: number
+                        description: "Defense zone multiplier applied to def stat"
+                      damage_blocked:
+                        type: number
+                      damage_taken:
+                        type: number
                   player_hp_remaining:
                     type: number
                   combat_status:
@@ -2419,8 +2539,8 @@ paths:
 
   /enemies/types:
     get:
-      summary: Get available enemy types with personality traits (F-12)
-      description: Returns list of enemy types players can encounter with their personality characteristics
+      summary: Get available enemy types with personality traits and style variants (F-12)
+      description: Returns list of enemy types players can encounter with their personality characteristics and probabilistically-selectable style variants. When combat.startCombat() is called, the server probabilistically selects one style from each enemy type's style_variants array based on weight_multiplier, enabling visual variety without duplicate enemy definitions.
       responses:
         '200':
           description: List of enemy types

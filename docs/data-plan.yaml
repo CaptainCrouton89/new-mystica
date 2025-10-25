@@ -1426,10 +1426,9 @@ progression_formulas:
   stat_scaling: |
     **Item Stat Scaling Per Level:**
 
-    Formula: final_stats = base_stats_normalized * rarity_multiplier * level * base_stat_value + material_modifiers
+    Formula: final_stats = base_stats_normalized × rarity_multiplier × level + material_modifiers
 
     **Constants:**
-    - base_stat_value: 10 (baseline stat point at level 1)
     - rarity_multiplier (from RarityDefinitions):
       * common: 1.00
       * uncommon: 1.25
@@ -1440,25 +1439,25 @@ progression_formulas:
     **Example: Common Sword (base_stats_normalized = {atkPower: 0.5, atkAccuracy: 0.2, defPower: 0.2, defAccuracy: 0.1})**
 
     Level 1 (common):
-    - atkPower: 0.5 * 1.00 * 1 * 10 = 5
-    - atkAccuracy: 0.2 * 1.00 * 1 * 10 = 2
-    - defPower: 0.2 * 1.00 * 1 * 10 = 2
-    - defAccuracy: 0.1 * 1.00 * 1 * 10 = 1
-    - Total: 10 stat points
+    - atkPower: 0.5 × 1.00 × 1 = 0.5
+    - atkAccuracy: 0.2 × 1.00 × 1 = 0.2
+    - defPower: 0.2 × 1.00 × 1 = 0.2
+    - defAccuracy: 0.1 × 1.00 × 1 = 0.1
+    - Total: 1.0 stat points
 
     Level 5 (common):
-    - atkPower: 0.5 * 1.00 * 5 * 10 = 25
-    - atkAccuracy: 0.2 * 1.00 * 5 * 10 = 10
-    - defPower: 0.2 * 1.00 * 5 * 10 = 10
-    - defAccuracy: 0.1 * 1.00 * 5 * 10 = 5
-    - Total: 50 stat points
+    - atkPower: 0.5 × 1.00 × 5 = 2.5
+    - atkAccuracy: 0.2 × 1.00 × 5 = 1.0
+    - defPower: 0.2 × 1.00 × 5 = 1.0
+    - defAccuracy: 0.1 × 1.00 × 5 = 0.5
+    - Total: 5.0 stat points
 
     Level 5 (legendary):
-    - atkPower: 0.5 * 2.00 * 5 * 10 = 50
-    - atkAccuracy: 0.2 * 2.00 * 5 * 10 = 20
-    - defPower: 0.2 * 2.00 * 5 * 10 = 20
-    - defAccuracy: 0.1 * 2.00 * 5 * 10 = 10
-    - Total: 100 stat points (2x more powerful than common at same level)
+    - atkPower: 0.5 × 2.00 × 5 = 5.0
+    - atkAccuracy: 0.2 × 2.00 × 5 = 2.0
+    - defPower: 0.2 × 2.00 × 5 = 2.0
+    - defAccuracy: 0.1 × 2.00 × 5 = 1.0
+    - Total: 10.0 stat points (2x more powerful than common at same level)
 
     **Material Modifiers:**
     - Applied additively after base calculation

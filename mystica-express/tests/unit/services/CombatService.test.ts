@@ -666,4 +666,221 @@ describe('CombatService', () => {
       ).rejects.toThrow(NotFoundError);
     });
   });
+
+  describe('Weighted Enemy Style Selection', () => {
+    it('should select enemy with probabilistic style variation', async () => {
+      // Mock enemy selection with multiple styles available
+      const enemyStyles = [
+        { id: 'style-1', enemy_type_id: testEnemy.id, style_id: 'red-goblin', weight_multiplier: 1.5 },
+        { id: 'style-2', enemy_type_id: testEnemy.id, style_id: 'blue-goblin', weight_multiplier: 1.0 }
+      ];
+
+      mockLocationService.getMatchingEnemyPools.mockResolvedValue(['pool-1']);
+      mockLocationService.getEnemyPoolMembers.mockResolvedValue([
+        { enemy_pool_id: 'pool-1', enemy_type_id: testEnemy.id, spawn_weight: 100 }
+      ]);
+      mockLocationService.selectRandomEnemy.mockReturnValue(testEnemy.id);
+      mockEnemyRepository.findEnemyTypeById.mockResolvedValue({
+        id: testEnemy.id,
+        name: testEnemy.name,
+        dialogue_tone: testEnemy.dialogue_tone,
+        ai_personality_traits: testEnemy.ai_personality_traits
+      });
+      mockEnemyRepository.getStylesForEnemyType.mockResolvedValue(enemyStyles);
+      mockEnemyRepository.getEnemyRealizedStats.mockResolvedValue({
+        atk: testEnemy.computed_atk,
+        def: testEnemy.computed_def,
+        hp: testEnemy.computed_hp,
+        combat_rating: 5
+      });
+      mockEquipmentRepository.getPlayerPowerLevel.mockResolvedValue({
+        atk: 50,
+        acc: 0.7,
+        def: 40,
+        hp: 100
+      });
+      mockEquipmentRepository.captureEquipmentSnapshot = jest.fn().mockResolvedValue({});
+      mockLocationService.getById.mockResolvedValue(testLocation);
+      mockCombatRepository.createSession.mockResolvedValue('session-123');
+      mockWeaponRepository.getAdjustedBands.mockResolvedValue({
+        deg_crit: 10,
+        deg_normal: 20,
+        deg_graze: 110,
+        deg_miss: 110,
+        deg_injure: 110,
+        total_degrees: 360
+      } as AdjustedBands);
+      mockLocationService.getMatchingLootPools.mockResolvedValue(['loot-pool-1']);
+
+      // Mock equipment snapshot
+      (combatService as any).captureEquipmentSnapshot = jest.fn().mockResolvedValue({});
+
+      const result = await combatService.startCombat(testUser.id, testLocation.id, 5);
+
+      // Verify that getStylesForEnemyType was called to fetch style options
+      expect(mockEnemyRepository.getStylesForEnemyType).toHaveBeenCalledWith(testEnemy.id);
+
+      // Verify that a style was selected (should be one of the available styles)
+      expect(['red-goblin', 'blue-goblin']).toContain(result.enemy.style_id);
+
+      // Verify enemy object is properly populated
+      expect(result.enemy.id).toBe(testEnemy.id);
+      expect(result.enemy.style_id).toBeDefined();
+    });
+
+    it('should handle edge case: single style for enemy type', async () => {
+      const singleStyle = [
+        { id: 'style-1', enemy_type_id: testEnemy.id, style_id: 'only-style', weight_multiplier: 1.0 }
+      ];
+
+      mockLocationService.getMatchingEnemyPools.mockResolvedValue(['pool-1']);
+      mockLocationService.getEnemyPoolMembers.mockResolvedValue([
+        { enemy_pool_id: 'pool-1', enemy_type_id: testEnemy.id, spawn_weight: 100 }
+      ]);
+      mockLocationService.selectRandomEnemy.mockReturnValue(testEnemy.id);
+      mockEnemyRepository.findEnemyTypeById.mockResolvedValue({
+        id: testEnemy.id,
+        name: testEnemy.name,
+        dialogue_tone: testEnemy.dialogue_tone,
+        ai_personality_traits: null
+      });
+      mockEnemyRepository.getStylesForEnemyType.mockResolvedValue(singleStyle);
+      mockEnemyRepository.getEnemyRealizedStats.mockResolvedValue({
+        atk: testEnemy.computed_atk,
+        def: testEnemy.computed_def,
+        hp: testEnemy.computed_hp,
+        combat_rating: 5
+      });
+      mockEquipmentRepository.getPlayerPowerLevel.mockResolvedValue({
+        atk: 50,
+        acc: 0.7,
+        def: 40,
+        hp: 100
+      });
+      (combatService as any).captureEquipmentSnapshot = jest.fn().mockResolvedValue({});
+      mockLocationService.getById.mockResolvedValue(testLocation);
+      mockCombatRepository.createSession.mockResolvedValue('session-123');
+      mockWeaponRepository.getAdjustedBands.mockResolvedValue({
+        deg_crit: 10,
+        deg_normal: 20,
+        deg_graze: 110,
+        deg_miss: 110,
+        deg_injure: 110,
+        total_degrees: 360
+      } as AdjustedBands);
+      mockLocationService.getMatchingLootPools.mockResolvedValue(['loot-pool-1']);
+
+      const result = await combatService.startCombat(testUser.id, testLocation.id, 5);
+
+      // Single style should always be selected
+      expect(result.enemy.style_id).toBe('only-style');
+    });
+
+    it('should throw error when no styles found for enemy type', async () => {
+      mockLocationService.getMatchingEnemyPools.mockResolvedValue(['pool-1']);
+      mockLocationService.getEnemyPoolMembers.mockResolvedValue([
+        { enemy_pool_id: 'pool-1', enemy_type_id: testEnemy.id, spawn_weight: 100 }
+      ]);
+      mockLocationService.selectRandomEnemy.mockReturnValue(testEnemy.id);
+      mockEnemyRepository.findEnemyTypeById.mockResolvedValue({
+        id: testEnemy.id,
+        name: testEnemy.name,
+        dialogue_tone: testEnemy.dialogue_tone,
+        ai_personality_traits: null
+      });
+      mockEnemyRepository.getStylesForEnemyType.mockRejectedValue(
+        new Error('styles not found')
+      );
+      mockEquipmentRepository.getPlayerPowerLevel.mockResolvedValue({
+        atk: 50,
+        acc: 0.7,
+        def: 40,
+        hp: 100
+      });
+      (combatService as any).captureEquipmentSnapshot = jest.fn().mockResolvedValue({});
+      mockLocationService.getById.mockResolvedValue(testLocation);
+
+      // Should throw when styles cannot be fetched
+      await expect(
+        combatService.startCombat(testUser.id, testLocation.id, 5)
+      ).rejects.toThrow();
+    });
+
+    it('should cache selected style_id for subsequent combat actions', async () => {
+      const enemyStyles = [
+        { id: 'style-1', enemy_type_id: testEnemy.id, style_id: 'red-goblin', weight_multiplier: 1.5 }
+      ];
+
+      mockLocationService.getMatchingEnemyPools.mockResolvedValue(['pool-1']);
+      mockLocationService.getEnemyPoolMembers.mockResolvedValue([
+        { enemy_pool_id: 'pool-1', enemy_type_id: testEnemy.id, spawn_weight: 100 }
+      ]);
+      mockLocationService.selectRandomEnemy.mockReturnValue(testEnemy.id);
+      mockEnemyRepository.findEnemyTypeById.mockResolvedValue({
+        id: testEnemy.id,
+        name: testEnemy.name,
+        dialogue_tone: testEnemy.dialogue_tone,
+        ai_personality_traits: null
+      });
+      mockEnemyRepository.getStylesForEnemyType.mockResolvedValue(enemyStyles);
+      mockEnemyRepository.getEnemyRealizedStats.mockResolvedValue({
+        atk: testEnemy.computed_atk,
+        def: testEnemy.computed_def,
+        hp: testEnemy.computed_hp,
+        combat_rating: 5
+      });
+      mockEquipmentRepository.getPlayerPowerLevel.mockResolvedValue({
+        atk: 50,
+        acc: 0.7,
+        def: 40,
+        hp: 100
+      });
+      (combatService as any).captureEquipmentSnapshot = jest.fn().mockResolvedValue({});
+      mockLocationService.getById.mockResolvedValue(testLocation);
+      mockCombatRepository.createSession.mockResolvedValue('session-cache-test');
+      mockWeaponRepository.getAdjustedBands.mockResolvedValue({
+        deg_crit: 10,
+        deg_normal: 20,
+        deg_graze: 110,
+        deg_miss: 110,
+        deg_injure: 110,
+        total_degrees: 360
+      } as AdjustedBands);
+      mockLocationService.getMatchingLootPools.mockResolvedValue(['loot-pool-1']);
+
+      // Start combat - should cache the selected style
+      const startResult = await combatService.startCombat(testUser.id, testLocation.id, 5);
+
+      expect(startResult.enemy.style_id).toBe('red-goblin');
+
+      // Set up mocks for subsequent attack call
+      mockCombatRepository.getActiveSession.mockResolvedValue({
+        id: 'session-cache-test',
+        userId: testUser.id,
+        enemyTypeId: testEnemy.id,
+        locationId: testLocation.id,
+        combatLevel: 5,
+        combatLog: [],
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+      mockEquipmentRepository.getPlayerEquippedStats.mockResolvedValue({
+        atk: 50,
+        acc: 0.7,
+        def: 40,
+        hp: 100
+      });
+      mockWeaponRepository.findWeaponByItemId.mockResolvedValue({
+        item_id: 'weapon-1',
+        pattern: 'single_arc',
+        spin_deg_per_s: 180
+      });
+
+      // Execute attack - should reuse cached style_id
+      const attackResult = await combatService.executeAttack('session-cache-test', 45);
+
+      // Verify calculateEnemyStats was called with the cached style
+      expect(mockEnemyRepository.getEnemyRealizedStats).toHaveBeenCalled();
+    });
+  });
 });

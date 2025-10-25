@@ -34,10 +34,10 @@ describe('StatsService', () => {
       const result = statsService.computeItemStats(normalizedBaseStats, 1, []);
 
       expect(result).toEqual({
-        atkPower: 4.0,   // 0.4 * 1 * 10
-        atkAccuracy: 3.0, // 0.3 * 1 * 10
-        defPower: 2.0,   // 0.2 * 1 * 10
-        defAccuracy: 1.0  // 0.1 * 1 * 10
+        atkPower: 0.4,   // 0.4 * 1
+        atkAccuracy: 0.3, // 0.3 * 1
+        defPower: 0.2,   // 0.2 * 1
+        defAccuracy: 0.1  // 0.1 * 1
       });
     });
 
@@ -45,10 +45,10 @@ describe('StatsService', () => {
       const result = statsService.computeItemStats(normalizedBaseStats, 5, []);
 
       expect(result).toEqual({
-        atkPower: 20.0,  // 0.4 * 5 * 10
-        atkAccuracy: 15.0, // 0.3 * 5 * 10
-        defPower: 10.0,  // 0.2 * 5 * 10
-        defAccuracy: 5.0  // 0.1 * 5 * 10
+        atkPower: 2.0,  // 0.4 * 5
+        atkAccuracy: 1.5, // 0.3 * 5
+        defPower: 1.0,  // 0.2 * 5
+        defAccuracy: 0.5  // 0.1 * 5
       });
     });
 
@@ -74,12 +74,10 @@ describe('StatsService', () => {
 
       const result = statsService.computeItemStats(normalizedBaseStats, 2, materials);
 
-      expect(result).toEqual({
-        atkPower: 7.0,   // (0.4 * 2 * 10) - 1.0 = 8.0 - 1.0
-        atkAccuracy: 6.5, // (0.3 * 2 * 10) + 0.5 = 6.0 + 0.5
-        defPower: 5.0,   // (0.2 * 2 * 10) + 1.0 = 4.0 + 1.0
-        defAccuracy: 1.5  // (0.1 * 2 * 10) - 0.5 = 2.0 - 0.5
-      });
+      expect(result.atkPower).toBeCloseTo(-0.2); // (0.4 * 2) - 1.0 = 0.8 - 1.0
+      expect(result.atkAccuracy).toBeCloseTo(1.1); // (0.3 * 2) + 0.5 = 0.6 + 0.5
+      expect(result.defPower).toBeCloseTo(1.4);   // (0.2 * 2) + 1.0 = 0.4 + 1.0
+      expect(result.defAccuracy).toBeCloseTo(-0.3);  // (0.1 * 2) - 0.5 = 0.2 - 0.5
     });
 
     it('should apply multiple material modifiers correctly', () => {
@@ -114,17 +112,15 @@ describe('StatsService', () => {
 
       const result = statsService.computeItemStats(normalizedBaseStats, 3, materials);
 
-      // Base stats at level 3: 12, 9, 6, 3
+      // Base stats at level 3: 1.2, 0.9, 0.6, 0.3
       // Material mods: (-2 + 1.5), (0 + 0.5), (3 + -1), (-1 + -1) = -0.5, 0.5, 2, -2
-      expect(result).toEqual({
-        atkPower: 11.5,  // 12 - 0.5
-        atkAccuracy: 9.5, // 9 + 0.5
-        defPower: 8.0,   // 6 + 2
-        defAccuracy: 1.0  // 3 - 2
-      });
+      expect(result.atkPower).toBeCloseTo(0.7);  // 1.2 - 0.5
+      expect(result.atkAccuracy).toBeCloseTo(1.4); // 0.9 + 0.5
+      expect(result.defPower).toBeCloseTo(2.6);   // 0.6 + 2
+      expect(result.defAccuracy).toBeCloseTo(-1.7);  // 0.3 - 2
     });
 
-    it('should round results to 2 decimal places', () => {
+    it('should calculate floating point stats correctly', () => {
       const materials: AppliedMaterial[] = [{
         id: 'inst-1',
         material_id: 'test',
@@ -142,22 +138,20 @@ describe('StatsService', () => {
       const baseStats: Stats = { atkPower: 0.333, atkAccuracy: 0.333, defPower: 0.333, defAccuracy: 0.001 };
       const result = statsService.computeItemStats(baseStats, 3, materials);
 
-      // Should round to 2 decimal places
-      expect(result.atkPower).toBe(10.32); // (0.333 * 3 * 10) + 0.333 = 10.323 -> 10.32
-      expect(result.atkAccuracy).toBe(10.32);
-      expect(result.defPower).toBe(10.32);
-      expect(result.defAccuracy).toBe(-0.97); // (0.001 * 3 * 10) + (-0.999) = -0.969 -> -0.97
+      // Results without additional rounding multiplier
+      expect(result.atkPower).toBeCloseTo(1.332); // (0.333 * 3) + 0.333 = 1.332
+      expect(result.atkAccuracy).toBeCloseTo(1.332);
+      expect(result.defPower).toBeCloseTo(1.332);
+      expect(result.defAccuracy).toBeCloseTo(-0.996); // (0.001 * 3) + (-0.999) = -0.996
     });
 
     it('should handle empty materials array', () => {
       const result = statsService.computeItemStats(normalizedBaseStats, 1, []);
 
-      expect(result).toEqual({
-        atkPower: 4.0,
-        atkAccuracy: 3.0,
-        defPower: 2.0,
-        defAccuracy: 1.0
-      });
+      expect(result.atkPower).toBeCloseTo(0.4);
+      expect(result.atkAccuracy).toBeCloseTo(0.3);
+      expect(result.defPower).toBeCloseTo(0.2);
+      expect(result.defAccuracy).toBeCloseTo(0.1);
     });
 
     it('should throw ValidationError for level < 1', () => {
@@ -223,10 +217,10 @@ describe('StatsService', () => {
       const result = statsService.computeItemStatsForLevel(mockItem, 2);
 
       expect(result).toEqual({
-        atkPower: 8.0,   // 0.4 * 1.0 * 2 * 10
-        atkAccuracy: 6.0, // 0.3 * 1.0 * 2 * 10
-        defPower: 4.0,   // 0.2 * 1.0 * 2 * 10
-        defAccuracy: 2.0  // 0.1 * 1.0 * 2 * 10
+        atkPower: 0.8,   // 0.4 * 1.0 * 2
+        atkAccuracy: 0.6, // 0.3 * 1.0 * 2
+        defPower: 0.4,   // 0.2 * 1.0 * 2
+        defAccuracy: 0.2  // 0.1 * 1.0 * 2
       });
     });
 
@@ -242,10 +236,10 @@ describe('StatsService', () => {
       const result = statsService.computeItemStatsForLevel(uncommonItem, 2);
 
       expect(result).toEqual({
-        atkPower: 10.0,  // 0.4 * 1.25 * 2 * 10
-        atkAccuracy: 7.5, // 0.3 * 1.25 * 2 * 10
-        defPower: 5.0,   // 0.2 * 1.25 * 2 * 10
-        defAccuracy: 2.5  // 0.1 * 1.25 * 2 * 10
+        atkPower: 1.0,  // 0.4 * 1.25 * 2
+        atkAccuracy: 0.75, // 0.3 * 1.25 * 2
+        defPower: 0.5,   // 0.2 * 1.25 * 2
+        defAccuracy: 0.25  // 0.1 * 1.25 * 2
       });
     });
 
@@ -260,12 +254,10 @@ describe('StatsService', () => {
 
       const result = statsService.computeItemStatsForLevel(rareItem, 3);
 
-      expect(result).toEqual({
-        atkPower: 18.0,  // 0.4 * 1.5 * 3 * 10
-        atkAccuracy: 13.5, // 0.3 * 1.5 * 3 * 10
-        defPower: 9.0,   // 0.2 * 1.5 * 3 * 10
-        defAccuracy: 4.5  // 0.1 * 1.5 * 3 * 10
-      });
+      expect(result.atkPower).toBeCloseTo(1.8);  // 0.4 * 1.5 * 3
+      expect(result.atkAccuracy).toBeCloseTo(1.35); // 0.3 * 1.5 * 3
+      expect(result.defPower).toBeCloseTo(0.9);   // 0.2 * 1.5 * 3
+      expect(result.defAccuracy).toBeCloseTo(0.45);  // 0.1 * 1.5 * 3
     });
 
     it('should calculate stats with epic rarity multiplier (1.75)', () => {
@@ -279,12 +271,10 @@ describe('StatsService', () => {
 
       const result = statsService.computeItemStatsForLevel(epicItem, 2);
 
-      expect(result).toEqual({
-        atkPower: 14.0,  // 0.4 * 1.75 * 2 * 10
-        atkAccuracy: 10.5, // 0.3 * 1.75 * 2 * 10
-        defPower: 7.0,   // 0.2 * 1.75 * 2 * 10
-        defAccuracy: 3.5  // 0.1 * 1.75 * 2 * 10
-      });
+      expect(result.atkPower).toBeCloseTo(1.4);  // 0.4 * 1.75 * 2
+      expect(result.atkAccuracy).toBeCloseTo(1.05); // 0.3 * 1.75 * 2
+      expect(result.defPower).toBeCloseTo(0.7);   // 0.2 * 1.75 * 2
+      expect(result.defAccuracy).toBeCloseTo(0.35);  // 0.1 * 1.75 * 2
     });
 
     it('should calculate stats with legendary rarity multiplier (2.0)', () => {
@@ -299,10 +289,10 @@ describe('StatsService', () => {
       const result = statsService.computeItemStatsForLevel(legendaryItem, 2);
 
       expect(result).toEqual({
-        atkPower: 16.0,  // 0.4 * 2.0 * 2 * 10
-        atkAccuracy: 12.0, // 0.3 * 2.0 * 2 * 10
-        defPower: 8.0,   // 0.2 * 2.0 * 2 * 10
-        defAccuracy: 4.0  // 0.1 * 2.0 * 2 * 10
+        atkPower: 1.6,  // 0.4 * 2.0 * 2
+        atkAccuracy: 1.2, // 0.3 * 2.0 * 2
+        defPower: 0.8,   // 0.2 * 2.0 * 2
+        defAccuracy: 0.4  // 0.1 * 2.0 * 2
       });
     });
 
@@ -464,12 +454,10 @@ describe('StatsService', () => {
 
       const result = statsService.computeEquipmentStats(itemsWithDecimals);
 
-      expect(result.total_stats).toEqual({
-        atkPower: 16.0,  // 10.333 + 5.666 = 15.999 -> 16.0
-        atkAccuracy: 10.0, // 5.666 + 4.333 = 9.999 -> 10.0
-        defPower: 11.0,  // 2.111 + 8.888 = 10.999 -> 11.0
-        defAccuracy: 5.0  // 1.999 + 3.001 = 5.0
-      });
+      expect(result.total_stats.atkPower).toBeCloseTo(15.999); // 10.333 + 5.666
+      expect(result.total_stats.atkAccuracy).toBeCloseTo(9.999); // 5.666 + 4.333
+      expect(result.total_stats.defPower).toBeCloseTo(10.999);  // 2.111 + 8.888
+      expect(result.total_stats.defAccuracy).toBeCloseTo(5.0);  // 1.999 + 3.001
     });
 
     it('should throw ValidationError for more than 8 equipped items', () => {
@@ -696,10 +684,10 @@ describe('StatsService', () => {
       const highStats: Stats = { atkPower: 0.25, atkAccuracy: 0.25, defPower: 0.25, defAccuracy: 0.25 };
       const result = statsService.computeItemStats(highStats, 100, []);
 
-      expect(result.atkPower).toBe(250);
-      expect(result.atkAccuracy).toBe(250);
-      expect(result.defPower).toBe(250);
-      expect(result.defAccuracy).toBe(250);
+      expect(result.atkPower).toBe(25);
+      expect(result.atkAccuracy).toBe(25);
+      expect(result.defPower).toBe(25);
+      expect(result.defAccuracy).toBe(25);
     });
 
     it('should handle negative stat results from large negative modifiers', () => {
@@ -723,10 +711,10 @@ describe('StatsService', () => {
         materials
       );
 
-      expect(result.atkPower).toBe(-97.5); // 2.5 - 100
-      expect(result.atkAccuracy).toBe(52.5); // 2.5 + 50
-      expect(result.defPower).toBe(27.5);   // 2.5 + 25
-      expect(result.defAccuracy).toBe(27.5); // 2.5 + 25
+      expect(result.atkPower).toBe(-99.75); // 0.25 - 100
+      expect(result.atkAccuracy).toBe(50.25); // 0.25 + 50
+      expect(result.defPower).toBe(25.25);   // 0.25 + 25
+      expect(result.defAccuracy).toBe(25.25); // 0.25 + 25
     });
 
     it('should handle zero base stats', () => {
@@ -735,7 +723,7 @@ describe('StatsService', () => {
 
       expect(result.atkPower).toBe(0);
       expect(result.atkAccuracy).toBe(0);
-      expect(result.defPower).toBe(50);
+      expect(result.defPower).toBe(5);
       expect(result.defAccuracy).toBe(0);
     });
 

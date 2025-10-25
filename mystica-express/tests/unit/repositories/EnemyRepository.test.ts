@@ -689,4 +689,92 @@ describe('EnemyRepository', () => {
       expect(result).toBeNull();
     });
   });
+
+  describe('getStylesForEnemyType', () => {
+    const mockStyles = [
+      {
+        id: 'style-entry-1',
+        enemy_type_id: 'enemy-1',
+        style_id: 'red-goblin',
+        weight_multiplier: 1.5,
+        created_at: '2024-01-01T00:00:00Z'
+      },
+      {
+        id: 'style-entry-2',
+        enemy_type_id: 'enemy-1',
+        style_id: 'blue-goblin',
+        weight_multiplier: 1.0,
+        created_at: '2024-01-01T00:00:00Z'
+      }
+    ];
+
+    it('should fetch all style options for enemy type with weight multipliers', async () => {
+      mockClient.from.mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            order: jest.fn().mockResolvedValue({
+              data: mockStyles,
+              error: null
+            })
+          })
+        })
+      });
+
+      const result = await repository.getStylesForEnemyType('enemy-1');
+
+      expect(mockClient.from).toHaveBeenCalledWith('enemytypestyles');
+      expect(result).toEqual(mockStyles);
+      expect(result).toHaveLength(2);
+      expect(result[0].weight_multiplier).toBe(1.5);
+      expect(result[1].weight_multiplier).toBe(1.0);
+    });
+
+    it('should throw NotFoundError when enemy type has no styles', async () => {
+      mockClient.from.mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            order: jest.fn().mockResolvedValue({
+              data: [],
+              error: null
+            })
+          })
+        })
+      });
+
+      await expect(repository.getStylesForEnemyType('enemy-no-styles')).rejects.toThrow(NotFoundError);
+    });
+
+    it('should throw DatabaseError on query failure', async () => {
+      mockClient.from.mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            order: jest.fn().mockResolvedValue({
+              data: null,
+              error: { message: 'Connection failed' }
+            })
+          })
+        })
+      });
+
+      await expect(repository.getStylesForEnemyType('enemy-1')).rejects.toThrow();
+    });
+
+    it('should handle single style entry correctly', async () => {
+      mockClient.from.mockReturnValue({
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            order: jest.fn().mockResolvedValue({
+              data: [mockStyles[0]],
+              error: null
+            })
+          })
+        })
+      });
+
+      const result = await repository.getStylesForEnemyType('enemy-1');
+
+      expect(result).toHaveLength(1);
+      expect(result[0].style_id).toBe('red-goblin');
+    });
+  });
 });

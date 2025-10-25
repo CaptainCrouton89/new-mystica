@@ -344,6 +344,35 @@ export class EnemyRepository extends BaseRepository<EnemyType> {
     return data as StyleDefinition;
   }
 
+  /**
+   * Get all style options for an enemy type from the enemytypestyles junction table
+   *
+   * Returns all style variants for probabilistic selection at spawn time.
+   * Each style entry includes a weight_multiplier for weighted random selection.
+   *
+   * @param enemyTypeId - Enemy type UUID
+   * @returns Array of style entries with weight multipliers for the enemy type
+   * @throws NotFoundError if enemy type has no styles
+   * @throws DatabaseError on query failure
+   */
+  async getStylesForEnemyType(enemyTypeId: string): Promise<Array<Database['public']['Tables']['enemytypestyles']['Row']>> {
+    const { data, error } = await this.client
+      .from('enemytypestyles')
+      .select('*')
+      .eq('enemy_type_id', enemyTypeId)
+      .order('style_id');
+
+    if (error) {
+      throw mapSupabaseError(error);
+    }
+
+    if (!data || data.length === 0) {
+      throw new NotFoundError('styles', `enemy_type_id=${enemyTypeId}`);
+    }
+
+    return data as Array<Database['public']['Tables']['enemytypestyles']['Row']>;
+  }
+
   // ============================================================================
   // Pool Management (Admin Operations)
   // ============================================================================

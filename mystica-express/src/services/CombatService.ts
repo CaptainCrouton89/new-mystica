@@ -204,6 +204,10 @@ export interface EnemyStats {
  * - Combat completion with loot generation and history updates
  */
 export class CombatService {
+  // Cache for storing selected enemy style_id per session
+  // Key: sessionId, Value: style_id (selected via weighted random)
+  private enemyStyleCache = new Map<string, string>();
+
   private combatRepository: CombatRepository;
   private enemyRepository: EnemyRepository;
   private equipmentRepository: EquipmentRepository;
@@ -300,6 +304,9 @@ export class CombatService {
 
     const sessionId = await this.combatRepository.createSession(userId, sessionData);
 
+    // Store selected style_id in cache for later combat actions
+    this.enemyStyleCache.set(sessionId, enemy.style_id);
+
     logger.info('✅ Combat session created successfully', {
       sessionId,
       userId,
@@ -357,8 +364,12 @@ export class CombatService {
       throw new NotFoundError('Enemy type', session.enemyTypeId);
     }
 
-    // Get enemy stats via database view
-    const enemyStats = await this.calculateEnemyStats(session.enemyTypeId);
+    // Get enemy stats via database view - use cached style_id from session start
+    const cachedStyleId = this.enemyStyleCache.get(sessionId);
+    if (!cachedStyleId) {
+      throw new Error(`Enemy style not found in cache for session ${sessionId}. Session may have expired.`);
+    }
+    const enemyStats = await this.calculateEnemyStats(session.enemyTypeId, cachedStyleId);
 
     // Get weapon bands for hit zone determination
     const weaponConfig = await this.getWeaponConfig(session.userId, playerStats.atkAccuracy);
@@ -513,7 +524,11 @@ export class CombatService {
 
     // Get current combat state from session
     const playerStats = await this.calculatePlayerStats(session.userId);
-    const enemyStats = await this.calculateEnemyStats(session.enemyTypeId);
+    const cachedStyleId = this.enemyStyleCache.get(sessionId);
+    if (!cachedStyleId) {
+      throw new Error(`Enemy style not found in cache for session ${sessionId}. Session may have expired.`);
+    }
+    const enemyStats = await this.calculateEnemyStats(session.enemyTypeId, cachedStyleId);
 
     // Get current HP values from combat log
     const currentLog = session.combatLog || [];
@@ -814,7 +829,11 @@ export class CombatService {
     const lastLogEntry = currentLog[currentLog.length - 1];
 
     const playerStats = await this.calculatePlayerStats(session.userId);
-    const enemyStats = await this.calculateEnemyStats(session.enemyTypeId);
+    const cachedStyleId = this.enemyStyleCache.get(sessionId);
+    if (!cachedStyleId) {
+      throw new Error(`Enemy style not found in cache for session ${sessionId}. Session may have expired.`);
+    }
+    const enemyStats = await this.calculateEnemyStats(session.enemyTypeId, cachedStyleId);
 
     return {
       session_id: sessionId,
@@ -896,7 +915,11 @@ export class CombatService {
     const lastLogEntry = currentLog[currentLog.length - 1];
 
     const playerStats = await this.calculatePlayerStats(session.userId);
-    const enemyStats = await this.calculateEnemyStats(session.enemyTypeId);
+    const cachedStyleId = this.enemyStyleCache.get(sessionId);
+    if (!cachedStyleId) {
+      throw new Error(`Enemy style not found in cache for session ${sessionId}. Session may have expired.`);
+    }
+    const enemyStats = await this.calculateEnemyStats(session.enemyTypeId, cachedStyleId);
 
     // Get weapon configuration for timing dial
     const weaponConfig = await this.getWeaponConfig(session.userId, playerStats.atkAccuracy);
@@ -1105,55 +1128,76 @@ export class CombatService {
   /**
    * Calculate enemy stats via database view
    */
-  private async calculateEnemyStats(enemyTypeId: string): Promise<EnemyStats> {
-    try {
-      // Use v_enemy_realized_stats view for stats with tier scaling via repository
-      const realizedStats = await this.enemyRepository.getEnemyRealizedStats(enemyTypeId);
-
-      if (!realizedStats) {
-        throw new NotFoundError('Enemy stats', enemyTypeId);
-      }
-
-      // Get enemy type details for non-stat properties
-      const enemyType = await this.enemyRepository.findEnemyTypeById(enemyTypeId);
-      if (!enemyType) {
-        throw new NotFoundError('Enemy type', enemyTypeId);
-      }
-
-      return {
-        atk: realizedStats.atk,
-        def: realizedStats.def,
-        hp: realizedStats.hp,
-        style_id: enemyType.style_id ?? 'normal',
-        dialogue_tone: enemyType.dialogue_tone ?? 'aggressive',
-        personality_traits: enemyType.ai_personality_traits
-          ? Object.keys(enemyType.ai_personality_traits)
-          : [],
-      };
-    } catch (error) {
-      logger.warn('Database v_enemy_realized_stats query failed, using fallback', { error: error instanceof Error ? error.message : String(error) });
-      // Fallback to existing repository method
-      const realizedStats = await this.enemyRepository.getEnemyRealizedStats(enemyTypeId);
-      if (!realizedStats) {
-        throw new NotFoundError('Enemy stats', enemyTypeId);
-      }
-
-      const enemyType = await this.enemyRepository.findEnemyTypeById(enemyTypeId);
-      if (!enemyType) {
-        throw new NotFoundError('Enemy type', enemyTypeId);
-      }
-
-      return {
-        atk: realizedStats.atk,
-        def: realizedStats.def,
-        hp: realizedStats.hp,
-        style_id: enemyType.style_id ?? 'normal',
-        dialogue_tone: enemyType.dialogue_tone ?? 'aggressive',
-        personality_traits: enemyType.ai_personality_traits
-          ? Object.keys(enemyType.ai_personality_traits)
-          : [],
-      };
+  /**
+   * Perform weighted random selection from an array of enemy type styles.
+   *
+   * Normalizes weight_multiplier values into probabilities and performs
+   * cumulative distribution sampling to select a style.
+   *
+   * @param styles - Array of enemy type style entries with weight_multiplier
+   * @returns Selected style_id
+   */
+  private selectRandomStyle(styles: Array<{ style_id: string; weight_multiplier: number }>): string {
+    if (styles.length === 0) {
+      throw new Error('Cannot select style from empty array');
     }
+
+    if (styles.length === 1) {
+      return styles[0].style_id;
+    }
+
+    // Compute total weight for normalization
+    const totalWeight = styles.reduce((sum, style) => sum + style.weight_multiplier, 0);
+
+    if (totalWeight <= 0) {
+      throw new Error('Total weight must be positive for style selection');
+    }
+
+    // Generate random number between 0 and totalWeight
+    const randomValue = Math.random() * totalWeight;
+
+    // Perform cumulative distribution sampling
+    let cumulativeWeight = 0;
+    for (const style of styles) {
+      cumulativeWeight += style.weight_multiplier;
+      if (randomValue <= cumulativeWeight) {
+        return style.style_id;
+      }
+    }
+
+    // Fallback to last style (should not reach here due to cumulative distribution)
+    return styles[styles.length - 1].style_id;
+  }
+
+  private async calculateEnemyStats(enemyTypeId: string, selectedStyleId: string): Promise<EnemyStats> {
+    // Use v_enemy_realized_stats view for stats with tier scaling via repository
+    const realizedStats = await this.enemyRepository.getEnemyRealizedStats(enemyTypeId);
+
+    if (!realizedStats) {
+      throw new NotFoundError('Enemy stats', enemyTypeId);
+    }
+
+    // Get enemy type details for non-stat properties
+    const enemyType = await this.enemyRepository.findEnemyTypeById(enemyTypeId);
+    if (!enemyType) {
+      throw new NotFoundError('Enemy type', enemyTypeId);
+    }
+
+    // dialogue_tone is required in database schema, throw if missing
+    if (!enemyType.dialogue_tone) {
+      throw new Error(`Enemy type ${enemyTypeId} missing required dialogue_tone`);
+    }
+
+    return {
+      atk: realizedStats.atk,
+      def: realizedStats.def,
+      hp: realizedStats.hp,
+      style_id: selectedStyleId,
+      dialogue_tone: enemyType.dialogue_tone,
+      personality_traits: enemyType.ai_personality_traits
+        ? Object.keys(enemyType.ai_personality_traits)
+        : [],
+    };
   }
 
   /**
@@ -1192,7 +1236,11 @@ export class CombatService {
       throw new NotFoundError('Enemy type', selectedEnemyTypeId);
     }
 
-    const enemyStats = await this.calculateEnemyStats(selectedEnemyTypeId);
+    // Get style options for this enemy type and perform weighted random selection
+    const enemyStyles = await this.enemyRepository.getStylesForEnemyType(selectedEnemyTypeId);
+    const selectedStyleId = this.selectRandomStyle(enemyStyles);
+
+    const enemyStats = await this.calculateEnemyStats(selectedEnemyTypeId, selectedStyleId);
 
     return {
       id: enemyType.id,

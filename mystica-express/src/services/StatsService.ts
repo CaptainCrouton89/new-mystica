@@ -16,7 +16,7 @@ export class StatsService {
   /**
    * Calculate final item stats with rarity, level scaling, and material modifiers applied
    *
-   * Formula: base_stats × rarity_multiplier × level × 10 + material_modifiers
+   * Formula: base_stats × rarity_multiplier × level + material_modifiers
    *
    * Note: This method receives pre-multiplied baseStats that already include
    * the rarity multiplier from the calling service layer.
@@ -43,12 +43,12 @@ export class StatsService {
       this.validateMaterialModifiers(materials);
     }
 
-    // 1. Scale base stats by level (×10 base scaling factor from schema)
+    // 1. Scale base stats by level (no additional multiplier)
     const levelScaled: Stats = {
-      atkPower: baseStats.atkPower * level * 10,
-      atkAccuracy: baseStats.atkAccuracy * level * 10,
-      defPower: baseStats.defPower * level * 10,
-      defAccuracy: baseStats.defAccuracy * level * 10
+      atkPower: baseStats.atkPower * level,
+      atkAccuracy: baseStats.atkAccuracy * level,
+      defPower: baseStats.defPower * level,
+      defAccuracy: baseStats.defAccuracy * level
     };
 
     // 2. Apply material modifiers (zero-sum adjustments)
@@ -59,12 +59,12 @@ export class StatsService {
       defAccuracy: acc.defAccuracy + material.material.stat_modifiers.defAccuracy
     }), { atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0 });
 
-    // 3. Combine scaled stats with material modifiers and round to 2 decimal places
+    // 3. Combine scaled stats with material modifiers
     return {
-      atkPower: Math.round((levelScaled.atkPower + materialMods.atkPower) * 100) / 100,
-      atkAccuracy: Math.round((levelScaled.atkAccuracy + materialMods.atkAccuracy) * 100) / 100,
-      defPower: Math.round((levelScaled.defPower + materialMods.defPower) * 100) / 100,
-      defAccuracy: Math.round((levelScaled.defAccuracy + materialMods.defAccuracy) * 100) / 100
+      atkPower: levelScaled.atkPower + materialMods.atkPower,
+      atkAccuracy: levelScaled.atkAccuracy + materialMods.atkAccuracy,
+      defPower: levelScaled.defPower + materialMods.defPower,
+      defAccuracy: levelScaled.defAccuracy + materialMods.defAccuracy
     };
   }
 
@@ -97,21 +97,16 @@ export class StatsService {
     };
 
     // Calculate directly without calling computeItemStats to avoid validation
-    // 1. Scale base stats by level (×10 base scaling factor from schema)
+    // 1. Scale base stats by level (no additional multiplier)
     const levelScaled: Stats = {
-      atkPower: rarityAdjustedBaseStats.atkPower * level * 10,
-      atkAccuracy: rarityAdjustedBaseStats.atkAccuracy * level * 10,
-      defPower: rarityAdjustedBaseStats.defPower * level * 10,
-      defAccuracy: rarityAdjustedBaseStats.defAccuracy * level * 10
+      atkPower: rarityAdjustedBaseStats.atkPower * level,
+      atkAccuracy: rarityAdjustedBaseStats.atkAccuracy * level,
+      defPower: rarityAdjustedBaseStats.defPower * level,
+      defAccuracy: rarityAdjustedBaseStats.defAccuracy * level
     };
 
-    // 2. Round to 2 decimal places and return (no materials)
-    return {
-      atkPower: Math.round(levelScaled.atkPower * 100) / 100,
-      atkAccuracy: Math.round(levelScaled.atkAccuracy * 100) / 100,
-      defPower: Math.round(levelScaled.defPower * 100) / 100,
-      defAccuracy: Math.round(levelScaled.defAccuracy * 100) / 100
-    };
+    // 2. Return result (no materials)
+    return levelScaled;
   }
 
   /**
@@ -157,12 +152,7 @@ export class StatsService {
     });
 
     return {
-      total_stats: {
-        atkPower: Math.round(totalStats.atkPower * 100) / 100,
-        atkAccuracy: Math.round(totalStats.atkAccuracy * 100) / 100,
-        defPower: Math.round(totalStats.defPower * 100) / 100,
-        defAccuracy: Math.round(totalStats.defAccuracy * 100) / 100
-      },
+      total_stats: totalStats,
       item_contributions: itemContributions,
       equipped_items_count: equippedItems.length,
       total_item_level: totalItemLevel
