@@ -14,3 +14,11 @@ enum CombatPhase {
     case playerAttack      // Dial visible with attack accuracy zones
     case playerDefense     // Tap dial with defense zones, enemy glows red
 }
+
+// MARK: - Enemy Animation State
+enum EnemyAnimationState {
+    case idle      // Looping forever
+    case hit       // Plays once, returns to idle
+    case attack    // Plays once, returns to idle
+    case death     // Plays once, stays on last frame
+}

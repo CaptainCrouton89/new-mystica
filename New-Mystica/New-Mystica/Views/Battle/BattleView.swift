@@ -91,10 +91,12 @@ struct BattleView: View {
     @State var playerOffset: CGPoint = .zero
     
     // MARK: - Enemy Animation State
-    @State var enemyAnimationLoader: MonsterAnimationLoader?
+    @State var currentAnimationLoader: MonsterAnimationLoader?
+    @State var allAnimationLoaders: (idle: MonsterAnimationLoader?, hit: MonsterAnimationLoader?, attack: MonsterAnimationLoader?, death: MonsterAnimationLoader?) = (nil, nil, nil, nil)
     @State var enemyCurrentFrame: Int = 0
     @State var enemyAnimationTimer: Timer?
     @State var isEnemyAnimating: Bool = false
+    @State var enemyAnimationState: EnemyAnimationState = .idle
 
     // Location ID passed from map (optional for auto-resume scenarios)
     let locationId: String?
@@ -278,38 +280,110 @@ struct BattleView: View {
     
     // MARK: - Enemy Animation Functions
     
-    /// Initialize enemy animation loader and start idle animation
+    /// Load all enemy animations at battle start
     func initializeEnemyAnimation(for enemy: CombatEnemy) async {
-        // Use enemy ID as monster ID for animation loading
         let monsterId = enemy.id
-        print("🎯 [BattleView] Starting battle with monster ID: \(monsterId)")
-        print("🎯 [BattleView] Enemy name: \(enemy.name ?? "Unknown")")
+        print("🎯 [BattleView] Loading all animations for monster: \(monsterId)")
         
-        enemyAnimationLoader = MonsterAnimationLoader(monsterId: monsterId, animationType: "idle")
+        // Load all 4 animations in parallel
+        async let idleLoader = loadAnimation(monsterId: monsterId, type: "idle")
+        async let hitLoader = loadAnimation(monsterId: monsterId, type: "damage")
+        async let attackLoader = loadAnimation(monsterId: monsterId, type: "attack")
+        async let deathLoader = loadAnimation(monsterId: monsterId, type: "death")
         
-        // Load the animation
-        await enemyAnimationLoader?.loadAnimation()
+        // Wait for all to complete
+        let (idle, hit, attack, death) = await (idleLoader, hitLoader, attackLoader, deathLoader)
         
-        // Start idle animation loop if loaded successfully
-        if enemyAnimationLoader?.isReady == true {
-            await MainActor.run {
-                startEnemyIdleAnimation()
+        await MainActor.run {
+            self.allAnimationLoaders = (idle, hit, attack, death)
+            // Start with idle animation
+            switchToAnimation(.idle)
+        }
+    }
+    
+    /// Load a single animation
+    func loadAnimation(monsterId: String, type: String) async -> MonsterAnimationLoader {
+        let loader = MonsterAnimationLoader(monsterId: monsterId, animationType: type)
+        await loader.loadAnimation()
+        return loader
+    }
+    
+    /// Switch to a different animation (in-memory, no reloading)
+    func switchToAnimation(_ state: EnemyAnimationState) {
+        stopEnemyAnimation()
+        
+        // Determine which loader to use
+        switch state {
+        case .idle:
+            currentAnimationLoader = allAnimationLoaders.idle
+        case .hit:
+            currentAnimationLoader = allAnimationLoaders.hit
+        case .attack:
+            currentAnimationLoader = allAnimationLoaders.attack
+        case .death:
+            currentAnimationLoader = allAnimationLoaders.death
+        }
+        
+        enemyAnimationState = state
+        
+        // Start playing
+        if state == .idle {
+            startLoopingAnimation()
+        } else {
+            startOneShotAnimation()
+        }
+    }
+    
+    /// Start looping animation (for idle)
+    func startLoopingAnimation() {
+        guard let loader = currentAnimationLoader,
+              let animationData = loader.animationData else { return }
+        
+        enemyCurrentFrame = 0
+        isEnemyAnimating = true
+        
+        enemyAnimationTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 12.0, repeats: true) { _ in
+            DispatchQueue.main.async {
+                let frameCount = animationData.frames.count
+                self.enemyCurrentFrame = (self.enemyCurrentFrame + 1) % frameCount
             }
         }
     }
     
-    /// Start enemy idle animation loop
-    func startEnemyIdleAnimation() {
-        guard let loader = enemyAnimationLoader,
+    /// Start one-shot animation (for hit, attack, death)
+    func startOneShotAnimation() {
+        guard let loader = currentAnimationLoader,
               let animationData = loader.animationData else { return }
         
-        stopEnemyAnimation() // Stop any existing animation
-        
+        enemyCurrentFrame = 0
         isEnemyAnimating = true
-        enemyAnimationTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 12.0, repeats: true) { _ in
+        let frameCount = animationData.frames.count
+        
+        enemyAnimationTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 12.0, repeats: true) { timer in
             DispatchQueue.main.async {
-                self.enemyCurrentFrame = (self.enemyCurrentFrame + 1) % animationData.frames.count
+                if self.enemyCurrentFrame >= frameCount - 1 {
+                    // Animation complete
+                    timer.invalidate()
+                    self.isEnemyAnimating = false
+                    self.handleOneShotAnimationComplete()
+                } else {
+                    self.enemyCurrentFrame += 1
+                }
             }
+        }
+    }
+    
+    /// Handle completion of one-shot animations
+    func handleOneShotAnimationComplete() {
+        switch enemyAnimationState {
+        case .hit, .attack:
+            // Return to idle
+            switchToAnimation(.idle)
+        case .death:
+            // Stay on last frame, do nothing
+            break
+        case .idle:
+            break
         }
     }
     
@@ -434,7 +508,18 @@ struct BattleView: View {
             if playerZone.zone <= 3 {
                 triggerEnemyShake()
             }
-
+            
+            // Trigger enemy animation based on damage
+            if enemyZone.finalDamage > 0 {
+                Task {
+                    if viewModel.enemyHP <= 0 {
+                        await triggerEnemyAnimation(.death)
+                    } else {
+                        await triggerEnemyAnimation(.hit)
+                    }
+                }
+            }
+            
             // Show enemy's counterattack damage (smaller, below)
             if enemyZone.finalDamage > 0 {
                 let enemyColor = Color.red
@@ -518,6 +603,13 @@ struct BattleView: View {
 
             // Trigger haptic based on defense quality
             triggerHapticForZone(playerZone.zone)
+            
+            // Trigger enemy attack animation
+            if enemyZone.finalDamage > 0 {
+                Task {
+                    await triggerEnemyAnimation(.attack)
+                }
+            }
         } else {
             // Legacy fallback
             guard let damageTaken = action.damageDealt else { return }
@@ -554,6 +646,21 @@ struct BattleView: View {
         }
     }
 
+    /// Trigger enemy animation by state
+    func triggerEnemyAnimation(_ state: EnemyAnimationState) async {
+        // Load animations if not already loaded
+        if currentAnimationLoader == nil {
+            guard let session = viewModel.combatState.value else { return }
+            await initializeEnemyAnimation(for: session.enemy)
+            return
+        }
+        
+        // Switch to the requested animation
+        await MainActor.run {
+            switchToAnimation(state)
+        }
+    }
+    
     /// Trigger enemy shake animation
     func triggerEnemyShake() {
         withAnimation(.easeInOut(duration: 0.2)) {
