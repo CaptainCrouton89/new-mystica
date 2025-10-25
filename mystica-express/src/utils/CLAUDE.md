@@ -30,6 +30,15 @@ Generate R2 storage URLs for materials and item types using snake_case naming co
 - `getMaterialImageUrl(materialName)` - Returns `{R2_PUBLIC_URL}/materials/{name}.png`
 - `getItemTypeImageUrl(itemTypeName)` - Returns `{R2_PUBLIC_URL}/items/{name}.png`
 
+### image-url.ts
+R2 storage URL generation utilities.
+
+**Functions:**
+- `getMaterialImageUrl(name)` - Returns R2 URL at `materials/{snake_case}.png`
+- `getItemTypeImageUrl(name)` - Returns R2 URL at `items/{snake_case}.png`
+
+Both normalize input to lowercase snake_case. Requires `R2_PUBLIC_URL` env var.
+
 ## Patterns
 
 - **Error Handling:** Throw early with descriptive errors
