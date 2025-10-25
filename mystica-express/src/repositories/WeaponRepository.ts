@@ -80,7 +80,7 @@ export class WeaponRepository extends BaseRepository<Weapon> {
       throw new DatabaseError('Failed to find weapon with item details', error);
     }
 
-    return data as WeaponWithItem;
+    return data;
   }
 
   /**
@@ -122,7 +122,17 @@ export class WeaponRepository extends BaseRepository<Weapon> {
       ...degreeConfig
     };
 
-    return this.create(insertData);
+    const { data, error } = await this.client
+      .from('weapons')
+      .insert(insertData)
+      .select()
+      .single();
+
+    if (error) {
+      throw new DatabaseError('Failed to create weapon', error);
+    }
+
+    return data;
   }
 
   /**
@@ -302,7 +312,7 @@ export class WeaponRepository extends BaseRepository<Weapon> {
       if (error instanceof DatabaseError && error.message.includes('Weapon not found')) {
         throw new NotFoundError('weapon', weaponId);
       }
-      throw new DatabaseError('Failed to calculate adjusted bands', error as Record<string, any>);
+      throw new DatabaseError('Failed to calculate adjusted bands', error instanceof Error ? { message: error.message } : {});
     }
   }
 
@@ -327,7 +337,7 @@ export class WeaponRepository extends BaseRepository<Weapon> {
       if (error instanceof DatabaseError && error.message.includes('Weapon not found')) {
         throw new NotFoundError('weapon', weaponId);
       }
-      throw new DatabaseError('Failed to calculate expected damage multiplier', error as Record<string, any>);
+      throw new DatabaseError('Failed to calculate expected damage multiplier', error instanceof Error ? { message: error.message } : {});
     }
   }
 
@@ -381,7 +391,7 @@ export class WeaponRepository extends BaseRepository<Weapon> {
       throw new DatabaseError('Failed to find user weapons', error);
     }
 
-    return (data || []) as WeaponWithItem[];
+    return data ?? [];
   }
 
   /**

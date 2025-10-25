@@ -37,6 +37,12 @@ export class ProgressionRepository extends BaseRepository<PlayerProgression> {
    * Get player progression by user ID
    * Creates default progression record if it doesn't exist
    */
+  /**
+   * Get player progression by user ID
+   * @param {string} userId - The unique identifier of the user
+   * @returns {Promise<PlayerProgression>} The player's progression record
+   * @throws {ValidationError} If user ID is invalid
+   */
   async getPlayerProgression(userId: string): Promise<PlayerProgression> {
     let progression = await this.findOne({ user_id: userId });
 
@@ -252,6 +258,11 @@ export class ProgressionRepository extends BaseRepository<PlayerProgression> {
     }
 
     try {
+      // Validate input before database query
+      if (!userId || !level) {
+        throw new ValidationError('User ID and level are required');
+      }
+
       const { data, error } = await this.client
         .from('userlevelrewards')
         .select('user_id')
@@ -278,6 +289,15 @@ export class ProgressionRepository extends BaseRepository<PlayerProgression> {
   /**
    * Claim level reward with atomic operation
    * Creates UserLevelReward entry and returns reward info
+   */
+  /**
+   * Claim a level reward for a user
+   * @param {string} userId - The unique identifier of the user
+   * @param {number} level - The level at which the reward is being claimed
+   * @returns {Promise<{reward: LevelReward, claimRecord: UserLevelReward}>} The claimed reward and claim record
+   * @throws {ValidationError} If level is invalid
+   * @throws {NotFoundError} If no claimable reward exists
+   * @throws {DatabaseError} For database-related errors
    */
   async claimLevelReward(userId: string, level: number): Promise<{
     reward: LevelReward;

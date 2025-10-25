@@ -37,8 +37,8 @@ export class ItemRepository extends BaseRepository<ItemRow> {
 - **WeaponRepository** - Weapon-specific queries and stat calculations
 
 **Combat & Progression:**
-- **CombatRepository** - Combat logs, turn history, battle transactions
-- **EnemyRepository** - Enemy types, tiers, styles, pools, realized stats via `v_enemy_realized_stats` view
+- **CombatRepository** - PostgreSQL-only session management with TTL expiry (60min), combat log events, player combat history analytics, chatter logging
+- **EnemyRepository** - Enemy types with normalized stats, tiers, polymorphic enemyloot queries
 - **ProfileRepository** - User profiles, stats, progression data
 - **ProgressionRepository** - Level, experience, unlocks
 

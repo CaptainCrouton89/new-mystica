@@ -8,25 +8,27 @@
 
 import { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from '../config/supabase.js';
-import { BaseRepository } from './BaseRepository.js';
-import { DatabaseError, NotFoundError, BusinessLogicError, mapSupabaseError } from '../utils/errors.js';
 import { Database } from '../types/database.types.js';
 import {
-  Material,
-  MaterialStack,
-  MaterialInstance,
   AppliedMaterial,
-  CreateMaterialStackData,
-  CreateMaterialInstanceData,
-  ApplyMaterialData,
+  Material,
+  MaterialInstance,
   MaterialInstanceWithTemplate
 } from '../types/repository.types.js';
+import { BusinessLogicError, DatabaseError, mapSupabaseError, NotFoundError } from '../utils/errors.js';
+import { BaseRepository } from './BaseRepository.js';
 
-// Type definitions from database schema
+// Database row types
 type MaterialRow = Database['public']['Tables']['materials']['Row'];
 type MaterialStackRow = Database['public']['Tables']['materialstacks']['Row'];
 type MaterialInstanceRow = Database['public']['Tables']['materialinstances']['Row'];
 type ItemMaterialRow = Database['public']['Tables']['itemmaterials']['Row'];
+
+// Supabase generated Insert/Update types - use these for strong typing
+type MaterialStackInsert = Database['public']['Tables']['materialstacks']['Insert'];
+type MaterialStackUpdate = Database['public']['Tables']['materialstacks']['Update'];
+type MaterialInstanceInsert = Database['public']['Tables']['materialinstances']['Insert'];
+type ItemMaterialInsert = Database['public']['Tables']['itemmaterials']['Insert'];
 
 /**
  * MaterialRepository handles all material-related database operations
@@ -198,8 +200,8 @@ export class MaterialRepository extends BaseRepository<MaterialRow> {
     material_id: string;
     style_id: string;
     quantity: number;
-    materials: { name: string };
-    styledefinitions: { style_name: string };
+    materials: { name: string } | null;
+    styledefinitions: { style_name: string } | null;
   }>> {
     const { data, error } = await this.client
       .from('materialstacks')
@@ -218,39 +220,74 @@ export class MaterialRepository extends BaseRepository<MaterialRow> {
       throw mapSupabaseError(error);
     }
 
-    return (data || []) as any;
+    return (data || []) as unknown as Array<{
+      material_id: string;
+      style_id: string;
+      quantity: number;
+      materials: { name: string } | null;
+      styledefinitions: { style_name: string } | null;
+    }>;
   }
 
   /**
    * Increment material stack quantity (upsert operation)
+   * Uses composite key of (user_id, material_id, style_id)
    */
-  async incrementStack(userId: string, materialId: string, styleId: string, quantity: number): Promise<MaterialStackRow> {
+  /**
+   * Validate and normalize styleId, always defaulting to 'normal' if invalid
+   *
+   * @param styleId - Input style ID to validate
+   * @returns Validated style ID or 'normal'
+   */
+  private validateStyleId(styleId?: string): string {
+    return styleId && styleId.trim() !== '' ? styleId : 'normal';
+  }
+
+  /**
+   * Increment material stack quantity (upsert operation)
+   * Uses composite key of (user_id, material_id, style_id)
+   */
+  async incrementStack(
+    userId: string,
+    materialId: string,
+    quantity: number,
+    styleId: string = 'normal'
+  ): Promise<MaterialStackRow> {
     if (quantity <= 0) {
       throw new BusinessLogicError('Increment quantity must be positive');
     }
 
-    const existing = await this.findStackByUser(userId, materialId, styleId);
+    const validStyleId = this.validateStyleId(styleId);
+    const existing = await this.findStackByUser(userId, materialId, validStyleId);
 
     if (existing) {
-      return this.updateStackByCompositeKey(userId, materialId, styleId, {
+      return this.updateStackByCompositeKey(userId, materialId, validStyleId, {
         quantity: existing.quantity + quantity
       });
     } else {
-      return this.createStack(userId, materialId, styleId, quantity);
+      return this.createStack(userId, materialId, quantity, validStyleId);
     }
   }
 
   /**
    * Decrement material stack quantity
+   * Uses composite key of (user_id, material_id, style_id)
    */
-  async decrementStack(userId: string, materialId: string, styleId: string, quantity: number): Promise<MaterialStackRow> {
+  async decrementStack(
+    userId: string,
+    materialId: string,
+    quantity: number,
+    styleId: string = 'normal'
+  ): Promise<MaterialStackRow> {
     if (quantity <= 0) {
       throw new BusinessLogicError('Decrement quantity must be positive');
     }
 
-    const existing = await this.findStackByUser(userId, materialId, styleId);
+    const validStyleId = this.validateStyleId(styleId);
+    const existing = await this.findStackByUser(userId, materialId, validStyleId);
+
     if (!existing) {
-      throw new NotFoundError('MaterialStack', `${userId}:${materialId}:${styleId}`);
+      throw new NotFoundError('MaterialStack', `${userId}:${materialId}:${validStyleId}`);
     }
 
     if (existing.quantity < quantity) {
@@ -260,63 +297,64 @@ export class MaterialRepository extends BaseRepository<MaterialRow> {
     const newQuantity = existing.quantity - quantity;
 
     if (newQuantity === 0) {
-      await this.deleteStackByCompositeKey(userId, materialId, styleId);
+      await this.deleteStackByCompositeKey(userId, materialId, validStyleId);
       return { ...existing, quantity: 0 };
     } else {
-      return this.updateStackByCompositeKey(userId, materialId, styleId, { quantity: newQuantity });
+      return this.updateStackByCompositeKey(userId, materialId, validStyleId, { quantity: newQuantity });
     }
   }
 
   /**
    * Create new material stack
+   * Ensures style_id is always set (defaults to 'normal')
+   *
+   * @param userId - Owner of the material stack
+   * @param materialId - Material template ID
+   * @param quantity - Starting quantity (must be positive)
+   * @param styleId - Style variant (defaults to 'normal')
+   * @returns Created material stack row
+   * @throws BusinessLogicError if quantity <= 0
+   * @throws DatabaseError if insert fails
+   *
+   * Auto-populated fields:
+   * - updated_at: server timestamp
+   *
+   * Composite Primary Key: (user_id, material_id, style_id)
    */
-  async createStack(userId: string, materialId: string, styleId: string, quantity: number): Promise<MaterialStackRow> {
+  async createStack(
+    userId: string,
+    materialId: string,
+    quantity: number,
+    styleId: string = 'normal'
+  ): Promise<MaterialStackRow> {
     if (quantity <= 0) {
       throw new BusinessLogicError('Initial stack quantity must be positive');
     }
 
-    const stackData: CreateMaterialStackData = {
+    const validStyleId = this.validateStyleId(styleId);
+
+    // Use strongly-typed MaterialStackInsert from Supabase schema
+    const stackData: MaterialStackInsert = {
       user_id: userId,
       material_id: materialId,
-      style_id: styleId,
+      style_id: validStyleId,
       quantity
     };
 
     const insertBuilder = this.client.from('materialstacks').insert(stackData);
-    let insertResult:
-      | { data: MaterialStackRow | MaterialStackRow[] | null; error: any }
-      | undefined;
 
-    if (typeof insertBuilder?.select === 'function') {
-      const selectable = insertBuilder.select();
-      if (typeof selectable?.single === 'function') {
-        const { data, error } = await selectable.single();
-        insertResult = { data, error };
-      } else {
-        insertResult = await this.resolveQuery<MaterialStackRow | MaterialStackRow[]>(selectable);
-      }
-    } else {
-      insertResult = await this.resolveQuery<MaterialStackRow | MaterialStackRow[]>(insertBuilder);
-    }
-
-    const { data, error } = insertResult;
+    // Execute insert with .select().single() to get the created row
+    const { data, error } = await insertBuilder.select().single();
 
     if (error) {
       throw mapSupabaseError(error);
     }
 
-    const stackRecord = Array.isArray(data) ? data?.[0] : data;
-    if (!stackRecord) {
-      if (!error || error.code === 'PGRST116') {
-        const fallback = await this.findStackByUser(userId, materialId, styleId);
-        if (fallback) {
-          return fallback;
-        }
-      }
-      throw new DatabaseError('Failed to create material stack', { data, error });
+    if (!data) {
+      throw new DatabaseError('Failed to create material stack: no data returned from insert');
     }
 
-    return stackRecord;
+    return data as MaterialStackRow;
   }
 
   /**
@@ -330,13 +368,21 @@ export class MaterialRepository extends BaseRepository<MaterialRow> {
   }
 
   /**
-   * Update material stack by composite key
+   * Update material stack by composite key (user_id, material_id, style_id)
+   *
+   * @param userId - User ID of material stack owner
+   * @param materialId - Material ID
+   * @param styleId - Style ID
+   * @param data - Fields to update (use MaterialStackUpdate for type safety)
+   * @returns Updated material stack row
+   * @throws NotFoundError if composite key doesn't exist
+   * @throws DatabaseError on update failure
    */
   private async updateStackByCompositeKey(
     userId: string,
     materialId: string,
     styleId: string,
-    data: Partial<MaterialStackRow>
+    data: MaterialStackUpdate
   ): Promise<MaterialStackRow> {
     const { data: updated, error } = await this.client
       .from('materialstacks')
@@ -352,6 +398,10 @@ export class MaterialRepository extends BaseRepository<MaterialRow> {
         throw new NotFoundError('MaterialStack', `${userId}:${materialId}:${styleId}`);
       }
       throw mapSupabaseError(error);
+    }
+
+    if (!updated) {
+      throw new DatabaseError('Failed to update material stack: no data returned');
     }
 
     return updated as MaterialStackRow;
@@ -385,43 +435,40 @@ export class MaterialRepository extends BaseRepository<MaterialRow> {
 
   /**
    * Create material instance when applying to item
+   *
+   * @param userId - User ID who owns the instance
+   * @param materialId - Material template ID
+   * @param styleId - Style variant ID
+   * @returns Created material instance
+   * @throws DatabaseError if insert fails
+   *
+   * Auto-populated fields:
+   * - id: auto-generated UUID
+   * - created_at: server timestamp
    */
   async createInstance(userId: string, materialId: string, styleId: string): Promise<MaterialInstance> {
-    const instanceData: CreateMaterialInstanceData = {
+    // Use strongly-typed MaterialInstanceInsert from Supabase schema
+    const instanceData: MaterialInstanceInsert = {
       user_id: userId,
       material_id: materialId,
       style_id: styleId
     };
 
-    const insertBuilder = this.client.from('materialinstances').insert(instanceData);
-    let insertResult:
-      | { data: MaterialInstance | MaterialInstance[] | null; error: any }
-      | undefined;
-
-    if (typeof insertBuilder?.select === 'function') {
-      const selectable = insertBuilder.select();
-      if (typeof selectable?.single === 'function') {
-        const { data, error } = await selectable.single();
-        insertResult = { data, error };
-      } else {
-        insertResult = await this.resolveQuery<MaterialInstance | MaterialInstance[]>(selectable);
-      }
-    } else {
-      insertResult = await this.resolveQuery<MaterialInstance | MaterialInstance[]>(insertBuilder);
-    }
-
-    const { data, error } = insertResult;
+    const { data, error } = await this.client
+      .from('materialinstances')
+      .insert(instanceData)
+      .select()
+      .single();
 
     if (error) {
       throw mapSupabaseError(error);
     }
 
-    const instanceRecord = Array.isArray(data) ? data?.[0] : data;
-    if (!instanceRecord) {
-      throw new DatabaseError('Failed to create material instance');
+    if (!data) {
+      throw new DatabaseError('Failed to create material instance: no data returned from insert');
     }
 
-    return instanceRecord as MaterialInstance;
+    return data as MaterialInstance;
   }
 
   /**
@@ -494,13 +541,27 @@ export class MaterialRepository extends BaseRepository<MaterialRow> {
 
   /**
    * Apply material instance to item slot
+   *
+   * @param itemId - Item ID to apply material to
+   * @param instanceId - Material instance ID to apply
+   * @param slotIndex - Slot index (0-2, max 3 materials per item)
+   * @throws BusinessLogicError if slot index invalid or slot/instance already occupied
+   * @throws DatabaseError on insert failure
+   *
+   * Auto-populated fields:
+   * - applied_at: server timestamp
+   *
+   * Constraints:
+   * - UNIQUE(item_id, slot_index): Each item can have 1 material per slot
+   * - UNIQUE(material_instance_id): Each instance can be applied to only 1 item
    */
   async applyToItem(itemId: string, instanceId: string, slotIndex: number): Promise<void> {
     if (slotIndex < 0 || slotIndex > 2) {
       throw new BusinessLogicError('Slot index must be between 0 and 2');
     }
 
-    const applyData: ApplyMaterialData = {
+    // Use strongly-typed ItemMaterialInsert from Supabase schema
+    const applyData: ItemMaterialInsert = {
       item_id: itemId,
       material_instance_id: instanceId,
       slot_index: slotIndex
@@ -567,8 +628,41 @@ export class MaterialRepository extends BaseRepository<MaterialRow> {
 
   /**
    * Find all materials applied to an item
+   *
+   * @param itemId - Item ID to find applied materials for
+   * @returns Array of applied materials with instance and template data
+   * @throws DatabaseError on query failure
    */
   async findMaterialsByItem(itemId: string): Promise<AppliedMaterial[]> {
+    interface ItemMaterialWithJoins {
+      id: string;
+      item_id: string;
+      material_instance_id: string;
+      slot_index: number;
+      applied_at: string;
+      material_instance: {
+        id: string;
+        user_id: string;
+        material_id: string;
+        style_id: string;
+        created_at: string;
+      } | null;
+      material: Array<{
+        id: string;
+        user_id: string;
+        material_id: string;
+        style_id: string;
+        created_at: string;
+        material: {
+          id: string;
+          name: string;
+          description: string | null;
+          base_drop_weight: number;
+          stat_modifiers: Record<string, number>;
+        } | null;
+      }> | null;
+    }
+
     const { data, error } = await this.client
       .from('itemmaterials')
       .select(`
@@ -584,13 +678,28 @@ export class MaterialRepository extends BaseRepository<MaterialRow> {
     }
 
     // Transform the data to match AppliedMaterial interface
-    return (data || []).map(item => ({
-      id: item.id,
-      material_id: item.material_instance?.material_id || '',
-      style_id: item.material_instance?.style_id || '00000000-0000-0000-0000-000000000000',
-      slot_index: item.slot_index,
-      material: (item as any).material?.material || {} // Nested join data
-    } as AppliedMaterial));
+    if (!data) {
+      return [];
+    }
+
+    return (data as ItemMaterialWithJoins[]).map(item => {
+      if (!item.material_instance) {
+        throw new DatabaseError(`Material instance not found for applied material: ${item.id}`);
+      }
+
+      const materialData = item.material?.[0]?.material;
+      if (!materialData) {
+        throw new DatabaseError(`Material template not found for instance: ${item.material_instance_id}`);
+      }
+
+      return {
+        id: item.id,
+        material_id: item.material_instance.material_id,
+        style_id: item.material_instance.style_id,
+        slot_index: item.slot_index,
+        material: materialData as unknown as Material
+      } as AppliedMaterial;
+    });
   }
 
   /**
@@ -803,8 +912,8 @@ export class MaterialRepository extends BaseRepository<MaterialRow> {
       const result = await this.incrementStack(
         update.userId,
         update.materialId,
-        update.styleId,
-        update.quantity
+        update.quantity,
+        update.styleId
       );
       results.push(result);
     }

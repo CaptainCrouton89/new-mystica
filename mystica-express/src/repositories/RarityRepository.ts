@@ -13,8 +13,15 @@ import { supabase } from '../config/supabase.js';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 // Type aliases for cleaner code
+// Supabase-generated types for raritydefinitions table
 type RarityDefinition = Database['public']['Tables']['raritydefinitions']['Row'];
+type RarityDefinitionInsert = Database['public']['Tables']['raritydefinitions']['Insert'];
+type RarityDefinitionUpdate = Database['public']['Tables']['raritydefinitions']['Update'];
+
 type MaterialStrengthTier = Database['public']['Tables']['materialstrengthtiers']['Row'];
+type MaterialStrengthTierInsert = Database['public']['Tables']['materialstrengthtiers']['Insert'];
+type MaterialStrengthTierUpdate = Database['public']['Tables']['materialstrengthtiers']['Update'];
+
 type RarityEnum = Database['public']['Enums']['rarity'];
 
 // Stats interface for abs_sum calculation
@@ -278,6 +285,55 @@ export class RarityRepository extends BaseRepository<RarityDefinition> {
     }
 
     return distribution;
+  }
+
+  /**
+   * Create a new rarity definition
+   *
+   * @param data - Rarity definition data to insert
+   * @returns Newly created rarity definition
+   * @throws DatabaseError if insertion fails
+   */
+  async createRarityDefinition(data: RarityDefinitionInsert): Promise<RarityDefinition> {
+    const { data: insertedData, error } = await this.client
+      .from('raritydefinitions')
+      .insert(data)
+      .select()
+      .single();
+
+    if (error) {
+      throw new DatabaseError(`Failed to create rarity definition: ${error.message}`, error);
+    }
+
+    return insertedData;
+  }
+
+  /**
+   * Update an existing rarity definition
+   *
+   * @param rarityId - UUID of the rarity definition to update
+   * @param data - Partial update data for the rarity definition
+   * @returns Updated rarity definition
+   * @throws DatabaseError if update fails
+   * @throws ValidationError if no rarity found with given ID
+   */
+  async updateRarityDefinition(rarityId: string, data: RarityDefinitionUpdate): Promise<RarityDefinition> {
+    const { data: updatedData, error } = await this.client
+      .from('raritydefinitions')
+      .update(data)
+      .eq('id', rarityId)
+      .select()
+      .single();
+
+    if (error) {
+      throw new DatabaseError(`Failed to update rarity definition: ${error.message}`, error);
+    }
+
+    if (!updatedData) {
+      throw new ValidationError(`No rarity definition found with ID: ${rarityId}`);
+    }
+
+    return updatedData;
   }
 }
 
