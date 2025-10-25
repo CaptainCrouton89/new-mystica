@@ -21,25 +21,16 @@ struct InventoryView: View {
             }
             .sheet(isPresented: $viewModel.showingItemDetailModal) {
                 if let item = viewModel.selectedItemForDetail {
-                    InventoryItemDetailModal(
+                    UnifiedItemDetailModal(
                         item: item,
-                        onEquip: {
-                            await viewModel.handleEquipAction()
-                        },
-                        onCraft: {
-                            Task {
-                                await viewModel.handleCraftAction()
-                            }
-                        },
-                        onUpgrade: {
-                            Task {
-                                await viewModel.handleUpgradeAction()
-                            }
-                        },
-                        onSell: {
-                            viewModel.handleSellAction()
-                        }
-                    )
+                        badges: [
+                            .level,
+                            .primary(label: "Status", color: item.isEquipped ? Color.accent : Color.textSecondary),
+                            .secondary(label: "Crafted", color: Color.warning)
+                        ]
+                    ) {
+                        inventoryActionButtons(for: item)
+                    }
                 }
             }
             .sheet(isPresented: $viewModel.showingUpgradeConfirmationModal) {
@@ -372,6 +363,122 @@ struct InventoryView: View {
             defPower: currentStats.defPower * statIncrease,
             defAccuracy: currentStats.defAccuracy * statIncrease
         )
+    }
+
+    // MARK: - Inventory Action Buttons
+    @ViewBuilder
+    private func inventoryActionButtons(for item: EnhancedPlayerItem) -> some View {
+        VStack(spacing: 12) {
+            // Primary actions row (Upgrade & Craft)
+            HStack(spacing: 12) {
+                // Upgrade button
+                Button {
+                    audioManager.playMenuButtonClick()
+                    viewModel.showingItemDetailModal = false
+                    Task {
+                        try? await Task.sleep(for: .milliseconds(300))
+                        await viewModel.handleUpgradeAction()
+                    }
+                } label: {
+                    HStack {
+                        Image(systemName: "arrow.up.circle.fill")
+                        NormalText("Upgrade")
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.accent.opacity(0.15))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color.accent, lineWidth: 2)
+                            )
+                    )
+                    .foregroundColor(Color.accent)
+                }
+                .buttonStyle(PlainButtonStyle())
+
+                // Craft button
+                Button {
+                    audioManager.playMenuButtonClick()
+                    viewModel.showingItemDetailModal = false
+                    Task {
+                        try? await Task.sleep(for: .milliseconds(300))
+                        await viewModel.handleCraftAction()
+                    }
+                } label: {
+                    HStack {
+                        Image(systemName: "hammer.fill")
+                        NormalText("Craft")
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.accentSecondary.opacity(0.15))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color.accentSecondary, lineWidth: 2)
+                            )
+                    )
+                    .foregroundColor(Color.accentSecondary)
+                }
+                .buttonStyle(PlainButtonStyle())
+            }
+
+            // Equip button
+            Button {
+                audioManager.playMenuButtonClick()
+                viewModel.showingItemDetailModal = false
+                Task {
+                    try? await Task.sleep(for: .milliseconds(300))
+                    await viewModel.handleEquipAction()
+                }
+            } label: {
+                HStack {
+                    Image(systemName: "checkmark.shield.fill")
+                    NormalText("Equip Item")
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.success.opacity(0.15))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color.success, lineWidth: 2)
+                        )
+                )
+                .foregroundColor(Color.success)
+            }
+            .buttonStyle(PlainButtonStyle())
+            .disabled(item.isEquipped)
+            .opacity(item.isEquipped ? 0.5 : 1.0)
+
+            // Sell button
+            Button {
+                audioManager.playMenuButtonClick()
+                viewModel.showingItemDetailModal = false
+                viewModel.handleSellAction()
+            } label: {
+                HStack {
+                    Image(systemName: "dollarsign.circle.fill")
+                    NormalText("Sell Item")
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.alert.opacity(0.15))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color.alert, lineWidth: 2)
+                        )
+                )
+                .foregroundColor(Color.alert)
+            }
+            .buttonStyle(PlainButtonStyle())
+        }
     }
 }
 
