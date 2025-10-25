@@ -25,11 +25,12 @@ export class StatsService {
       this.validateMaterialModifiers(materials);
     }
 
+    const levelMultiplier = this.getLevelMultiplier(level);
     const levelScaled: Stats = {
-      atkPower: baseStats.atkPower * level,
-      atkAccuracy: baseStats.atkAccuracy * level,
-      defPower: baseStats.defPower * level,
-      defAccuracy: baseStats.defAccuracy * level
+      atkPower: baseStats.atkPower * levelMultiplier,
+      atkAccuracy: baseStats.atkAccuracy * levelMultiplier,
+      defPower: baseStats.defPower * levelMultiplier,
+      defAccuracy: baseStats.defAccuracy * levelMultiplier
     };
 
     const materialMods = materials.reduce((acc, material) => ({
@@ -67,11 +68,12 @@ export class StatsService {
       defAccuracy: baseStats.defAccuracy * rarityMultiplier
     };
 
+    const levelMultiplier = this.getLevelMultiplier(level);
     const levelScaled: Stats = {
-      atkPower: rarityAdjustedBaseStats.atkPower * level,
-      atkAccuracy: rarityAdjustedBaseStats.atkAccuracy * level,
-      defPower: rarityAdjustedBaseStats.defPower * level,
-      defAccuracy: rarityAdjustedBaseStats.defAccuracy * level
+      atkPower: rarityAdjustedBaseStats.atkPower * levelMultiplier,
+      atkAccuracy: rarityAdjustedBaseStats.atkAccuracy * levelMultiplier,
+      defPower: rarityAdjustedBaseStats.defPower * levelMultiplier,
+      defAccuracy: rarityAdjustedBaseStats.defAccuracy * levelMultiplier
     };
 
     return levelScaled;
@@ -165,6 +167,13 @@ export class StatsService {
     }
 
     return multiplier;
+  }
+
+  private getLevelMultiplier(level: number): number {
+    if (level < 1) {
+      throw new ValidationError('Level must be 1 or greater');
+    }
+    return 1 + 0.05 * Math.pow(level - 1, 2);
   }
 
   public calculateZoneProbabilities(accuracy: number): ZoneDistribution {
@@ -272,11 +281,12 @@ export class StatsService {
       throw new ValidationError(`Normalized enemy stats must sum to 1.0, got ${statsSum}`);
     }
 
+    const levelMultiplier = this.getLevelMultiplier(combatLevel);
     return {
-      atk_power: enemyType.atk_power_normalized * 8 * combatLevel * tier.difficulty_multiplier,
-      atk_accuracy: enemyType.atk_accuracy_normalized * 8 * combatLevel * tier.difficulty_multiplier,
-      def_power: enemyType.def_power_normalized * 8 * combatLevel * tier.difficulty_multiplier,
-      def_accuracy: enemyType.def_accuracy_normalized * 8 * combatLevel * tier.difficulty_multiplier
+      atk_power: enemyType.atk_power_normalized * 8 * levelMultiplier * tier.difficulty_multiplier,
+      atk_accuracy: enemyType.atk_accuracy_normalized * 8 * levelMultiplier * tier.difficulty_multiplier,
+      def_power: enemyType.def_power_normalized * 8 * levelMultiplier * tier.difficulty_multiplier,
+      def_accuracy: enemyType.def_accuracy_normalized * 8 * levelMultiplier * tier.difficulty_multiplier
     };
   }
 
