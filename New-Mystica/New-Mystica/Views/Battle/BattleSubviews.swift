@@ -184,10 +184,6 @@ extension BattleView {
             .shadow(color: enemyGlowing ? .red : .clear, radius: enemyGlowing ? 20 : 0)
             .animation(.easeInOut(duration: 0.5), value: enemyGlowing)
             .animation(.easeInOut(duration: 0.2), value: enemyOffset)
-
-            // Enemy Level
-            SmallText("Level \(enemy.level)")
-                .foregroundColor(Color.textSecondary)
         }
     }
 

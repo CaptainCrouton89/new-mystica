@@ -22,6 +22,7 @@ type UserEquipmentInsert = Database['public']['Tables']['userequipment']['Insert
 type EquipmentSlotRow = Database['public']['Tables']['equipmentslots']['Row'];
 type ItemRow = Database['public']['Tables']['items']['Row'];
 type ItemTypeRow = Database['public']['Tables']['itemtypes']['Row'];
+type PlayerEquippedStatsRow = Database['public']['Views']['v_player_equipped_stats']['Row'];
 
 /**
  * Equipment slot names (8 hardcoded slots matching EquipmentSlots seed data)
@@ -567,6 +568,9 @@ export class EquipmentRepository extends BaseRepository<UserEquipmentRow> {
       throw new NotFoundError('PlayerStats', userId);
     }
 
+    // Cast to proper view row type
+    const statsRow = data as PlayerEquippedStatsRow;
+
     // Strict type validation for each numeric field
     const validateNumber = (fieldName: string, value: unknown): number => {
       if (typeof value !== 'number' || Number.isNaN(value)) {
@@ -575,19 +579,18 @@ export class EquipmentRepository extends BaseRepository<UserEquipmentRow> {
       return value;
     };
 
-    // Extract and validate all required stat fields
-    const acc = validateNumber('accuracy', data.acc);
-    const atk = validateNumber('attack', data.atk);
-    const def = validateNumber('defense', data.def);
-
-    // Split combined accuracy 50/50 between attack and defense
-    const splitAccuracy = acc / 2;
+    // Extract and validate all 4 required stat fields
+    // Note: database view returns lowercase column names (atkpower, atkaccuracy, defpower, defaccuracy)
+    const atkPower = validateNumber('atkPower', statsRow.atkpower);
+    const atkAccuracy = validateNumber('atkAccuracy', statsRow.atkaccuracy);
+    const defPower = validateNumber('defPower', statsRow.defpower);
+    const defAccuracy = validateNumber('defAccuracy', statsRow.defaccuracy);
 
     return {
-      atkPower: atk,
-      atkAccuracy: splitAccuracy,
-      defPower: def,
-      defAccuracy: splitAccuracy
+      atkPower,
+      atkAccuracy,
+      defPower,
+      defAccuracy
     };
   }
 
@@ -636,6 +639,9 @@ export class EquipmentRepository extends BaseRepository<UserEquipmentRow> {
       throw new NotFoundError('PlayerStats', userId);
     }
 
+    // Cast to proper view row type
+    const statsRow = data as PlayerEquippedStatsRow;
+
     // Strict type validation for each numeric field with detailed error reporting
     const validateNumber = (fieldName: string, value: unknown): number => {
       if (typeof value !== 'number' || Number.isNaN(value)) {
@@ -644,27 +650,18 @@ export class EquipmentRepository extends BaseRepository<UserEquipmentRow> {
       return value;
     };
 
-    // Extract and validate all required stat fields
-    const validateStatField = (stats: unknown, fieldName: keyof Stats): number => {
-      const statValue = stats && typeof stats === 'object' ? (stats as Stats)[fieldName] : undefined;
-      if (statValue === undefined || typeof statValue !== 'number') {
-        throw new DatabaseError(`Invalid or missing ${fieldName} stat`);
-      }
-      return statValue;
-    };
-
-    const acc = validateNumber('accuracy', data.acc);
-    const atk = validateNumber('attack', data.atk);
-    const def = validateNumber('defense', data.def);
-
-    // Split combined accuracy 50/50 between attack and defense
-    const splitAccuracy = acc / 2;
+    // Extract and validate all 4 required stat fields
+    // Note: database view returns lowercase column names (atkpower, atkaccuracy, defpower, defaccuracy)
+    const atkPower = validateNumber('atkPower', statsRow.atkpower);
+    const atkAccuracy = validateNumber('atkAccuracy', statsRow.atkaccuracy);
+    const defPower = validateNumber('defPower', statsRow.defpower);
+    const defAccuracy = validateNumber('defAccuracy', statsRow.defaccuracy);
 
     return {
-      atkPower: atk,
-      atkAccuracy: splitAccuracy,
-      defPower: def,
-      defAccuracy: splitAccuracy,
+      atkPower,
+      atkAccuracy,
+      defPower,
+      defAccuracy,
     };
   }
 

@@ -187,15 +187,6 @@ struct MapView: View, NavigableView {
                 }
 
                 VStack(spacing: 8) {
-                    HStack {
-                        NormalText("Enemy Level:")
-                            .foregroundColor(Color.textSecondary)
-                        Spacer()
-                        NormalText("\(location.enemyLevel)")
-                            .foregroundColor(Color.accent)
-                            .bold()
-                    }
-
                     if let distance = viewModel.distance(to: location) {
                         HStack {
                             NormalText("Distance:")

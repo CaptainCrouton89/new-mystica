@@ -12,9 +12,6 @@ import {
   ValidationError
 } from '../utils/errors.js';
 
-// Import Express type extensions for req.user and req.validated
-import '../types/express.d.ts';
-
 /**
  * ProgressionController - Player XP and Level Management
  *

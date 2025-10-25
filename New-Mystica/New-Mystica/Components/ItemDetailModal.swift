@@ -188,7 +188,7 @@ struct ItemDetailModal: View {
                         iconUrl: "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/attack-accuracy-crosshair.png",
                         fallbackIcon: "target",
                         label: "ATK Accuracy",
-                        value: String(format: "%.1f%%", item.computedStats.atkAccuracy * 100),
+                        value: String(format: "%.0f", item.computedStats.atkAccuracy * 100),
                         color: Color.warning
                     )
                 }
@@ -207,7 +207,7 @@ struct ItemDetailModal: View {
                         iconUrl: "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/defense-accuracy-force-field.png",
                         fallbackIcon: "checkmark.shield.fill",
                         label: "DEF Accuracy",
-                        value: String(format: "%.1f%%", item.computedStats.defAccuracy * 100),
+                        value: String(format: "%.0f", item.computedStats.defAccuracy * 100),
                         color: Color.success
                     )
                 }

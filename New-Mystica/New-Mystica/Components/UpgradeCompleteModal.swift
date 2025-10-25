@@ -167,8 +167,8 @@ struct UpgradeCompleteModal: View {
                 StatComparisonRow(
                     iconUrl: "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/attack-accuracy-crosshair.png",
                     fallbackIcon: "target",
-                    oldValue: String(format: "%.1f%%", statsBefore.atkAccuracy * 100),
-                    newValue: String(format: "%.1f%%", statsAfter.atkAccuracy * 100),
+                    oldValue: String(format: "%.0f", statsBefore.atkAccuracy * 100),
+                    newValue: String(format: "%.0f", statsAfter.atkAccuracy * 100),
                     color: Color.warning
                 )
 
@@ -183,8 +183,8 @@ struct UpgradeCompleteModal: View {
                 StatComparisonRow(
                     iconUrl: "https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/ui/stats/defense-accuracy-force-field.png",
                     fallbackIcon: "checkmark.shield.fill",
-                    oldValue: String(format: "%.1f%%", statsBefore.defAccuracy * 100),
-                    newValue: String(format: "%.1f%%", statsAfter.defAccuracy * 100),
+                    oldValue: String(format: "%.0f", statsBefore.defAccuracy * 100),
+                    newValue: String(format: "%.0f", statsAfter.defAccuracy * 100),
                     color: Color.success
                 )
             }

@@ -384,9 +384,15 @@ All routes prefixed with `/api/v1` (configured in src/app.ts:63). Health check a
 - **Zod:** 4.1.12 - Runtime validation
 - **Supabase:** 2.39.3 - Database client
 - **AWS SDK:** 3.913.0 - R2 storage (S3-compatible)
+- **Vercel AI SDK:** 5.0.76 + @ai-sdk/openai 2.0.53 - Structured outputs, streaming AI responses
 - **Jest:** 30.2.0 + ts-jest 29.4.5 - Testing
 - **tsx:** 4.6.2 - TypeScript execution
 - **nodemon:** 3.0.2 - Hot reload
+
+## Engine Requirements
+
+- **Node.js:** >=24.0.0
+- **pnpm:** >=9.0.0
 
 ## Troubleshooting
 
