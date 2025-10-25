@@ -6,8 +6,8 @@ struct MainMenuView: View {
     @Environment(\.backgroundImageManager) private var backgroundImageManager
 
     var body: some View {
-        // Change background style: .aurora, .floatingOrbs, .starfield, or .image(backgroundImageManager)
-        MysticaBackground(.image(backgroundImageManager)) {
+        // Change background style: .aurora, .floatingOrbs, .starfield, .image(backgroundImageManager), or .imageWithOrbs(backgroundImageManager)
+        MysticaBackground(.imageWithOrbs(backgroundImageManager)) {
             VStack(spacing: 40) {
                 Spacer()
                 

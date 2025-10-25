@@ -13,6 +13,7 @@ enum MysticaBackgroundStyle {
     case floatingOrbs
     case starfield
     case image(BackgroundImageManager)
+    case imageWithOrbs(BackgroundImageManager)
 }
 
 // MARK: - Main Background Wrapper
@@ -37,8 +38,10 @@ struct MysticaBackground<Content: View>: View {
                 StarfieldBackground()
             case .image(let imageManager):
                 ImageBackground(imageManager: imageManager)
+            case .imageWithOrbs(let imageManager):
+                ImageWithOrbsBackground(imageManager: imageManager)
             }
-            
+
             // Content overlay
             content
         }
@@ -189,23 +192,31 @@ struct FloatingOrb: View {
     let screenSize: CGSize
     
     private var colors: [Color] {
-        switch index % 8 {
+        switch index % 12 {
         case 0:
-            return [Color.purple.opacity(0.3), Color.pink.opacity(0.2)]
+            return [Color.purple.opacity(0.6), Color.pink.opacity(0.4)]
         case 1:
-            return [Color.blue.opacity(0.25), Color.cyan.opacity(0.15)]
+            return [Color.blue.opacity(0.5), Color.cyan.opacity(0.3)]
         case 2:
-            return [Color.pink.opacity(0.2), Color.pink.opacity(0.15)]
+            return [Color.pink.opacity(0.5), Color.pink.opacity(0.3)]
         case 3:
-            return [Color.purple.opacity(0.3), Color.blue.opacity(0.2)]
+            return [Color.purple.opacity(0.6), Color.blue.opacity(0.4)]
         case 4:
-            return [Color.pink.opacity(0.25), Color.pink.opacity(0.15)]
+            return [Color.pink.opacity(0.5), Color.pink.opacity(0.3)]
         case 5:
-            return [Color.cyan.opacity(0.2), Color.blue.opacity(0.15)]
+            return [Color.cyan.opacity(0.5), Color.blue.opacity(0.3)]
         case 6:
-            return [Color.pink.opacity(0.3), Color.purple.opacity(0.2)]
+            return [Color.pink.opacity(0.6), Color.purple.opacity(0.4)]
+        case 7:
+            return [Color.blue.opacity(0.5), Color.purple.opacity(0.3)]
+        case 8:
+            return [Color.purple.opacity(0.55), Color.pink.opacity(0.35)]
+        case 9:
+            return [Color.cyan.opacity(0.45), Color.blue.opacity(0.25)]
+        case 10:
+            return [Color.pink.opacity(0.55), Color.purple.opacity(0.35)]
         default:
-            return [Color.blue.opacity(0.2), Color.purple.opacity(0.15)]
+            return [Color.blue.opacity(0.5), Color.cyan.opacity(0.3)]
         }
     }
     
@@ -218,13 +229,17 @@ struct FloatingOrb: View {
             CGPoint(x: 0.5, y: 0.15),
             CGPoint(x: 0.1, y: 0.5),
             CGPoint(x: 0.9, y: 0.8),
-            CGPoint(x: 0.6, y: 0.4)
+            CGPoint(x: 0.6, y: 0.4),
+            CGPoint(x: 0.35, y: 0.2),
+            CGPoint(x: 0.7, y: 0.85),
+            CGPoint(x: 0.15, y: 0.6),
+            CGPoint(x: 0.8, y: 0.2)
         ]
         return positions[index % positions.count]
     }
-    
+
     private var size: CGFloat {
-        let sizes: [CGFloat] = [120, 80, 100, 140, 90, 110, 130, 95]
+        let sizes: [CGFloat] = [120, 80, 100, 140, 90, 110, 130, 95, 150, 85, 105, 125]
         return sizes[index % sizes.count]
     }
     
@@ -255,7 +270,7 @@ struct FloatingOrb: View {
                 )
             )
             .frame(width: size, height: size)
-            .blur(radius: 20)
+            .blur(radius: 35)
             .position(currentPosition)
             .scaleEffect(scaleEffect)
             .blendMode(.screen)
@@ -428,7 +443,7 @@ struct Particle: Identifiable {
 // MARK: - Image Background
 struct ImageBackground: View {
     @ObservedObject var imageManager: BackgroundImageManager
-    
+
     var body: some View {
         ZStack {
             // Background Image
@@ -441,10 +456,51 @@ struct ImageBackground: View {
                 Color.backgroundPrimary
                     .ignoresSafeArea()
             }
-            
+
             // Dark overlay for readability
             Color.black.opacity(0.5)
                 .ignoresSafeArea()
+        }
+    }
+}
+
+// MARK: - Image Background with Floating Orbs
+struct ImageWithOrbsBackground: View {
+    @ObservedObject var imageManager: BackgroundImageManager
+    @State private var animationPhase: CGFloat = 0
+
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack {
+                // Background Image
+                if let loadedImage = imageManager.loadedImage {
+                    Image(uiImage: loadedImage)
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                        .ignoresSafeArea()
+                } else {
+                    Color.backgroundPrimary
+                        .ignoresSafeArea()
+                }
+
+                // Dark overlay for readability
+                Color.black.opacity(0.5)
+                    .ignoresSafeArea()
+
+                // Floating orbs overlay
+                ForEach(0..<12, id: \.self) { index in
+                    FloatingOrb(
+                        index: index,
+                        animationPhase: animationPhase,
+                        screenSize: geometry.size
+                    )
+                }
+            }
+        }
+        .onAppear {
+            withAnimation(.easeInOut(duration: 8).repeatForever(autoreverses: true)) {
+                animationPhase = 1
+            }
         }
     }
 }
@@ -490,6 +546,17 @@ struct MysticaBackground_Previews: PreviewProvider {
                 VStack {
                     Spacer()
                     Text("Image Background")
+                        .foregroundColor(.white)
+                        .font(.title.bold())
+                    Spacer()
+                }
+            }
+            .preferredColorScheme(.dark)
+
+            MysticaBackground(.imageWithOrbs(BackgroundImageManager())) {
+                VStack {
+                    Spacer()
+                    Text("Image with Orbs")
                         .foregroundColor(.white)
                         .font(.title.bold())
                     Spacer()

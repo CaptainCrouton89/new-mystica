@@ -56,6 +56,8 @@ enum NavigationDestination: Hashable {
             hasher.combine("victory")
         case .defeat:
             hasher.combine("defeat")
+        case .testAnimations:
+            hasher.combine("testAnimations")
         case .crafting:
             hasher.combine("crafting")
         case .upgradePreview:
