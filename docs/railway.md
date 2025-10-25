@@ -4,27 +4,26 @@ The Railway app has all variables from @.env.local loaded (but NODE_ENV=producti
 
 The node engine is 24 (well supported as of October 2025).
 
-## ⚠️ CRITICAL: Configure Railway to Use Dockerfile
+## Configuration Fixed ✅
 
-**Railway is ignoring the `railway.toml` file and auto-detecting Nixpacks.** You MUST manually configure the builder in the Railway dashboard:
+**Solution:** `mystica-express/railway.json` now specifies `"builder": "DOCKERFILE"`.
 
-### Steps to Fix in Railway Dashboard
+### Builder Selection Precedence (from Railway docs)
 
-1. Go to your Railway project: https://railway.app/
-2. Click on your **mystica-express** service
-3. Navigate to the **Settings** tab
-4. Scroll down to the **Build** section
-5. Change **Builder** from "Nixpacks" to **"Dockerfile"**
-6. Set **Dockerfile Path** to `Dockerfile` (root of repo)
-7. Click **Save Changes**
-8. Trigger a new deployment (or it will auto-deploy on next push)
+Railway chooses builders in this exact order:
+1. **Dockerfile present** → Always uses Dockerfile (highest priority)
+2. **railway.json `builder` field** → Overrides defaults (THIS IS WHAT WE USE)
+3. Service dashboard settings → UI configuration
+4. Railway default → Railpack/Nixpacks
 
-### Why This is Necessary
+### Why railway.json in mystica-express/ ?
 
-- Railway's Nixpacks **doesn't have Node.js 24** in the stable nixpkgs channel
-- The auto-detection sees package.json and defaults to Nixpacks
-- The `railway.toml` file is advisory but UI settings take precedence
-- Our Dockerfile uses official `node:24-slim` which always has Node 24
+Railway detects this as a monorepo and uses the service-specific `railway.json`. The root `railway.toml` is ignored when service-level config exists.
+
+### Why Not Nixpacks?
+
+- Railway's Nixpacks only supports Node.js 16, 18, 20, 22, 23 (no Node 24)
+- Node.js 24 requires the Dockerfile approach with `node:24-slim` base image
 
 ## Files
 
