@@ -117,9 +117,10 @@ Manages enemy types with direct stat calculation and polymorphic loot.
   - Returns typed `EnemyRealizedStats` interface
 
 **Loot System:**
-- `getEnemyLootTable(enemyTypeId, lootableType?)` - Get polymorphic enemyloot entries
+- `getEnemyLootTable(enemyTypeId, lootableType?)` - Get polymorphic enemyloot entries with type-specific fields
   - Optional filter for 'material' | 'item_type'
-  - Returns `EnemyLoot[]` with lootable_id and lootable_type
+  - Transforms `lootable_id` → `material_id` or `item_type_id` based on `lootable_type`
+  - Returns entries with type-specific fields instead of generic lootable_id
 
 ### N+1 Prevention with Nested Queries
 ItemRepository and MaterialRepository use nested Supabase queries:
