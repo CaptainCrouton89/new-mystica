@@ -1,0 +1,15 @@
+[phases.setup]
+nixPkgs = ["nodejs_24", "pnpm"]
+
+[phases.install]
+cmds = [
+  "cd mystica-express && pnpm install --frozen-lockfile"
+]
+
+[phases.build]
+cmds = [
+  "cd mystica-express && pnpm build"
+]
+
+[start]
+cmd = "cd mystica-express && pnpm start"
