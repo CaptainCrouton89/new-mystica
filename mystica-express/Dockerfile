@@ -7,19 +7,19 @@ RUN npm install -g pnpm@8
 # Set working directory
 WORKDIR /app
 
-# Copy package files
-COPY package.json pnpm-lock.yaml ./
+# Copy mystica-express contents (Railway build context is already mystica-express/)
+COPY package.json ./
+COPY pnpm-lock.yaml ./
+COPY tsconfig.json ./
+COPY src ./src
 
 # Install dependencies
 RUN pnpm install --frozen-lockfile --force
 
-# Copy source code
-COPY . .
-
 # Build TypeScript
 RUN pnpm build
 
-# Expose port
+# Expose port 3000 (actual port determined by PORT env var at runtime)
 EXPOSE 3000
 
 # Start the server
