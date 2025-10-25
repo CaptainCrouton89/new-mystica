@@ -28,6 +28,7 @@ struct SettingsView: View {
                                 get: { appState.isMusicEnabled },
                                 set: { newValue in
                                     appState.isMusicEnabled = newValue
+                                    audioManager.isEnabled = newValue
                                     if newValue {
                                         audioManager.playBackgroundMusic()
                                     } else {

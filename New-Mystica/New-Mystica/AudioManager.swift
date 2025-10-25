@@ -7,13 +7,15 @@ import Combine
 class AudioManager: ObservableObject {
     static let shared = AudioManager()
 
-    @Published var isEnabled: Bool = true
+    @Published var isEnabled: Bool
     private var audioPlayers: [String: AVAudioPlayer] = [:]
     private var backgroundMusicPlayer: AVAudioPlayer?
     private var battleMusicPlayer: AVAudioPlayer?
     private let audioSession = AVAudioSession.sharedInstance()
 
     private init() {
+        // Initialize isEnabled from saved preference in UserDefaults
+        self.isEnabled = UserDefaults.standard.object(forKey: "isMusicEnabled") as? Bool ?? true
         setupAudioSession()
         preloadAudioFiles()
         loadBackgroundMusic()
