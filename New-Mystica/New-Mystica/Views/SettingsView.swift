@@ -5,6 +5,7 @@ struct SettingsView: View {
     @Environment(AppState.self) private var appState
     @State private var authViewModel = AuthViewModel(appState: AppState.shared)
     @Environment(\.navigationManager) private var navigationManager
+    @ObservedObject private var audioManager = AudioManager.shared
 
     @State private var showingLogoutAlert = false
 
@@ -14,14 +15,34 @@ struct SettingsView: View {
                 VStack(spacing: 20) {
                     Spacer().frame(height: 40)
 
-                    // Placeholder sections for future settings
+                    // Audio Settings
                     VStack(spacing: 16) {
-                        TitleText("Coming Soon", size: 24)
-
-                        NormalText("Additional settings and preferences will be available in future updates.")
-                            .multilineTextAlignment(.center)
-                            .padding(.horizontal, 32)
+                        // Music Toggle
+                        HStack {
+                            VStack(alignment: .leading, spacing: 4) {
+                                NormalText("Music")
+                                    .font(.system(size: 14, weight: .semibold))
+                            }
+                            Spacer()
+                            Toggle("", isOn: Binding(
+                                get: { appState.isMusicEnabled },
+                                set: { newValue in
+                                    appState.isMusicEnabled = newValue
+                                    if newValue {
+                                        audioManager.playBackgroundMusic()
+                                    } else {
+                                        audioManager.stopBackgroundMusic()
+                                    }
+                                }
+                            ))
+                                .tint(Color.success)
+                        }
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 12)
                     }
+                    .background(Color.backgroundCard.opacity(0.5))
+                    .cornerRadius(8)
+                    .padding(.horizontal, 16)
 
                     Spacer()
 
