@@ -155,7 +155,7 @@ struct ItemMaterialApplication: APIModel, Hashable, Sendable {
 
     let materialId: String
     let styleId: String
-    let styleName: String?
+    let displayName: String?
     let slotIndex: Int
     let appliedAt: String?
     let material: MaterialDetail?
@@ -163,7 +163,7 @@ struct ItemMaterialApplication: APIModel, Hashable, Sendable {
     enum CodingKeys: String, CodingKey {
         case materialId = "material_id"
         case styleId = "style_id"
-        case styleName = "style_name"
+        case displayName = "display_name"
         case slotIndex = "slot_index"
         case appliedAt = "applied_at"
         case material
@@ -172,14 +172,14 @@ struct ItemMaterialApplication: APIModel, Hashable, Sendable {
     init(
         materialId: String,
         styleId: String,
-        styleName: String? = nil,
+        displayName: String? = nil,
         slotIndex: Int,
         appliedAt: String? = nil,
         material: MaterialDetail? = nil
     ) {
         self.materialId = materialId
         self.styleId = styleId
-        self.styleName = styleName
+        self.displayName = displayName
         self.slotIndex = slotIndex
         self.appliedAt = appliedAt
         self.material = material
@@ -205,16 +205,16 @@ struct ItemMaterialApplication: APIModel, Hashable, Sendable {
             )
         }
 
-        // style_id and style_name must be at parent level (not in nested material object)
+        // style_id and display_name must be at parent level (not in nested material object)
         styleId = try container.decode(String.self, forKey: .styleId)
-        styleName = try container.decodeIfPresent(String.self, forKey: .styleName)
+        displayName = try container.decodeIfPresent(String.self, forKey: .displayName)
     }
 
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(materialId, forKey: .materialId)
         try container.encode(styleId, forKey: .styleId)
-        try container.encodeIfPresent(styleName, forKey: .styleName)
+        try container.encodeIfPresent(displayName, forKey: .displayName)
         try container.encode(slotIndex, forKey: .slotIndex)
         try container.encodeIfPresent(appliedAt, forKey: .appliedAt)
         try container.encodeIfPresent(material, forKey: .material)
@@ -247,7 +247,7 @@ struct MaterialInventoryStack: APIModel, Hashable, Sendable {
     let materialId: String
     let name: String
     let styleId: String
-    let styleName: String?
+    let displayName: String?
     let quantity: Int
     let theme: String
     let statModifiers: StatModifier
@@ -277,7 +277,7 @@ struct MaterialInventoryStack: APIModel, Hashable, Sendable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         materialId = try container.decode(String.self, forKey: .materialId)
         styleId = try container.decode(String.self, forKey: .styleId)
-        styleName = try container.decodeIfPresent(String.self, forKey: .styleName)
+        displayName = try container.decodeIfPresent(String.self, forKey: .displayName)
         quantity = try container.decode(Int.self, forKey: .quantity)
 
         // Decode nested material object
@@ -293,11 +293,11 @@ struct MaterialInventoryStack: APIModel, Hashable, Sendable {
     }
 
     // Manual init for testing/previews
-    init(materialId: String, name: String, styleId: String, quantity: Int, theme: String, statModifiers: StatModifier, imageUrl: String?, material: MaterialDetail, styleName: String? = nil) {
+    init(materialId: String, name: String, styleId: String, quantity: Int, theme: String, statModifiers: StatModifier, imageUrl: String?, material: MaterialDetail, displayName: String? = nil) {
         self.materialId = materialId
         self.name = name
         self.styleId = styleId
-        self.styleName = styleName
+        self.displayName = displayName
         self.quantity = quantity
         self.theme = theme
         self.statModifiers = statModifiers
@@ -309,7 +309,7 @@ struct MaterialInventoryStack: APIModel, Hashable, Sendable {
         case materialId = "material_id"
         case name
         case styleId = "style_id"
-        case styleName = "style_name"
+        case displayName = "display_name"
         case quantity
         case theme
         case statModifiers = "stat_modifiers"

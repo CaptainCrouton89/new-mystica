@@ -369,7 +369,7 @@ private struct VictoryMaterialCard: View {
                 .minimumScaleFactor(0.8)
 
             // Style Badge
-            Text(material.styleName)
+            Text(material.displayName)
                 .font(.system(size: 10, weight: .medium))
                 .foregroundColor(.textPrimary)
                 .padding(.horizontal, 6)

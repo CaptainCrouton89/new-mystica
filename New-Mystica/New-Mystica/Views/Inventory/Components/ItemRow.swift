@@ -127,8 +127,8 @@ struct ItemRow: View {
                     // Styling Status
                     HStack {
                         if item.isStyled, let firstMaterial = item.appliedMaterials.first {
-                            let styleName = firstMaterial.styleName ?? formatStyleName(firstMaterial.styleId)
-                            SmallText(styleName)
+                            let displayName = firstMaterial.displayName ?? formatStyleName(firstMaterial.styleId)
+                            SmallText(displayName)
                                 .foregroundColor(Color.accent)
                         } else {
                             SmallText("Normal")
