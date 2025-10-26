@@ -16,17 +16,32 @@ export class ItemRepository extends BaseRepository<ItemRow> {
 
 **BaseRepository Methods:** `findById()`, `findMany(filters, options)`, `create()`, `update()`, `delete()`, `rpc(functionName, params)`
 
+**Strict Validation:** Use `validateField<T>()` helpers to enforce non-null values. Throw `DatabaseError` for missing/invalid data—no fallbacks to defaults.
+
 **Composite Keys:** MaterialStack uses (user_id, material_id, style_id). Use manual WHERE clauses—Supabase lacks multi-column PK.
 
 **N+1 Prevention:** Nested Supabase selects. ItemRepository joins item→itemtypes→itemmaterials→materialinstances→materials in single query.
 
-**RPC Transactions:** Atomic ops via `this.rpc()`. Examples: `process_item_upgrade`, `apply_material_to_item`, `remove_material_from_item`.
+**RPC Transactions:** Atomic ops via `this.rpc()`. Examples: `process_item_upgrade`, `apply_material_to_item`, `remove_material_from_item`, `equip_item`, `unequip_item`.
 
 **Errors:** Use `src/utils/errors.ts` classes (NotFoundError, ValidationError, DatabaseError, BusinessLogicError, UnauthorizedError).
 
 ## Repositories
 
-**Core:** ItemRepository, ItemTypeRepository, EquipmentRepository, MaterialRepository, WeaponRepository
+**Core:** ItemRepository, ItemTypeRepository, MaterialRepository, WeaponRepository
+
+- **EquipmentRepository:** 8 slots (weapon, offhand, head, armor, feet, accessory_1, accessory_2, pet). Slot-category compatibility validation. Stats aggregation via StatsService (quadratic formula: `base * rarity_mult * (1 + 0.05 * (level - 1)²)`). Bulk equip/unequip for loadouts. Methods: `findEquippedByUser()`, `equipItem()`, `unequipSlot()`, `equipMultiple()`, `getPlayerEquippedStats()`, `validateSlotCompatibility()`.
+
 **Combat:** CombatRepository (TTL sessions + event logging), EnemyRepository (normalized stats + polymorphic loot)
+
 **World:** LocationRepository (PostGIS + pool filtering), LoadoutRepository, PetRepository
-**Support:** StyleRepository (read-only singleton), RarityRepository, AnalyticsRepository, ImageCacheRepository
+
+**Support:** StyleRepository (read-only singleton), RarityRepository, ImageCacheRepository
+
+**AnalyticsRepository:**
+- **General Events:** `logEvent()`, `getEventsByUser()`, `getEventsByTimeRange()`, `getEventCounts()` (time-series via RPC with DATE_TRUNC)
+- **Pet Chatter (F-11):** `logPetChatter()`, `getPetChatterBySession()`, `getPetChatterByPersonality()`, `getAvgGenerationTime()`
+- **Enemy Chatter (F-12):** `logEnemyChatter()`, `getEnemyChatterBySession()`, `getEnemyChatterByType()`, `getAvgEnemyChatterGenerationTime()`
+- **JSONB Queries:** `getEventsByProperty()`, `getUniquePropertyValues()` for flexible event property filtering
+- **Bulk:** `logEventsBatch()`, `cleanupOldEvents()` for retention management
+- **Note:** Nullable user_id for system-level events; large table growth requires partitioning strategy
