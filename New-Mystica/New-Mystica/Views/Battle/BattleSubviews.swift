@@ -71,13 +71,13 @@ extension BattleView {
                 .frame(maxHeight: 300)
                 .padding(.horizontal, 20)
 
-                Spacer(minLength: 40)
+                Spacer()
 
                 // Player Section - Health bar only
                 playerSection(session: session)
                     .padding(.horizontal, 20)
 
-                Spacer(minLength: 12)
+                Spacer(minLength: 24)
 
                 // Combat Controls - Instructions and dial
                 combatControlsSection(session: session)
