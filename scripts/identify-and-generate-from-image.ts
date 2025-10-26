@@ -151,7 +151,7 @@ async function identifyFromImage(imageUrl: string, seedData: { items: SeedItem[]
 
 /**
  * Select 3 style reference images from the configured reference images
- * These provide "style guidance" alongside the original image reference
+ * These provide "style guidance" without including the original image
  */
 function selectStyleReferences(uploadedImageUrl: string): string[] {
   const referenceUrls = process.env.REFERENCE_IMAGE_URLS!.split(',').map(url => url.trim());
@@ -165,12 +165,12 @@ function selectStyleReferences(uploadedImageUrl: string): string[] {
   const styleReferences = shuffled.slice(0, Math.min(3, shuffled.length));
 
   console.log(`\n📸 Reference images selected:`);
-  console.log(`  Original: ${uploadedImageUrl}`);
+  // console.log(`  Original: ${uploadedImageUrl}`);
   styleReferences.forEach((url, i) => {
     console.log(`  Style ${i + 1}: ${url}`);
   });
 
-  return [uploadedImageUrl, ...styleReferences];
+  return styleReferences;
 }
 
 interface IdentificationResult {
