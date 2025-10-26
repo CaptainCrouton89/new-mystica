@@ -84,9 +84,7 @@ function loadSeedData(): { items: SeedItem[]; materials: SeedItem[] } {
 const identificationSchema = z.object({
   name: z.string().describe('The name of the item or material identified in the image'),
   type: z.enum(['item', 'material']).describe('Whether this is an item or material'),
-  description: z.string().describe('A concise one-sentence physical description suitable for game asset generation'),
-  confidence: z.enum(['high', 'medium', 'low']).describe('Confidence level of the identification'),
-  reasoning: z.string().describe('Brief explanation of why this item/material was identified')
+  description: z.string().describe('A concise one-sentence physical description suitable for game asset generation')
 });
 
 type Identification = z.infer<typeof identificationSchema>;
@@ -176,7 +174,9 @@ function selectStyleReferences(uploadedImageUrl: string): string[] {
 }
 
 interface IdentificationResult {
-  identification: Identification;
+  name: string;
+  type: 'item' | 'material';
+  description: string;
   imageUrl: string;
   timestamp: number;
 }
@@ -212,7 +212,9 @@ async function identifyAndGenerate(options: GenerationOptions): Promise<void> {
 
     // Save identification record
     await saveIdentification({
-      identification,
+      name: identification.name,
+      type: identification.type,
+      description: identification.description,
       imageUrl: options.imageUrl,
       timestamp
     });
