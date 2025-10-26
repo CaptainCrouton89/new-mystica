@@ -1,12 +1,16 @@
 import { NextFunction, Request, Response } from 'express';
 import { itemService } from '../services/ItemService';
 import { materialService } from '../services/MaterialService';
-import type { ItemWithMaterials } from '../types/repository.types.js';
+import { StatsService } from '../services/StatsService.js';
+import type { ItemWithMaterials, MaterialInstanceWithTemplate } from '../types/repository.types.js';
+import type { Stats } from '../types/api.types.js';
 import type {
   AddPetChatterRequest,
   ApplyMaterialRequest,
   AssignPetPersonalityBody
 } from '../types/schemas.js';
+
+const statsService = new StatsService();
 
 /**
  * Item Controller
@@ -238,14 +242,32 @@ export class ItemController {
         };
       });
 
-      // Add base_type, category, applied_materials, and materials fields for Swift compatibility
+      // Compute stats
+      const baseStats = itemWithMaterials.item_type.base_stats_normalized as Stats;
+      const materialsForStats: MaterialInstanceWithTemplate[] = itemWithMaterials.materials.map(m => ({
+        ...m,
+        material: {
+          ...m.materials,
+          stat_modifiers: m.materials.stat_modifiers as Stats
+        }
+      }));
+      const computedStats = statsService.computeItemStats(
+        baseStats,
+        itemWithMaterials.level,
+        materialsForStats
+      );
+
+      // Add base_type, category, applied_materials, materials, computed_stats, craft_count, and is_styled fields for Swift compatibility
       // These fields are nested in item_type but Swift expects them at the top level
       const updatedItemWithBaseType = {
         ...result.updated_item,
         base_type: itemWithMaterials.item_type.name,
         category: itemWithMaterials.item_type.category,
         applied_materials: appliedMaterials,
-        materials: appliedMaterials
+        materials: appliedMaterials,
+        computed_stats: computedStats,
+        craft_count: result.craft_count,
+        is_styled: appliedMaterials.some(m => m.style_id !== 'normal')
       };
 
       res.json({
