@@ -12,7 +12,7 @@ export type LootRewards = {
     material_id: string;
     name: string;
     style_id: string;
-    style_name: string;
+    display_name: string;
     image_url: string;
   }>;
   items: Array<{
@@ -21,7 +21,7 @@ export type LootRewards = {
     category: string;
     rarity: string;
     style_id: string;
-    style_name: string;
+    display_name: string;
   }>;
   experience: number;
 };
@@ -41,7 +41,7 @@ export type LootDetails = {
   category?: string;
   rarity?: string;
   style_id: string;
-  style_name: string;
+  display_name: string;
   image_url?: string;
 };
 
@@ -139,7 +139,7 @@ export interface CombatRewards {
     material_id: string;
     name: string;
     style_id: string;
-    style_name: string;
+    display_name: string;
   }>;
   items?: Array<{
     id: string;
@@ -148,7 +148,7 @@ export interface CombatRewards {
     category: string;
     rarity: string;
     style_id: string;
-    style_name: string;
+    display_name: string;
     generated_image_url: string | null;
   }>;
   experience?: number;

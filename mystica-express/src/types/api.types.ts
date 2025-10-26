@@ -113,7 +113,7 @@ export interface AppliedMaterial {
   id: string;
   material_id: string;
   style_id: string;
-  style_name?: string; // Human-readable style display name
+  display_name?: string; // Human-readable style display name
   slot_index: number;
   material: Material;
 }
@@ -126,7 +126,7 @@ export interface MaterialStack {
   material_id: string;
   material_name: string;
   style_id: string;
-  style_name: string; // Human-readable style display name
+  display_name: string; // Human-readable style display name
   quantity: number;
   is_styled: boolean;
 }
@@ -139,7 +139,7 @@ export interface MaterialStackDetailed {
   user_id: string;
   material_id: string;
   style_id: string;
-  style_name?: string; // Human-readable style display name
+  display_name?: string; // Human-readable style display name
   quantity: number;
   material: Material;
 }
@@ -347,7 +347,7 @@ export interface CombatRewards {
     material_id: string;
     name: string;
     style_id: string;
-    style_name: string;
+    display_name: string;
   }>;
   /** Item drops from loot pools with full details (only present for victory) */
   items?: Array<{
@@ -357,7 +357,7 @@ export interface CombatRewards {
     category: string;
     rarity: string;
     style_id: string;
-    style_name: string;
+    display_name: string;
     generated_image_url: string | null;
   }>;
   /** Experience points earned from combat (only present for victory) */

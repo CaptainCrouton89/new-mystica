@@ -138,7 +138,7 @@ extension BattleView {
 
                         ForEach(Array(materials.enumerated()), id: \.element.materialId) { _, material in
                             HStack {
-                                SmallText("• \(material.name) [\(material.styleName)]")
+                                SmallText("• \(material.name) [\(material.displayName)]")
                                     .foregroundColor(Color.textSecondary)
                                 Spacer()
                             }

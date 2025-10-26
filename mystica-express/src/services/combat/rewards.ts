@@ -12,7 +12,7 @@ export interface AppliedRewardsResult {
     category: string;
     rarity: string;
     style_id: string;
-    style_name: string;
+    display_name: string;
     generated_image_url: string | null;
   }>;
 }
@@ -67,7 +67,7 @@ export async function applyRewards(
           logger.debug('✅ Material awarded', {
             userId,
             materialId: material.material_id,
-            styleName: material.style_name,
+            displayName: material.display_name,
           });
         } catch (error) {
           logger.warn('Failed to award material', {
@@ -95,7 +95,7 @@ export async function applyRewards(
             category: item.category,
             rarity: item.rarity,
             style_id: item.style_id,
-            style_name: item.style_name,
+            display_name: item.display_name,
             generated_image_url: createdItem.generated_image_url,
           });
           logger.debug('✅ Item created', {
