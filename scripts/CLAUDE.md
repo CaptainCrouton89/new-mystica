@@ -8,7 +8,7 @@
 - **generate-landscape.ts** - Landscape/background images with auto-crop (keeps background)
 - **generate-raw-monster.ts** - Standalone monsters with AI descriptions (local output, manual R2 upload)
 - **generate-location-images.ts** - Location types + database updates via service role key
-- **identify-and-generate-from-image.ts** - Identify items/materials from real images (vision API) → generate game assets with original as reference (see IDENTIFY_AND_GENERATE_GUIDE.md)
+- **identify-and-generate-from-image.ts** - Vision pipeline: analyze uploaded image → identify item/material type → generate game asset with original + 3 style references. Saves metadata locally, optionally uploads to R2 with background removal (see IDENTIFY_AND_GENERATE_GUIDE.md)
 
 ## Asset & Utility Scripts
 
@@ -29,6 +29,7 @@
 REPLICATE_API_TOKEN, OPENAI_API_KEY, CLOUDFLARE_ACCOUNT_ID
 R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_NAME, R2_PUBLIC_URL
 SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+REFERENCE_IMAGE_URLS              # Style guides for identify-and-generate (comma-separated)
 ```
 
 ## Key Patterns
