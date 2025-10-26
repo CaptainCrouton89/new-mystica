@@ -238,13 +238,14 @@ export class ItemController {
         };
       });
 
-      // Add base_type, category, and applied_materials fields for Swift compatibility
+      // Add base_type, category, applied_materials, and materials fields for Swift compatibility
       // These fields are nested in item_type but Swift expects them at the top level
       const updatedItemWithBaseType = {
         ...result.updated_item,
         base_type: itemWithMaterials.item_type.name,
         category: itemWithMaterials.item_type.category,
-        applied_materials: appliedMaterials
+        applied_materials: appliedMaterials,
+        materials: appliedMaterials
       };
 
       res.json({
