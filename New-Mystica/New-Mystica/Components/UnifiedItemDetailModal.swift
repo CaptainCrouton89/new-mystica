@@ -31,14 +31,14 @@ protocol ItemDetailDisplayable {
 
 struct MaterialDisplayInfo: Hashable {
     let name: String
-    let styleName: String?
+    let displayName: String?
 }
 
 // MARK: - Protocol Conformance
 
 extension PlayerItem: ItemDetailDisplayable {
     var formattedMaterials: [MaterialDisplayInfo] {
-        appliedMaterials.map { MaterialDisplayInfo(name: $0.capitalized, styleName: nil) }
+        appliedMaterials.map { MaterialDisplayInfo(name: $0.capitalized, displayName: nil) }
     }
 
     var primaryBadgeValue: String {
@@ -55,7 +55,7 @@ extension EnhancedPlayerItem: ItemDetailDisplayable {
         appliedMaterials.map {
             MaterialDisplayInfo(
                 name: $0.material?.name ?? "Unknown Material",
-                styleName: $0.styleName
+                displayName: $0.displayName
             )
         }
     }
@@ -100,8 +100,8 @@ struct UnifiedItemDetailModal<Item: ItemDetailDisplayable, ActionButtons: View>:
                     // Item metadata
                     if item.isStyled,
                        let firstMaterial = item.formattedMaterials.first,
-                       let styleName = firstMaterial.styleName,
-                       styleName.lowercased() != "normal" {
+                       let displayName = firstMaterial.displayName,
+                       displayName.lowercased() != "normal" {
                         itemMetadataView
                     }
 
@@ -242,12 +242,12 @@ struct UnifiedItemDetailModal<Item: ItemDetailDisplayable, ActionButtons: View>:
             // Styled indicator (hide if style is "normal")
             if item.isStyled,
                let firstMaterial = item.formattedMaterials.first,
-               let styleName = firstMaterial.styleName,
-               styleName.lowercased() != "normal" {
+               let displayName = firstMaterial.displayName,
+               displayName.lowercased() != "normal" {
                 HStack(spacing: 8) {
                     Image(systemName: "paintbrush.fill")
                         .font(.system(size: 14))
-                    NormalText(styleName, size: 14)
+                    NormalText(displayName, size: 14)
                     Spacer()
                 }
                 .foregroundColor(Color.accent)
