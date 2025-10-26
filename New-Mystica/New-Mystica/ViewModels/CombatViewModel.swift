@@ -344,12 +344,23 @@ final class CombatViewModel {
             return nil
         }
 
+        // Extract zone and action data from the most recent turn
+        let lastAction = turnHistory.last
+        let playerZone = lastAction?.playerDamage?.zone
+        let enemyZone = lastAction?.enemyDamage?.zone
+        let playerAction = lastAction?.type.rawValue // "attack" or "defend"
+        let damage = lastAction?.damageDealt.map { Int($0) }
+        let isCritical = lastAction?.playerDamage?.critOccurred
+
         return CombatEventDetails(
             turnNumber: session.turnNumber ?? 1,
             playerHpPct: playerHPPercentage,
             enemyHpPct: enemyHPPercentage,
-            damage: nil,
-            isCritical: nil
+            damage: damage,
+            isCritical: isCritical,
+            playerZone: playerZone,
+            enemyZone: enemyZone,
+            playerAction: playerAction
         )
     }
 

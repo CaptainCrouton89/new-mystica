@@ -45,12 +45,20 @@ export class CombatController {
 
       const attackResult = await combatService.executeAttack(session_id, tap_position_degrees);
 
-      logger.info('📤 Attack response', {
+      // Determine chatter event type based on result
+      let chatterEventType = 'player_hit';
+      if (attackResult.player_damage.final_damage === 0) {
+        chatterEventType = 'player_miss';
+      }
+
+      logger.info('⚔️  Attack executed', {
         sessionId: session_id,
-        combatStatus: attackResult.combat_status,
-        playerHP: attackResult.player_hp_remaining,
-        enemyHP: attackResult.enemy_hp_remaining,
-        hasRewards: !!attackResult.rewards
+        chatterEvent: chatterEventType,
+        damageDealt: attackResult.player_damage.final_damage,
+        isCritical: attackResult.player_damage.crit_occurred,
+        playerHPRemaining: attackResult.player_hp_remaining,
+        enemyHPRemaining: attackResult.enemy_hp_remaining,
+        combatStatus: attackResult.combat_status
       });
 
       res.json(attackResult);
@@ -150,12 +158,13 @@ export class CombatController {
 
       const defenseResult = await combatService.executeDefense(session_id, tap_position_degrees);
 
-      logger.info('📤 Defense response', {
+      logger.info('🛡️  Defense executed', {
         sessionId: session_id,
-        combatStatus: defenseResult.combat_status,
-        playerHP: defenseResult.player_hp_remaining,
-        enemyHP: defenseResult.enemy_hp_remaining,
-        hasRewards: !!defenseResult.rewards
+        chatterEvent: 'enemy_hit', // Enemy's automatic attack while player defends; defense zone mitigates damage
+        damageReceived: defenseResult.enemy_damage.final_damage,
+        playerHPRemaining: defenseResult.player_hp_remaining,
+        enemyHPRemaining: defenseResult.enemy_hp_remaining,
+        combatStatus: defenseResult.combat_status
       });
 
       res.json(defenseResult);
@@ -244,7 +253,10 @@ export class CombatController {
         is_critical,
         turn_number,
         player_hp_pct,
-        enemy_hp_pct
+        enemy_hp_pct,
+        player_zone,
+        enemy_zone,
+        player_action
       } = event_details;
 
       // Convert to internal format expected by EnemyChatterService
@@ -255,6 +267,9 @@ export class CombatController {
         turn_number,
         player_hp_pct: player_hp_pct, // 0.0-1.0 range
         enemy_hp_pct: enemy_hp_pct,   // 0.0-1.0 range
+        player_zone,
+        enemy_zone,
+        player_action
       };
 
       // Generate dialogue using EnemyChatterService
@@ -265,6 +280,18 @@ export class CombatController {
           event_type,
           combatEventDetails
         );
+
+        logger.info('💬 [ENEMY_CHATTER] Generated dialogue', {
+          sessionId: session_id,
+          eventType: event_type,
+          dialogue: dialogueResponse.dialogue,
+          tone: dialogueResponse.dialogue_tone,
+          wasAI: dialogueResponse.was_ai_generated,
+          playerZone: combatEventDetails.player_zone,
+          enemyZone: combatEventDetails.enemy_zone,
+          playerAction: combatEventDetails.player_action,
+          generationTimeMs: dialogueResponse.generation_time_ms
+        });
       } catch (error) {
         if (error instanceof ExternalAPIError) {
           // Return 503 Service Unavailable for AI service failures

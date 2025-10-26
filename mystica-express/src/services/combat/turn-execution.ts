@@ -48,6 +48,11 @@ export function calculateEnemyAttack(
     statsService.applyZoneModifiers(enemyBaseDamage, enemyZone, enemyCritMultiplier)
   );
 
+  console.log(`[calculateEnemyAttack] zone=${enemyZone}
+    atkPower=${enemyStats.atk_power} - defPower=${playerDefPower} = baseDamage=${enemyBaseDamage}
+    zoneMultiplier=${ZONE_MULTIPLIERS[enemyZone]}, critMultiplier=${enemyCritMultiplier}
+    finalDamage=${enemyDamage}`);
+
   return {
     damage: enemyDamage,
     zoneHitInfo: {
@@ -74,6 +79,11 @@ export function calculatePlayerAttack(
 
   const playerZoneMultiplier = ZONE_MULTIPLIERS[playerZone];
   const playerCritOccurred = playerCritMultiplier > 1.0;
+
+  console.log(`[calculatePlayerAttack] hitZone=${hitZone}, zone=${playerZone}
+    atkPower=${playerStats.atkPower} - defPower=${enemyDefPower} = baseDamage=${baseDamage}
+    zoneMultiplier=${playerZoneMultiplier}, critMultiplier=${playerCritMultiplier}
+    finalDamage=${playerDamage}`);
 
   return {
     damage: playerDamage,
@@ -108,6 +118,12 @@ export function executeAttackTurn(
   const enemyDamageBlocked = enemyDefense;
   const enemyActualDamageTaken = Math.max(MIN_DAMAGE, damageDealt - enemyDefense);
 
+  console.log(`[executeAttackTurn] PLAYER ATTACK:
+    hitZone=${hitZone}, playerZone=${hitZone}, baseDamage=${playerAttack.zoneHitInfo.final_damage}
+    playerStats.atkPower=${playerStats.atkPower}, enemyStats.def_power=${enemyStats.def_power}
+    ENEMY DEFENSE: zone=${enemyDefenseZone}, multiplier=${enemyDefenseZoneMultiplier}
+    enemyDefense=${enemyDefense}, actualDamageTaken=${enemyActualDamageTaken}`);
+
   const enemyDefenseZoneHitInfo: ZoneHitInfo = {
     zone: enemyDefenseZone,
     zone_multiplier: enemyDefenseZoneMultiplier,
@@ -116,19 +132,20 @@ export function executeAttackTurn(
     final_damage: enemyDamageBlocked,
   };
 
-  const enemyAttack = calculateEnemyAttack(enemyStats, playerStats.defPower);
-  const enemyDamage = enemyAttack.damage;
+  // During attack phase, enemy does NOT counter-attack or take damage from defense
+  // Player may only injure themselves on miss
+  const enemyDamage = 0; // No enemy damage during attack phase
 
   let newPlayerHP = currentPlayerHP;
   let newEnemyHP = currentEnemyHP;
 
   if (hitZone === 'injure') {
-
-    newPlayerHP = Math.max(0, currentPlayerHP - damageDealt - enemyDamage);
-    newEnemyHP = currentEnemyHP;
+    // On 'injure', player hurts themselves instead of the enemy
+    newPlayerHP = Math.max(0, currentPlayerHP - damageDealt);
+    newEnemyHP = currentEnemyHP; // Enemy takes no damage
   } else {
-
-    newPlayerHP = Math.max(0, currentPlayerHP - enemyDamage);
+    // On successful attack, player damages enemy and takes NO damage
+    newPlayerHP = currentPlayerHP; // Player takes no damage on attack turns
     newEnemyHP = Math.max(0, currentEnemyHP - enemyActualDamageTaken);
   }
 
@@ -138,6 +155,15 @@ export function executeAttackTurn(
   } else if (newPlayerHP <= 0) {
     combatStatus = 'defeat';
   }
+
+  // Neutral enemy zone info (no enemy action during attack phase)
+  const neutralEnemyZoneHitInfo: ZoneHitInfo = {
+    zone: 3, // Neutral zone
+    zone_multiplier: ZONE_MULTIPLIERS[3],
+    crit_occurred: false,
+    crit_multiplier: null,
+    final_damage: 0,
+  };
 
   return {
     hitZone,
@@ -149,7 +175,7 @@ export function executeAttackTurn(
     newPlayerHP,
     newEnemyHP,
     playerZoneHitInfo: playerAttack.zoneHitInfo,
-    enemyZoneHitInfo: enemyAttack.zoneHitInfo,
+    enemyZoneHitInfo: neutralEnemyZoneHitInfo,
     combatStatus,
   };
 }
@@ -174,6 +200,12 @@ export function executeDefenseTurn(
   const damageBlocked = playerDefense;
   const damageActuallyTaken = Math.max(MIN_DAMAGE, enemyDamage - damageBlocked);
 
+  console.log(`[executeDefenseTurn] ENEMY ATTACK:
+    enemyDamage=${enemyDamage}, enemyStats.atk_power=${enemyStats.atk_power}, playerStats.defPower=${playerStats.defPower}
+    PLAYER DEFENSE: tapZone=${hitZone}, zone=${playerDefenseZone}, multiplier=${playerDefenseZoneMultiplier}
+    playerDefense=${playerDefense}, damageBlocked=${damageBlocked}
+    damageActuallyTaken=${damageActuallyTaken} (MIN_DAMAGE forced if lower)`);
+
   const playerDefenseZoneHitInfo: ZoneHitInfo = {
     zone: playerDefenseZone,
     zone_multiplier: playerDefenseZoneMultiplier,
@@ -182,11 +214,6 @@ export function executeDefenseTurn(
     final_damage: damageBlocked,
   };
 
-  // Enemy simulates defensive zone during defense turn
-  // This affects how much counter-damage the enemy would take if player had attacked
-  // For consistency, we track it even though player is defending
-  const enemyDefenseZone = statsService.simulateEnemyZoneHit(enemyStats.def_accuracy_normalized);
-  const enemyDefenseZoneMultiplier = ZONE_MULTIPLIERS[enemyDefenseZone];
 
   const newPlayerHP = Math.max(0, currentPlayerHP - damageActuallyTaken);
 

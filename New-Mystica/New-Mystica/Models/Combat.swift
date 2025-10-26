@@ -327,7 +327,6 @@ struct AttackResult: APIModel {
 
     // Legacy fields for backwards compatibility (deprecated)
     let hitZone: String?
-    let baseMultiplier: Double?
     let critBonusMultiplier: Double?
     let damageDealt: Double?
 
@@ -341,7 +340,6 @@ struct AttackResult: APIModel {
         case rewards
         // Legacy
         case hitZone = "hit_zone"
-        case baseMultiplier = "base_multiplier"
         case critBonusMultiplier = "crit_bonus_multiplier"
         case damageDealt = "damage_dealt"
     }

@@ -1,5 +1,5 @@
 import { HitBand, EnemyStats, PlayerStats, WeaponConfig } from './types.js';
-import { ZONE_MULTIPLIERS, HIT_ZONE_MULTIPLIERS, MIN_DAMAGE, HIT_BAND_TO_ZONE } from './constants.js';
+import { ZONE_MULTIPLIERS, MIN_DAMAGE, HIT_BAND_TO_ZONE } from './constants.js';
 import { AdjustedBands } from '../../types/repository.types.js';
 import { statsService } from '../StatsService.js';
 import { logger } from '../../utils/logger.js';
@@ -13,42 +13,38 @@ export function hitBandToZone(hitBand: HitBand): 1 | 2 | 3 | 4 | 5 {
 export function determineHitZone(tapDegrees: number, adjustedBands: AdjustedBands): HitBand {
   let cumulativeDegrees = 0;
 
-  logger.info(`🎯 HIT ZONE CALCULATION - Tap: ${tapDegrees}°, Bands:`, adjustedBands);
-
   if (tapDegrees < adjustedBands.deg_crit) {
-    logger.info(`✅ Result: CRIT (0° - ${adjustedBands.deg_crit}°)`);
+    logger.debug(`🎯 Hit zone: CRIT (${tapDegrees}°)`);
     return 'crit';
   }
   cumulativeDegrees += adjustedBands.deg_crit;
 
   if (tapDegrees < cumulativeDegrees + adjustedBands.deg_normal) {
-    logger.info(`✅ Result: NORMAL (${cumulativeDegrees}° - ${cumulativeDegrees + adjustedBands.deg_normal}°)`);
+    logger.debug(`🎯 Hit zone: NORMAL (${tapDegrees}°)`);
     return 'normal';
   }
   cumulativeDegrees += adjustedBands.deg_normal;
 
   if (tapDegrees < cumulativeDegrees + adjustedBands.deg_graze) {
-    logger.info(`✅ Result: GRAZE (${cumulativeDegrees}° - ${cumulativeDegrees + adjustedBands.deg_graze}°)`);
+    logger.debug(`🎯 Hit zone: GRAZE (${tapDegrees}°)`);
     return 'graze';
   }
   cumulativeDegrees += adjustedBands.deg_graze;
 
   if (tapDegrees < cumulativeDegrees + adjustedBands.deg_miss) {
-    logger.info(`✅ Result: MISS (${cumulativeDegrees}° - ${cumulativeDegrees + adjustedBands.deg_miss}°)`);
+    logger.debug(`🎯 Hit zone: MISS (${tapDegrees}°)`);
     return 'miss';
   }
 
-  logger.info(`✅ Result: INJURE (${cumulativeDegrees + adjustedBands.deg_miss}° - 360°)`);
+  logger.debug(`🎯 Hit zone: INJURE (${tapDegrees}°)`);
   return 'injure';
 }
 
 export function calculateDamage(attackerAtk: number, defenderDef: number, hitZone: HitBand): {
   damage: number;
-  baseMultiplier: number;
   critBonus?: number;
 } {
   const attackZone = hitBandToZone(hitZone);
-  const baseMultiplier = HIT_ZONE_MULTIPLIERS[hitZone];
 
   const critMultiplier = statsService.getCritMultiplier(attackZone);
 
@@ -56,7 +52,6 @@ export function calculateDamage(attackerAtk: number, defenderDef: number, hitZon
     const selfDamage = Math.max(MIN_DAMAGE, Math.floor(statsService.applyZoneModifiers(attackerAtk, attackZone, critMultiplier)));
     return {
       damage: selfDamage,
-      baseMultiplier,
       critBonus: critMultiplier - 1.0 > 0 ? critMultiplier - 1.0 : undefined,
     };
   }
@@ -66,7 +61,6 @@ export function calculateDamage(attackerAtk: number, defenderDef: number, hitZon
 
   return {
     damage: zoneDamage,
-    baseMultiplier,
     critBonus: critMultiplier - 1.0 > 0 ? critMultiplier - 1.0 : undefined,
   };
 }

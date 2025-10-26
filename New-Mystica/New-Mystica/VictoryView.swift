@@ -26,7 +26,7 @@ struct VictoryView: View {
             ScrollView {
                 VStack(spacing: 32) {
                     Spacer()
-                        .frame(height: 60)
+                        .frame(height: 30)
 
                     // Header Section
                     VStack(spacing: 16) {
@@ -169,6 +169,8 @@ private struct CurrencySection: View {
         VStack(spacing: 12) {
             // Gold Card
             HStack(spacing: 16) {
+                Spacer()
+
                 // Gold Coin Icon
                 CachedAsyncImage(
                     url: URL(string: UIAssetURL.coinIcon),
@@ -228,19 +230,26 @@ private struct ItemsSection: View {
         VStack(spacing: 16) {
             TitleText("Items", size: 22)
                 .foregroundColor(.textPrimary)
+                .frame(maxWidth: .infinity, alignment: .center)
 
-            LazyVGrid(columns: [
-                GridItem(.flexible()),
-                GridItem(.flexible()),
-                GridItem(.flexible())
-            ], spacing: 12) {
-                ForEach(Array(items.enumerated()), id: \.offset) { index, item in
-                    ItemCard(item: item)
-                        .staggerIn(index: index, staggerDelay: 0.08)
+            HStack {
+                Spacer()
+                LazyVGrid(columns: [
+                    GridItem(.flexible()),
+                    GridItem(.flexible()),
+                    GridItem(.flexible())
+                ], spacing: 12) {
+                    ForEach(Array(items.enumerated()), id: \.offset) { index, item in
+                        ItemCard(item: item)
+                            .staggerIn(index: index, staggerDelay: 0.08)
+                    }
                 }
+                .frame(maxWidth: 300)
+                Spacer()
             }
             .padding(.horizontal, 24)
         }
+        .frame(maxWidth: .infinity, alignment: .center)
     }
 }
 
@@ -311,19 +320,26 @@ private struct MaterialsSection: View {
         VStack(spacing: 16) {
             TitleText("Materials", size: 22)
                 .foregroundColor(.textPrimary)
+                .frame(maxWidth: .infinity, alignment: .center)
 
-            LazyVGrid(columns: [
-                GridItem(.flexible()),
-                GridItem(.flexible()),
-                GridItem(.flexible())
-            ], spacing: 12) {
-                ForEach(Array(materials.enumerated()), id: \.offset) { index, material in
-                    VictoryMaterialCard(material: material)
-                        .staggerIn(index: index, staggerDelay: 0.08)
+            HStack {
+                Spacer()
+                LazyVGrid(columns: [
+                    GridItem(.flexible()),
+                    GridItem(.flexible()),
+                    GridItem(.flexible())
+                ], spacing: 12) {
+                    ForEach(Array(materials.enumerated()), id: \.offset) { index, material in
+                        VictoryMaterialCard(material: material)
+                            .staggerIn(index: index, staggerDelay: 0.08)
+                    }
                 }
+                .frame(maxWidth: 300)
+                Spacer()
             }
             .padding(.horizontal, 24)
         }
+        .frame(maxWidth: .infinity, alignment: .center)
     }
 }
 

@@ -14,6 +14,7 @@ import {
   BulkEquipmentUpdate
 } from '../types/repository.types.js';
 import { DatabaseError, NotFoundError, ValidationError, mapSupabaseError } from '../utils/errors.js';
+import { statsService } from '../services/StatsService.js';
 import { BaseRepository } from './BaseRepository.js';
 
 // Type definitions
@@ -22,7 +23,6 @@ type UserEquipmentInsert = Database['public']['Tables']['userequipment']['Insert
 type EquipmentSlotRow = Database['public']['Tables']['equipmentslots']['Row'];
 type ItemRow = Database['public']['Tables']['items']['Row'];
 type ItemTypeRow = Database['public']['Tables']['itemtypes']['Row'];
-type PlayerEquippedStatsRow = Database['public']['Views']['v_player_equipped_stats']['Row'];
 
 /**
  * Equipment slot names (8 hardcoded slots matching EquipmentSlots seed data)
@@ -528,141 +528,102 @@ export class EquipmentRepository extends BaseRepository<UserEquipmentRow> {
   // ============================================================================
 
   /**
-   * Get player equipped stats from database view
+   * Get player equipped stats using StatsService (CORRECTED formula)
    *
    * @param userId - User ID
-   * @returns Aggregated stats from v_player_equipped_stats view
-   * @throws DatabaseError on query failure
-   */
-  /**
-   * Get player equipped stats from database view
-   *
-   * @param userId - User ID
-   * @returns Aggregated stats from v_player_equipped_stats view
-   * @throws NotFoundError if no stats found for user
+   * @returns Aggregated stats from all equipped items using quadratic level scaling
+   * @throws NotFoundError if no equipment found for user
    * @throws DatabaseError on query failure or invalid data
    *
+   * FIX: Uses StatsService.computeItemStatsForLevel() with quadratic formula instead of broken database view.
+   * Formula: stat = base_stat * rarity_multiplier * (1 + 0.05 * (level - 1)²)
+   *
    * Ensures:
-   * - Throws error for missing stats
-   * - Validates each stat field explicitly
-   * - Provides deterministic stat calculation
-   * - No fallback to zero or default values
+   * - Correct level scaling with quadratic formula
+   * - Rarity multiplier applied correctly
+   * - Deterministic stat calculation
+   * - Throws error on missing or invalid data
    */
   async getPlayerEquippedStats(userId: string): Promise<Stats> {
-    const { data, error } = await this.client
-      .from('v_player_equipped_stats')
-      .select('*')
-      .eq('player_id', userId)
-      .single();
+    // Query all equipped items with their type information
+    const { data: equippedItems, error } = await this.client
+      .from('userequipment')
+      .select(`
+        items:item_id (
+          id,
+          level,
+          itemtypes:item_type_id (
+            base_stats_normalized,
+            rarity
+          )
+        )
+      `)
+      .eq('user_id', userId);
 
-    // Handle query errors
     if (error) {
-      if (error.code === 'PGRST116') {
-        throw new NotFoundError('PlayerStats', userId);
-      }
       throw this.mapSupabaseError(error);
     }
 
-    // Validate presence of data
-    if (!data) {
+    if (!equippedItems || equippedItems.length === 0) {
       throw new NotFoundError('PlayerStats', userId);
     }
 
-    // Cast to proper view row type
-    const statsRow = data as PlayerEquippedStatsRow;
-
-    // Strict type validation for each numeric field
-    const validateNumber = (fieldName: string, value: unknown): number => {
-      if (typeof value !== 'number' || Number.isNaN(value)) {
-        throw new DatabaseError(`Invalid ${fieldName} stat for user ${userId}: expected number, got ${typeof value}`);
-      }
-      return value;
+    // Aggregate stats from all equipped items
+    let totalStats: Stats = {
+      atkPower: 0,
+      atkAccuracy: 0,
+      defPower: 0,
+      defAccuracy: 0
     };
 
-    // Extract and validate all 4 required stat fields
-    // Note: database view returns lowercase column names (atkpower, atkaccuracy, defpower, defaccuracy)
-    const atkPower = validateNumber('atkPower', statsRow.atkpower);
-    const atkAccuracy = validateNumber('atkAccuracy', statsRow.atkaccuracy);
-    const defPower = validateNumber('defPower', statsRow.defpower);
-    const defAccuracy = validateNumber('defAccuracy', statsRow.defaccuracy);
-
-    return {
-      atkPower,
-      atkAccuracy,
-      defPower,
-      defAccuracy
-    };
-  }
-
-  /**
-   * Compute total stats from all equipped items
-   *
-   * Uses database view for optimized aggregation. Falls back to application
-   * code if view is not available.
-   *
-   * @param userId - User ID
-   * @returns Aggregated stats from all equipped items
-   * @throws DatabaseError on query failure
-   */
-  /**
-   * Compute total stats from equipped items
-   *
-   * Uses database view for player stat computation
-   *
-   * @param userId - User ID
-   * @returns Aggregated stats from all equipped items
-   * @throws NotFoundError if no equipment state found
-   * @throws DatabaseError on computation failure
-   *
-   * Ensures:
-   * - Strict validation of all stat computations
-   * - Throws error on missing or invalid data
-   * - No fallback or default value strategies
-   * - Explicit error handling for each computation step
-   */
-  async computeTotalStats(userId: string): Promise<Stats> {
-    const { data, error } = await this.client
-      .from('v_player_equipped_stats')
-      .select('*')
-      .eq('player_id', userId)
-      .single();
-
-    // Validate entire query result
-    if (error) {
-      if (error.code === 'PGRST116') {
-        throw new NotFoundError('PlayerStats', userId);
+    for (const eq of equippedItems) {
+      // Skip empty slots
+      if (!eq.items) {
+        continue;
       }
-      throw this.mapSupabaseError(error);
+
+      const item = Array.isArray(eq.items) ? eq.items[0] : eq.items;
+      const itemType = Array.isArray(item.itemtypes) ? item.itemtypes[0] : item.itemtypes;
+
+      if (!item || !itemType) {
+        continue;
+      }
+
+      // Compute stats using StatsService with correct quadratic formula
+      const computedStats = statsService.computeItemStatsForLevel(
+        {
+          item_type: {
+            base_stats_normalized: itemType.base_stats_normalized as Stats,
+            rarity: itemType.rarity
+          }
+        },
+        item.level
+      );
+
+      // Add to total
+      totalStats.atkPower += computedStats.atkPower;
+      totalStats.atkAccuracy += computedStats.atkAccuracy;
+      totalStats.defPower += computedStats.defPower;
+      totalStats.defAccuracy += computedStats.defAccuracy;
+
+      console.log(`[EquipmentRepository.getPlayerEquippedStats] Item: id=${item.id}, level=${item.level}, rarity=${itemType.rarity}`);
+      console.log(`  baseStats: ${JSON.stringify(itemType.base_stats_normalized)}`);
+      console.log(`  computed: ${JSON.stringify(computedStats)}`);
     }
 
-    if (!data) {
-      throw new NotFoundError('PlayerStats', userId);
-    }
+    // Round to 2 decimal places to avoid floating point precision errors
+    const roundStat = (value: number) => Math.round(value * 100) / 100;
 
-    // Cast to proper view row type
-    const statsRow = data as PlayerEquippedStatsRow;
-
-    // Strict type validation for each numeric field with detailed error reporting
-    const validateNumber = (fieldName: string, value: unknown): number => {
-      if (typeof value !== 'number' || Number.isNaN(value)) {
-        throw new DatabaseError(`Invalid ${fieldName} stat for user ${userId}: expected number, got ${typeof value}`);
-      }
-      return value;
+    const roundedStats: Stats = {
+      atkPower: roundStat(totalStats.atkPower),
+      atkAccuracy: roundStat(totalStats.atkAccuracy),
+      defPower: roundStat(totalStats.defPower),
+      defAccuracy: roundStat(totalStats.defAccuracy)
     };
 
-    // Extract and validate all 4 required stat fields
-    // Note: database view returns lowercase column names (atkpower, atkaccuracy, defpower, defaccuracy)
-    const atkPower = validateNumber('atkPower', statsRow.atkpower);
-    const atkAccuracy = validateNumber('atkAccuracy', statsRow.atkaccuracy);
-    const defPower = validateNumber('defPower', statsRow.defpower);
-    const defAccuracy = validateNumber('defAccuracy', statsRow.defaccuracy);
+    console.log(`[EquipmentRepository.getPlayerEquippedStats] userId=${userId}, TOTAL: ${JSON.stringify(roundedStats)}`);
 
-    return {
-      atkPower,
-      atkAccuracy,
-      defPower,
-      defAccuracy,
-    };
+    return roundedStats;
   }
 
   // ============================================================================

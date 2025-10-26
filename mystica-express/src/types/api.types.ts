@@ -891,6 +891,12 @@ export interface CombatEventDetails {
   turn_number: number;
   player_hp_pct: number;
   enemy_hp_pct: number;
+  /** Zone hit by player (1=best, 5=worst/self-injury) */
+  player_zone?: 1 | 2 | 3 | 4 | 5;
+  /** Zone hit by enemy */
+  enemy_zone?: 1 | 2 | 3 | 4 | 5;
+  /** Player's action this turn */
+  player_action?: 'attack' | 'defend';
 }
 
 /**

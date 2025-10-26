@@ -10,14 +10,6 @@ export const ZONE_MULTIPLIERS = {
 
 export const MIN_DAMAGE = 1;
 
-export const HIT_ZONE_MULTIPLIERS = {
-  injure: -0.5,
-  miss: 0.0,
-  graze: 0.6,
-  normal: 1.0,
-  crit: 1.6,
-} as const;
-
 export const MAX_CRIT_BONUS = 1.0;
 
 export const HIT_BAND_TO_ZONE: Record<HitBand, 1 | 2 | 3 | 4 | 5> = {

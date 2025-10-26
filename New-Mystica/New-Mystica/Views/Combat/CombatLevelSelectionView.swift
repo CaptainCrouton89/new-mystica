@@ -101,7 +101,13 @@ struct CombatLevelSelectionView: View {
                     .frame(width: 80, height: 80)
                     .background(
                         RoundedRectangle(cornerRadius: .cornerRadiusLarge)
-                            .fill(Color.backgroundSecondary)
+                            .fill(
+                                LinearGradient(
+                                    gradient: Gradient(colors: [levelStartColor(for: level), levelEndColor(for: level)]),
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: .cornerRadiusLarge)
@@ -135,6 +141,29 @@ struct CombatLevelSelectionView: View {
         .accessibilityLabel("Level \(level)")
         .accessibilityHint(level == recommendedLevel ? "Recommended level" : "")
         .disabled(isLoading)
+    }
+
+    private func levelStartColor(for level: Int) -> Color {
+        // Map level 1-10 to colors from green → yellow → orange → red
+        switch level {
+        case 1: return Color(red: 0.2, green: 0.8, blue: 0.2).opacity(0.5)      // Green
+        case 2: return Color(red: 0.3, green: 0.8, blue: 0.1).opacity(0.5)      // Green-Yellow
+        case 3: return Color(red: 0.5, green: 0.8, blue: 0.0).opacity(0.5)      // Yellow-Green
+        case 4: return Color(red: 0.7, green: 0.7, blue: 0.0).opacity(0.5)      // Yellow
+        case 5: return Color(red: 0.8, green: 0.6, blue: 0.0).opacity(0.5)      // Yellow-Orange
+        case 6: return Color(red: 0.85, green: 0.5, blue: 0.0).opacity(0.5)     // Orange
+        case 7: return Color(red: 0.9, green: 0.4, blue: 0.0).opacity(0.5)      // Orange-Red
+        case 8: return Color(red: 0.95, green: 0.3, blue: 0.0).opacity(0.5)     // Red-Orange
+        case 9: return Color(red: 1.0, green: 0.2, blue: 0.1).opacity(0.5)      // Red
+        case 10: return Color(red: 1.0, green: 0.0, blue: 0.0).opacity(0.5)     // Pure Red
+        default: return Color(red: 0.2, green: 0.8, blue: 0.2).opacity(0.5)
+        }
+    }
+
+    private func levelEndColor(for level: Int) -> Color {
+        // Darker variant of the start color for gradient effect
+        let startColor = levelStartColor(for: level)
+        return startColor.opacity(0.4)
     }
 
     private func selectLevel(_ level: Int) {

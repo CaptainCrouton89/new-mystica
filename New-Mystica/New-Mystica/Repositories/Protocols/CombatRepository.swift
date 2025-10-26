@@ -49,6 +49,20 @@ struct CombatEventDetails: Codable {
     let enemyHpPct: Double
     let damage: Int?
     let isCritical: Bool?
+    let playerZone: Int?
+    let enemyZone: Int?
+    let playerAction: String?
+
+    enum CodingKeys: String, CodingKey {
+        case turnNumber = "turn_number"
+        case playerHpPct = "player_hp_pct"
+        case enemyHpPct = "enemy_hp_pct"
+        case damage
+        case isCritical = "is_critical"
+        case playerZone = "player_zone"
+        case enemyZone = "enemy_zone"
+        case playerAction = "player_action"
+    }
 }
 
 protocol CombatRepository {
