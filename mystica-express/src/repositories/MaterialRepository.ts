@@ -634,41 +634,38 @@ export class MaterialRepository extends BaseRepository<MaterialRow> {
    * @throws DatabaseError on query failure
    */
   async findMaterialsByItem(itemId: string): Promise<AppliedMaterial[]> {
+    interface MaterialInstanceWithTemplate {
+      id: string;
+      user_id: string;
+      material_id: string;
+      style_id: string;
+      created_at: string;
+      materials: {
+        id: string;
+        name: string;
+        description: string | null;
+        base_drop_weight: number;
+        stat_modifiers: Record<string, number>;
+      } | null;
+    }
+
     interface ItemMaterialWithJoins {
       id: string;
       item_id: string;
       material_instance_id: string;
       slot_index: number;
       applied_at: string;
-      material_instance: {
-        id: string;
-        user_id: string;
-        material_id: string;
-        style_id: string;
-        created_at: string;
-      } | null;
-      material: Array<{
-        id: string;
-        user_id: string;
-        material_id: string;
-        style_id: string;
-        created_at: string;
-        material: {
-          id: string;
-          name: string;
-          description: string | null;
-          base_drop_weight: number;
-          stat_modifiers: Record<string, number>;
-        } | null;
-      }> | null;
+      material_instance: MaterialInstanceWithTemplate | null;
     }
 
     const { data, error } = await this.client
       .from('itemmaterials')
       .select(`
         *,
-        material_instance:materialinstances(*),
-        material:materialinstances(material:materials(*))
+        material_instance:materialinstances(
+          *,
+          materials(*)
+        )
       `)
       .eq('item_id', itemId)
       .order('slot_index');
@@ -687,7 +684,7 @@ export class MaterialRepository extends BaseRepository<MaterialRow> {
         throw new DatabaseError(`Material instance not found for applied material: ${item.id}`);
       }
 
-      const materialData = item.material?.[0]?.material;
+      const materialData = item.material_instance.materials;
       if (!materialData) {
         throw new DatabaseError(`Material template not found for instance: ${item.material_instance_id}`);
       }
