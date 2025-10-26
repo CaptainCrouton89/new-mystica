@@ -8,75 +8,85 @@ struct MainMenuView: View {
     var body: some View {
         // Change background style: .aurora, .floatingOrbs, .starfield, .image(backgroundImageManager), or .imageWithOrbs(backgroundImageManager)
         MysticaBackground(.imageWithOrbs(backgroundImageManager)) {
-            VStack(spacing: 40) {
-                Spacer()
-                
-                VStack(spacing: 16) {
-                    Image("mystica_logo")
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(maxWidth: 400, maxHeight: 200)
-                        .popup(delay: 0.0)
+            ZStack {
+                VStack(spacing: 20) {
+                    Spacer()
+                    
+                    VStack(spacing: 8) {
+                        Image("mystica_logo")
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(maxWidth: 800, maxHeight: 400)
+                            .popup(delay: 0.0)
+                    }
+                    
+                    Spacer()
+                    
+                    VStack(spacing: 24) {
+                        Button {
+                            audioManager.playMenuButtonClick()
+                            navigationManager.navigateTo(.map)
+                        } label: {
+                            MenuOptionView(
+                                title: "Map",
+                                icon: "map.fill",
+                                gradientColors: [Color.accent, Color.accentInteractive]
+                            )
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        .fadeIn(delay: 0.0)
+                        
+                        Button {
+                            audioManager.playMenuButtonClick()
+                            navigationManager.navigateTo(.collection)
+                        } label: {
+                            MenuOptionView(
+                                title: "Collection",
+                                icon: "square.grid.3x3.fill",
+                                gradientColors: [Color.accentSecondary, Color.accent]
+                            )
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        .fadeIn(delay: 0.2)
+                        
+                        Button {
+                            audioManager.playMenuButtonClick()
+                            navigationManager.navigateTo(.equipment)
+                        } label: {
+                            MenuOptionView(
+                                title: "Equipment",
+                                icon: "shield.fill",
+                                gradientColors: [Color.accent, Color.accentSecondary]
+                            )
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        .fadeIn(delay: 0.4)
+                    }
+                    .padding(.horizontal, 32)
+                    
+                    Spacer()
                 }
                 
-                Spacer()
-                
-                VStack(spacing: 24) {
-                    Button {
-                        audioManager.playMenuButtonClick()
-                        navigationManager.navigateTo(.map)
-                    } label: {
-                        MenuOptionView(
-                            title: "Map",
-                            icon: "map.fill",
-                            gradientColors: [Color.accent, Color.accentInteractive]
-                        )
+                // Settings gear icon in top right corner
+                VStack {
+                    HStack {
+                        Spacer()
+                        Button {
+                            audioManager.playMenuButtonClick()
+                            navigationManager.navigateTo(.settings)
+                        } label: {
+                            Image("settings-gear")
+                                .resizable()
+                                .aspectRatio(contentMode: .fit)
+                                .frame(width: 64, height: 64)
+                                .shadow(color: .black.opacity(0.3), radius: 4, x: 2, y: 2)
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        .padding(.top, 6)
+                        .padding(.trailing, 20)
                     }
-                    .buttonStyle(PlainButtonStyle())
-                    .fadeIn(delay: 0.0)
-                    
-                    Button {
-                        audioManager.playMenuButtonClick()
-                        navigationManager.navigateTo(.collection)
-                    } label: {
-                        MenuOptionView(
-                            title: "Collection",
-                            icon: "square.grid.3x3.fill",
-                            gradientColors: [Color.accentSecondary, Color.accent]
-                        )
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                    .fadeIn(delay: 0.2)
-                    
-                    Button {
-                        audioManager.playMenuButtonClick()
-                        navigationManager.navigateTo(.equipment)
-                    } label: {
-                        MenuOptionView(
-                            title: "Equipment",
-                            icon: "shield.fill",
-                            gradientColors: [Color.accent, Color.accentSecondary]
-                        )
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                    .fadeIn(delay: 0.4)
-                    
-                    Button {
-                        audioManager.playMenuButtonClick()
-                        navigationManager.navigateTo(.settings)
-                    } label: {
-                        MenuOptionView(
-                            title: "Settings",
-                            icon: "gearshape.fill",
-                            gradientColors: [Color.accentInteractive, Color.accent]
-                        )
-                    }
-                    .buttonStyle(PlainButtonStyle())
-                    .fadeIn(delay: 0.6)
+                    Spacer()
                 }
-                .padding(.horizontal, 32)
-                
-                Spacer()
             }
         }
         .onAppear {
