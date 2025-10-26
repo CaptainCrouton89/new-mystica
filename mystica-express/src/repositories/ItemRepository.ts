@@ -719,7 +719,7 @@ export class ItemRepository extends BaseRepository<ItemRow> {
         id: im.id,
         material_id: im.materialinstances.material_id,
         style_id: im.materialinstances.style_id,
-        style_name: im.materialinstances.styledefinitions?.display_name || undefined,
+        display_name: im.materialinstances.styledefinitions?.display_name || undefined,
         slot_index: im.slot_index,
         material: {
           id: im.materialinstances.materials.id,

@@ -1164,6 +1164,7 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          image_url: string | null
           name: string
           stat_modifiers: Json
         }
@@ -1172,6 +1173,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          image_url?: string | null
           name: string
           stat_modifiers: Json
         }
@@ -1180,6 +1182,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          image_url?: string | null
           name?: string
           stat_modifiers?: Json
         }

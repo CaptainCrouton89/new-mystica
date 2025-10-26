@@ -344,7 +344,7 @@ export class ItemService {
         material_id: stack.material_id,
         material_name: stack.materials!.name,
         style_id: stack.style_id,
-        style_name: stack.styledefinitions!.display_name,
+        display_name: stack.styledefinitions!.display_name,
         quantity: stack.quantity,
         is_styled: stack.styledefinitions!.display_name !== 'normal'
       }));

@@ -59,7 +59,7 @@ export class MaterialService {
         user_id: userId,
         material_id: stack.material_id,
         style_id: stack.style_id,
-        style_name: stack.styledefinitions?.display_name,
+        display_name: stack.styledefinitions?.display_name,
         quantity: stack.quantity,
         material: {
           id: material.id,
@@ -316,7 +316,7 @@ export class MaterialService {
           id: m.id,
           material_id: m.material_id,
           style_id: styleId,
-          style_name: styleName,
+          display_name: styleName,
           slot_index: m.slot_index,
           material: {
             id: m.material.id,
