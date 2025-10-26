@@ -27,10 +27,13 @@ export class SomeController {
 - **Delegate:** All business logic to services; never directly query database
 - **Respond:** Use `res.json()` or `res.status(code).json()`
 - **Errors:** Throw custom errors from `src/utils/errors.ts`; middleware catches
+- **Transform:** Convert service results to API response shape (e.g., `Item` → `PlayerItem` for frontend compatibility)
 
 ## ItemController Specifics
 
-`ItemController` computes and includes item stats in all item responses (equipment, inventory, loadouts). Stats are computed server-side via `ItemService.computeStats()` to ensure consistency. Always include computed stats in JSON responses—clients rely on accurate stat data for UI display.
+- **Stats Computation:** Computed server-side via `StatsService` and included in all item responses. Clients rely on accurate stat data.
+- **Response Transformation:** Methods like `upgradeItem` and `applyMaterial` transform database models to `PlayerItem` format before responding. This ensures frontend consistency.
+- **Material Application:** Complex transformation logic maps materials with style_id and name fields for Swift compatibility.
 
 ## Type Safety
 
