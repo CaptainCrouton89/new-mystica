@@ -6,13 +6,18 @@
   "scripts": {
     "generate-image": "tsx generate-image.ts",
     "generate-raw-image": "tsx generate-raw-image.ts",
-    "generate-raw-monster": "tsx generate-raw-monster.ts",
     "generate-arbitrary": "tsx generate-arbitrary-image.ts",
     "generate-landscape": "tsx generate-landscape.ts",
+    "generate-ui-icon": "tsx generate-ui-icon.ts",
     "analyze-image": "tsx analyze-image.ts",
     "query-db": "NODE_OPTIONS='--dns-result-order=ipv4first' tsx query-db.ts",
     "import-monsters": "tsx import-monsters-from-animator.ts",
-    "identify-and-generate": "tsx identify-and-generate-from-image.ts"
+    "identify-and-generate": "tsx identify-and-generate-from-image.ts",
+    "upload-to-r2": "tsx upload-to-r2.ts",
+    "sync-to-db": "tsx sync-to-db.ts",
+    "manage-assets": "tsx manage-assets.ts",
+    "seed:generate": "tsx seed-generate.ts",
+    "seed:upload": "tsx seed-upload.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^2.0.53",

@@ -1,0 +1,62 @@
+[
+  {
+    "name": "weapon-icon",
+    "description": "icon representing weapons and combat gear",
+    "style": "rubberhose"
+  },
+  {
+    "name": "armor-icon",
+    "description": "icon representing body armor and protection",
+    "style": "rubberhose"
+  },
+  {
+    "name": "head-icon",
+    "description": "icon representing headgear and helmets",
+    "style": "rubberhose"
+  },
+  {
+    "name": "feet-icon",
+    "description": "icon representing boots and footwear",
+    "style": "rubberhose"
+  },
+  {
+    "name": "accessory-icon",
+    "description": "icon representing accessories and trinkets",
+    "style": "rubberhose"
+  },
+  {
+    "name": "offhand-icon",
+    "description": "icon representing shields and offhand items",
+    "style": "rubberhose"
+  },
+  {
+    "name": "pet-icon",
+    "description": "icon representing companion pets",
+    "style": "rubberhose"
+  },
+  {
+    "name": "inventory-icon",
+    "description": "icon for inventory menu button",
+    "style": "rubberhose"
+  },
+  {
+    "name": "shop-icon",
+    "description": "icon for shop and store interface",
+    "style": "rubberhose"
+  },
+  {
+    "name": "map-icon",
+    "description": "icon for map and navigation",
+    "style": "rubberhose"
+  },
+  {
+    "name": "settings-icon",
+    "description": "icon for settings and configuration",
+    "style": "rubberhose"
+  },
+  {
+    "name": "crafting-icon",
+    "description": "icon for crafting and item creation",
+    "style": "rubberhose"
+  }
+]

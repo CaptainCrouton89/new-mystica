@@ -1,0 +1,17 @@
+[
+  {
+    "name": "Moonstone",
+    "description": "A shimmering crystal that glows with soft lunar energy, translucent with swirling silver veins",
+    "style": "rubberhose"
+  },
+  {
+    "name": "Dragon Scale",
+    "description": "A large iridescent scale from an ancient dragon, reflecting multiple colors in the light",
+    "style": "chibi"
+  },
+  {
+    "name": "Stardust",
+    "description": "Glittering cosmic powder that sparkles with tiny points of light",
+    "style": "pixel"
+  }
+]
