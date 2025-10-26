@@ -14,7 +14,7 @@ Custom error classes extending Error. Used throughout services and controllers.
 - `ConflictError(message)` - 409
 - `NotImplementedError(feature)` - 501
 
-Error handler middleware in app.ts catches and formats responses.
+Error handler middleware in app.ts catches and formats responses. See parent CLAUDE.md for usage patterns.
 
 ### logger.ts
 Structured logging with Winston. Logs to console in dev, file + console in production.
@@ -24,29 +24,13 @@ Structured logging with Winston. Logs to console in dev, file + console in produ
 Log level controlled by `LOG_LEVEL` env var (default: debug).
 
 ### image-url.ts
-Generate R2 storage URLs for materials and item types using snake_case naming convention.
-
-**Functions:**
-- `getMaterialImageUrl(materialName)` - Returns `{R2_PUBLIC_URL}/materials/{name}.png`
-- `getItemTypeImageUrl(itemTypeName)` - Returns `{R2_PUBLIC_URL}/items/{name}.png`
-
-### image-url.ts
-R2 storage URL generation utilities.
-
-**Functions:**
-- `getMaterialImageUrl(name)` - Returns R2 URL at `materials/{snake_case}.png`
-- `getItemTypeImageUrl(name)` - Returns R2 URL at `items/{snake_case}.png`
-
-Both normalize input to lowercase snake_case. Requires `R2_PUBLIC_URL` env var.
-
-### image-url.ts
 Generate R2 storage URLs for materials and item types using snake_case normalization.
 
 **Functions:**
-- `getMaterialImageUrl(materialName)` - Returns `{R2_URL}/materials/{snake_case}.png`
-- `getItemTypeImageUrl(itemTypeName)` - Returns `{R2_URL}/items/{snake_case}.png`
+- `getMaterialImageUrl(materialName)` - Returns `{R2_PUBLIC_URL}/materials/{snake_case}.png`
+- `getItemTypeImageUrl(itemTypeName)` - Returns `{R2_PUBLIC_URL}/items/{snake_case}.png`
 
-Both normalize whitespace to underscores and convert to lowercase.
+Both normalize whitespace to underscores and convert to lowercase. Requires `R2_PUBLIC_URL` env var.
 
 ## Patterns
 
