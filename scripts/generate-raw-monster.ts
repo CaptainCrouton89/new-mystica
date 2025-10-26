@@ -19,12 +19,12 @@
  *   https://developers.cloudflare.com/r2/api/workers/workers-api-reference/
  */
 
+import { openai } from '@ai-sdk/openai';
+import { generateObject } from 'ai';
 import * as dotenv from 'dotenv';
 import * as fs from 'fs';
 import * as path from 'path';
 import Replicate from 'replicate';
-import { openai } from '@ai-sdk/openai';
-import { generateObject } from 'ai';
 import { z } from 'zod';
 import { uploadToR2 } from './r2-service';
 
@@ -37,16 +37,16 @@ const CONFIG = {
   provider: 'gemini' as const,
   model: 'google/nano-banana',
   defaultReferenceImages: [
-    'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/bubble-wrap-vest.png',
-    'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/fuzzy-slippers.png',
-    'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/gatling-gun.png',
-    'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/jar-of-jelly.png',
-    'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/poop-emoji.png',
-    'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/lava.png',
-    'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/metal-scraps.png',
-    'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/rainbow.png',
-    'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/slime.png',
-    'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/sword.png'
+    `${process.env.R2_PUBLIC_URL}/image-refs/bubble-wrap-vest.png`,
+    `${process.env.R2_PUBLIC_URL}/image-refs/fuzzy-slippers.png`,
+    `${process.env.R2_PUBLIC_URL}/image-refs/gatling-gun.png`,
+    `${process.env.R2_PUBLIC_URL}/image-refs/jar-of-jelly.png`,
+    `${process.env.R2_PUBLIC_URL}/image-refs/poop-emoji.png`,
+    `${process.env.R2_PUBLIC_URL}/image-refs/lava.png`,
+    `${process.env.R2_PUBLIC_URL}/image-refs/metal-scraps.png`,
+    `${process.env.R2_PUBLIC_URL}/image-refs/rainbow.png`,
+    `${process.env.R2_PUBLIC_URL}/image-refs/slime.png`,
+    `${process.env.R2_PUBLIC_URL}/image-refs/sword.png`
   ]
 };
 

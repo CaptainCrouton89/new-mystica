@@ -20,6 +20,9 @@ struct UpgradeModal: View {
     @Environment(\.audioManager) private var audioManager
     @State private var isLoading = false
 
+    // MARK: - App State
+    @State private var appState = AppState.shared
+
     var body: some View {
         VStack(spacing: 0) {
             // Header with close button
@@ -281,20 +284,46 @@ struct UpgradeModal: View {
                 .padding(.vertical, 14)
                 .background(
                     RoundedRectangle(cornerRadius: .cornerRadiusLarge)
-                        .fill(Color.accent.opacity(0.15))
+                        .fill(canAffordUpgrade ? Color.accent.opacity(0.15) : Color.textSecondary.opacity(0.1))
                         .overlay(
                             RoundedRectangle(cornerRadius: .cornerRadiusLarge)
-                                .stroke(Color.accent, lineWidth: 2)
+                                .stroke(canAffordUpgrade ? Color.accent : Color.textSecondary.opacity(0.3), lineWidth: 2)
                         )
                 )
-                .foregroundColor(Color.accent)
+                .foregroundColor(canAffordUpgrade ? Color.accent : Color.textSecondary.opacity(0.5))
             }
-            .disabled(isLoading)
+            .disabled(isLoading || !canAffordUpgrade)
             .buttonStyle(PlainButtonStyle())
+
+            // Show insufficient gold message if can't afford upgrade
+            if !canAffordUpgrade {
+                HStack {
+                    Image(systemName: "exclamationmark.circle.fill")
+                        .font(.system(size: 14, weight: .semibold))
+                    Text("Insufficient gold for upgrade")
+                        .font(FontManager.body)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                .foregroundColor(Color.alert)
+                .background(
+                    RoundedRectangle(cornerRadius: .cornerRadiusSmall)
+                        .fill(Color.alert.opacity(0.1))
+                )
+            }
         }
         .padding(.horizontal, 20)
         .padding(.top, 24)
         .padding(.bottom, 24)
+    }
+
+    // MARK: - Computed Properties
+
+    private var canAffordUpgrade: Bool {
+        guard let currentGold = appState.getCurrencyBalance(for: .gold) else {
+            return false
+        }
+        return currentGold >= goldCost
     }
 
     // MARK: - Helper Methods

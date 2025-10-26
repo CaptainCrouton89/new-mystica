@@ -29,4 +29,9 @@ protocol LocationRepository {
     /// - Parameter zoneId: Zone ID to fetch details for
     /// - Returns: Complete zone data with locations and material pools
     func getZoneDetails(zoneId: String) async throws -> Zone
+
+    /// Auto-generate a "Goblin Den" location at user's position if no locations exist within 100m
+    /// - Parameter userLocation: User's current coordinates (latitude, longitude)
+    /// - Returns: Newly created location, or nil if location already exists within 100m
+    func autoGenerate(userLocation: (latitude: Double, longitude: Double)) async throws -> Location?
 }

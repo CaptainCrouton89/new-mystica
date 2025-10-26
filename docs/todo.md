@@ -1,4 +1,3 @@
 todo:
-- Locations load around your location
-- delete account
+- speech bubbles working
 - Upload images to make custom materials/items

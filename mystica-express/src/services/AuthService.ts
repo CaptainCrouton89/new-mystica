@@ -3,6 +3,7 @@ import { env } from '../config/env.js';
 import { supabase as supabaseAdmin } from '../config/supabase.js';
 import { ProfileRepository } from '../repositories/ProfileRepository.js';
 import { EquipmentRepository } from '../repositories/EquipmentRepository.js';
+import { ItemService } from './ItemService.js';
 import { generateAnonymousToken } from '../utils/jwt.js';
 import { v4 as uuidv4 } from 'uuid';
 import {
@@ -83,10 +84,12 @@ const supabaseAuth = createClient(
 export class AuthService {
   private profileRepository: ProfileRepository;
   private equipmentRepository: EquipmentRepository;
+  private itemService: ItemService;
 
   constructor() {
     this.profileRepository = new ProfileRepository();
     this.equipmentRepository = new EquipmentRepository();
+    this.itemService = new ItemService();
   }
 
   async registerDevice(request: DeviceRegistrationRequest): Promise<DeviceAuthResponse> {
@@ -209,6 +212,8 @@ export class AuthService {
 
           await this.initializeCurrencyBalance(userId);
           await this.equipmentRepository.initializeUserSlots(userId);
+          await this.itemService.initializeStarterItems(userId);
+          await this.itemService.initializeStarterMaterials(userId);
 
           userProfile = {
             id: userId,
@@ -585,10 +590,12 @@ export class AuthService {
 
         await this.initializeCurrencyBalance(userId);
         await this.equipmentRepository.initializeUserSlots(userId);
+        await this.itemService.initializeStarterItems(userId);
+        await this.itemService.initializeStarterMaterials(userId);
       }
     } catch (error) {
       console.error('Email user profile creation error:', error);
-      
+
     }
   }
 }

@@ -43,16 +43,9 @@ struct CombatLevelSelectionView: View {
                         }
                     }
                     .padding(.horizontal, 8)
-                    .padding(.vertical, 8)
+                    .padding(.vertical, 16)
                 }
                 .frame(maxHeight: 400)
-
-                if isLoading {
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: Color.accent))
-                        .scaleEffect(1.2)
-                        .padding(.top, 16)
-                }
             }
             .padding(24)
             .background(

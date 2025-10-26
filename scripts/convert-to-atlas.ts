@@ -11,16 +11,15 @@
  *   tsx convert-to-atlas.ts --path monsters/animations/doctor/idle/idle_sample1.atlas
  */
 
-import * as dotenv from 'dotenv';
-import * as path from 'path';
-import { S3Client, PutObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
-import { createWriteStream, mkdirSync, existsSync } from 'fs';
-import { join, dirname, basename } from 'path';
-import { pipeline } from 'stream/promises';
-import { createReadStream } from 'fs';
+import { ListObjectsV2Command, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { execSync } from 'child_process';
-import { tmpdir } from 'os';
 import { randomUUID } from 'crypto';
+import * as dotenv from 'dotenv';
+import { createReadStream, createWriteStream, mkdirSync } from 'fs';
+import { tmpdir } from 'os';
+import * as path from 'path';
+import { join } from 'path';
+import { pipeline } from 'stream/promises';
 
 // Load environment variables from parent directory
 dotenv.config({ path: path.join('..', '.env.local'), override: true });
@@ -28,7 +27,7 @@ dotenv.config({ path: path.join('..', '.env.local'), override: true });
 // R2 Configuration
 const R2_CONFIG = {
     bucketName: 'mystica-assets',
-    bucketDomain: 'pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev',
+    bucketDomain: (process.env.R2_PUBLIC_URL).replace('https://', ''),
     basePath: 'monsters/animations',
     region: 'auto',
     accountId: process.env.CLOUDFLARE_ACCOUNT_ID || ''
@@ -406,4 +405,5 @@ if (require.main === module) {
     main().catch(console.error);
 }
 
-export { AtlasConverter, type AtlasConversionOptions, type AnimationMetadata };
+export { AtlasConverter, type AnimationMetadata, type AtlasConversionOptions };
+

@@ -206,11 +206,16 @@ struct EquipmentView: View {
                 }
             }
         }
-        .bottomDrawer(
-            title: "Select Equipment",
-            isPresented: $viewModel.showingItemSelectionDrawer
-        ) {
-            drawerContent
+        .sheet(isPresented: $viewModel.showingItemSelectionDrawer) {
+            BottomDrawerSheet(
+                title: "Select Equipment",
+                isPresented: $viewModel.showingItemSelectionDrawer
+            ) {
+                drawerContent
+            }
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+            .presentationBackgroundInteraction(.enabled(upThrough: .medium))
         }
         .sheet(isPresented: $viewModel.showingItemDetailModal) {
             if let item = viewModel.selectedItemForDetail,

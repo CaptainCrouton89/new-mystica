@@ -376,7 +376,8 @@ struct LocationMarkerView: View {
                                 .fill(Color.black.opacity(0.7))
                         )
                         .offset(y: 8)
-                        .lineLimit(1)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.7)
                 }
                 .frame(width: 44, height: 44)
             }

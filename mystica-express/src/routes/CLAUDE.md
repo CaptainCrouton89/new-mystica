@@ -4,49 +4,31 @@ Express route definitions for New Mystica API. See parent [CLAUDE.md](../CLAUDE.
 
 ## Route Patterns
 
-**Structure:** Each route file exports an Express Router with typed handlers.
-
+**Structure:** Compose middleware with route handlers:
 ```typescript
-import { Router, type Request, type Response, type NextFunction } from 'express';
-import { validateRequest } from '../middleware/validation.js';
-import { authMiddleware } from '../middleware/auth.js';
-import { YourSchema } from '../types/schemas.js';
-import { YourController } from '../controllers/your.js';
-
-const router = Router();
-
-router.post(
+router.get(
   '/endpoint',
-  authMiddleware,
-  validateRequest('body', YourSchema),
-  (req: Request, res: Response, next: NextFunction) => YourController.handler(req, res, next)
+  authenticate,
+  validate({ query: QuerySchema }),
+  controllerHandler
 );
-
-export default router;
 ```
 
-## Key Conventions
+**Middleware:** `authenticate` → `validate()` (body/query/params) → handler
 
-- **File naming:** kebab-case (`auth.ts`, `equipment.ts`)
-- **Middleware order:** CORS → auth → validation → handler
-- **Error handling:** Throw errors in controllers; middleware catches via `next(error)`
-- **Validation:** Use `validateRequest(location, schema)` middleware (supports `body`, `query`, `params`)
-- **Type safety:** All handlers typed `(req: Request, res: Response, next: NextFunction) => void`
+## Conventions
+
+- **File naming:** kebab-case (`locations.ts`, `equipment.ts`)
+- **Validation:** `validate({ query/body/params: Schema })` with Zod schemas from `../types/schemas.ts`
+- **Error handling:** Controllers throw; middleware catches via `next(error)`
+- **Types:** Database types auto-generated via `pnpm supabase:types`
 
 ## Registration
 
 Routes registered in `app.ts`:
 ```typescript
-import authRoutes from './routes/auth.js';
-import equipmentRoutes from './routes/equipment.js';
-
-app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/locations', locationsRoutes);
 app.use('/api/v1/equipment', equipmentRoutes);
 ```
 
-## Related Files
-
-- **Controllers:** `src/controllers/` - HTTP logic (req/res orchestration)
-- **Services:** `src/services/` - Business logic
-- **Schemas:** `src/types/schemas.ts` - Zod validation definitions
-- **Middleware:** `src/middleware/` - Auth, validation, error handling
+See: Controllers `../controllers/` | Services `../services/` | Middleware `../middleware/`

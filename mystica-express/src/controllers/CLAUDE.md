@@ -1,41 +1,21 @@
 # CLAUDE.md
 
-Controllers orchestrate service calls and handle HTTP concerns. Controllers define endpoints, extract validated request data, delegate to services, and return responses.
+Controllers orchestrate service calls and handle HTTP concerns. All controllers use arrow function methods with middleware-delegated error handling, except `AuthController` which uses static methods with explicit error responses.
 
-## Core Patterns
+## Core Pattern (Arrow Functions)
 
-**Static Methods** (AuthController, explicit error handling):
 ```typescript
-export class AuthController {
-  static async register(req: Request, res: Response): Promise<void> {
-    try {
-      const { email, password } = req.body;
-      const result = await authService.register({ email, password });
-      res.status(201).json({ ...result, message: 'User registered successfully' });
-    } catch (error) {
-      if (error instanceof ValidationError) {
-        res.status(400).json({ error: { code: 'MISSING_CREDENTIALS', message: error.message } });
-        return;
-      }
-      res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: '...' } });
-    }
-  }
-}
-```
-
-**Arrow Function Methods** (other controllers, middleware delegation):
-```typescript
-export class ItemController {
-  applyMaterial = async (req: Request, res: Response, next: NextFunction) => {
+export class LocationController {
+  getById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const userId = req.user!.id;
-      const { item_id } = req.params;
-      const body = (req.validated?.body || req.body) as ApplyMaterialRequest;
+      const { id } = req.params as unknown as LocationParams;
+      const body = (req.validated?.body || req.body) as SchemaType;
 
-      const result = await materialService.applyMaterial({ userId, itemId: item_id, ... });
+      const result = await locationService.getById(id);
       res.json({ success: true, ...result });
     } catch (error) {
-      next(error);
+      next(error);  // Middleware handles
     }
   };
 }
@@ -43,61 +23,31 @@ export class ItemController {
 
 ## Key Responsibilities
 
-- **Extract** userId from `req.user!.id`, params/query/body data
-- **Cast validated body** to typed schema: `const body = (req.validated?.body || req.body) as SchemaType`
-- **Delegate** to service layer for business logic
-- **Transform** service results if needed (e.g., upgradeItem converts to PlayerItem format)
-- **Respond** via `res.json()` with structured response or `res.status(code).json()`
-- **Handle errors** by catching specific error types and mapping to HTTP codes (static methods) OR propagate via `next(error)` (arrow functions)
-
-## Error Handling Patterns
-
-**AuthController Pattern** (explicit error responses):
-- Catch specific error types: `ValidationError`, `ConflictError`, `NotFoundError`, `BusinessLogicError`
-- Map to appropriate HTTP status codes (400, 401, 422, 404, 500)
-- Return structured error object: `{ error: { code: 'CONSTANT', message: string } }`
-- Use `return` to exit after error response
-
-**Other Controllers** (middleware delegation):
-- Throw custom errors, let error handler middleware catch
-- Use `next(error)` to propagate to centralized error handling
-
-## Response Patterns
-
-**Success (200/201):**
-```typescript
-res.json({ success: true, item, gold_spent, new_gold_balance });
-res.status(201).json({ ...result, message: 'User registered successfully' });
-```
-
-**Errors (explicit - AuthController):**
-```typescript
-res.status(400).json({ error: { code: 'MISSING_CREDENTIALS', message: '...' } });
-res.status(422).json({ error: { code: 'EMAIL_EXISTS', message: '...' } });
-```
+- **Extract:** userId from `req.user!.id`, params/query/body from typed schemas
+- **Delegate:** Call service layer for business logic only
+- **Respond:** Use `res.json()` or `res.status(code).json()`
+- **Handle errors:** Throw custom errors, let middleware catch via `next(error)`
 
 ## Type Safety
 
-- `req.user!.id` - Always exists after auth middleware, non-null assertion safe in protected routes
-- `req.validated?.body` - Zod-validated body with optional fallback to raw body
-- Cast validated data: `as ApplyMaterialRequest` (using type imports from schemas.ts)
+- `req.user!.id` — Always exists after auth middleware
+- `req.validated?.body || req.body` — Cast to schema: `as SchemaType`
+- `req.params / req.query` — Cast: `as unknown as LocationParams`
+- Import types from `src/types/schemas.ts`
 
 ## Never Do
 
-- Database queries directly (use repositories/services)
-- Business logic (material combinations, stat calculations → services)
-- Mix error handling styles within same controller (choose static or arrow, stick to it)
-- Manual response serialization (use `res.json()`)
+- Database queries directly (use services/repositories)
+- Business logic (calculations, stat operations)
+- Manual response serialization
+- Mix error handling styles within same controller
 
-## Validation Fallback Pattern
+## Response Format
 
-Some endpoints accept both validated and raw body:
-```typescript
-const body = (req.validated?.body || req.body) as ApplyMaterialRequest;
-```
+- Success: `res.json({ success: true, ...data })`
+- Created: `res.status(201).json({ success: true, ...data })`
+- Errors: Throw custom error types from `src/utils/errors.ts`, middleware handles
 
-This supports both validated and unvalidated request paths.
+## AuthController Exception
 
-## Item Transformation
-
-`upgradeItem` transforms database Item to PlayerItem format for frontend compatibility—handles missing descriptions, applies defaults, and maps material arrays.
+Uses **static methods** with explicit error handling (catches error types, returns `res.status(code)` instead of `next(error)`). Follow that pattern only for auth endpoints.
