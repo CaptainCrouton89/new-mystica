@@ -10,6 +10,8 @@ Business logic services for the New Mystica backend. Each service encapsulates d
 
 ## Core Services (✅ Fully Implemented)
 
+**ItemService** - Full item lifecycle: create/upgrade/discard, stats computation (level + materials), inventory with pagination, 8-slot equipment tracking, pet personalities, material removal with recomposition, item history, weapon combat stats, starter inventory initialization
+
 **EnemyService** - Enemy/monster retrieval, stat computation, R2 sprite URLs (UUID-based: `monsters/{uuid}/sprites/*`), personality traits from `ai_personality_traits` JSON
 
 **CombatService** - Combat session lifecycle, turn execution (modular subdirectory: combat/types.ts, constants.ts, calculations.ts, session.ts, loot.ts, rewards.ts, combat-log.ts, turn-execution.ts), enemy selection, attack/defense with zone-based accuracy, reward application
