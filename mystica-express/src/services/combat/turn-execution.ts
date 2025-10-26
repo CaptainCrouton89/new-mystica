@@ -105,8 +105,7 @@ export function executeAttackTurn(
   const enemyDefenseZoneMultiplier = ZONE_MULTIPLIERS[enemyDefenseZone];
   const effectiveDefense = enemyStats.def_power * enemyDefenseZoneMultiplier;
 
-  // Ratio-based damage: atkPower / (.5 + defPower / atkPower)
-  const damageRatio = modifiedAtkPower / (.5 + effectiveDefense / modifiedAtkPower);
+  const damageRatio = modifiedAtkPower * 5 * (modifiedAtkPower /  (effectiveDefense + modifiedAtkPower));
   const enemyActualDamageTaken = Math.max(MIN_DAMAGE, Math.floor(damageRatio));
 
   console.log(`[executeAttackTurn] PLAYER ATTACK:
@@ -189,8 +188,7 @@ export function executeDefenseTurn(
   const playerDefenseZoneMultiplier = ZONE_MULTIPLIERS[playerDefenseZone];
   const effectiveDefense = playerStats.defPower * playerDefenseZoneMultiplier;
 
-  // Ratio-based damage: atkPower / (.5 + defPower / atkPower)
-  const damageRatio = modifiedAtkPower / (.5 + effectiveDefense / modifiedAtkPower);
+  const damageRatio = modifiedAtkPower * 5 * (modifiedAtkPower /  (effectiveDefense + modifiedAtkPower));
   const damageActuallyTaken = Math.max(MIN_DAMAGE, Math.floor(damageRatio));
 
   console.log(`[executeDefenseTurn] ENEMY ATTACK:
