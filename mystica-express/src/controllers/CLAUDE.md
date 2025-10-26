@@ -28,6 +28,10 @@ export class SomeController {
 - **Respond:** Use `res.json()` or `res.status(code).json()`
 - **Errors:** Throw custom errors from `src/utils/errors.ts`; middleware catches
 
+## ItemController Specifics
+
+`ItemController` computes and includes item stats in all item responses (equipment, inventory, loadouts). Stats are computed server-side via `ItemService.computeStats()` to ensure consistency. Always include computed stats in JSON responses—clients rely on accurate stat data for UI display.
+
 ## Type Safety
 
 - Request bodies/query params: Cast as `as unknown as SchemaType` (from `src/types/schemas.ts`)
