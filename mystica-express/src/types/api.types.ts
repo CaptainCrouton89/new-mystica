@@ -74,6 +74,7 @@ export interface AppliedMaterial {
   name: string;
   slot_index?: number;
   stat_modifiers?: Stats;
+  style_id: string | null;
 }
 
 /**
@@ -85,7 +86,6 @@ export interface Item {
   item_type_id: string;
   level: number;
   base_stats: Stats;
-  current_stats?: Stats;
   material_combo_hash?: string;
   image_url?: string;
   is_styled?: boolean;
@@ -235,6 +235,7 @@ export interface ReplaceMaterialResult {
 export interface UpgradeResult {
   success: boolean;
   updated_item: Item;
+  computed_stats: Stats;
   gold_spent: number;
   new_gold_balance: number;
   new_vanity_level: number;

@@ -102,7 +102,6 @@ export class ItemRepository extends BaseRepository<ItemRow> {
    * - level: defaults to 1 if not provided
    * - rarity: defaults to 'common' if not provided
    * - is_styled: defaults to false
-   * - current_stats: null (computed later)
    * - material_combo_hash: hash of empty materials
    * - generated_image_url: base_image_url from ItemType
    * - image_generation_status: null (set to 'pending' when generation starts)
@@ -681,19 +680,20 @@ export class ItemRepository extends BaseRepository<ItemRow> {
 
   /**
    * Process item upgrade atomically via RPC
-   * RPC: process_item_upgrade(p_user_id, p_item_id, p_gold_cost, p_new_level, p_new_stats)
+   * RPC: process_item_upgrade(p_user_id, p_item_id, p_gold_cost, p_new_level)
    *
    * This wraps the Supabase RPC call for atomic item upgrades that:
    * - Validates user ownership
    * - Deducts gold from user balance
-   * - Updates item level and stats
+   * - Updates item level
    * - Records transaction history
+   *
+   * Note: Stats are computed on-the-fly and not stored in the database.
    *
    * @param userId - User ID for ownership validation
    * @param itemId - Item ID to upgrade
    * @param goldCost - Gold cost for the upgrade
    * @param newLevel - New level after upgrade
-   * @param newStats - New stats after upgrade
    * @returns RPC result or throws error
    * @throws DatabaseError on RPC failure or business logic violation
    */
@@ -701,15 +701,13 @@ export class ItemRepository extends BaseRepository<ItemRow> {
     userId: string,
     itemId: string,
     goldCost: number,
-    newLevel: number,
-    newStats: any
+    newLevel: number
   ): Promise<any> {
     const result = await this.rpc("process_item_upgrade", {
       p_user_id: userId,
       p_item_id: itemId,
       p_gold_cost: goldCost,
       p_new_level: newLevel,
-      p_new_stats: newStats,
     });
 
     return result;

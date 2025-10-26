@@ -154,6 +154,7 @@ struct ItemMaterialApplication: APIModel, Hashable, Sendable {
     }
 
     let materialId: String
+    let name: String
     let styleId: String
     let displayName: String?
     let slotIndex: Int
@@ -162,6 +163,7 @@ struct ItemMaterialApplication: APIModel, Hashable, Sendable {
 
     enum CodingKeys: String, CodingKey {
         case materialId = "material_id"
+        case name
         case styleId = "style_id"
         case displayName = "display_name"
         case slotIndex = "slot_index"
@@ -171,6 +173,7 @@ struct ItemMaterialApplication: APIModel, Hashable, Sendable {
 
     init(
         materialId: String,
+        name: String,
         styleId: String,
         displayName: String? = nil,
         slotIndex: Int,
@@ -178,6 +181,7 @@ struct ItemMaterialApplication: APIModel, Hashable, Sendable {
         material: MaterialDetail? = nil
     ) {
         self.materialId = materialId
+        self.name = name
         self.styleId = styleId
         self.displayName = displayName
         self.slotIndex = slotIndex
@@ -191,21 +195,9 @@ struct ItemMaterialApplication: APIModel, Hashable, Sendable {
         appliedAt = try container.decodeIfPresent(String.self, forKey: .appliedAt)
         material = try container.decodeIfPresent(MaterialDetail.self, forKey: .material)
 
-        if let explicitMaterialId = try container.decodeIfPresent(String.self, forKey: .materialId) {
-            materialId = explicitMaterialId
-        } else if let material {
-            materialId = material.id
-        } else {
-            throw DecodingError.keyNotFound(
-                CodingKeys.materialId,
-                DecodingError.Context(
-                    codingPath: container.codingPath,
-                    debugDescription: "Missing material identifier in ItemMaterialApplication payload"
-                )
-            )
-        }
-
-        // style_id and display_name must be at parent level (not in nested material object)
+        // Decode required fields - backend always provides these in flat structure
+        name = try container.decode(String.self, forKey: .name)
+        materialId = try container.decode(String.self, forKey: .materialId)
         styleId = try container.decode(String.self, forKey: .styleId)
         displayName = try container.decodeIfPresent(String.self, forKey: .displayName)
     }
@@ -213,6 +205,7 @@ struct ItemMaterialApplication: APIModel, Hashable, Sendable {
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(materialId, forKey: .materialId)
+        try container.encode(name, forKey: .name)
         try container.encode(styleId, forKey: .styleId)
         try container.encodeIfPresent(displayName, forKey: .displayName)
         try container.encode(slotIndex, forKey: .slotIndex)

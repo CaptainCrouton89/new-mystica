@@ -2136,16 +2136,26 @@ export type Database = {
       }
       postgis_version: { Args: never; Returns: string }
       postgis_wagyu_version: { Args: never; Returns: string }
-      process_item_upgrade: {
-        Args: {
-          p_gold_cost: number
-          p_item_id: string
-          p_new_level: number
-          p_new_stats: Json
-          p_user_id: string
-        }
-        Returns: Json
-      }
+      process_item_upgrade:
+        | {
+            Args: {
+              p_gold_cost: number
+              p_item_id: string
+              p_new_level: number
+              p_new_stats: Json
+              p_user_id: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_gold_cost: number
+              p_item_id: string
+              p_new_level: number
+              p_user_id: string
+            }
+            Returns: undefined
+          }
       remove_material_from_item: {
         Args: { p_item_id: string; p_slot_index: number }
         Returns: Json

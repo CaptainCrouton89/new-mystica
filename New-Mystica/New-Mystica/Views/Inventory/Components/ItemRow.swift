@@ -286,6 +286,7 @@ private let mockItemStyled = EnhancedPlayerItem(
     appliedMaterials: [
         ItemMaterialApplication(
             materialId: "wood",
+            name: "Wood",
             styleId: "rustic",
             slotIndex: 0,
             appliedAt: "2025-10-23T06:00:00Z",

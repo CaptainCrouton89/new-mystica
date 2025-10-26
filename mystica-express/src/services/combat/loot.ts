@@ -56,23 +56,27 @@ export async function generateLoot(
     throw new ValidationError('No loot entries found for enemy type');
   }
 
-  const materialLootEntries: EnemyLootEntry[] = enemyLootEntries.filter(
-    entry => entry.lootable_type === 'material' && 'material_id' in entry && entry.material_id
-  ) as EnemyLootEntry[];
-  const itemLootEntries: EnemyLootEntry[] = enemyLootEntries.filter(
-    entry => entry.lootable_type === 'item_type' && 'item_type_id' in entry && entry.item_type_id
-  ) as EnemyLootEntry[];
+  // Convert database loot entries (with string lootable_type) to typed EnemyLootEntry
+  const materialLootEntries: EnemyLootEntry[] = enemyLootEntries
+    .filter(entry => entry.lootable_type === 'material' && entry.material_id)
+    .map(entry => ({
+      material_id: entry.material_id,
+      lootable_type: 'material' as const,
+      drop_weight: entry.drop_weight
+    }));
+
+  const itemLootEntries: EnemyLootEntry[] = enemyLootEntries
+    .filter(entry => entry.lootable_type === 'item_type' && entry.item_type_id)
+    .map(entry => ({
+      item_type_id: entry.item_type_id,
+      lootable_type: 'item_type' as const,
+      drop_weight: entry.drop_weight
+    }));
 
   const selectedMaterialLoots = selectRandomLoot(materialLootEntries, selectedEnemyStyleId);
   const selectedItemLoots = itemLootEntries.length > 0
     ? selectRandomLoot(itemLootEntries, selectedEnemyStyleId).slice(0, 1)
     : [];
-
-  // Fetch enemy style display name
-  const enemyStyle = await styleRepository.findById(selectedEnemyStyleId);
-  if (!enemyStyle) {
-    throw new NotFoundError('Style', selectedEnemyStyleId);
-  }
 
   const materialDetails = await Promise.all(selectedMaterialLoots.map(async (mat) => {
     if (!mat.material_id) {
@@ -83,24 +87,22 @@ export async function generateLoot(
       throw new NotFoundError('Material', mat.material_id);
     }
 
-    // Use material's own style if it has one, otherwise use enemy's style
-    let styleId = selectedEnemyStyleId;
-    let displayName = enemyStyle.display_name;
+    // Materials have their own style_id from the materials table
+    if (!material.style_id) {
+      throw new ValidationError('Material missing style_id');
+    }
 
-    if (material.style_id) {
-      const materialStyle = await styleRepository.findById(material.style_id);
-      if (materialStyle) {
-        styleId = material.style_id;
-        displayName = materialStyle.display_name;
-      }
+    const style = await styleRepository.findById(material.style_id);
+    if (!style) {
+      throw new NotFoundError('Style', material.style_id);
     }
 
     return {
       material_id: mat.material_id,
       name: material.name,
-      style_id: styleId,
-      display_name: displayName,
-      image_url: material.image_url || getMaterialImageUrl(material.name)
+      style_id: material.style_id,
+      display_name: style.display_name,
+      image_url: getMaterialImageUrl(material.name)
     };
   }));
 
@@ -113,6 +115,12 @@ export async function generateLoot(
       throw new NotFoundError('ItemType', item.item_type_id);
     }
 
+    // Items inherit the enemy's style
+    const style = await styleRepository.findById(selectedEnemyStyleId);
+    if (!style) {
+      throw new NotFoundError('Style', selectedEnemyStyleId);
+    }
+
     // Select rarity based on combat level and drop rates
     const selectedRarity = await selectRarity(rarityRepository, combatLevel);
 
@@ -122,7 +130,7 @@ export async function generateLoot(
       category: itemType.category,
       rarity: selectedRarity,
       style_id: selectedEnemyStyleId,
-      display_name: enemyStyle.display_name,
+      display_name: style.display_name
     };
   }));
 
@@ -163,9 +171,8 @@ export function selectRandomLoot(lootEntries: EnemyLootEntry[], inheritedStyleId
     for (const entry of lootEntries) {
       cumulativeWeight += entry.drop_weight;
       if (randomVal <= cumulativeWeight) {
-        selectedLoots.push({
-          ...entry,
-        });
+        // EnemyLootEntry doesn't have style_id - style comes from material/enemy
+        selectedLoots.push({ ...entry });
         break;
       }
     }

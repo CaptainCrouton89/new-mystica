@@ -14,7 +14,7 @@ export interface PlayerItem {
   level: number;
   rarity: Rarity;
   applied_materials: AppliedMaterial[];
-  materials?: AppliedMaterial[]; 
+  materials: AppliedMaterial[];
   computed_stats: Stats;
   material_combo_hash: string | null;
   generated_image_url: string;
@@ -89,9 +89,11 @@ export class InventoryService {
             material_id: materialInstance.material_id,
             name: materialInstance.materials.name,
             slot_index: materialInstance.slot_index,
-            stat_modifiers: materialInstance.materials.stat_modifiers as Stats
+            stat_modifiers: materialInstance.materials.stat_modifiers as Stats,
+            style_id: materialInstance.materials.style_id
           }));
 
+          // Frontend expects applied_materials to be an array of material objects (AppliedMaterial[])
           return {
             id: item.id,
             base_type: item.name

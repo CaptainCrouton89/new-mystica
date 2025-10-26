@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from 'express';
 import { itemService } from '../services/ItemService';
 import { materialService } from '../services/MaterialService';
+import type { ItemWithMaterials } from '../types/repository.types.js';
 import type {
   AddPetChatterRequest,
   ApplyMaterialRequest,
@@ -69,7 +70,7 @@ export class ItemController {
         rarity: result.updated_item.item_type?.rarity || 'common',
         applied_materials: result.updated_item.materials || [],
         materials: result.updated_item.materials || [],
-        computed_stats: result.updated_item.current_stats,
+        computed_stats: result.computed_stats,
         material_combo_hash: result.updated_item.material_combo_hash || null,
         generated_image_url: result.updated_item.image_url || null,
         image_generation_status: null,
@@ -219,10 +220,22 @@ export class ItemController {
         slotIndex: slot_index
       });
 
-      // Add base_type field for Swift compatibility
+      // Type assertion: result.updated_item is ItemWithMaterials from repository
+      const itemWithMaterials = result.updated_item as ItemWithMaterials;
+
+      // Transform materials to include style_id at top level for Swift compatibility
+      const appliedMaterials = (itemWithMaterials.materials || []).map(m => ({
+        ...m,
+        style_id: m.materials?.style_id || null
+      }));
+
+      // Add base_type, category, and applied_materials fields for Swift compatibility
+      // These fields are nested in item_type but Swift expects them at the top level
       const updatedItemWithBaseType = {
         ...result.updated_item,
-        base_type: result.updated_item.item_type?.name || 'Unknown'
+        base_type: itemWithMaterials.item_type.name,
+        category: itemWithMaterials.item_type.category,
+        applied_materials: appliedMaterials
       };
 
       res.json({

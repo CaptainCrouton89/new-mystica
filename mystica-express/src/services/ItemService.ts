@@ -137,7 +137,8 @@ export class ItemService {
           id: m.id,
           material_id: m.material_id,
           name: m.materials.name,
-          stat_modifiers: m.materials.stat_modifiers as Stats
+          stat_modifiers: m.materials.stat_modifiers as Stats,
+          style_id: m.materials.style_id
         })),
         item_type: {
           id: itemWithDetails.item_type.id,
@@ -168,7 +169,7 @@ export class ItemService {
           }
         };
 
-        item.current_stats = statsService.computeItemStatsForLevel(statsInput, itemWithDetails.level);
+        // item.computed_stats = statsService.computeItemStatsForLevel(statsInput, itemWithDetails.level);
       }
 
       return item;
@@ -255,8 +256,7 @@ export class ItemService {
         userId,
         itemId,
         costInfo.gold_cost,
-        costInfo.next_level,
-        statsAfter
+        costInfo.next_level
       );
 
       await profileService.updateVanityLevel(userId);
@@ -267,12 +267,12 @@ export class ItemService {
         item_type_id: item.item_type_id,
         level: costInfo.next_level,
         base_stats: item.item_type.base_stats_normalized as Stats,
-        current_stats: statsAfter,
         material_combo_hash: item.material_combo_hash || undefined,
         image_url: item.generated_image_url || undefined,
         materials: item.materials.map(m => ({
           id: m.id,
           material_id: m.material_id,
+          style_id: m.materials.style_id || 'normal',
           name: m.materials.name,
           stat_modifiers: m.materials.stat_modifiers as Stats
         })),
@@ -295,6 +295,7 @@ export class ItemService {
       return {
         success: true,
         updated_item: updatedItem,
+        computed_stats: statsAfter,
         gold_spent: costInfo.gold_cost,
         new_gold_balance: newGoldBalance,
         new_vanity_level: profile?.vanity_level || 0
@@ -819,6 +820,7 @@ export class ItemService {
         id: m.id,
         material_id: m.material_id,
         name: m.materials.name,
+        style_id: m.materials.style_id || 'normal',
         stat_modifiers: m.materials.stat_modifiers as Stats
       })),
       item_type: {
@@ -862,12 +864,6 @@ export class ItemService {
       return defaultStats;
     })();
 
-    const currentStats: Stats = (() => {
-      if (data.current_stats && typeof data.current_stats === 'object') {
-        return data.current_stats as Stats;
-      }
-      return baseStats;
-    })();
 
     const materials = Array.isArray(data.materials) ? data.materials : [];
 
@@ -910,7 +906,6 @@ export class ItemService {
       item_type_id: data.item_type_id as string,
       level: data.level as number,
       base_stats: baseStats,
-      current_stats: currentStats,
       material_combo_hash: (data.material_combo_hash as string | null | undefined) || undefined,
       image_url: (data.generated_image_url as string | null | undefined) || (data.image_url as string | null | undefined) || undefined,
       is_styled: (data.is_styled as boolean | undefined) || false,

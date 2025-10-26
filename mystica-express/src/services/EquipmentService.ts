@@ -252,6 +252,7 @@ export class EquipmentService {
       level: repositoryItem.level,
       rarity: repositoryItem.rarity,
       applied_materials: [],
+      materials: [],
       computed_stats: computedStats,
       material_combo_hash: null,
       generated_image_url: generatedImageUrl,
