@@ -18,13 +18,12 @@
  *   - R2 URLs (if --upload flag used)
  */
 
+import { openai } from '@ai-sdk/openai';
+import { generateObject } from 'ai';
 import * as dotenv from 'dotenv';
 import * as fs from 'fs';
 import * as path from 'path';
-import { openai } from '@ai-sdk/openai';
-import { generateObject } from 'ai';
 import { z } from 'zod';
-import { uploadToR2 } from './r2-service.js';
 import { generateRawImage } from './generate-raw-image.js';
 
 // Load environment variables
@@ -96,21 +95,28 @@ function buildIdentificationSystemPrompt(items: SeedItem[], materials: SeedItem[
 
   return `You are an AI assistant specialized in identifying game items and materials from images.
 
-Your task: Given an image, identify what it represents and classify it as either an "item" (equipment, weapons, accessories, pets) or a "material" (crafting resources, elemental essences, substances).
+Your task: Given an image, identify what it represents and classify it as either a "material" (substances, essences, textures, resources) or an "item" (standalone objects, equipment, tools).
 
-Item examples in our game:
+MATERIAL BIAS: Prefer material classification for anything that could be a substance, texture, essence, or element. Materials feel iconic and specific—think of them as things that could be infused, applied, or essence-like. Examples:
+- Natural phenomena: Grass, Flower Petals, Light, Lightning, Cloud, Flame
+- Surfaces & textures: Mirror, Silk, Metal Scraps, Leather, Diamond
+- Substances: Slime, Coffee, Bubble, Rainbow, Sparkles
+- Abstract essences: Ghost, Neon, Cactus (spiky essence)
+
+Item examples in our game (complete standalone objects):
 ${itemExamples}
 
-Material examples in our game:
+Material examples in our game (substances, essences, iconic elements):
 ${materialExamples}
 
-Guidelines:
-1. Identify the real-world or fantastical object in the image
-2. Classify as ITEM if it's equipment, gear, weapons, or collectibles
-3. Classify as MATERIAL if it's a raw resource, elemental essence, or crafting ingredient
-4. Provide a concise physical description (8-15 words) suitable for generating a game asset—describe only the object itself, excluding any background, environment, or setting
-5. Be confident in your assessment, but note lower confidence for ambiguous images
-6. Handle pop culture references by describing their iconic visual form`;
+Classification Rules:
+1. Ask yourself: "Could this be mixed into/infused into something, OR is it an iconic substance/essence?" → If yes, it's a MATERIAL
+2. Ask yourself: "Is this a complete, standalone object you'd pick up or equip?" → If yes, it's an ITEM
+3. Ambiguous cases (like mirror, magnet, flower): Treat as MATERIAL if it has iconic substance/visual quality
+4. Provide a concise physical description (8-15 words) focused on the object itself, excluding background/environment
+5. Handle pop culture references by describing their iconic visual form
+
+Remember: Materials are iconic, specific, and substance-like. Items are equipment, tools, and complete objects.`;
 }
 
 async function identifyFromImage(imageUrl: string, seedData: { items: SeedItem[]; materials: SeedItem[] }): Promise<Identification> {
@@ -124,6 +130,7 @@ async function identifyFromImage(imageUrl: string, seedData: { items: SeedItem[]
     model: openai('gpt-4.1'),
     schema: identificationSchema,
     system: systemPrompt,
+    temperature: 1,
     messages: [
       {
         role: 'user',
@@ -373,4 +380,5 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 }
 
 export { identifyAndGenerate, identifyFromImage, selectStyleReferences };
-export type { Identification, GenerationOptions };
+export type { GenerationOptions, Identification };
+
