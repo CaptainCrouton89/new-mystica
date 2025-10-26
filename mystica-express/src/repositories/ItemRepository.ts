@@ -14,11 +14,10 @@
  */
 
 import { SupabaseClient } from '@supabase/supabase-js';
-import { Stats } from '../types/api.types.js';
 import { Database } from '../types/database.types.js';
 import {
   CreateItemData,
-  ItemWithDetails,
+  ItemWithMaterials,
   UpdateItemData
 } from '../types/repository.types.js';
 import { DatabaseError, ValidationError } from '../utils/errors.js';
@@ -55,7 +54,7 @@ export interface ItemHistoryEvent {
  */
 export class ItemRepository extends BaseRepository<ItemRow> {
   constructor(client?: SupabaseClient) {
-    super('items', client);
+    super("items", client);
   }
 
   // ============================================================================
@@ -94,12 +93,14 @@ export class ItemRepository extends BaseRepository<ItemRow> {
   /**
    * Create a new item for a user
    *
-   * @param itemData - Item creation data (user_id, item_type_id, level optional)
+   * @param itemData - Item creation data (user_id, item_type_id, level optional, rarity optional)
    * @returns Created item with all fields
    * @throws DatabaseError if ItemType not found or insertion fails
+   * @throws ValidationError if rarity is provided but invalid
    *
    * Auto-populated fields:
    * - level: defaults to 1 if not provided
+   * - rarity: defaults to 'common' if not provided
    * - is_styled: defaults to false
    * - current_stats: null (computed later)
    * - material_combo_hash: hash of empty materials
@@ -114,9 +115,10 @@ export class ItemRepository extends BaseRepository<ItemRow> {
     }
 
     // Use base_image_url if available and not empty, otherwise null
-    const baseImageUrl = itemType.base_image_url && itemType.base_image_url.trim() !== ''
-      ? itemType.base_image_url
-      : null;
+    const baseImageUrl =
+      itemType.base_image_url && itemType.base_image_url.trim() !== ""
+        ? itemType.base_image_url
+        : null;
 
     // Compute initial material_combo_hash for items with no materials
     // This ensures all items have a valid hash, even if they haven't had materials applied yet
@@ -126,12 +128,11 @@ export class ItemRepository extends BaseRepository<ItemRow> {
     const insertData: ItemInsert = {
       user_id: itemData.user_id,
       item_type_id: itemData.item_type_id,
-      level: itemData.level || 1,
-      is_styled: false,
-      current_stats: null,
+      level: itemData.level ?? 1,
+      rarity: itemData.rarity,
       material_combo_hash: initialComboHash,
       generated_image_url: baseImageUrl,
-      image_generation_status: null
+      image_generation_status: null,
     };
 
     return await super.create(insertData);
@@ -152,19 +153,14 @@ export class ItemRepository extends BaseRepository<ItemRow> {
    * - current_stats accepts Stats object (auto-stringified by Supabase)
    * - All optional fields can be omitted
    */
-  async updateItem(itemId: string, userId: string, data: UpdateItemData): Promise<ItemRow> {
+  async updateItem(
+    itemId: string,
+    userId: string,
+    data: UpdateItemData
+  ): Promise<ItemRow> {
     // Validate ownership first
     await this.validateOwnership(itemId, userId);
-
-    // Use strongly-typed ItemUpdate from Supabase schema
-    // Note: Supabase client handles JSON stringification for current_stats field
-    const updateData: ItemUpdate = {
-      ...data,
-      // current_stats field accepts Stats object; Supabase auto-serializes it
-      current_stats: data.current_stats as any
-    };
-
-    return await super.update(itemId, updateData);
+    return await super.update(itemId, data);
   }
 
   /**
@@ -197,125 +193,104 @@ export class ItemRepository extends BaseRepository<ItemRow> {
    * @throws NotFoundError if not found or ownership validation fails
    * @throws DatabaseError on query failure
    */
-  async findWithMaterials(itemId: string, userId?: string): Promise<ItemWithDetails | null> {
+  async findWithMaterials(itemId: string, userId?: string): Promise<ItemWithMaterials | null> {
     let query = this.client
-      .from('items')
-      .select(`
-        id,
-        user_id,
-        item_type_id,
-        level,
-        is_styled,
-        current_stats,
-        material_combo_hash,
-        generated_image_url,
-        image_generation_status,
-        created_at,
-        name,
-        description,
+      .from("items")
+      .select(
+        `
+        *,
         itemtypes (
-          id,
-          name,
-          category,
-          base_stats_normalized,
-          rarity,
-          description
+          *
         ),
         itemmaterials (
-          id,
-          slot_index,
-          applied_at,
-          material_instance_id,
+          *,
           materialinstances:material_instance_id (
-            id,
-            material_id,
-            style_id,
-            created_at,
+            *,
             materials (
-              id,
-              name,
-              description,
-              base_drop_weight,
-              stat_modifiers
-            ),
-            styledefinitions (
-              id,
-              display_name
+              *
             )
           )
         )
-      `)
-      .eq('id', itemId);
+      `
+      )
+      .eq("id", itemId);
 
-    // Add ownership filter if userId provided
     if (userId) {
-      query = query.eq('user_id', userId);
+      query = query.eq("user_id", userId);
     }
 
     const { data, error } = await query.single();
 
     if (error) {
-      if (error.code === 'PGRST116') {
+      if (error.code === "PGRST116") {
         return null;
       }
-      throw new DatabaseError(`Failed to fetch item with materials: ${itemId}`, error);
+      throw new DatabaseError(
+        `Failed to fetch item with materials: ${itemId}`,
+        error
+      );
     }
 
-    // Transform the nested data structure
-    return this.transformToItemWithDetails(data);
+    const itemWithMaterials: ItemWithMaterials = {
+      ...data,
+      item_type: data.itemtypes,
+      materials: data.itemmaterials.map((im) => ({
+        ...im.materialinstances,
+        slot_index: im.slot_index,
+        materials: im.materialinstances.materials,
+      })),
+    };
+
+    return itemWithMaterials;
   }
 
   /**
-   * Find item with basic item type information (lighter query)
+   * Find item with item type (no materials)
+   * Lighter query when materials are not needed
    *
    * @param itemId - Item ID to find
    * @param userId - Optional user ID for ownership validation
-   * @returns Item with type details or null if not found
+   * @returns Item with item type or null if not found
    * @throws DatabaseError on query failure
    */
-  async findWithItemType(itemId: string, userId?: string): Promise<ItemWithDetails | null> {
+  async findWithItemType(itemId: string, userId?: string): Promise<ItemWithMaterials | null> {
     let query = this.client
-      .from('items')
-      .select(`
-        id,
-        user_id,
-        item_type_id,
-        level,
-        is_styled,
-        current_stats,
-        material_combo_hash,
-        generated_image_url,
-        image_generation_status,
-        created_at,
-        name,
-        description,
+      .from("items")
+      .select(
+        `
+        *,
         itemtypes (
-          id,
-          name,
-          category,
-          base_stats_normalized,
-          rarity,
-          description
+          *
         )
-      `)
-      .eq('id', itemId);
+      `
+      )
+      .eq("id", itemId);
 
     if (userId) {
-      query = query.eq('user_id', userId);
+      query = query.eq("user_id", userId);
     }
 
     const { data, error } = await query.single();
 
     if (error) {
-      if (error.code === 'PGRST116') {
+      if (error.code === "PGRST116") {
         return null;
       }
-      throw new DatabaseError(`Failed to fetch item with type: ${itemId}`, error);
+      throw new DatabaseError(
+        `Failed to fetch item with item type: ${itemId}`,
+        error
+      );
     }
 
-    // Transform without materials
-    return this.transformToItemWithDetails(data, false);
+    const itemWithItemType: ItemWithMaterials = {
+      ...data,
+      item_type: data.itemtypes,
+      materials: [],
+    };
+
+    return itemWithItemType;
   }
+
 
   /**
    * Find all equipped items for a user
@@ -325,46 +300,53 @@ export class ItemRepository extends BaseRepository<ItemRow> {
    * @returns Array of equipped items with details
    * @throws DatabaseError on query failure
    */
-  async findEquippedByUser(userId: string): Promise<ItemWithDetails[]> {
+  async findEquippedByUser(userId: string): Promise<ItemWithMaterials[]> {
     const { data, error } = await this.client
-      .from('items')
-      .select(`
-        id,
-        user_id,
-        item_type_id,
-        level,
-        is_styled,
-        current_stats,
-        material_combo_hash,
-        generated_image_url,
-        image_generation_status,
-        created_at,
-        name,
-        description,
+      .from("items")
+      .select(
+        `
+        *,
         itemtypes (
-          id,
-          name,
-          category,
-          base_stats_normalized,
-          rarity,
-          description
+          *
         ),
         userequipment!inner (
-          slot_name,
-          equipped_at
+          *
+        ),
+        itemmaterials (
+          *,
+          materialinstances:material_instance_id (
+            *,
+            materials (
+              *
+            )
+          )
         )
-      `)
-      .eq('user_id', userId);
+      `
+      )
+      .eq("user_id", userId);
 
     if (error) {
-      throw new DatabaseError(`Failed to fetch equipped items for user: ${userId}`, error);
+      throw new DatabaseError(
+        `Failed to fetch equipped items for user: ${userId}`,
+        error
+      );
     }
 
     if (!data) {
-      throw new DatabaseError(`Failed to fetch equipped items for user: query returned no data`);
+      throw new DatabaseError(
+        `Failed to fetch equipped items for user: query returned no data`
+      );
     }
 
-    return data.map(item => this.transformToItemWithDetails(item, false));
+    return data.map((item) => ({
+      ...item,
+      item_type: item.itemtypes,
+      materials: item.itemmaterials.map((im) => ({
+        ...im.materialinstances,
+        slot_index: im.slot_index,
+        materials: im.materialinstances.materials,
+      })),
+    }));
   }
 
   /**
@@ -378,7 +360,7 @@ export class ItemRepository extends BaseRepository<ItemRow> {
   async findByType(userId: string, itemTypeId: string): Promise<ItemRow[]> {
     return await this.findMany({
       user_id: userId,
-      item_type_id: itemTypeId
+      item_type_id: itemTypeId,
     });
   }
 
@@ -396,25 +378,16 @@ export class ItemRepository extends BaseRepository<ItemRow> {
    * @throws ValidationError if level is invalid
    * @throws DatabaseError on update failure
    */
-  async updateLevel(itemId: string, userId: string, newLevel: number): Promise<void> {
+  async updateLevel(
+    itemId: string,
+    userId: string,
+    newLevel: number
+  ): Promise<void> {
     if (newLevel < 1) {
-      throw new ValidationError('Item level must be at least 1');
+      throw new ValidationError("Item level must be at least 1");
     }
 
     await this.updateItem(itemId, userId, { level: newLevel });
-  }
-
-  /**
-   * Update item current stats (computed stats including materials)
-   *
-   * @param itemId - Item ID to update
-   * @param userId - User ID for ownership validation
-   * @param stats - New stats object
-   * @throws NotFoundError if item not found or wrong owner
-   * @throws DatabaseError on update failure
-   */
-  async updateStats(itemId: string, userId: string, stats: Stats): Promise<void> {
-    await this.updateItem(itemId, userId, { current_stats: stats },);
   }
 
   /**
@@ -433,12 +406,12 @@ export class ItemRepository extends BaseRepository<ItemRow> {
     userId: string,
     comboHash: string,
     imageUrl: string,
-    status: 'pending' | 'generating' | 'complete' | 'failed'
+    status: "pending" | "generating" | "complete" | "failed"
   ): Promise<void> {
     await this.updateItem(itemId, userId, {
       material_combo_hash: comboHash,
       generated_image_url: imageUrl,
-      image_generation_status: status
+      image_generation_status: status,
     });
   }
 
@@ -461,7 +434,7 @@ export class ItemRepository extends BaseRepository<ItemRow> {
   ): Promise<ItemRow> {
     return await this.updateItem(itemId, userId, {
       name,
-      description
+      description,
     });
   }
 
@@ -497,15 +470,18 @@ export class ItemRepository extends BaseRepository<ItemRow> {
       item_id: itemId,
       user_id: userId,
       event_type: eventType,
-      event_data: eventData
+      event_data: eventData,
     };
 
     const { error } = await this.client
-      .from('itemhistory')
+      .from("itemhistory")
       .insert(historyEntry);
 
     if (error) {
-      throw new DatabaseError(`Failed to add item history event: ${itemId}`, error);
+      throw new DatabaseError(
+        `Failed to add item history event: ${itemId}`,
+        error
+      );
     }
   }
 
@@ -518,23 +494,28 @@ export class ItemRepository extends BaseRepository<ItemRow> {
    * @throws NotFoundError if item not found or wrong owner
    * @throws DatabaseError on query failure
    */
-  async getItemHistory(itemId: string, userId: string): Promise<ItemHistoryEvent[]> {
+  async getItemHistory(
+    itemId: string,
+    userId: string
+  ): Promise<ItemHistoryEvent[]> {
     // Validate ownership first
     await this.validateOwnership(itemId, userId);
 
     const { data, error } = await this.client
-      .from('itemhistory')
-      .select('*')
-      .eq('item_id', itemId)
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false });
+      .from("itemhistory")
+      .select("*")
+      .eq("item_id", itemId)
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
 
     if (error) {
       throw new DatabaseError(`Failed to fetch item history: ${itemId}`, error);
     }
 
     if (!data) {
-      throw new DatabaseError(`Failed to fetch item history: query returned no data`);
+      throw new DatabaseError(
+        `Failed to fetch item history: query returned no data`
+      );
     }
 
     return data as ItemHistoryEvent[];
@@ -552,73 +533,63 @@ export class ItemRepository extends BaseRepository<ItemRow> {
    * @returns Array of items with complete details
    * @throws DatabaseError on query failure
    */
-  async findManyWithDetails(itemIds: string[], userId?: string): Promise<ItemWithDetails[]> {
+  async findManyWithDetails(
+    itemIds: string[],
+    userId?: string
+  ): Promise<ItemWithMaterials[]> {
     if (itemIds.length === 0) {
       return [];
     }
 
     let query = this.client
-      .from('items')
-      .select(`
-        id,
-        user_id,
-        item_type_id,
-        level,
-        is_styled,
-        current_stats,
-        material_combo_hash,
-        generated_image_url,
-        image_generation_status,
-        created_at,
-        name,
-        description,
+      .from("items")
+      .select(
+        `
+        *,
         itemtypes (
-          id,
-          name,
-          category,
-          base_stats_normalized,
-          rarity,
-          description
+          *
         ),
         itemmaterials (
-          slot_index,
-          applied_at,
-          material_instance_id,
+          *,
           materialinstances:material_instance_id (
-            id,
-            material_id,
-            style_id,
-            created_at,
+            *,
             materials (
-              id,
-              name,
-              description,
-              stat_modifiers
-            ),
-            styledefinitions:style_id (
-              id,
-              display_name
+              *
             )
           )
         )
-      `)
-      .in('id', itemIds);
+      `
+      )
+      .in("id", itemIds);
 
     if (userId) {
-      query = query.eq('user_id', userId);
+      query = query.eq("user_id", userId);
     }
 
     const { data, error } = await query;
 
     if (error) {
-      throw new DatabaseError('Failed to fetch multiple items with details', error);
+      throw new DatabaseError(
+        "Failed to fetch multiple items with details",
+        error
+      );
     }
 
     if (!data) {
-      throw new DatabaseError('Failed to fetch multiple items with details: query returned no data');
+      throw new DatabaseError(
+        "Failed to fetch multiple items with details: query returned no data"
+      );
     }
 
-    return data.map(item => this.transformToItemWithDetails(item));
+    return data.map((item) => ({
+      ...item,
+      item_type: item.itemtypes,
+      materials: item.itemmaterials.map((im) => ({
+        ...im.materialinstances,
+        slot_index: im.slot_index,
+        materials: im.materialinstances.materials,
+      })),
+    }));
   }
 
   /**
@@ -639,100 +610,9 @@ export class ItemRepository extends BaseRepository<ItemRow> {
       { user_id: userId },
       {
         pagination: { limit, offset },
-        sort: { orderBy: 'created_at', ascending: false }
+        sort: { orderBy: "created_at", ascending: false },
       }
     );
-  }
-
-  // ============================================================================
-  // Private Helper Methods
-  // ============================================================================
-
-  /**
-   * Transform Supabase nested query result to ItemWithDetails interface
-   *
-   * @param data - Raw data from Supabase nested query
-   * @param includeMaterials - Whether to include materials data
-   * @returns Transformed ItemWithDetails object
-   */
-  private transformToItemWithDetails(data: any, includeMaterials: boolean = true): ItemWithDetails {
-    // Parse current_stats if it's a string, otherwise use as-is (it's already an object from Supabase)
-    let parsedStats = data.current_stats;
-    if (data.current_stats && typeof data.current_stats === 'string') {
-      try {
-        parsedStats = JSON.parse(data.current_stats);
-      } catch {
-        parsedStats = data.current_stats; // If parsing fails, use the value as-is
-      }
-    }
-
-    const item: ItemWithDetails = {
-      id: data.id,
-      user_id: data.user_id,
-      item_type_id: data.item_type_id,
-      level: data.level,
-      is_styled: data.is_styled,
-      current_stats: parsedStats,
-      material_combo_hash: data.material_combo_hash,
-      generated_image_url: data.generated_image_url,
-      image_generation_status: data.image_generation_status,
-      created_at: data.created_at,
-      name: data.name,
-      description: data.description,
-      item_type: {
-        id: data.itemtypes.id,
-        name: data.itemtypes.name,
-        category: data.itemtypes.category,
-        base_stats_normalized: data.itemtypes.base_stats_normalized,
-        rarity: data.itemtypes.rarity,
-        description: data.itemtypes.description
-      },
-      materials: []
-    };
-
-    // Transform materials if included and available
-    if (includeMaterials && data.itemmaterials) {
-      interface ItemMaterialRow {
-        id: string;
-        slot_index: number;
-        applied_at: string;
-        material_instance_id: string;
-        materialinstances: {
-          id: string;
-          material_id: string;
-          materials: {
-            id: string;
-            name: string;
-            description: string | null;
-            base_drop_weight: number;
-            stat_modifiers: Record<string, number>;
-          };
-          style_id: string;
-          styledefinitions: {
-            id: string;
-            display_name: string;
-          } | null;
-        };
-      }
-
-      item.materials = data.itemmaterials.map((im: ItemMaterialRow) => ({
-        id: im.id,
-        material_id: im.materialinstances.material_id,
-        style_id: im.materialinstances.style_id,
-        display_name: im.materialinstances.styledefinitions?.display_name || undefined,
-        slot_index: im.slot_index,
-        material: {
-          id: im.materialinstances.materials.id,
-          name: im.materialinstances.materials.name,
-          description: im.materialinstances.materials.description,
-          base_drop_weight: im.materialinstances.materials.base_drop_weight,
-          stat_modifiers: im.materialinstances.materials.stat_modifiers,
-          style_id: im.materialinstances.style_id
-        }
-      }));
-    }
-
-    return item;
   }
 
   // ============================================================================
@@ -748,16 +628,19 @@ export class ItemRepository extends BaseRepository<ItemRow> {
    */
   async findItemTypeById(itemTypeId: string): Promise<ItemTypeRow | null> {
     const { data, error } = await this.client
-      .from('itemtypes')
-      .select('*')
-      .eq('id', itemTypeId)
+      .from("itemtypes")
+      .select("*")
+      .eq("id", itemTypeId)
       .single();
 
     if (error) {
-      if (error.code === 'PGRST116') {
+      if (error.code === "PGRST116") {
         return null;
       }
-      throw new DatabaseError(`Failed to fetch item type: ${itemTypeId}`, error);
+      throw new DatabaseError(
+        `Failed to fetch item type: ${itemTypeId}`,
+        error
+      );
     }
 
     return data as ItemTypeRow;
@@ -772,16 +655,21 @@ export class ItemRepository extends BaseRepository<ItemRow> {
    */
   async findItemTypesByRarity(rarity: string): Promise<ItemTypeRow[]> {
     const { data, error } = await this.client
-      .from('itemtypes')
-      .select('*')
-      .eq('rarity', rarity);
+      .from("itemtypes")
+      .select("*")
+      .eq("rarity", rarity);
 
     if (error) {
-      throw new DatabaseError(`Failed to fetch item types by rarity: ${rarity}`, error);
+      throw new DatabaseError(
+        `Failed to fetch item types by rarity: ${rarity}`,
+        error
+      );
     }
 
     if (!data) {
-      throw new DatabaseError(`Failed to fetch item types by rarity: query returned no data`);
+      throw new DatabaseError(
+        `Failed to fetch item types by rarity: query returned no data`
+      );
     }
 
     return data as ItemTypeRow[];
@@ -816,12 +704,12 @@ export class ItemRepository extends BaseRepository<ItemRow> {
     newLevel: number,
     newStats: any
   ): Promise<any> {
-    const result = await this.rpc('process_item_upgrade', {
+    const result = await this.rpc("process_item_upgrade", {
       p_user_id: userId,
       p_item_id: itemId,
       p_gold_cost: goldCost,
       p_new_level: newLevel,
-      p_new_stats: newStats
+      p_new_stats: newStats,
     });
 
     return result;

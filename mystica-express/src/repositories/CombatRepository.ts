@@ -10,11 +10,11 @@
  * Session expiry: 15 minutes from created_at timestamp
  */
 
-import { BaseRepository } from './BaseRepository.js';
-import { ValidationError, BusinessLogicError, NotFoundError, mapSupabaseError } from '../utils/errors.js';
-import { Database } from '../types/database.types.js';
-import type { CombatRewards, PlayerCombatContext } from '../types/api.types.js';
 import { v4 as uuidv4 } from 'uuid';
+import type { PlayerCombatContext } from '../types/api.types.js';
+import { Database } from '../types/database.types.js';
+import { BusinessLogicError, NotFoundError, ValidationError } from '../utils/errors.js';
+import { BaseRepository } from './BaseRepository.js';
 
 // Database row types
 type CombatSession = Database['public']['Tables']['combatsessions']['Row'];
@@ -208,13 +208,8 @@ export class CombatRepository extends BaseRepository<CombatSession> {
       enemyTypeId: data.enemy_type_id,
       enemyStyleId: data.enemy_style_id,
       appliedEnemyPools: data.applied_enemy_pools,
-      appliedLootPools: data.applied_loot_pools,
       playerEquippedItemsSnapshot: data.player_equipped_items_snapshot,
-      playerRating: data.player_rating,
-      enemyRating: data.enemy_rating,
-      winProbEst: data.win_prob_est,
-      combatLog: data.combat_log,
-      outcome: data.outcome,
+      combatLog: (data.combat_log as unknown[]) ?? undefined,
       rewards: data.rewards,
       createdAt: new Date(data.created_at),
       updatedAt: new Date(data.updated_at),
@@ -278,13 +273,8 @@ export class CombatRepository extends BaseRepository<CombatSession> {
       enemyTypeId: data.enemy_type_id,
       enemyStyleId: data.enemy_style_id,
       appliedEnemyPools: data.applied_enemy_pools,
-      appliedLootPools: data.applied_loot_pools,
       playerEquippedItemsSnapshot: data.player_equipped_items_snapshot,
-      playerRating: data.player_rating,
-      enemyRating: data.enemy_rating,
-      winProbEst: data.win_prob_est,
-      combatLog: data.combat_log,
-      outcome: data.outcome,
+      combatLog: (data.combat_log as unknown[]) ?? undefined,
       rewards: data.rewards,
       createdAt: new Date(data.created_at),
       updatedAt: new Date(data.updated_at),
@@ -478,7 +468,7 @@ export class CombatRepository extends BaseRepository<CombatSession> {
       actor: event.actor,
       eventType: event.event_type,
       payload: event.payload,
-      valueI: event.value_i,
+      valueI: event.value_i ?? undefined,
     }));
   }
 
@@ -512,7 +502,7 @@ export class CombatRepository extends BaseRepository<CombatSession> {
       actor: event.actor,
       eventType: event.event_type,
       payload: event.payload,
-      valueI: event.value_i,
+      valueI: event.value_i ?? undefined,
     }));
   }
 
@@ -605,19 +595,6 @@ export class CombatRepository extends BaseRepository<CombatSession> {
       })
       .select()
       .single();
-
-    if (error) {
-      // If row exists, increment attempts
-      const { error: updateError } = await this.client
-        .rpc('increment_combat_attempts', {
-          p_user_id: userId,
-          p_location_id: locationId,
-        });
-
-      if (updateError) {
-        throw new ValidationError(`Failed to increment combat attempts: ${updateError.message}`);
-      }
-    }
   }
 
   /**
@@ -774,46 +751,6 @@ export class CombatRepository extends BaseRepository<CombatSession> {
     if (error) {
       throw new ValidationError(`Failed to extend session activity: ${error.message}`);
     }
-  }
-
-  // ========================================
-  // COMBAT RATING CALCULATION
-  // ========================================
-
-  /**
-   * Calculate combat rating using PostgreSQL RPC function
-   *
-   * @param atkPower - Attack power stat
-   * @param atkAccuracy - Attack accuracy stat
-   * @param defPower - Defense power stat
-   * @param defAccuracy - Defense accuracy stat
-   * @param hp - Health points
-   * @returns Combat rating as number
-   * @throws DatabaseError on RPC failure
-   */
-  async calculateCombatRating(
-    atkPower: number,
-    atkAccuracy: number,
-    defPower: number,
-    defAccuracy: number,
-    hp: number
-  ): Promise<number> {
-    const { data, error } = await this.client.rpc('combat_rating', {
-      atk_power: atkPower,
-      atk_accuracy: atkAccuracy,
-      def_power: defPower,
-      def_accuracy: defAccuracy,
-      hp: hp
-    });
-
-    if (error) {
-      throw mapSupabaseError(error);
-    }
-
-    if (data === null || data === undefined) {
-      throw mapSupabaseError(new Error('Failed to calculate combat rating: query returned no data'));
-    }
-    return Number(data);
   }
 
   // ========================================

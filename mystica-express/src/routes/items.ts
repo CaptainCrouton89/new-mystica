@@ -1,14 +1,13 @@
 import { Router } from 'express';
+import { ItemController } from '../controllers/ItemController';
 import { authenticate } from '../middleware/auth';
 import { validate } from '../middleware/validate';
-import { ItemController } from '../controllers/ItemController';
 import {
-  ItemIdParamsSchema,
-  ItemIdSlotParamsSchema,
+  AddPetChatterSchema,
   ApplyMaterialSchema,
-  ReplaceMaterialSchema,
   AssignPetPersonalityBodySchema,
-  AddPetChatterSchema
+  ItemIdParamsSchema,
+  ReplaceMaterialSchema
 } from '../types/schemas';
 
 const router = Router();
@@ -71,13 +70,6 @@ router.post('/:item_id/materials/replace',
   authenticate,
   validate({ params: ItemIdParamsSchema, body: ReplaceMaterialSchema }),
   controller.replaceMaterial
-);
-
-// Remove material from slot
-router.delete('/:item_id/materials/:slot_index',
-  authenticate,
-  validate({ params: ItemIdSlotParamsSchema }),
-  controller.removeMaterial
 );
 
 // Get item history

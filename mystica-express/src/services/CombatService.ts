@@ -49,6 +49,8 @@ import { ItemRepository } from '../repositories/ItemRepository.js';
 import { ItemTypeRepository } from '../repositories/ItemTypeRepository.js';
 import { MaterialRepository } from '../repositories/MaterialRepository.js';
 import { ProfileRepository } from '../repositories/ProfileRepository.js';
+import { RarityRepository } from '../repositories/RarityRepository.js';
+import { StyleRepository } from '../repositories/StyleRepository.js';
 import { WeaponRepository } from '../repositories/WeaponRepository.js';
 import { ConflictError, NotFoundError, ValidationError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
@@ -97,6 +99,8 @@ let itemTypeRepository = new ItemTypeRepository();
 let weaponRepository = new WeaponRepository();
 let materialRepository = new MaterialRepository();
 let profileRepository = new ProfileRepository();
+let rarityRepository = new RarityRepository();
+let styleRepository = new StyleRepository();
 export class CombatService {
 
   private combatRepository: CombatRepository;
@@ -107,6 +111,8 @@ export class CombatService {
   private weaponRepository: WeaponRepository;
   private materialRepository: MaterialRepository;
   private profileRepository: ProfileRepository;
+  private rarityRepository: RarityRepository;
+  private styleRepository: StyleRepository;
 
   constructor(
     combatRepo?: CombatRepository,
@@ -116,7 +122,9 @@ export class CombatService {
     itemTypeRepo?: ItemTypeRepository,
     weaponRepo?: WeaponRepository,
     materialRepo?: MaterialRepository,
-    profileRepo?: ProfileRepository
+    profileRepo?: ProfileRepository,
+    rarityRepo?: RarityRepository,
+    styleRepo?: StyleRepository
   ) {
     this.combatRepository = combatRepo || combatRepository;
     this.enemyRepository = enemyRepo || enemyRepository;
@@ -126,6 +134,8 @@ export class CombatService {
     this.weaponRepository = weaponRepo || weaponRepository;
     this.materialRepository = materialRepo || materialRepository;
     this.profileRepository = profileRepo || profileRepository;
+    this.rarityRepository = rarityRepo || rarityRepository;
+    this.styleRepository = styleRepo || styleRepository;
   }
 
   async startCombat(userId: string, locationId: string, selectedLevel: number): Promise<CombatSession> {
@@ -492,6 +502,8 @@ export class CombatService {
         this.enemyRepository,
         this.itemTypeRepository,
         this.materialRepository,
+        this.rarityRepository,
+        this.styleRepository,
         session.locationId,
         session.combatLevel,
         session.enemyTypeId,
@@ -706,7 +718,7 @@ export class CombatService {
     // Use baseRewards items if provided - they will be created by applyRewards
     const rewardsForApplication = baseRewards ? {
       ...rewards,
-      items: baseRewards.items as unknown as CombatRewards['items'],
+      items: baseRewards.items as CombatRewards['items'],
     } : rewards;
 
     const appliedResult = await applyRewards(

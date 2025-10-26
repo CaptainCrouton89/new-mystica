@@ -8,9 +8,9 @@
 
 import { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from '../config/supabase.js';
-import { BaseRepository } from './BaseRepository.js';
-import { DatabaseError, NotFoundError, mapSupabaseError } from '../utils/errors.js';
 import { Database } from '../types/database.types.js';
+import { mapSupabaseError } from '../utils/errors.js';
+import { BaseRepository } from './BaseRepository.js';
 
 // Type definitions from database schema
 type ItemTypeRow = Database['public']['Tables']['itemtypes']['Row'];
@@ -82,23 +82,20 @@ export class ItemTypeRepository extends BaseRepository<ItemTypeRow> {
   }
 
   /**
-   * Find item types by rarity with optional limit
-   * Used for starter inventory generation and loot tables
+   * Get a random item type (used for starter inventory and loot tables)
+   * Note: Rarity is now determined when creating the item, not from the item type
    *
-   * @param rarity - Rarity to filter by ('common', 'uncommon', 'rare', 'epic', 'legendary')
-   * @param limit - Optional limit on number of results
-   * @returns Array of item types matching rarity
+   * @param category - Optional category to filter by
+   * @returns Random item type or null if none found
    * @throws DatabaseError on query failure
    */
-  async findByRarity(rarity: string, limit?: number): Promise<ItemTypeRow[]> {
+  async getRandom(category?: string): Promise<ItemTypeRow | null> {
     let query = this.client
       .from('itemtypes')
-      .select('*')
-      .eq('rarity', rarity)
-      .order('name');
+      .select('*');
 
-    if (limit) {
-      query = query.limit(limit);
+    if (category) {
+      query = query.eq('category', category);
     }
 
     const { data, error } = await query;
@@ -107,7 +104,12 @@ export class ItemTypeRepository extends BaseRepository<ItemTypeRow> {
       throw mapSupabaseError(error);
     }
 
-    return data || [];
+    if (!data || data.length === 0) {
+      return null;
+    }
+
+    const randomIndex = Math.floor(Math.random() * data.length);
+    return data[randomIndex];
   }
 
   /**
@@ -143,21 +145,16 @@ export class ItemTypeRepository extends BaseRepository<ItemTypeRow> {
    * Find all item types with optional filtering
    * Used for admin interfaces and complete item type lists
    *
-   * @param filters - Optional filters (rarity, category)
+   * @param filters - Optional filters (category only - rarity is now on items table)
    * @returns Array of all item types
    * @throws DatabaseError on query failure
    */
-  async findAll(filters?: { rarity?: string; category?: string }): Promise<ItemTypeRow[]> {
+  async findAll(filters?: { category?: string }): Promise<ItemTypeRow[]> {
     let query = this.client
       .from('itemtypes')
       .select('*')
-      .order('rarity')
       .order('category')
       .order('name');
-
-    if (filters?.rarity) {
-      query = query.eq('rarity', filters.rarity);
-    }
 
     if (filters?.category) {
       query = query.eq('category', filters.category);
@@ -172,46 +169,4 @@ export class ItemTypeRepository extends BaseRepository<ItemTypeRow> {
     return data || [];
   }
 
-  /**
-   * Count item types by rarity
-   * Used for loot table validation and statistical analysis
-   *
-   * @param rarity - Rarity to count
-   * @returns Number of item types with given rarity
-   * @throws DatabaseError on query failure
-   */
-  async countByRarity(rarity: string): Promise<number> {
-    const { count, error } = await this.client
-      .from('itemtypes')
-      .select('*', { count: 'exact', head: true })
-      .eq('rarity', rarity);
-
-    if (error) {
-      throw mapSupabaseError(error);
-    }
-
-    if (count === null || count === undefined) {
-      throw new DatabaseError('Failed to count item types by rarity: query returned no data');
-    }
-    return count;
-  }
-
-  /**
-   * Get random item type by rarity
-   * Used for starter inventory and random loot generation
-   *
-   * @param rarity - Rarity to filter by
-   * @returns Random item type of specified rarity or null if none found
-   * @throws DatabaseError on query failure
-   */
-  async getRandomByRarity(rarity: string): Promise<ItemTypeRow | null> {
-    const itemTypes = await this.findByRarity(rarity);
-
-    if (itemTypes.length === 0) {
-      return null;
-    }
-
-    const randomIndex = Math.floor(Math.random() * itemTypes.length);
-    return itemTypes[randomIndex];
-  }
 }

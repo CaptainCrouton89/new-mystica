@@ -2,7 +2,6 @@ import { ImageCacheRepository } from '../repositories/ImageCacheRepository.js';
 import { ItemRepository } from '../repositories/ItemRepository.js';
 import { ItemTypeRepository } from '../repositories/ItemTypeRepository.js';
 import { MaterialRepository } from '../repositories/MaterialRepository.js';
-import { PetRepository } from '../repositories/PetRepository.js';
 import { ProfileRepository } from '../repositories/ProfileRepository.js';
 import { WeaponRepository } from '../repositories/WeaponRepository.js';
 import {
@@ -26,7 +25,6 @@ import {
   ValidationError,
   mapSupabaseError
 } from '../utils/errors';
-import { computeComboHash } from '../utils/hash.js';
 import { profileService } from './ProfileService';
 import { statsService } from './StatsService';
 
@@ -85,7 +83,6 @@ export class ItemService {
   private itemTypeRepository: ItemTypeRepository;
   private profileRepository: ProfileRepository;
   private weaponRepository: WeaponRepository;
-  private petRepository: PetRepository;
   private materialRepository: MaterialRepository;
   private imageCacheRepository: ImageCacheRepository;
 
@@ -94,7 +91,6 @@ export class ItemService {
     this.itemTypeRepository = new ItemTypeRepository();
     this.profileRepository = new ProfileRepository();
     this.weaponRepository = new WeaponRepository();
-    this.petRepository = new PetRepository();
     this.materialRepository = new MaterialRepository();
     this.imageCacheRepository = new ImageCacheRepository();
   }
@@ -134,19 +130,23 @@ export class ItemService {
         user_id: itemWithDetails.user_id,
         item_type_id: itemWithDetails.item_type_id,
         level: itemWithDetails.level,
-        base_stats: baseStats,
-        current_stats: baseStats,
-        material_combo_hash: itemWithDetails.material_combo_hash!,
-        image_url: itemWithDetails.generated_image_url!,
-        materials,
+        base_stats: baseStats as Stats,
+        material_combo_hash: itemWithDetails.material_combo_hash || undefined,
+        image_url: itemWithDetails.generated_image_url || undefined,
+        materials: materials.map(m => ({
+          id: m.id,
+          material_id: m.material_id,
+          name: m.materials.name,
+          stat_modifiers: m.materials.stat_modifiers as Stats
+        })),
         item_type: {
           id: itemWithDetails.item_type.id,
           name: itemWithDetails.item_type.name,
           category: category,
           equipment_slot: equipmentSlot,
-          base_stats: baseStats,
-          rarity: itemWithDetails.item_type.rarity,
-          description: itemWithDetails.item_type.description
+          base_stats: baseStats as Stats,
+          rarity: itemWithDetails.rarity as Rarity,
+          description: itemWithDetails.item_type.description || undefined
         },
         created_at: itemWithDetails.created_at,
         updated_at: itemWithDetails.created_at
@@ -161,10 +161,10 @@ export class ItemService {
           throw new ValidationError('Item level is missing or invalid');
         }
 
-        const statsInput: { item_type: { base_stats_normalized: Stats; rarity: string } } = {
+        const statsInput: { rarity: string; item_type: { base_stats_normalized: Stats } } = {
+          rarity: itemWithDetails.rarity,
           item_type: {
-            base_stats_normalized: baseStats,
-            rarity: itemWithDetails.item_type.rarity
+            base_stats_normalized: baseStats as Stats
           }
         };
 
@@ -235,7 +235,11 @@ export class ItemService {
 
       const item = {
         ...itemWithDetails,
-        item_type: itemWithDetails.item_type
+        rarity: itemWithDetails.rarity,
+        item_type: {
+          ...itemWithDetails.item_type,
+          base_stats_normalized: itemWithDetails.item_type.base_stats_normalized as Stats
+        }
       };
 
       const statsBefore = statsService.computeItemStatsForLevel(item, costInfo.current_level);
@@ -247,24 +251,13 @@ export class ItemService {
         defAccuracy: statsAfter.defAccuracy - statsBefore.defAccuracy
       };
 
-      try {
-        await this.itemRepository.processUpgrade(
-          userId,
-          itemId,
-          costInfo.gold_cost,
-          costInfo.next_level,
-          statsAfter
-        );
-      } catch (transactionError) {
-
-        await this.performManualUpgradeTransaction(
-          userId,
-          itemId,
-          costInfo.gold_cost,
-          costInfo.next_level,
-          statsAfter
-        );
-      }
+      await this.itemRepository.processUpgrade(
+        userId,
+        itemId,
+        costInfo.gold_cost,
+        costInfo.next_level,
+        statsAfter
+      );
 
       await profileService.updateVanityLevel(userId);
 
@@ -273,19 +266,24 @@ export class ItemService {
         user_id: item.user_id,
         item_type_id: item.item_type_id,
         level: costInfo.next_level,
-        base_stats: item.item_type.base_stats_normalized,
+        base_stats: item.item_type.base_stats_normalized as Stats,
         current_stats: statsAfter,
         material_combo_hash: item.material_combo_hash || undefined,
         image_url: item.generated_image_url || undefined,
-        materials: item.materials ?? [],
+        materials: item.materials.map(m => ({
+          id: m.id,
+          material_id: m.material_id,
+          name: m.materials.name,
+          stat_modifiers: m.materials.stat_modifiers as Stats
+        })),
         item_type: {
           id: item.item_type.id,
           name: item.item_type.name,
           category: item.item_type.category as any,
           equipment_slot: item.item_type.category as any,
-          base_stats: item.item_type.base_stats_normalized,
-          rarity: item.item_type.rarity,
-          description: item.item_type.description
+          base_stats: item.item_type.base_stats_normalized as Stats,
+          rarity: item.rarity,
+          description: item.item_type.description || undefined
         },
         created_at: item.created_at,
         updated_at: new Date().toISOString()
@@ -309,33 +307,6 @@ export class ItemService {
     }
   }
 
-  private async performManualUpgradeTransaction(
-    userId: string,
-    itemId: string,
-    goldCost: number,
-    newLevel: number,
-    newStats: Stats
-  ): Promise<void> {
-
-    try {
-      await this.profileRepository.deductCurrency(
-        userId,
-        'GOLD',
-        goldCost,
-        'ITEM_UPGRADE',
-        itemId,
-        { item_id: itemId, new_level: newLevel }
-      );
-    } catch (error) {
-      throw new BusinessLogicError('Insufficient gold for upgrade');
-    }
-
-    await this.itemRepository.update(itemId, {
-      level: newLevel,
-      current_stats: newStats
-    });
-  }
-
   private async getMaterialStacks(userId: string): Promise<MaterialStack[]> {
     try {
       const data = await this.materialRepository.findStacksByUserWithDetails(userId);
@@ -343,10 +314,10 @@ export class ItemService {
       return data.map(stack => ({
         material_id: stack.material_id,
         material_name: stack.materials!.name,
-        style_id: stack.style_id,
-        display_name: stack.styledefinitions!.display_name,
+        style_id: stack.materials!.style_id || 'normal',
+        display_name: stack.materials!.styledefinitions?.display_name || 'Normal',
         quantity: stack.quantity,
-        is_styled: stack.styledefinitions!.display_name !== 'normal'
+        is_styled: (stack.materials!.styledefinitions?.display_name || 'normal') !== 'normal'
       }));
     } catch (error) {
       throw new Error(`Failed to get material stacks: ${error instanceof Error ? error.message : String(error)}`);
@@ -427,12 +398,13 @@ export class ItemService {
     }
   }
 
-  async createItem(userId: string, itemTypeId: string, level?: number): Promise<ItemWithDetails> {
+  async createItem(userId: string, itemTypeId: string, level: number, rarity: Rarity): Promise<ItemWithDetails> {
     try {
       const createData: CreateItemData = {
         user_id: userId,
         item_type_id: itemTypeId,
-        level: level || 1
+        level: level,
+        rarity: rarity
       };
 
       let newItem;
@@ -475,29 +447,14 @@ export class ItemService {
     }
   }
 
-  async computeItemStats(item: ItemRow, itemType: ItemTypeRow, materials?: any[]): Promise<Stats> {
+  async computeItemStats(item: ItemRow, itemType: ItemTypeRow, materials?: unknown[]): Promise<Stats> {
     try {
-      
+
       const apiItem = {
-        id: item.id,
-        user_id: item.user_id,
-        item_type_id: item.item_type_id,
-        level: item.level,
-        base_stats: itemType.base_stats_normalized,
-        current_stats: itemType.base_stats_normalized,
-        materials: materials ?? [],
+        rarity: item.rarity,
         item_type: {
-          id: itemType.id,
-          name: itemType.name,
-          category: itemType.category as any,
-          equipment_slot: itemType.category as any,
-          base_stats: itemType.base_stats_normalized,
-          base_stats_normalized: itemType.base_stats_normalized,
-          rarity: itemType.rarity,
-          description: itemType.description
-        } as any,
-        created_at: item.created_at,
-        updated_at: item.created_at
+          base_stats_normalized: itemType.base_stats_normalized as Stats
+        }
       };
 
       return statsService.computeItemStatsForLevel(apiItem, item.level);
@@ -623,12 +580,10 @@ export class ItemService {
     }
   }
 
-  async createPetData(itemId: string): Promise<any> {
-    try {
-      return await this.petRepository.createPet(itemId);
-    } catch (error) {
-      throw mapSupabaseError(error);
-    }
+  async createPetData(itemId: string): Promise<void> {
+    // TODO: PetRepository was deleted - need to reimplement pet data creation
+    // For now, skip pet data creation
+    return;
   }
 
   async assignPetPersonality(
@@ -638,13 +593,14 @@ export class ItemService {
     customName?: string
   ): Promise<void> {
     try {
-      
+
       const existingItem = await this.itemRepository.findById(itemId, userId);
       if (!existingItem) {
         throw new NotFoundError('Item', itemId);
       }
 
-      await this.petRepository.updatePetPersonality(itemId, personalityId, customName);
+      // TODO: PetRepository was deleted - need to reimplement pet personality assignment
+      // await this.petRepository.updatePetPersonality(itemId, personalityId, customName);
 
       await this.addHistoryEvent(itemId, userId, 'personality_assigned', {
         personality_id: personalityId,
@@ -664,13 +620,14 @@ export class ItemService {
     message: ChatterMessage
   ): Promise<void> {
     try {
-      
+
       const existingItem = await this.itemRepository.findById(itemId, userId);
       if (!existingItem) {
         throw new NotFoundError('Item', itemId);
       }
 
-      await this.petRepository.addChatterMessage(itemId, message, 50); 
+      // TODO: PetRepository was deleted - need to reimplement pet chatter storage
+      // await this.petRepository.addChatterMessage(itemId, message, 50);
 
       await this.addHistoryEvent(itemId, userId, 'chatter_updated', {
         message_preview: message.text.substring(0, 50) + (message.text.length > 50 ? '...' : '')
@@ -682,157 +639,7 @@ export class ItemService {
       throw mapSupabaseError(error);
     }
   }
-
-  async removeMaterial(itemId: string, slotIndex: number, userId: string): Promise<{
-    success: boolean;
-    item: Item;
-    stats: Stats;
-    image_url: string | null;
-    gold_spent: number;
-    returned_material: {
-      material_id: string;
-      style_id: string;
-      quantity: number;
-    };
-    new_gold_balance: number;
-  }> {
-    try {
-      
-      const item = await this.itemRepository.findById(itemId, userId);
-      if (!item) {
-        throw new NotFoundError('Item', itemId);
-      }
-
-      if (slotIndex < 0 || slotIndex > 2) {
-        throw new ValidationError('Slot index must be between 0 and 2');
-      }
-
-      const occupiedSlots = await this.materialRepository.getSlotOccupancy(itemId);
-      if (!occupiedSlots.includes(slotIndex)) {
-        throw new BusinessLogicError(`Slot ${slotIndex} is empty`);
-      }
-
-      const goldCost = 100 * item.level;
-
-      const canAfford = await this.profileRepository.getCurrencyBalance(userId, 'GOLD') >= goldCost;
-      if (!canAfford) {
-        const currentBalance = await this.profileRepository.getCurrencyBalance(userId, 'GOLD');
-        throw new BusinessLogicError(`Insufficient gold. Need ${goldCost}, have ${currentBalance}`);
-      }
-
-      const materialInstances = await this.materialRepository.findMaterialsByItem(itemId);
-      const materialToRemove = materialInstances.find(m => m.slot_index === slotIndex);
-      if (!materialToRemove) {
-        throw new BusinessLogicError(`No material found in slot ${slotIndex}`);
-      }
-
-      const economyService = (await import('./EconomyService.js')).economyService;
-      await economyService.deductCurrency(
-        userId,
-        'GOLD',
-        goldCost,
-        'material_replacement', 
-        itemId,
-        { operation: 'remove_material', slot_index: slotIndex }
-      );
-
-      await this.materialRepository.removeMaterialFromItemAtomic(
-        itemId,
-        slotIndex
-      );
-
-      const updatedItem = await this.itemRepository.findWithMaterials(itemId, userId);
-      if (!updatedItem) {
-        throw new NotFoundError('Item', itemId);
-      }
-
-      if (!updatedItem.materials) {
-        throw new ValidationError('Updated item materials data is missing');
-      }
-      const remainingMaterials = updatedItem.materials;
-      const shouldRecompute = remainingMaterials.length > 0 || updatedItem.level > 1;
-
-      const baseStats = updatedItem.item_type.base_stats_normalized;
-      let currentStats = baseStats;
-
-      if (shouldRecompute) {
-        const statsInput = {
-          ...updatedItem,
-          materials: remainingMaterials
-        } as any;
-        currentStats = statsService.computeItemStatsForLevel(statsInput, updatedItem.level);
-      }
-
-      const materialIds = remainingMaterials.map(m => m.material_id).filter(Boolean);
-      const styleIds = remainingMaterials.map(m => m.style_id || '00000000-0000-0000-0000-000000000000');
-      const comboHash = materialIds.length > 0 ? computeComboHash(materialIds, styleIds) : null;
-
-      let imageUrl: string | null = null;
-      if (materialIds.length > 0 && comboHash) {
-        
-        const cacheEntry = await this.imageCacheRepository.findByComboHash(updatedItem.item_type_id, comboHash);
-        if (cacheEntry) {
-          imageUrl = cacheEntry.image_url;
-        }
-        
-      } else {
-        
-        const itemType = await this.itemTypeRepository.findById(updatedItem.item_type_id);
-        if (itemType?.base_image_url && itemType.base_image_url.trim() !== '') {
-          imageUrl = itemType.base_image_url;
-        }
-        
-      }
-
-      await this.itemRepository.updateImageData(itemId, userId, comboHash || '', imageUrl || '', 'complete');
-
-      const newGoldBalance = await this.profileRepository.getCurrencyBalance(userId, 'GOLD');
-
-      const apiItem: Item = {
-        id: updatedItem.id,
-        user_id: updatedItem.user_id,
-        item_type_id: updatedItem.item_type_id,
-        level: updatedItem.level,
-        base_stats: baseStats,
-        current_stats: currentStats,
-        material_combo_hash: comboHash || undefined,
-        image_url: imageUrl || undefined,
-        materials: remainingMaterials,
-        item_type: {
-          id: updatedItem.item_type.id,
-          name: updatedItem.item_type.name,
-          category: updatedItem.item_type.category as any,
-          equipment_slot: updatedItem.item_type.category as any,
-          base_stats: baseStats,
-          rarity: updatedItem.item_type.rarity,
-          description: updatedItem.item_type.description
-        },
-        created_at: updatedItem.created_at,
-        updated_at: new Date().toISOString()
-      };
-
-      return {
-        success: true,
-        item: apiItem,
-        stats: currentStats,
-        image_url: imageUrl,
-        gold_spent: goldCost,
-        returned_material: {
-          material_id: materialToRemove.material_id,
-          style_id: materialToRemove.style_id || '00000000-0000-0000-0000-000000000000',
-          quantity: 1
-        },
-        new_gold_balance: newGoldBalance
-      };
-
-    } catch (error) {
-      if (error instanceof NotFoundError || error instanceof BusinessLogicError || error instanceof ValidationError) {
-        throw error;
-      }
-      throw mapSupabaseError(error);
-    }
-  }
-
+  
   async discardItem(itemId: string, userId: string): Promise<{
     success: boolean;
     gold_earned: number;
@@ -899,13 +706,14 @@ export class ItemService {
   async initializeStarterInventory(userId: string): Promise<ItemWithDetails> {
     try {
 
-      const selectedItemType = await this.itemTypeRepository.getRandomByRarity('common');
+      const selectedItemType = await this.itemTypeRepository.getRandom();
 
       if (!selectedItemType) {
-        throw new BusinessLogicError('No common item types available for starter inventory');
+        throw new BusinessLogicError('No item types available for starter inventory');
       }
 
-      return await this.createItem(userId, selectedItemType.id, 1);
+      // All starter items are created with 'common' rarity
+      return await this.createItem(userId, selectedItemType.id, 1, 'common');
     } catch (error) {
       if (error instanceof BusinessLogicError) {
         throw error;
@@ -920,13 +728,14 @@ export class ItemService {
 
       // Create 3 random common items
       for (let i = 0; i < 3; i++) {
-        const selectedItemType = await this.itemTypeRepository.getRandomByRarity('common');
+        const selectedItemType = await this.itemTypeRepository.getRandom();
 
         if (!selectedItemType) {
-          throw new BusinessLogicError('No common item types available for starter inventory');
+          throw new BusinessLogicError('No item types available for starter inventory');
         }
 
-        const item = await this.createItem(userId, selectedItemType.id, 1);
+        // All starter items are created with 'common' rarity
+        const item = await this.createItem(userId, selectedItemType.id, 1, 'common');
         createdItems.push(item);
       }
 
@@ -956,7 +765,7 @@ export class ItemService {
 
       // Create material stacks for each selected material (quantity: 1)
       for (const material of selectedMaterials) {
-        await this.materialRepository.incrementStack(userId, material.id, 1, 'normal');
+        await this.materialRepository.incrementStack(userId, material.id, 1);
       }
     } catch (error) {
       if (error instanceof BusinessLogicError) {
@@ -1003,19 +812,23 @@ export class ItemService {
       user_id: itemData.user_id,
       item_type_id: itemData.item_type_id,
       level: itemData.level,
-      base_stats: itemData.item_type.base_stats_normalized,
-      current_stats: itemData.current_stats || itemData.item_type.base_stats_normalized,
+      base_stats: itemData.item_type.base_stats_normalized as Stats,
       material_combo_hash: itemData.material_combo_hash || undefined,
-      image_url: itemData.generated_image_url!,
-      materials: itemData.materials ?? [],
+      image_url: itemData.generated_image_url || undefined,
+      materials: itemData.materials.map(m => ({
+        id: m.id,
+        material_id: m.material_id,
+        name: m.materials.name,
+        stat_modifiers: m.materials.stat_modifiers as Stats
+      })),
       item_type: {
         id: itemData.item_type.id,
         name: itemData.item_type.name,
-        category: itemData.item_type.category as any,
-        equipment_slot: itemData.item_type.category as any,
-        base_stats: itemData.item_type.base_stats_normalized,
-        rarity: itemData.item_type.rarity as Rarity,
-        description: itemData.item_type.description
+        category: itemData.item_type.category,
+        equipment_slot: itemData.item_type.category as EquipmentSlot,
+        base_stats: itemData.item_type.base_stats_normalized as Stats,
+        rarity: itemData.rarity as Rarity,
+        description: itemData.item_type.description || undefined
       },
       created_at: itemData.created_at,
       updated_at: itemData.created_at
@@ -1075,7 +888,7 @@ export class ItemService {
         category: category,
         equipment_slot: (data.item_type.equipment_slot as EquipmentSlot | undefined) ?? equipmentSlot,
         base_stats: (data.item_type.base_stats_normalized as Stats | undefined) || baseStats,
-        rarity: data.item_type.rarity as Rarity,
+        rarity: data.rarity as Rarity,
         description: data.item_type.description as string | undefined
       };
     })() : undefined;

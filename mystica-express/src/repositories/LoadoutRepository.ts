@@ -5,25 +5,23 @@
  * and active loadout tracking with proper constraint validation.
  */
 
-import { BaseRepository } from './BaseRepository.js';
-import { DatabaseError, NotFoundError, ValidationError, mapSupabaseError } from '../utils/errors.js';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { supabase } from '../config/supabase.js';
+import { Database } from '../types/database.types.js';
 import {
-  LoadoutWithSlots,
+  BulkEquipmentUpdate,
   CreateLoadoutData,
   LoadoutSlotAssignments,
-  BulkEquipmentUpdate
+  LoadoutWithSlots
 } from '../types/repository.types.js';
-import { Database } from '../types/database.types.js';
-import { supabase } from '../config/supabase.js';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { NotFoundError, ValidationError, mapSupabaseError } from '../utils/errors.js';
+import { BaseRepository } from './BaseRepository.js';
 
 type Loadout = Database['public']['Tables']['loadouts']['Row'];
-type LoadoutSlot = Database['public']['Tables']['loadoutslots']['Row'];
 
 type LoadoutInsert = Database['public']['Tables']['loadouts']['Insert'];
 type LoadoutUpdate = Database['public']['Tables']['loadouts']['Update'];
 type LoadoutSlotInsert = Database['public']['Tables']['loadoutslots']['Insert'];
-type LoadoutSlotUpdate = Database['public']['Tables']['loadoutslots']['Update'];
 
 /**
  * Repository for loadout and loadout slots management
@@ -584,7 +582,11 @@ export class LoadoutRepository extends BaseRepository<Loadout> {
   /**
    * Map database loadout with slots to LoadoutWithSlots interface
    */
-  private mapLoadoutWithSlots(data: Loadout & { loadoutslots?: LoadoutSlot[] }): LoadoutWithSlots {
+  private mapLoadoutWithSlots(
+    data: Loadout & {
+      loadoutslots?: { slot_name: string; item_id: string | null }[]
+    }
+  ): LoadoutWithSlots {
     const slots: LoadoutWithSlots['slots'] = {
       weapon: null,
       offhand: null,

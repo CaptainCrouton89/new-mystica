@@ -8,13 +8,13 @@
  * - Bulk operations for loadout switching
  */
 
+import { statsService } from '../services/StatsService.js';
 import { Stats } from '../types/api.types.js';
 import { Database } from '../types/database.types.js';
 import {
   BulkEquipmentUpdate
 } from '../types/repository.types.js';
 import { DatabaseError, NotFoundError, ValidationError, mapSupabaseError } from '../utils/errors.js';
-import { statsService } from '../services/StatsService.js';
 import { BaseRepository } from './BaseRepository.js';
 
 // Type definitions
@@ -55,15 +55,13 @@ export interface EquipmentSlotWithItem {
 export interface ItemWithBasicDetails {
   id: string;
   level: number;
-  is_styled: boolean;
-  current_stats: Stats | null;
+  rarity: Database['public']['Enums']['rarity'];
   generated_image_url: string | null;
   item_type: {
     id: string;
     name: string;
     category: string;
     base_stats_normalized: Stats;
-    rarity: Database['public']['Enums']['rarity'];
   };
 }
 
@@ -125,15 +123,13 @@ export class EquipmentRepository extends BaseRepository<UserEquipmentRow> {
         items:item_id (
           id,
           level,
-          is_styled,
-          current_stats,
+          rarity,
           generated_image_url,
           itemtypes:item_type_id (
             id,
             name,
             category,
-            base_stats_normalized,
-            rarity
+            base_stats_normalized
           )
         )
       `)
@@ -210,15 +206,13 @@ export class EquipmentRepository extends BaseRepository<UserEquipmentRow> {
         result[slotName] = {
           id: validateField(item.id, `${slotName}.id`),
           level: validateField(item.level, `${slotName}.level`),
-          is_styled: validateField(item.is_styled, `${slotName}.is_styled`),
-          current_stats: item.current_stats ? validateStats(item.current_stats, `${slotName}.current_stats`) : null,
+          rarity: validateField(item.rarity, `${slotName}.rarity`),
           generated_image_url: item.generated_image_url,
           item_type: {
             id: validateField(itemType.id, `${slotName}.item_type.id`),
             name: validateField(itemType.name, `${slotName}.item_type.name`),
             category: validateField(itemType.category, `${slotName}.item_type.category`),
-            base_stats_normalized: validateStats(itemType.base_stats_normalized, `${slotName}.base_stats_normalized`),
-            rarity: validateField(itemType.rarity, `${slotName}.item_type.rarity`),
+            base_stats_normalized: validateStats(itemType.base_stats_normalized, `${slotName}.base_stats_normalized`)
           }
         };
       }
@@ -247,15 +241,13 @@ export class EquipmentRepository extends BaseRepository<UserEquipmentRow> {
         items:item_id (
           id,
           level,
-          is_styled,
-          current_stats,
+          rarity,
           generated_image_url,
           itemtypes:item_type_id (
             id,
             name,
             category,
-            base_stats_normalized,
-            rarity
+            base_stats_normalized
           )
         )
       `)
@@ -284,15 +276,13 @@ export class EquipmentRepository extends BaseRepository<UserEquipmentRow> {
     return {
       id: item.id,
       level: item.level,
-      is_styled: item.is_styled,
-      current_stats: item.current_stats as Stats | null,
+      rarity: item.rarity,
       generated_image_url: item.generated_image_url,
       item_type: {
         id: itemType.id,
         name: itemType.name,
         category: itemType.category,
-        base_stats_normalized: itemType.base_stats_normalized as Stats,
-        rarity: itemType.rarity,
+        base_stats_normalized: itemType.base_stats_normalized as Stats
       }
     };
   }
@@ -552,9 +542,9 @@ export class EquipmentRepository extends BaseRepository<UserEquipmentRow> {
         items:item_id (
           id,
           level,
+          rarity,
           itemtypes:item_type_id (
-            base_stats_normalized,
-            rarity
+            base_stats_normalized
           )
         )
       `)
@@ -592,9 +582,9 @@ export class EquipmentRepository extends BaseRepository<UserEquipmentRow> {
       // Compute stats using StatsService with correct quadratic formula
       const computedStats = statsService.computeItemStatsForLevel(
         {
+          rarity: item.rarity,
           item_type: {
-            base_stats_normalized: itemType.base_stats_normalized as Stats,
-            rarity: itemType.rarity
+            base_stats_normalized: itemType.base_stats_normalized as Stats
           }
         },
         item.level

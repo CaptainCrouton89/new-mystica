@@ -1,8 +1,21 @@
 import { EquipmentRepository, ItemWithBasicDetails } from '../repositories/EquipmentRepository.js';
 import { ItemRepository } from '../repositories/ItemRepository.js';
-import { EquipmentSlot, EquipmentSlots, EquipResult, PlayerItem, PlayerStats, Stats } from '../types/api.types';
+import { EquipmentSlot, EquipResult, PlayerStats, Stats } from '../types/api.types';
 import { mapSupabaseError } from '../utils/errors';
+import { PlayerItem } from './InventoryService.js';
 import { statsService } from './StatsService.js';
+
+// Service-specific equipment slots type using PlayerItem instead of database rows
+export interface PlayerEquipmentSlots {
+  weapon?: PlayerItem;
+  offhand?: PlayerItem;
+  head?: PlayerItem;
+  armor?: PlayerItem;
+  feet?: PlayerItem;
+  accessory_1?: PlayerItem;
+  accessory_2?: PlayerItem;
+  pet?: PlayerItem;
+}
 
 export class EquipmentService {
   private equipmentRepository: EquipmentRepository;
@@ -13,12 +26,12 @@ export class EquipmentService {
     this.itemRepository = new ItemRepository();
   }
 
-  async getEquippedItems(userId: string): Promise<{ slots: EquipmentSlots; total_stats: Stats }> {
+  async getEquippedItems(userId: string): Promise<{ slots: PlayerEquipmentSlots; total_stats: Stats }> {
     try {
 
       const repositorySlots = await this.equipmentRepository.findEquippedByUser(userId);
 
-      const slots: EquipmentSlots = {
+      const slots: PlayerEquipmentSlots = {
         weapon: repositorySlots.weapon ? this.transformRepositoryItemToPlayerItem(repositorySlots.weapon, true) : undefined,
         offhand: repositorySlots.offhand ? this.transformRepositoryItemToPlayerItem(repositorySlots.offhand, true) : undefined,
         head: repositorySlots.head ? this.transformRepositoryItemToPlayerItem(repositorySlots.head, true) : undefined,
@@ -72,11 +85,16 @@ export class EquipmentService {
 
       const equipData = equipResult.data;
 
-      const equippedItem = await this.getPlayerItem(itemId, true);
+      // Fetch the actual database items for the API response
+      const equippedItem = await this.itemRepository.findById(itemId);
+      if (!equippedItem) {
+        throw new Error('Equipped item not found after equip operation');
+      }
 
-      let unequippedItem = undefined;
+      let unequippedItem: typeof equippedItem | undefined = undefined;
       if (equipData.previous_item_id) {
-        unequippedItem = await this.getPlayerItem(equipData.previous_item_id, false);
+        const prevItem = await this.itemRepository.findById(equipData.previous_item_id);
+        unequippedItem = prevItem ?? undefined;
       }
 
       const totalStats = await this.getPlayerStats(userId);
@@ -172,44 +190,11 @@ export class EquipmentService {
     }
   }
 
-  private async getPlayerItem(itemId: string, isEquipped: boolean): Promise<PlayerItem> {
-    const item = await this.itemRepository.findWithItemType(itemId);
-
-    if (!item || !item.item_type) {
-      throw new Error('Item not found');
-    }
-
-    return this.transformRepositoryItemToPlayerItem(item, isEquipped);
-  }
-
   private async getPlayerStats(userId: string): Promise<Stats> {
     return await this.equipmentRepository.getPlayerEquippedStats(userId);
   }
 
-  private getNormalizedStatsForCategory(category: string): Stats {
-    const normalizedStats: Record<string, Stats> = {
-      sword: { atkPower: 0.4, atkAccuracy: 0.2, defPower: 0.2, defAccuracy: 0.2 },
-      weapon: { atkPower: 0.4, atkAccuracy: 0.2, defPower: 0.2, defAccuracy: 0.2 },
-      offhand: { atkPower: 0.1, atkAccuracy: 0.1, defPower: 0.5, defAccuracy: 0.3 },
-      shield: { atkPower: 0.1, atkAccuracy: 0.1, defPower: 0.5, defAccuracy: 0.3 },
-      helmet: { atkPower: 0.1, atkAccuracy: 0.1, defPower: 0.4, defAccuracy: 0.4 },
-      head: { atkPower: 0.1, atkAccuracy: 0.1, defPower: 0.4, defAccuracy: 0.4 },
-      chestplate: { atkPower: 0.1, atkAccuracy: 0.1, defPower: 0.5, defAccuracy: 0.3 },
-      armor: { atkPower: 0.1, atkAccuracy: 0.1, defPower: 0.5, defAccuracy: 0.3 },
-      boots: { atkPower: 0.2, atkAccuracy: 0.2, defPower: 0.3, defAccuracy: 0.3 },
-      feet: { atkPower: 0.2, atkAccuracy: 0.2, defPower: 0.3, defAccuracy: 0.3 },
-      accessory: { atkPower: 0.25, atkAccuracy: 0.25, defPower: 0.25, defAccuracy: 0.25 },
-      pet: { atkPower: 0.3, atkAccuracy: 0.2, defPower: 0.2, defAccuracy: 0.3 }
-    };
-
-    const stats = normalizedStats[category];
-    if (!stats) {
-      throw new Error(`Unknown item category for stats calculation: ${category}`);
-    }
-    return stats;
-  }
-
-  private mapCategoryToEquipmentSlot(category: string): EquipmentSlot {
+  private mapCategoryToPlayerItemCategory(category: string): 'weapon' | 'offhand' | 'head' | 'armor' | 'feet' | 'accessory' | 'pet' {
     switch (category) {
       case 'weapon':
       case 'sword':
@@ -232,7 +217,7 @@ export class EquipmentService {
       case 'accessory':
       case 'ring':
       case 'necklace':
-        return 'accessory_1'; 
+        return 'accessory'; // Note: returns 'accessory' not 'accessory_1'
       case 'pet':
         return 'pet';
       default:
@@ -243,9 +228,9 @@ export class EquipmentService {
   private transformRepositoryItemToPlayerItem(repositoryItem: ItemWithBasicDetails, isEquipped: boolean): PlayerItem {
     // Use StatsService to properly compute stats with level and rarity multipliers
     const itemWithType = {
+      rarity: repositoryItem.rarity,
       item_type: {
-        base_stats_normalized: repositoryItem.item_type.base_stats_normalized,
-        rarity: repositoryItem.item_type.rarity
+        base_stats_normalized: repositoryItem.item_type.base_stats_normalized
       }
     };
 
@@ -263,16 +248,16 @@ export class EquipmentService {
       description: null,
       name: repositoryItem.item_type.name,
       item_type_id: repositoryItem.item_type.id,
-      category: this.mapCategoryToEquipmentSlot(repositoryItem.item_type.category),
+      category: this.mapCategoryToPlayerItemCategory(repositoryItem.item_type.category),
       level: repositoryItem.level,
-      rarity: repositoryItem.item_type.rarity,
+      rarity: repositoryItem.rarity,
       applied_materials: [],
       computed_stats: computedStats,
       material_combo_hash: null,
       generated_image_url: generatedImageUrl,
       image_generation_status: null,
       craft_count: 0,
-      is_styled: repositoryItem.is_styled,
+      is_styled: false,
       is_equipped: isEquipped,
       equipped_slot: null
     };

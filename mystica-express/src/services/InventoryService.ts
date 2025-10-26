@@ -1,5 +1,4 @@
 import { ItemRepository } from '../repositories/ItemRepository.js';
-import { MaterialRepository } from '../repositories/MaterialRepository.js';
 import { AppliedMaterial, Rarity, Stats } from '../types/api.types.js';
 import { ItemWithDetails } from '../types/repository.types.js';
 import { DatabaseError, ValidationError } from '../utils/errors.js';
@@ -47,11 +46,9 @@ export interface PaginatedInventory {
 
 export class InventoryService {
   private itemRepository: ItemRepository;
-  private materialRepository: MaterialRepository;
 
   constructor() {
     this.itemRepository = new ItemRepository();
-    this.materialRepository = new MaterialRepository();
   }
 
   async getPlayerInventory(userId: string, options: InventoryOptions = {}): Promise<PaginatedInventory> {
@@ -72,7 +69,7 @@ export class InventoryService {
 
       if (userItems.length > 0) {
         const itemIds = userItems.map(item => item.id);
-        const detailedItems = await this.itemRepository.findManyWithDetails(itemIds, userId);
+        const detailedItems = await this.itemRepository.findManyWithDetails(itemIds);
         itemsWithDetails.push(...detailedItems);
       }
 
@@ -86,6 +83,15 @@ export class InventoryService {
 
       let playerItems: PlayerItem[] = filteredItems.map(item => {
         try {
+          // Transform materials from repository structure to AppliedMaterial structure
+          const appliedMaterials: AppliedMaterial[] = item.materials.map(materialInstance => ({
+            id: materialInstance.id,
+            material_id: materialInstance.material_id,
+            name: materialInstance.materials.name,
+            slot_index: materialInstance.slot_index,
+            stat_modifiers: materialInstance.materials.stat_modifiers as Stats
+          }));
+
           return {
             id: item.id,
             base_type: item.name
@@ -110,17 +116,17 @@ export class InventoryService {
                 throw new ValidationError(`Invalid category for item ${item.id}: ${category}`);
             })(),
             level: item.level,
-            rarity: item.item_type.rarity,
-            applied_materials: item.materials ?? [],
-            materials: item.materials ?? [], 
+            rarity: item.rarity,
+            applied_materials: appliedMaterials,
+            materials: appliedMaterials,
             computed_stats: this.calculateItemStatsWithMaterials(item),
             material_combo_hash: item.material_combo_hash ?? null,
             generated_image_url: item.generated_image_url
                 ? item.generated_image_url
                 : this.getDefaultImage(item),
             image_generation_status: item.image_generation_status ?? null,
-            craft_count: 0, 
-            is_styled: item.is_styled,
+            craft_count: 0,
+            is_styled: item.materials.some(m => m.materials.style_id),
             is_equipped: equippedItemIds.has(item.id),
             equipped_slot: equippedSlotMap.get(item.id) ?? null
           };
@@ -160,9 +166,17 @@ export class InventoryService {
   private calculateItemStatsWithMaterials(item: ItemWithDetails): Stats {
     try {
       const baseStats = item.item_type.base_stats_normalized;
-      const appliedMaterials = item.materials ?? [];
 
-      return statsService.computeItemStats(baseStats, item.level, appliedMaterials);
+      // Transform materials from repository structure (materials) to MaterialInstanceWithTemplate (material)
+      const materialInstances = item.materials.map(mat => ({
+        ...mat,
+        material: {
+          ...mat.materials,
+          stat_modifiers: mat.materials.stat_modifiers as Stats
+        }
+      }));
+
+      return statsService.computeItemStats(baseStats as Stats, item.level, materialInstances);
     } catch (error) {
       throw new DatabaseError(`Failed to calculate stats for item ${item.id}`, error as Record<string, any>);
     }

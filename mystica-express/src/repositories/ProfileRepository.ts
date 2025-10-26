@@ -82,7 +82,7 @@ export class ProfileRepository extends BaseRepository<User> {
       .from('users')
       .select('*')
       .eq('device_id', deviceId)
-      .eq('account_type', accountType)
+      .eq('account_type', accountType as Database['public']['Enums']['account_type'])
       .single();
 
     if (error) {

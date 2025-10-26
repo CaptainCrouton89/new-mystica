@@ -4,8 +4,7 @@ import { materialService } from '../services/MaterialService';
 import type {
   AddPetChatterRequest,
   ApplyMaterialRequest,
-  AssignPetPersonalityBody,
-  ReplaceMaterialRequest
+  AssignPetPersonalityBody
 } from '../types/schemas.js';
 
 /**
@@ -61,9 +60,9 @@ export class ItemController {
       // Transform Item to PlayerItem format for frontend compatibility
       const playerItem = {
         id: result.updated_item.id,
-        base_type: result.updated_item.name || result.updated_item.item_type?.name || 'Unknown',
-        description: result.updated_item.description || result.updated_item.item_type?.description || null,
-        name: result.updated_item.name || null,
+        base_type: result.updated_item.item_type?.name || 'Unknown',
+        description: result.updated_item.item_type?.description || null,
+        name: result.updated_item.item_type?.name || null,
         item_type_id: result.updated_item.item_type_id,
         category: result.updated_item.item_type?.category || 'misc',
         level: result.updated_item.level,
@@ -211,19 +210,24 @@ export class ItemController {
     try {
       const userId = req.user!.id;
       const { item_id } = req.params;
-      const { material_id, style_id, slot_index } = (req.validated?.body || req.body) as ApplyMaterialRequest;
+      const { material_id, slot_index } = (req.validated?.body || req.body) as ApplyMaterialRequest;
 
       const result = await materialService.applyMaterial({
         userId,
         itemId: item_id,
         materialId: material_id,
-        styleId: style_id,
         slotIndex: slot_index
       });
 
+      // Add base_type field for Swift compatibility
+      const updatedItemWithBaseType = {
+        ...result.updated_item,
+        base_type: result.updated_item.item_type?.name || 'Unknown'
+      };
+
       res.json({
         success: true,
-        updated_item: result.updated_item,
+        updated_item: updatedItemWithBaseType,
         image_url: result.image_url,
         is_first_craft: result.is_first_craft,
         craft_count: result.craft_count,
@@ -242,40 +246,6 @@ export class ItemController {
   replaceMaterial = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       throw new Error('replaceMaterial not yet implemented');
-    } catch (error) {
-      next(error);
-    }
-  };
-
-  /**
-   * DELETE /items/:item_id/materials/:slot_index
-   * Remove material from item slot
-   */
-  removeMaterial = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try {
-      const userId = req.user!.id;
-      const { item_id, slot_index } = req.params;
-
-      // Parse slot_index to number and validate
-      const slotIndex = parseInt(slot_index, 10);
-      if (isNaN(slotIndex) || slotIndex < 0 || slotIndex > 2) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid slot_index. Must be between 0 and 2'
-        });
-        return;
-      }
-
-      const result = await itemService.removeMaterial(item_id, slotIndex, userId);
-
-      res.json({
-        item: result.item,
-        stats: result.stats,
-        image_url: result.image_url,
-        gold_spent: result.gold_spent,
-        returned_material: result.returned_material,
-        new_gold_balance: result.new_gold_balance
-      });
     } catch (error) {
       next(error);
     }

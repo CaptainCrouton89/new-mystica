@@ -3,6 +3,7 @@ import { ItemRepository } from '../../repositories/ItemRepository.js';
 import { MaterialRepository } from '../../repositories/MaterialRepository.js';
 import { ProfileRepository } from '../../repositories/ProfileRepository.js';
 import { logger } from '../../utils/logger.js';
+import type { Database } from '../../types/database.types.js';
 
 export interface AppliedRewardsResult {
   createdItems: Array<{
@@ -10,7 +11,7 @@ export interface AppliedRewardsResult {
     item_type_id: string;
     name: string;
     category: string;
-    rarity: string;
+    rarity: Database['public']['Enums']['rarity'];
     style_id: string;
     display_name: string;
     generated_image_url: string | null;
@@ -61,8 +62,7 @@ export async function applyRewards(
           await materialRepository.incrementStack(
             userId,
             material.material_id,
-            1,
-            material.style_id
+            1
           );
           logger.debug('✅ Material awarded', {
             userId,
@@ -87,6 +87,7 @@ export async function applyRewards(
             user_id: userId,
             item_type_id: item.item_type_id,
             level: combatLevel ?? 1,
+            rarity: item.rarity,
           });
           createdItems.push({
             id: createdItem.id,
@@ -103,6 +104,7 @@ export async function applyRewards(
             itemId: createdItem.id,
             itemTypeId: item.item_type_id,
             itemName: item.name,
+            rarity: item.rarity,
           });
         } catch (error) {
           logger.warn('Failed to award item', {
