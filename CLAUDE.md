@@ -77,21 +77,4 @@ docker run -p 3000:3000 mystica:latest
 - **Storage:** Cloudflare R2 (S3-compatible), AWS SDK 3.913.0
 - **Package Manager:** pnpm (NOT npm/yarn)
 
-## Critical Project-Wide Constraints
-
-- **Code Quality:** NEVER use `any` type. Look up proper types. Always throw errors early—no fallbacks.
-- **Backend Migration:** NEVER edit legacy `app.js` or `routes/*.js` files. All new work in `src/` TypeScript.
-- **Remote Database Only:** All development uses remote Supabase (kofvwxutsmxdszycvluc). No local database stack.
-- **Module Resolution:** Code uses `.js` extensions in imports even though compiling to CommonJS. DO NOT remove them.
-- **Documentation System:** Feature IDs `F-01` (zero-padded), stories `US-101`, files kebab-case. Status: `incomplete|in-progress|complete`
-
-## Special Notes
-
-- **Pre-production Status:** Breaking code during refactoring is acceptable. We prioritize correctness over backwards compatibility.
-- **MVP0 Simplifications:** 100% drop rates, sync blocking generation (20s), no weapon patterns except single_arc
-- **SwiftUI Previews:** Require `.modelContainer(for: Item.self, inMemory: true).environmentObject(NavigationManager())` or they crash
-- **Wrangler Authenticated:** CLI R2 operations work globally without env vars
-- **Costs Low but Not Zero:** Replicate ~$0.002-0.01/image, OpenAI ~$0.0001-0.0005/description
-
-Device Credentials:
-[deviceId: EBC2A413-66A2-4566-9339-0B5B1DE4A788, userId: 4225382A-D2C1-445F-BF3E-AC0F1AEF8DDA]
+Supabase project id: kofvwxutsmxdszycvluc

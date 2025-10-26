@@ -28,7 +28,8 @@ struct MaterialCard: View {
             SmallText(material.name.capitalized)
                 .foregroundColor(Color.textPrimary)
                 .multilineTextAlignment(.center)
-                .lineLimit(1)
+                .lineLimit(2)
+                .frame(height: 40)
         }
         .contentShape(Rectangle())
     }

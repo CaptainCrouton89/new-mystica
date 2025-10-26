@@ -956,7 +956,7 @@ export class ItemService {
 
       // Create material stacks for each selected material (quantity: 1)
       for (const material of selectedMaterials) {
-        await this.materialRepository.createStack(userId, material.id, 1, 'normal');
+        await this.materialRepository.incrementStack(userId, material.id, 1, 'normal');
       }
     } catch (error) {
       if (error instanceof BusinessLogicError) {

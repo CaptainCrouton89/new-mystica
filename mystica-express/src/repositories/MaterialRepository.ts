@@ -265,7 +265,29 @@ export class MaterialRepository extends BaseRepository<MaterialRow> {
         quantity: existing.quantity + quantity
       });
     } else {
-      return this.createStack(userId, materialId, quantity, validStyleId);
+      // Directly inline createStack() logic
+      if (quantity <= 0) {
+        throw new BusinessLogicError('Initial stack quantity must be positive');
+      }
+
+      const stackData: MaterialStackInsert = {
+        user_id: userId,
+        material_id: materialId,
+        style_id: validStyleId,
+        quantity
+      };
+
+      const { data, error } = await this.client.from('materialstacks').insert(stackData).select().single();
+
+      if (error) {
+        throw mapSupabaseError(error);
+      }
+
+      if (!data) {
+        throw new DatabaseError('Failed to create material stack: no data returned from insert');
+      }
+
+      return data as MaterialStackRow;
     }
   }
 
@@ -304,58 +326,6 @@ export class MaterialRepository extends BaseRepository<MaterialRow> {
     }
   }
 
-  /**
-   * Create new material stack
-   * Ensures style_id is always set (defaults to 'normal')
-   *
-   * @param userId - Owner of the material stack
-   * @param materialId - Material template ID
-   * @param quantity - Starting quantity (must be positive)
-   * @param styleId - Style variant (defaults to 'normal')
-   * @returns Created material stack row
-   * @throws BusinessLogicError if quantity <= 0
-   * @throws DatabaseError if insert fails
-   *
-   * Auto-populated fields:
-   * - updated_at: server timestamp
-   *
-   * Composite Primary Key: (user_id, material_id, style_id)
-   */
-  async createStack(
-    userId: string,
-    materialId: string,
-    quantity: number,
-    styleId: string = 'normal'
-  ): Promise<MaterialStackRow> {
-    if (quantity <= 0) {
-      throw new BusinessLogicError('Initial stack quantity must be positive');
-    }
-
-    const validStyleId = this.validateStyleId(styleId);
-
-    // Use strongly-typed MaterialStackInsert from Supabase schema
-    const stackData: MaterialStackInsert = {
-      user_id: userId,
-      material_id: materialId,
-      style_id: validStyleId,
-      quantity
-    };
-
-    const insertBuilder = this.client.from('materialstacks').insert(stackData);
-
-    // Execute insert with .select().single() to get the created row
-    const { data, error } = await insertBuilder.select().single();
-
-    if (error) {
-      throw mapSupabaseError(error);
-    }
-
-    if (!data) {
-      throw new DatabaseError('Failed to create material stack: no data returned from insert');
-    }
-
-    return data as MaterialStackRow;
-  }
 
   /**
    * Delete material stack if quantity reaches zero

@@ -58,7 +58,7 @@ export async function applyRewards(
     if (rewards.materials) {
       for (const material of rewards.materials) {
         try {
-          await materialRepository.createStack(
+          await materialRepository.incrementStack(
             userId,
             material.material_id,
             1,
