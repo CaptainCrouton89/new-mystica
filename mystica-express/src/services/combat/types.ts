@@ -52,6 +52,13 @@ export interface CombatSession {
   status: 'active';
   player_hp: number;
   enemy_hp: number;
+  location: {
+    id: string;
+    name: string | null;
+    location_type: string | null;
+    background_image_url: string | null;
+    image_url: string | null;
+  };
   enemy: {
     id: string;
     type: string;

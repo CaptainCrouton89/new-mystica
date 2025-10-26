@@ -522,6 +522,7 @@ final class CombatViewModel {
             playerId: previousSession.playerId,
             enemyId: previousSession.enemyId,
             status: action.combatStatus,
+            location: previousSession.location,
             enemy: previousSession.enemy,
             playerStats: previousSession.playerStats,
             weaponConfig: previousSession.weaponConfig,
@@ -545,5 +546,13 @@ final class CombatViewModel {
         // Use backend-provided max HP value to ensure consistency
         // The enemy.hp field contains the realized HP (base_hp × tier.difficulty_multiplier)
         return session.enemy.hp
+    }
+
+    // MARK: - Location Properties
+
+    /// Background image URL from the combat location
+    var backgroundImageURL: String? {
+        guard let session = getCurrentSession() else { return nil }
+        return session.location?.backgroundImageUrl
     }
 }

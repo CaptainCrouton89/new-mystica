@@ -16,12 +16,30 @@ enum CombatStatus: String, Codable, CaseIterable {
     case abandoned = "abandoned"
 }
 
+// MARK: - Combat Location Model (matches backend location object in combat response)
+struct CombatLocation: APIModel {
+    let id: String
+    let name: String
+    let locationType: String
+    let backgroundImageUrl: String?
+    let imageUrl: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case name
+        case locationType = "location_type"
+        case backgroundImageUrl = "background_image_url"
+        case imageUrl = "image_url"
+    }
+}
+
 // MARK: - Combat Session Model (matches backend startCombat response)
 struct CombatSession: APIModel {
     let sessionId: String
     let playerId: String
     let enemyId: String
     let status: CombatStatus
+    let location: CombatLocation?
     let enemy: CombatEnemy
     let playerStats: CombatPlayerStats
     let weaponConfig: WeaponConfig
@@ -38,6 +56,7 @@ struct CombatSession: APIModel {
         case playerId = "player_id"
         case enemyId = "enemy_id"
         case status
+        case location
         case enemy
         case playerStats = "player_stats"
         case weaponConfig = "weapon_config"

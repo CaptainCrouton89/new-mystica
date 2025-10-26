@@ -212,6 +212,13 @@ export class CombatService {
       status: 'active',
       player_hp: playerStats.hp,
       enemy_hp: enemyHP,
+      location: {
+        id: location.id,
+        name: location.name,
+        location_type: location.location_type,
+        background_image_url: location.background_image_url,
+        image_url: location.image_url,
+      },
       enemy: {
         ...enemy,
         atk_power: realizedEnemyStats.atk_power,
