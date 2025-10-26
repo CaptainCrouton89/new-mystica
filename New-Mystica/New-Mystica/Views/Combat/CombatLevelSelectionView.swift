@@ -43,7 +43,11 @@ struct CombatLevelSelectionView: View {
                         }
                     }
                     .padding(.horizontal, 8)
+<<<<<<< HEAD
+                    .padding(.vertical, 8)
+=======
                     .padding(.vertical, 16)
+>>>>>>> 2e97b00 (feat(misc): various improvements and fixes)
                 }
                 .frame(maxHeight: 400)
             }

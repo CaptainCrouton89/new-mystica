@@ -72,6 +72,7 @@ final class InventoryViewModel {
     var upgradeModalState: UpgradeModalState = .none
     var upgradeCostData: Loadable<UpgradeCostInfo> = .idle
     var upgradeInProgress: Bool = false
+    var isLoadingNextUpgradeCost: Bool = false
 
     // MARK: - Error State
     var currentError: AppError?
@@ -567,9 +568,9 @@ final class InventoryViewModel {
     }
 
     private func fetchUpgradeCostAndShowUpgradeScreen(itemId: String, item: EnhancedPlayerItem) async {
-        // Set loading state
+        // Set loading flag to show indicator in modal
         await MainActor.run {
-            upgradeModalState = .loading(itemId: itemId)
+            isLoadingNextUpgradeCost = true
         }
 
         do {
@@ -583,6 +584,7 @@ final class InventoryViewModel {
                     costInfo: costInfo,
                     item: item
                 )
+                isLoadingNextUpgradeCost = false
             }
 
             FileLogger.shared.log("✅ Fetched upgrade cost: \(costInfo.goldCost) gold for level \(costInfo.currentLevel) -> \(costInfo.nextLevel)", level: .info, category: "Inventory")
@@ -590,12 +592,18 @@ final class InventoryViewModel {
             upgradeCostData = .error(error)
             handleError(error)
             upgradeModalState = .none
+            await MainActor.run {
+                isLoadingNextUpgradeCost = false
+            }
             FileLogger.shared.log("❌ Failed to fetch upgrade cost: \(error)", level: .error, category: "Inventory")
         } catch {
             let appError = AppError.unknown(error)
             upgradeCostData = .error(appError)
             handleError(appError)
             upgradeModalState = .none
+            await MainActor.run {
+                isLoadingNextUpgradeCost = false
+            }
             FileLogger.shared.log("❌ Failed to fetch upgrade cost: \(appError)", level: .error, category: "Inventory")
         }
     }

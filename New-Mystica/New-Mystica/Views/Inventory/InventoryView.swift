@@ -67,7 +67,8 @@ struct InventoryView: View {
                             },
                             onReturnToInventory: {
                                 viewModel.upgradeModalState = .none
-                            }
+                            },
+                            isLoadingNextCost: viewModel.isLoadingNextUpgradeCost
                         )
 
                     case .upgrading:

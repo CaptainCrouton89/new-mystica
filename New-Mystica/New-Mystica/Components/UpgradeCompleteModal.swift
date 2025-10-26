@@ -16,6 +16,7 @@ struct UpgradeModal: View {
     let projectedStats: ItemStats
     let onUpgrade: () async -> Void
     let onReturnToInventory: () -> Void
+    let isLoadingNextCost: Bool
 
     @Environment(\.audioManager) private var audioManager
     @State private var isLoading = false
@@ -24,27 +25,49 @@ struct UpgradeModal: View {
     @State private var appState = AppState.shared
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Header with close button
-            headerView
+        ZStack {
+            VStack(spacing: 0) {
+                // Header with close button
+                headerView
 
-            // Item image section
-            itemImageView
+                // Item image section
+                itemImageView
 
-            // Level progression badge
-            levelProgressionView
+                // Level progression badge
+                levelProgressionView
 
-            // Stat comparison table
-            statComparisonView
+                // Stat comparison table
+                statComparisonView
 
-            // Gold spent confirmation
-            goldSpentView
+                // Gold spent confirmation
+                goldSpentView
 
-            // Action buttons
-            actionButtonsView
+                // Action buttons
+                actionButtonsView
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(Color.backgroundPrimary)
+
+            // Loading indicator overlay while fetching next cost
+            if isLoadingNextCost {
+                VStack(spacing: 12) {
+                    ProgressView()
+                        .progressViewStyle(.circular)
+                    Text("Upgrading...")
+                        .font(FontManager.body)
+                        .foregroundColor(Color.textSecondary)
+                }
+                .padding(32)
+                .background(
+                    RoundedRectangle(cornerRadius: .cornerRadiusLarge)
+                        .fill(Color.backgroundCard)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: .cornerRadiusLarge)
+                                .stroke(Color.borderSubtle, lineWidth: 1)
+                        )
+                )
+            }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color.backgroundPrimary)
     }
 
     // MARK: - Header View
@@ -457,7 +480,8 @@ private struct StatComparisonRow: View {
         } as () async -> Void,
         onReturnToInventory: {
             print("Return to Inventory tapped")
-        }
+        },
+        isLoadingNextCost: false
     )
     .modelContainer(for: Item.self, inMemory: true)
     .environmentObject(NavigationManager())
