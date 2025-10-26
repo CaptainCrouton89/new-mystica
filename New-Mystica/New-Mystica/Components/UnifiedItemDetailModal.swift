@@ -31,14 +31,14 @@ protocol ItemDetailDisplayable {
 
 struct MaterialDisplayInfo: Hashable {
     let name: String
-    let styleName: String?
+    let displayName: String?
 }
 
 // MARK: - Protocol Conformance
 
 extension PlayerItem: ItemDetailDisplayable {
     var formattedMaterials: [MaterialDisplayInfo] {
-        appliedMaterials.map { MaterialDisplayInfo(name: $0.capitalized, styleName: nil) }
+        appliedMaterials.map { MaterialDisplayInfo(name: $0.capitalized, displayName: nil) }
     }
 
     var primaryBadgeValue: String {
@@ -54,8 +54,8 @@ extension EnhancedPlayerItem: ItemDetailDisplayable {
     var formattedMaterials: [MaterialDisplayInfo] {
         appliedMaterials.map {
             MaterialDisplayInfo(
-                name: $0.material?.name ?? "Unknown Material",
-                styleName: $0.styleName
+                name: $0.name,
+                displayName: $0.displayName
             )
         }
     }
@@ -100,8 +100,8 @@ struct UnifiedItemDetailModal<Item: ItemDetailDisplayable, ActionButtons: View>:
                     // Item metadata
                     if item.isStyled,
                        let firstMaterial = item.formattedMaterials.first,
-                       let styleName = firstMaterial.styleName,
-                       styleName.lowercased() != "normal" {
+                       let displayName = firstMaterial.displayName,
+                       displayName.lowercased() != "normal" {
                         itemMetadataView
                     }
 
@@ -206,8 +206,7 @@ struct UnifiedItemDetailModal<Item: ItemDetailDisplayable, ActionButtons: View>:
                     HStack {
                         Spacer()
 
-                        SmallText("EQUIPPED", size: 11)
-                            .foregroundColor(.white)
+                        SmallText("EQUIPPED", size: 11, color: .white)
                             .bold()
                             .padding(.horizontal, 10)
                             .padding(.vertical, 6)
@@ -242,12 +241,12 @@ struct UnifiedItemDetailModal<Item: ItemDetailDisplayable, ActionButtons: View>:
             // Styled indicator (hide if style is "normal")
             if item.isStyled,
                let firstMaterial = item.formattedMaterials.first,
-               let styleName = firstMaterial.styleName,
-               styleName.lowercased() != "normal" {
+               let displayName = firstMaterial.displayName,
+               displayName.lowercased() != "normal" {
                 HStack(spacing: 8) {
                     Image(systemName: "paintbrush.fill")
                         .font(.system(size: 14))
-                    NormalText(styleName, size: 14)
+                    NormalText(displayName, size: 14)
                     Spacer()
                 }
                 .foregroundColor(Color.accent)
@@ -537,6 +536,7 @@ private struct StatDetailRow: View {
             appliedMaterials: [
                 ItemMaterialApplication(
                     materialId: "steel",
+                    name: "Steel",
                     styleId: "rustic",
                     slotIndex: 0,
                     appliedAt: "2025-10-23T06:00:00Z",

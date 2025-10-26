@@ -9,17 +9,16 @@
  * - Pool-based weighted random selection algorithms
  */
 
-import { BaseRepository } from './BaseRepository.js';
-import { DatabaseError, NotFoundError } from '../utils/errors.js';
-import { Database } from '../types/database.types.js';
 import { SupabaseClient } from '@supabase/supabase-js';
+import { Database } from '../types/database.types.js';
 import {
-  LocationWithDistance,
   EnemyPoolMember,
-  LootPoolEntry,
+  LocationWithDistance,
   LootDrop,
-  QueryFilter
+  LootPoolEntry
 } from '../types/repository.types.js';
+import { DatabaseError, NotFoundError } from '../utils/errors.js';
+import { BaseRepository } from './BaseRepository.js';
 
 // Database row types
 type Location = Database['public']['Tables']['locations']['Row'];
@@ -212,118 +211,10 @@ export class LocationRepository extends BaseRepository<Location> {
     return poolMembers[poolMembers.length - 1].enemy_type_id;
   }
 
-  // ============================================================================
-  // Loot Pool Matching (for combat rewards)
-  // ============================================================================
-
-  /**
-   * Get matching loot pools for a location and combat level
-   * Uses same filter logic as enemy pools
-   */
-  async getMatchingLootPools(location: Location, combatLevel: number): Promise<string[]> {
-    const { data, error } = await this.client
-      .from('lootpools')
-      .select('id')
-      .eq('combat_level', combatLevel)
-      .or(this.buildPoolFilter(location));
-
-    if (error) {
-      throw new DatabaseError(`Failed to fetch matching loot pools: ${error.message}`);
-    }
-
-    return (data || []).map(pool => pool.id);
-  }
-
-  /**
-   * Get loot pool entries for given pool IDs
-   */
-  async getLootPoolEntries(poolIds: string[]): Promise<LootPoolEntry[]> {
-    if (poolIds.length === 0) return [];
-
-    // Fetch loot pool entries without trying to join (polymorphic foreign key)
-    const { data, error } = await this.client
-      .from('lootpoolentries')
-      .select(`
-        loot_pool_id,
-        lootable_type,
-        lootable_id,
-        drop_weight
-      `)
-      .in('loot_pool_id', poolIds);
-
-    if (error) {
-      throw new DatabaseError(`Failed to fetch loot pool entries: ${error.message}`);
-    }
-
-    // Get all material IDs and item type IDs from the entries
-    const materialIds = (data || [])
-      .filter((e: any) => e.lootable_type === 'material')
-      .map((e: any) => e.lootable_id);
-
-    const itemTypeIds = (data || [])
-      .filter((e: any) => e.lootable_type === 'item_type')
-      .map((e: any) => e.lootable_id);
-
-    // Fetch materials and item types in parallel
-    const materialQuery = materialIds.length > 0
-      ? this.client
-          .from('materials')
-          .select('id, name')
-          .in('id', materialIds)
-      : Promise.resolve({ data: [] as any[] });
-
-    const itemTypeQuery = itemTypeIds.length > 0
-      ? this.client
-          .from('itemtypes')
-          .select('id, name')
-          .in('id', itemTypeIds)
-      : Promise.resolve({ data: [] as any[] });
-
-    const [materialsData, itemTypesData] = await Promise.all([
-      materialQuery,
-      itemTypeQuery
-    ]);
-
-    if ('error' in materialsData && materialsData.error) {
-      throw new DatabaseError(`Failed to fetch materials: ${materialsData.error.message}`);
-    }
-    if ('error' in itemTypesData && itemTypesData.error) {
-      throw new DatabaseError(`Failed to fetch item types: ${itemTypesData.error.message}`);
-    }
-
-    // Create lookup maps
-    const materialMap = new Map((materialsData.data || []).map((m: any) => [m.id, m.name]));
-    const itemTypeMap = new Map((itemTypesData.data || []).map((it: any) => [it.id, it.name]));
-
-    // Transform the data to include the names
-    return (data || []).map((entry: any) => ({
-      loot_pool_id: entry.loot_pool_id,
-      lootable_type: entry.lootable_type,
-      lootable_id: entry.lootable_id,
-      drop_weight: entry.drop_weight,
-      lootable_name: entry.lootable_type === 'material'
-        ? materialMap.get(entry.lootable_id)
-        : itemTypeMap.get(entry.lootable_id)
-    }));
-  }
-
-  /**
-   * Get loot pool tier weights for given pool IDs
-   * DEPRECATED - lootpooltierweights table has been deleted
-   * These multipliers affect material drop rates based on MaterialStrengthTiers
-   */
-  async getLootPoolTierWeights(poolIds: string[]): Promise<any[]> {
-    if (poolIds.length === 0) return [];
-
-    // TODO: T3 will refactor loot system to use enemyloot table
-    // For now, return empty array to prevent crashes
-    return [];
-  }
 
   /**
    * Select random loot from pool entries with tier weight multipliers
    * Returns array of loot drops with style inheritance from enemy
-   * DEPRECATED - Will be replaced by enemyloot queries in T3
    */
   selectRandomLoot(
     poolEntries: any[],
@@ -389,23 +280,6 @@ export class LocationRepository extends BaseRepository<Location> {
     }
 
     return drops;
-  }
-
-  /**
-   * Get style name by style ID
-   */
-  async getStyleName(styleId: string): Promise<string> {
-    const { data, error } = await this.client
-      .from('styles')
-      .select('name')
-      .eq('id', styleId)
-      .single();
-
-    if (error || !data) {
-      return 'normal'; // Fallback to 'normal' style if not found
-    }
-
-    return data.name;
   }
 
   // ============================================================================
@@ -493,39 +367,6 @@ export class LocationRepository extends BaseRepository<Location> {
     }));
   }
 
-  /**
-   * Advanced loot pool query with applied tier weight multipliers
-   * This method would be used by a future RPC function for optimization
-   */
-  async getAggregatedLootPools(locationId: string, combatLevel: number) {
-    // This would call a future RPC: get_matching_loot_pools(p_location_id, p_combat_level)
-    // For now, we implement the logic in application code
-    const location = await this.findById(locationId);
-    if (!location) {
-      throw new NotFoundError('Location', locationId);
-    }
-
-    const poolIds = await this.getMatchingLootPools(location, combatLevel);
-    const poolEntries = await this.getLootPoolEntries(poolIds);
-    const tierWeights = await this.getLootPoolTierWeights(poolIds);
-
-    // Apply tier weights to entries
-    const tierWeightMap = new Map<string, Map<string, number>>();
-    tierWeights.forEach(tw => {
-      if (!tierWeightMap.has(tw.loot_pool_id)) {
-        tierWeightMap.set(tw.loot_pool_id, new Map());
-      }
-      tierWeightMap.get(tw.loot_pool_id)!.set(tw.tier_name, tw.weight_multiplier);
-    });
-
-    return poolEntries.map(entry => ({
-      ...entry,
-      adjusted_weight: this.calculateMaterialDropWeight(
-        entry,
-        tierWeightMap.get(entry.loot_pool_id) || new Map()
-      )
-    }));
-  }
 }
 
 export const locationRepository = new LocationRepository();

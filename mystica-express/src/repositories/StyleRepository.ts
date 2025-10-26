@@ -7,13 +7,11 @@
 
 import { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from '../config/supabase.js';
-import { DatabaseError, mapSupabaseError } from '../utils/errors.js';
 import type { Database } from '../types/database.types.js';
+import { DatabaseError, mapSupabaseError } from '../utils/errors.js';
 
 // Type aliases from database schema
 type StyleDefinition = Database['public']['Tables']['styledefinitions']['Row'];
-type StyleDefinitionInsert = Database['public']['Tables']['styledefinitions']['Insert'];
-type StyleDefinitionUpdate = Database['public']['Tables']['styledefinitions']['Update'];
 
 /**
  * StyleRepository handles style-related database operations
@@ -43,7 +41,7 @@ export class StyleRepository {
         .from('styledefinitions')
         .select('*')
         .order('spawn_rate', { ascending: false })
-        .order('style_name', { ascending: true });
+        .order('display_name', { ascending: true });
 
       if (error) {
         throw mapSupabaseError(error);
@@ -93,14 +91,14 @@ export class StyleRepository {
   }
 
   /**
-   * Find style definition by style_name
+   * Find style definition by display_name
    */
-  async findByName(styleName: string): Promise<StyleDefinition | null> {
+  async findByName(displayName: string): Promise<StyleDefinition | null> {
     try {
       const { data, error } = await this.client
         .from('styledefinitions')
         .select('*')
-        .eq('style_name', styleName)
+        .eq('display_name', displayName)
         .single();
 
       if (error && error.code !== 'PGRST116') { // PGRST116 = not found
@@ -108,15 +106,15 @@ export class StyleRepository {
       }
 
       if (!data) {
-        throw new DatabaseError(`Style definition not found for name: ${styleName}`);
+        throw new DatabaseError(`Style definition not found for display name: ${displayName}`);
       }
       return data;
     } catch (error) {
       if (error instanceof DatabaseError) {
         throw error;
       }
-      throw new DatabaseError('Failed to fetch style definition by name', {
-        styleName,
+      throw new DatabaseError('Failed to fetch style definition by display name', {
+        displayName,
         originalError: error
       });
     }

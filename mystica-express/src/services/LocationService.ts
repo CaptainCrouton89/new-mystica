@@ -82,65 +82,12 @@ export class LocationService {
     return locationRepository.selectRandomEnemy(poolMembers);
   }
 
-  async getMatchingLootPools(locationId: string, combatLevel: number) {
-    if (combatLevel <= 0 || combatLevel > 100) {
-      throw new ValidationError('Combat level must be between 1 and 100');
-    }
-
-    const location = await this.getById(locationId);
-    return locationRepository.getMatchingLootPools(location, combatLevel);
-  }
-
-  async getLootPoolEntries(poolIds: string[]) {
-    if (!poolIds || poolIds.length === 0) {
-      throw new ValidationError('At least one pool ID is required');
-    }
-
-    return locationRepository.getLootPoolEntries(poolIds);
-  }
-
-  async getLootPoolTierWeights(poolIds: string[]) {
-    if (!poolIds || poolIds.length === 0) {
-      throw new ValidationError('At least one pool ID is required');
-    }
-
-    return locationRepository.getLootPoolTierWeights(poolIds);
-  }
-
-  selectRandomLoot(
-    poolEntries: any[],
-    tierWeights: any[],
-    enemyStyleId: string = 'normal',
-    dropCount: number = 1
-  ) {
-    if (!poolEntries || poolEntries.length === 0) {
-      throw new ValidationError('No loot pool entries provided');
-    }
-    if (dropCount <= 0 || dropCount > 10) {
-      throw new ValidationError('Drop count must be between 1 and 10');
-    }
-
-    return locationRepository.selectRandomLoot(poolEntries, tierWeights, enemyStyleId, dropCount);
-  }
-
   async getAggregatedEnemyPools(locationId: string, combatLevel: number) {
     if (combatLevel <= 0 || combatLevel > 100) {
       throw new ValidationError('Combat level must be between 1 and 100');
     }
 
     return locationRepository.getAggregatedEnemyPools(locationId, combatLevel);
-  }
-
-  async getAggregatedLootPools(locationId: string, combatLevel: number) {
-    if (combatLevel <= 0 || combatLevel > 100) {
-      throw new ValidationError('Combat level must be between 1 and 100');
-    }
-
-    return locationRepository.getAggregatedLootPools(locationId, combatLevel);
-  }
-
-  async getStyleName(styleId: string): Promise<string> {
-    return locationRepository.getStyleName(styleId);
   }
 
   async autoGenerate(

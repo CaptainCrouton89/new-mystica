@@ -5,26 +5,89 @@ import SwiftUI
 extension BattleView {
 
     // MARK: - Combat Content View
+    // Background layer - location backdrop with dark overlay
+    // Combat content layer with enemy, player, and controls
     func combatContentView(session: CombatSession) -> some View {
-        VStack(spacing: 0) {
-            // Enemy Section
-            enemySection(enemy: convertCombatEnemyToEnemy(session.enemy), hp: Double(viewModel.enemyHP), maxHP: Int(session.enemy.hp))
-                .frame(maxHeight: .infinity)
+        ZStack {
+            if let backgroundURLString = viewModel.backgroundImageURL,
+               let backgroundURL = URL(string: backgroundURLString) {
+                AsyncImage(url: backgroundURL) { phase in
+                    switch phase {
+                    case .empty:
+                        // Loading state - show solid color
+                        Color.backgroundPrimary
+                            .ignoresSafeArea()
+                    case .success(let image):
+                        // Successful load - show image with dark overlay for readability
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                            .ignoresSafeArea()
+                            .overlay(
+                                Color.black.opacity(0.6)
+                                    .ignoresSafeArea()
+                            )
+                    case .failure:
+                        // Failed to load - fallback to solid color
+                        Color.backgroundPrimary
+                            .ignoresSafeArea()
+                    @unknown default:
+                        Color.backgroundPrimary
+                            .ignoresSafeArea()
+                    }
+                }
+            } else {
+                // No background URL - use solid color
+                Color.backgroundPrimary
+                    .ignoresSafeArea()
+            }
 
-            Spacer(minLength: 20)
+            // Combat content layer
+            VStack(spacing: 0) {
+                // Top spacer to push enemy lower on screen
+                Spacer(minLength: 80)
 
-            // Player Section
-            playerSection(session: session)
-                .frame(maxHeight: .infinity)
+                // Enemy Section - Health bar and name above sprite
+                VStack(spacing: 12) {
+                    HealthBarView(
+                        currentHealth: Double(viewModel.enemyHP),
+                        maxHealth: Double(session.enemy.hp),
+                        label: session.enemy.name ?? "Unknown Enemy",
+                        isPlayer: false
+                    )
 
-            Spacer(minLength: 20)
+                    // Enemy Avatar with glow effect
+                    EnemyAvatarView(
+                        enemy: convertCombatEnemyToEnemy(session.enemy),
+                        scale: enemyScale,
+                        animationLoader: currentAnimationLoader,
+                        currentFrame: enemyCurrentFrame
+                    )
+                    .offset(x: enemyOffset.x, y: enemyOffset.y)
+                    .shadow(color: enemyGlowing ? .red : .clear, radius: enemyGlowing ? 20 : 0)
+                    .animation(.easeInOut(duration: 0.5), value: enemyGlowing)
+                    .animation(.easeInOut(duration: 0.2), value: enemyOffset)
+                }
+                .frame(maxHeight: 300)
+                .padding(.horizontal, 20)
 
-            // Combat Controls
-            combatControlsSection(session: session)
-                .frame(height: 160)
+                Spacer()
+
+                // Player Section - Health bar only
+                playerSection(session: session)
+                    .padding(.horizontal, 20)
+
+                Spacer(minLength: 24)
+
+                // Combat Controls - Instructions and dial
+                combatControlsSection(session: session)
+                    .frame(minHeight: 160)
+                    .padding(.horizontal, 20)
+
+                Spacer(minLength: 12)
+            }
+            .padding(.bottom, 20)
         }
-        .padding(.horizontal, 20)
-        .padding(.bottom, 20)
         .onAppear {
             startIdleAnimations()
         }
@@ -138,7 +201,7 @@ extension BattleView {
 
                         ForEach(Array(materials.enumerated()), id: \.element.materialId) { _, material in
                             HStack {
-                                SmallText("• \(material.name) [\(material.styleName)]")
+                                SmallText("• \(material.name) [\(material.displayName)]")
                                     .foregroundColor(Color.textSecondary)
                                 Spacer()
                             }
@@ -162,30 +225,6 @@ extension BattleView {
         }
     }
 
-    // MARK: - Enemy Section
-    func enemySection(enemy: Enemy, hp: Double, maxHP: Int) -> some View {
-        VStack(spacing: 16) {
-            // Enemy Health Bar
-            HealthBarView(
-                currentHealth: hp,
-                maxHealth: Double(maxHP), // Max HP from backend combat session
-                label: enemy.name ?? "Unknown Enemy",
-                isPlayer: false
-            )
-
-            // Enemy Avatar with glow effect and shake animation
-            EnemyAvatarView(
-                enemy: enemy,
-                scale: enemyScale,
-                animationLoader: currentAnimationLoader,
-                currentFrame: enemyCurrentFrame
-            )
-            .offset(x: enemyOffset.x, y: enemyOffset.y)
-            .shadow(color: enemyGlowing ? .red : .clear, radius: enemyGlowing ? 20 : 0)
-            .animation(.easeInOut(duration: 0.5), value: enemyGlowing)
-            .animation(.easeInOut(duration: 0.2), value: enemyOffset)
-        }
-    }
 
 
     // MARK: - Player Section

@@ -118,7 +118,7 @@ struct MaterialDetailModal: View {
                 // Style badge
                 Badge(
                     label: "Style",
-                    value: material.styleName ?? formatStyleName(material.styleId),
+                    value: material.displayName ?? formatStyleName(material.styleId),
                     color: getStyleBorderColor()
                 )
 
@@ -412,7 +412,7 @@ private struct StatModifierRow: View {
         statModifiers: StatModifier(atkPower: 1.2, atkAccuracy: 1.1, defPower: 1.0, defAccuracy: 1.05),
         imageUrl: mockMaterialDetail.imageUrl,
         material: mockMaterialDetail,
-        styleName: "Holographic"
+        displayName: "Holographic"
     )
 
     return MaterialDetailModal(

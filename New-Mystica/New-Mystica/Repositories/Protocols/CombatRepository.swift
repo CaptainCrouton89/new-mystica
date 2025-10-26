@@ -33,9 +33,8 @@ struct EnemyDialogueResponse: Codable {
 /// Represents different types of events that can occur during combat
 enum CombatEventType: String, Codable {
     case combatStart = "combat_start"
-    case playerHit = "player_hit"
-    case playerMiss = "player_miss"
-    case enemyHit = "enemy_hit"
+    case playerAttacks = "player_attacks"
+    case enemyAttacks = "enemy_attacks"
     case lowPlayerHP = "low_player_hp"
     case nearVictory = "near_victory"
     case victory
@@ -49,6 +48,20 @@ struct CombatEventDetails: Codable {
     let enemyHpPct: Double
     let damage: Int?
     let isCritical: Bool?
+    let playerZone: Int?
+    let enemyZone: Int?
+    let playerAction: String?
+
+    enum CodingKeys: String, CodingKey {
+        case turnNumber = "turn_number"
+        case playerHpPct = "player_hp_pct"
+        case enemyHpPct = "enemy_hp_pct"
+        case damage
+        case isCritical = "is_critical"
+        case playerZone = "player_zone"
+        case enemyZone = "enemy_zone"
+        case playerAction = "player_action"
+    }
 }
 
 protocol CombatRepository {

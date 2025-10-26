@@ -69,13 +69,6 @@ export type Database = {
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "fk_analytics_events_user"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "v_player_equipped_stats"
-            referencedColumns: ["player_id"]
-          },
         ]
       }
       combatchatterlog: {
@@ -121,13 +114,6 @@ export type Database = {
             columns: ["pet_item_id"]
             isOneToOne: false
             referencedRelation: "items"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_combat_chatter_log_pet"
-            columns: ["pet_item_id"]
-            isOneToOne: false
-            referencedRelation: "v_item_total_stats"
             referencedColumns: ["id"]
           },
           {
@@ -264,13 +250,6 @@ export type Database = {
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "fk_combat_sessions_user"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "v_player_equipped_stats"
-            referencedColumns: ["player_id"]
-          },
         ]
       }
       currencies: {
@@ -336,13 +315,6 @@ export type Database = {
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "fk_device_tokens_user"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "v_player_equipped_stats"
-            referencedColumns: ["player_id"]
-          },
         ]
       }
       economytransactions: {
@@ -389,13 +361,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_economy_transactions_user"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "v_player_equipped_stats"
-            referencedColumns: ["player_id"]
           },
         ]
       }
@@ -732,25 +697,11 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_item_history_item"
-            columns: ["item_id"]
-            isOneToOne: false
-            referencedRelation: "v_item_total_stats"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "fk_item_history_user"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_item_history_user"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "v_player_equipped_stats"
-            referencedColumns: ["player_id"]
           },
         ]
       }
@@ -823,13 +774,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_item_materials_item"
-            columns: ["item_id"]
-            isOneToOne: false
-            referencedRelation: "v_item_total_stats"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "fk_item_materials_material_instance"
             columns: ["material_instance_id"]
             isOneToOne: true
@@ -841,44 +785,47 @@ export type Database = {
       items: {
         Row: {
           created_at: string
-          current_stats: Json | null
           description: string | null
           generated_image_url: string | null
           id: string
           image_generation_status: string | null
-          is_styled: boolean
           item_type_id: string
+          lat: number | null
           level: number
+          lng: number | null
           material_combo_hash: string | null
           name: string | null
+          rarity: Database["public"]["Enums"]["rarity"]
           user_id: string
         }
         Insert: {
           created_at?: string
-          current_stats?: Json | null
           description?: string | null
           generated_image_url?: string | null
           id?: string
           image_generation_status?: string | null
-          is_styled?: boolean
           item_type_id: string
+          lat?: number | null
           level?: number
+          lng?: number | null
           material_combo_hash?: string | null
           name?: string | null
+          rarity: Database["public"]["Enums"]["rarity"]
           user_id: string
         }
         Update: {
           created_at?: string
-          current_stats?: Json | null
           description?: string | null
           generated_image_url?: string | null
           id?: string
           image_generation_status?: string | null
-          is_styled?: boolean
           item_type_id?: string
+          lat?: number | null
           level?: number
+          lng?: number | null
           material_combo_hash?: string | null
           name?: string | null
+          rarity?: Database["public"]["Enums"]["rarity"]
           user_id?: string
         }
         Relationships: [
@@ -897,11 +844,11 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_items_user"
-            columns: ["user_id"]
+            foreignKeyName: "items_rarity_fkey"
+            columns: ["rarity"]
             isOneToOne: false
-            referencedRelation: "v_player_equipped_stats"
-            referencedColumns: ["player_id"]
+            referencedRelation: "raritydefinitions"
+            referencedColumns: ["rarity"]
           },
         ]
       }
@@ -914,8 +861,6 @@ export type Database = {
           description: string | null
           id: string
           name: string
-          rarity: Database["public"]["Enums"]["rarity"]
-          style_id: string | null
         }
         Insert: {
           base_image_url?: string
@@ -925,8 +870,6 @@ export type Database = {
           description?: string | null
           id?: string
           name: string
-          rarity: Database["public"]["Enums"]["rarity"]
-          style_id?: string | null
         }
         Update: {
           base_image_url?: string
@@ -936,25 +879,8 @@ export type Database = {
           description?: string | null
           id?: string
           name?: string
-          rarity?: Database["public"]["Enums"]["rarity"]
-          style_id?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "fk_item_types_rarity"
-            columns: ["rarity"]
-            isOneToOne: false
-            referencedRelation: "raritydefinitions"
-            referencedColumns: ["rarity"]
-          },
-          {
-            foreignKeyName: "itemtypes_style_id_fkey"
-            columns: ["style_id"]
-            isOneToOne: false
-            referencedRelation: "styledefinitions"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       levelrewards: {
         Row: {
@@ -1016,13 +942,6 @@ export type Database = {
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "fk_loadouts_user"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "v_player_equipped_stats"
-            referencedColumns: ["player_id"]
-          },
         ]
       }
       loadoutslots: {
@@ -1050,13 +969,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_loadout_slots_item"
-            columns: ["item_id"]
-            isOneToOne: false
-            referencedRelation: "v_item_total_stats"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "fk_loadout_slots_loadout"
             columns: ["loadout_id"]
             isOneToOne: false
@@ -1074,8 +986,10 @@ export type Database = {
       }
       locations: {
         Row: {
+          background_image_url: string | null
           country_code: string | null
           created_at: string
+          description: string | null
           id: string
           image_url: string | null
           lat: number
@@ -1083,11 +997,12 @@ export type Database = {
           location_type: string | null
           name: string | null
           state_code: string | null
-          style_id: string | null
         }
         Insert: {
+          background_image_url?: string | null
           country_code?: string | null
           created_at?: string
+          description?: string | null
           id?: string
           image_url?: string | null
           lat: number
@@ -1095,11 +1010,12 @@ export type Database = {
           location_type?: string | null
           name?: string | null
           state_code?: string | null
-          style_id?: string | null
         }
         Update: {
+          background_image_url?: string | null
           country_code?: string | null
           created_at?: string
+          description?: string | null
           id?: string
           image_url?: string | null
           lat?: number
@@ -1107,38 +1023,26 @@ export type Database = {
           location_type?: string | null
           name?: string | null
           state_code?: string | null
-          style_id?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "locations_style_id_fkey"
-            columns: ["style_id"]
-            isOneToOne: false
-            referencedRelation: "styledefinitions"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       materialinstances: {
         Row: {
           created_at: string
           id: string
           material_id: string
-          style_id: string
           user_id: string
         }
         Insert: {
           created_at?: string
           id?: string
           material_id: string
-          style_id: string
           user_id: string
         }
         Update: {
           created_at?: string
           id?: string
           material_id?: string
-          style_id?: string
           user_id?: string
         }
         Relationships: [
@@ -1157,25 +1061,11 @@ export type Database = {
             referencedColumns: ["material_id"]
           },
           {
-            foreignKeyName: "fk_material_instances_style"
-            columns: ["style_id"]
-            isOneToOne: false
-            referencedRelation: "styledefinitions"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "fk_material_instances_user"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_material_instances_user"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "v_player_equipped_stats"
-            referencedColumns: ["player_id"]
           },
         ]
       }
@@ -1186,9 +1076,11 @@ export type Database = {
           description: string | null
           id: string
           image_url: string | null
+          lat: number | null
+          lng: number | null
           name: string
           stat_modifiers: Json
-          style_id: string | null
+          style_id: string
         }
         Insert: {
           base_drop_weight?: number
@@ -1196,9 +1088,11 @@ export type Database = {
           description?: string | null
           id?: string
           image_url?: string | null
+          lat?: number | null
+          lng?: number | null
           name: string
           stat_modifiers: Json
-          style_id?: string | null
+          style_id: string
         }
         Update: {
           base_drop_weight?: number
@@ -1206,9 +1100,11 @@ export type Database = {
           description?: string | null
           id?: string
           image_url?: string | null
+          lat?: number | null
+          lng?: number | null
           name?: string
           stat_modifiers?: Json
-          style_id?: string | null
+          style_id?: string
         }
         Relationships: [
           {
@@ -1224,21 +1120,18 @@ export type Database = {
         Row: {
           material_id: string
           quantity: number
-          style_id: string
           updated_at: string
           user_id: string
         }
         Insert: {
           material_id: string
           quantity: number
-          style_id: string
           updated_at?: string
           user_id: string
         }
         Update: {
           material_id?: string
           quantity?: number
-          style_id?: string
           updated_at?: string
           user_id?: string
         }
@@ -1258,25 +1151,11 @@ export type Database = {
             referencedColumns: ["material_id"]
           },
           {
-            foreignKeyName: "fk_material_stacks_style"
-            columns: ["style_id"]
-            isOneToOne: false
-            referencedRelation: "styledefinitions"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "fk_material_stacks_user"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_material_stacks_user"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "v_player_equipped_stats"
-            referencedColumns: ["player_id"]
           },
         ]
       }
@@ -1365,13 +1244,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_pets_item"
-            columns: ["item_id"]
-            isOneToOne: true
-            referencedRelation: "v_item_total_stats"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "fk_pets_personality"
             columns: ["personality_id"]
             isOneToOne: false
@@ -1426,13 +1298,6 @@ export type Database = {
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "fk_player_combat_history_user"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "v_player_equipped_stats"
-            referencedColumns: ["player_id"]
-          },
         ]
       }
       playerprogression: {
@@ -1470,13 +1335,6 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "users"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_player_progression_user"
-            columns: ["user_id"]
-            isOneToOne: true
-            referencedRelation: "v_player_equipped_stats"
-            referencedColumns: ["player_id"]
           },
         ]
       }
@@ -1537,27 +1395,18 @@ export type Database = {
           description: string | null
           display_name: string
           id: string
-          spawn_rate: number
-          style_name: string | null
-          visual_modifier: string | null
         }
         Insert: {
           created_at?: string
           description?: string | null
           display_name: string
           id?: string
-          spawn_rate: number
-          style_name?: string | null
-          visual_modifier?: string | null
         }
         Update: {
           created_at?: string
           description?: string | null
           display_name?: string
           id?: string
-          spawn_rate?: number
-          style_name?: string | null
-          visual_modifier?: string | null
         }
         Relationships: []
       }
@@ -1628,13 +1477,6 @@ export type Database = {
             referencedRelation: "users"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "fk_user_currency_balances_user"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "v_player_equipped_stats"
-            referencedColumns: ["player_id"]
-          },
         ]
       }
       userequipment: {
@@ -1665,13 +1507,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "fk_user_equipment_item"
-            columns: ["item_id"]
-            isOneToOne: false
-            referencedRelation: "v_item_total_stats"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "fk_user_equipment_slot"
             columns: ["slot_name"]
             isOneToOne: false
@@ -1684,13 +1519,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_user_equipment_user"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "v_player_equipped_stats"
-            referencedColumns: ["player_id"]
           },
         ]
       }
@@ -1727,13 +1555,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "userlevelrewards_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "v_player_equipped_stats"
-            referencedColumns: ["player_id"]
           },
         ]
       }
@@ -1773,49 +1594,6 @@ export type Database = {
         }
         Relationships: []
       }
-      userunlockeditemtypes: {
-        Row: {
-          item_type_id: string
-          unlock_source: string
-          unlocked_at: string
-          user_id: string
-        }
-        Insert: {
-          item_type_id: string
-          unlock_source: string
-          unlocked_at?: string
-          user_id: string
-        }
-        Update: {
-          item_type_id?: string
-          unlock_source?: string
-          unlocked_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "fk_user_unlocked_item_types_item_type"
-            columns: ["item_type_id"]
-            isOneToOne: false
-            referencedRelation: "itemtypes"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_user_unlocked_item_types_user"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_user_unlocked_item_types_user"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "v_player_equipped_stats"
-            referencedColumns: ["player_id"]
-          },
-        ]
-      }
       weapons: {
         Row: {
           deg_crit: number
@@ -1853,13 +1631,6 @@ export type Database = {
             columns: ["item_id"]
             isOneToOne: true
             referencedRelation: "items"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "fk_weapons_item"
-            columns: ["item_id"]
-            isOneToOne: true
-            referencedRelation: "v_item_total_stats"
             referencedColumns: ["id"]
           },
         ]
@@ -1935,45 +1706,11 @@ export type Database = {
           },
         ]
       }
-      v_item_total_stats: {
-        Row: {
-          atk_accuracy: number | null
-          atk_power: number | null
-          def_accuracy: number | null
-          def_power: number | null
-          id: string | null
-          is_styled: boolean | null
-          level: number | null
-          name: string | null
-          rarity: Database["public"]["Enums"]["rarity"] | null
-          slot: string | null
-          total_stats: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "fk_item_types_rarity"
-            columns: ["rarity"]
-            isOneToOne: false
-            referencedRelation: "raritydefinitions"
-            referencedColumns: ["rarity"]
-          },
-        ]
-      }
       v_material_tiers: {
         Row: {
           abs_sum: number | null
           material_id: string | null
           tier_name: string | null
-        }
-        Relationships: []
-      }
-      v_player_equipped_stats: {
-        Row: {
-          atkaccuracy: number | null
-          atkpower: number | null
-          defaccuracy: number | null
-          defpower: number | null
-          player_id: string | null
         }
         Relationships: []
       }
@@ -2334,6 +2071,7 @@ export type Database = {
       get_nearby_locations: {
         Args: { search_radius: number; user_lat: number; user_lng: number }
         Returns: {
+          background_image_url: string
           country_code: string
           distance_meters: number
           id: string
@@ -2398,16 +2136,26 @@ export type Database = {
       }
       postgis_version: { Args: never; Returns: string }
       postgis_wagyu_version: { Args: never; Returns: string }
-      process_item_upgrade: {
-        Args: {
-          p_gold_cost: number
-          p_item_id: string
-          p_new_level: number
-          p_new_stats: Json
-          p_user_id: string
-        }
-        Returns: Json
-      }
+      process_item_upgrade:
+        | {
+            Args: {
+              p_gold_cost: number
+              p_item_id: string
+              p_new_level: number
+              p_new_stats: Json
+              p_user_id: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_gold_cost: number
+              p_item_id: string
+              p_new_level: number
+              p_user_id: string
+            }
+            Returns: undefined
+          }
       remove_material_from_item: {
         Args: { p_item_id: string; p_slot_index: number }
         Returns: Json

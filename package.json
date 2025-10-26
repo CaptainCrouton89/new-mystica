@@ -1,3 +1,6 @@
 {
-  "type": "module"
+  "type": "module",
+  "scripts": {
+    "supabase:types": "supabase gen types typescript --linked > mystica-express/src/types/database.types.ts"
+  }
 }

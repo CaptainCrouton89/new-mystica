@@ -5,11 +5,16 @@
  * Repositories are responsible for data access and persistence operations.
  */
 
-import { AppliedMaterial, Material, MaterialStack, Stats } from './api.types';
+import { Stats } from './api.types';
 import { Database } from './database.types';
 
 // Re-export API types for repository use
-export { AppliedMaterial, Material, MaterialStack, Stats };
+export { Stats };
+
+// Helper types for database table access
+type Tables<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Row'];
+type TablesInsert<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Insert'];
+type TablesUpdate<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Update'];
 
 // ============================================================================
 // Base Repository Types
@@ -41,139 +46,47 @@ export interface SortParams {
 // ============================================================================
 
 /**
- * Complete item data with all related entities
- */
-export interface ItemWithDetails {
-  id: string;
-  user_id: string;
-  item_type_id: string;
-  level: number;
-  is_styled: boolean;
-  current_stats: Stats;
-  material_combo_hash: string | null;
-  generated_image_url: string | null;
-  image_generation_status: 'pending' | 'generating' | 'complete' | 'failed' | null;
-  name: string;           // Custom instance name
-  description: string;    // Custom instance description
-  created_at: string;
-
-  // Related entities
-  item_type: {
-    id: string;
-    name: string;
-    category: string;
-    base_stats_normalized: Stats;
-    rarity: Database['public']['Enums']['rarity'];
-    description: string;
-  };
-
-  materials: AppliedMaterial[];
-}
-
-/**
  * Item data with applied materials
  */
-export interface ItemWithMaterials {
-  id: string;
-  user_id: string;
-  item_type_id: string;
-  level: number;
-  materials: AppliedMaterial[];
-}
+export type ItemWithMaterials = Tables<'items'> & {
+  item_type: Tables<'itemtypes'>;
+  materials: (Tables<'materialinstances'> & {
+    materials: Tables<'materials'>;
+    slot_index: number;
+  })[];
+};
+
+/**
+ * Item with full details (alias for ItemWithMaterials)
+ */
+export type ItemWithDetails = ItemWithMaterials;
 
 /**
  * Item creation data
  */
-export interface CreateItemData {
-  user_id: string;
-  item_type_id: string;
-  level?: number;
-}
+export type CreateItemData = Pick<TablesInsert<'items'>, 'user_id' | 'item_type_id' | 'level' | 'rarity'>;
 
 /**
  * Item update data
  */
-export interface UpdateItemData {
-  level?: number;
-  is_styled?: boolean;
-  current_stats?: Stats;
-  material_combo_hash?: string | null;
-  generated_image_url?: string | null;
-  image_generation_status?: 'pending' | 'generating' | 'complete' | 'failed';
-  name?: string;           // Custom instance name
-  description?: string;    // Custom instance description
-}
-
-// ============================================================================
-// Material Repository Types
-// ============================================================================
-
-/**
- * Material instance (applied to items)
- */
-export interface MaterialInstance {
-  id: string;
-  user_id: string;
-  material_id: string;
-  style_id: string;
-  created_at: string;
-}
+export type UpdateItemData = Partial<Pick<TablesUpdate<'items'>, 'level' | 'name' | 'description' | 'generated_image_url' | 'image_generation_status' | 'material_combo_hash' | 'lat' | 'lng'>>;
 
 /**
  * Material instance with template data
  */
-export interface MaterialInstanceWithTemplate {
-  id: string;
-  user_id: string;
-  material_id: string;
-  style_id: string;
-  created_at: string;
-
-  // Template data
-  material: Material;
-}
-
-/**
- * Material stack creation data
- */
-export interface CreateMaterialStackData {
-  user_id: string;
-  material_id: string;
-  style_id: string;
-  quantity: number;
-}
-
-/**
- * Material instance creation data
- */
-export interface CreateMaterialInstanceData {
-  user_id: string;
-  material_id: string;
-  style_id: string;
-}
-
-/**
- * Applied material data for ItemMaterials junction
- */
-export interface ApplyMaterialData {
-  item_id: string;
-  material_instance_id: string;
-  slot_index: number;
-}
+export type MaterialInstanceWithTemplate = Tables<"materialinstances"> & {
+  material: Tables<"materials"> & { stat_modifiers: Stats };
+};
 
 // ============================================================================
 // Equipment Repository Types
 // ============================================================================
 
+export type WeaponWithItem = Tables<'weapons'> & Tables<'items'> & Tables<'itemtypes'>;
 /**
  * Equipment slot assignment data
  */
-export interface EquipmentSlotAssignment {
-  user_id: string;
-  slot_name: string;
-  item_id: string | null;
-  equipped_at?: string;
-}
+export type EquipmentSlotAssignment = Tables<'userequipment'>;
 
 /**
  * Bulk equipment update for loadout activation
@@ -205,26 +118,15 @@ export interface CurrencyBalanceUpdate {
 /**
  * Economy transaction data for logging
  */
-export interface EconomyTransactionData {
-  user_id: string;
+export type EconomyTransactionData = Omit<TablesInsert<'economytransactions'>, 'id' | 'created_at'> & {
   transaction_type: 'source' | 'sink';
   currency: 'GOLD' | 'GEMS';
-  amount: number; // positive for source, negative for sink
-  balance_after: number;
-  source_type: string; // 'combat_victory', 'item_upgrade', 'material_replacement', etc.
-  source_id?: string | null; // UUID of related entity
-  metadata?: Record<string, any>; // flexible JSONB payload
-}
+};
 
 /**
  * Player progression update data
  */
-export interface PlayerProgressionUpdate {
-  xp?: number;
-  level?: number;
-  xp_to_next_level?: number;
-  last_level_up_at?: string;
-}
+export type PlayerProgressionUpdate = Partial<Pick<TablesUpdate<'playerprogression'>, 'xp' | 'level' | 'xp_to_next_level' | 'last_level_up_at'>>;
 
 // ============================================================================
 // Location Repository Types
@@ -232,27 +134,18 @@ export interface PlayerProgressionUpdate {
 
 /**
  * Location with distance metadata
+ * Note: Some fields are non-null in this context (name, location_type, etc.) even though nullable in DB
  */
-export interface LocationWithDistance {
-  id: string;
-  name: string;
-  lat: number;
-  lng: number;
-  location_type: string;
-  state_code: string;
-  country_code: string;
-  image_url: string;
+export type LocationWithDistance = Required<
+  Pick<Tables<'locations'>, 'id' | 'name' | 'lat' | 'lng' | 'location_type' | 'state_code' | 'country_code' | 'image_url' | 'background_image_url'>
+> & {
   distance_meters: number;
-}
+};
 
 /**
  * Enemy pool member with spawn weight
  */
-export interface EnemyPoolMember {
-  enemy_pool_id: string;
-  enemy_type_id: string;
-  spawn_weight: number;
-}
+export type EnemyPoolMember = Pick<Tables<'enemypoolmembers'>, 'enemy_pool_id' | 'enemy_type_id' | 'spawn_weight'>;
 
 /**
  * Loot pool entry with drop weight
@@ -271,14 +164,7 @@ export interface LootPoolEntry {
 /**
  * Loadout with slot assignments
  */
-export interface LoadoutWithSlots {
-  id: string;
-  user_id: string;
-  name: string;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-
+export type LoadoutWithSlots = Tables<'loadouts'> & {
   slots: {
     weapon: string | null;
     offhand: string | null;
@@ -289,7 +175,7 @@ export interface LoadoutWithSlots {
     accessory_2: string | null;
     pet: string | null;
   };
-}
+};
 
 /**
  * Loadout creation data
@@ -316,52 +202,22 @@ export interface LoadoutSlotAssignments {
 
 /**
  * Combat session data (Redis + PostgreSQL)
+ * Note: applied_enemy_pools is Json in DB but treated as string[] in application layer
  */
-export interface CombatSessionData {
-  id: string;
-  user_id: string;
-  location_id: string;
-  combat_level: number;
-  enemy_type_id: string;
+export type CombatSessionData = Omit<Tables<'combatsessions'>, 'applied_enemy_pools' | 'enemy_style_id'> & {
   applied_enemy_pools: string[]; // JSON array of pool IDs
-  applied_loot_pools: string[]; // JSON array of pool IDs
-  player_equipped_items_snapshot: Record<string, any>; // JSON snapshot
-  player_rating: number | null;
-  enemy_rating: number | null;
-  win_prob_est: number | null;
-  combat_log: any[]; // JSON array of combat events (legacy)
-  outcome: Database['public']['Enums']['combat_result'] | null;
-  rewards: any[] | null; // JSON array of rewards
-  created_at: string;
-  updated_at: string;
-}
+  applied_loot_pools?: string[]; // JSON array of pool IDs (optional extension)
+};
 
 /**
  * Combat log event (normalized structure)
  */
-export interface CombatLogEventData {
-  combat_id: string;
-  seq: number; // turn sequence number
-  ts: string; // timestamp
-  actor: Database['public']['Enums']['actor']; // 'player', 'enemy', 'system'
-  event_type: string; // 'attack', 'defend', 'critical_hit', 'miss', etc.
-  value_i: number | null; // integer value (damage, etc.)
-  payload: Record<string, any> | null; // flexible JSONB
-}
+export type CombatLogEventData = Omit<Tables<'combatlogevents'>, 'id'>;
 
 /**
  * Player combat history data
  */
-export interface PlayerCombatHistoryData {
-  user_id: string;
-  location_id: string;
-  total_attempts: number;
-  victories: number;
-  defeats: number;
-  current_streak: number;
-  longest_streak: number;
-  last_attempt: string;
-}
+export type PlayerCombatHistoryData = Tables<'playercombathistory'>;
 
 /**
  * Loot drop result
@@ -382,27 +238,9 @@ export interface LootDrop {
 // ============================================================================
 
 /**
- * Item image cache entry
- */
-export interface ItemImageCacheEntry {
-  id: string;
-  item_type_id: string;
-  combo_hash: string;
-  image_url: string;
-  craft_count: number;
-  provider: string | null; // 'gemini', 'seedream', etc.
-  created_at: string;
-}
-
-/**
  * Image cache creation data
  */
-export interface CreateImageCacheData {
-  item_type_id: string;
-  combo_hash: string;
-  image_url: string;
-  provider: string;
-}
+export type CreateImageCacheData = Pick<TablesInsert<'itemimagecache'>, 'item_type_id' | 'combo_hash' | 'image_url' | 'provider'>;
 
 // ============================================================================
 // Weapon Repository Types
@@ -411,13 +249,7 @@ export interface CreateImageCacheData {
 /**
  * Weapon degree configuration for hit bands
  */
-export interface DegreeConfig {
-  deg_injure: number;
-  deg_miss: number;
-  deg_graze: number;
-  deg_normal: number;
-  deg_crit: number;
-}
+export type DegreeConfig = Pick<Tables<'weapons'>, 'deg_injure' | 'deg_miss' | 'deg_graze' | 'deg_normal' | 'deg_crit'>;
 
 /**
  * Adjusted weapon bands after accuracy calculation
@@ -429,59 +261,6 @@ export interface AdjustedBands {
   deg_normal: number;
   deg_crit: number;
   total_degrees: number;
-}
-
-/**
- * Weapon creation data
- */
-export interface CreateWeaponData {
-  item_id: string;
-  pattern: Database['public']['Enums']['weapon_pattern'];
-  spin_deg_per_s?: number;
-  deg_injure?: number;
-  deg_miss?: number;
-  deg_graze?: number;
-  deg_normal?: number;
-  deg_crit?: number;
-}
-
-/**
- * Weapon update data
- */
-export interface UpdateWeaponData {
-  pattern?: Database['public']['Enums']['weapon_pattern'];
-  spin_deg_per_s?: number;
-  deg_injure?: number;
-  deg_miss?: number;
-  deg_graze?: number;
-  deg_normal?: number;
-  deg_crit?: number;
-}
-
-/**
- * Weapon with item details
- */
-export interface WeaponWithItem {
-  item_id: string;
-  pattern: Database['public']['Enums']['weapon_pattern'];
-  spin_deg_per_s: number;
-  deg_injure: number;
-  deg_miss: number;
-  deg_graze: number;
-  deg_normal: number;
-  deg_crit: number;
-
-  // Item details
-  item: {
-    id: string;
-    user_id: string;
-    item_type_id: string;
-    level: number;
-    is_styled: boolean;
-    name?: string;           // Custom instance name
-    description?: string;    // Custom instance description
-    created_at: string;
-  };
 }
 
 // ============================================================================

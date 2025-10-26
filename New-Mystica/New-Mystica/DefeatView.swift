@@ -34,7 +34,7 @@ struct DefeatView: View {
             ScrollView {
                 VStack(spacing: 32) {
                     Spacer()
-                        .frame(height: 60)
+                        .frame(height: 30)
 
                     // Header Section
                     VStack(spacing: 16) {

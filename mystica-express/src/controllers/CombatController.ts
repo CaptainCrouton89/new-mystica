@@ -1,10 +1,9 @@
-import { Request, Response, NextFunction } from 'express';
+import { NextFunction, Request, Response } from 'express';
 import { combatService } from '../services/CombatService.js';
 import { enemyChatterService } from '../services/EnemyChatterService.js';
-import { chatterService } from '../services/ChatterService.js';
-import { ValidationError, NotFoundError, ExternalAPIError, NotImplementedError } from '../utils/errors.js';
-import type { EnemyChatterRequest, StartCombatRequest, AttackRequest, CompleteCombatRequest, DefenseRequest, PetChatterRequest, AbandonCombatRequest } from '../types/schemas.js';
 import type { CombatEventDetails } from '../types/api.types.js';
+import type { AbandonCombatRequest, AttackRequest, CompleteCombatRequest, DefenseRequest, EnemyChatterRequest, StartCombatRequest } from '../types/schemas.js';
+import { ExternalAPIError, NotFoundError, ValidationError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
 
 /**
@@ -45,12 +44,17 @@ export class CombatController {
 
       const attackResult = await combatService.executeAttack(session_id, tap_position_degrees);
 
-      logger.info('📤 Attack response', {
+      // Event type is always 'player_attacks' - hit/miss is determined by damage value
+      const chatterEventType = 'player_attacks';
+
+      logger.info('⚔️  Attack executed', {
         sessionId: session_id,
-        combatStatus: attackResult.combat_status,
-        playerHP: attackResult.player_hp_remaining,
-        enemyHP: attackResult.enemy_hp_remaining,
-        hasRewards: !!attackResult.rewards
+        chatterEvent: chatterEventType,
+        damageDealt: attackResult.player_damage.final_damage,
+        isCritical: attackResult.player_damage.crit_occurred,
+        playerHPRemaining: attackResult.player_hp_remaining,
+        enemyHPRemaining: attackResult.enemy_hp_remaining,
+        combatStatus: attackResult.combat_status
       });
 
       res.json(attackResult);
@@ -150,12 +154,13 @@ export class CombatController {
 
       const defenseResult = await combatService.executeDefense(session_id, tap_position_degrees);
 
-      logger.info('📤 Defense response', {
+      logger.info('🛡️  Defense executed', {
         sessionId: session_id,
-        combatStatus: defenseResult.combat_status,
-        playerHP: defenseResult.player_hp_remaining,
-        enemyHP: defenseResult.enemy_hp_remaining,
-        hasRewards: !!defenseResult.rewards
+        chatterEvent: 'enemy_attacks', // Enemy's automatic attack while player defends
+        damageReceived: defenseResult.enemy_damage.final_damage,
+        playerHPRemaining: defenseResult.player_hp_remaining,
+        enemyHPRemaining: defenseResult.enemy_hp_remaining,
+        combatStatus: defenseResult.combat_status
       });
 
       res.json(defenseResult);
@@ -165,51 +170,6 @@ export class CombatController {
     }
   };
 
-  /**
-   * POST /combat/pet-chatter
-   * Generate AI-powered pet dialogue for combat events
-   */
-  generatePetChatter = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try {
-      const { session_id, event_type, event_details } = req.body as PetChatterRequest;
-
-      // Convert request format to internal CombatEventDetails format
-      const combatEventDetails = {
-        turn_number: event_details?.turn_number ?? 1,
-        player_hp_pct: 1.0, // Default values since pet chatter schema doesn't require these
-        enemy_hp_pct: 1.0,
-        damage: event_details?.damage,
-        accuracy: event_details?.accuracy,
-        is_critical: event_details?.is_critical
-      };
-
-      const dialogueResponse = await chatterService.generatePetChatter(
-        session_id,
-        event_type,
-        combatEventDetails
-      );
-
-      res.json({
-        success: true,
-        dialogue_response: dialogueResponse,
-        cached: false // Always false for real-time generation per spec
-      });
-
-    } catch (error) {
-      if (error instanceof ExternalAPIError) {
-        // Return 503 Service Unavailable for AI service failures
-        res.status(503).json({
-          error: {
-            code: 'AI_SERVICE_UNAVAILABLE',
-            message: 'AI service temporarily unavailable (fallback to canned phrases)',
-            details: error.message
-          }
-        });
-        return;
-      }
-      next(error);
-    }
-  };
   /**
    * POST /combat/enemy-chatter
    * Generate AI-powered enemy dialogue for combat events
@@ -244,7 +204,10 @@ export class CombatController {
         is_critical,
         turn_number,
         player_hp_pct,
-        enemy_hp_pct
+        enemy_hp_pct,
+        player_zone,
+        enemy_zone,
+        player_action
       } = event_details;
 
       // Convert to internal format expected by EnemyChatterService
@@ -255,6 +218,9 @@ export class CombatController {
         turn_number,
         player_hp_pct: player_hp_pct, // 0.0-1.0 range
         enemy_hp_pct: enemy_hp_pct,   // 0.0-1.0 range
+        player_zone,
+        enemy_zone,
+        player_action
       };
 
       // Generate dialogue using EnemyChatterService
@@ -265,6 +231,18 @@ export class CombatController {
           event_type,
           combatEventDetails
         );
+
+        logger.info('💬 [ENEMY_CHATTER] Generated dialogue', {
+          sessionId: session_id,
+          eventType: event_type,
+          dialogue: dialogueResponse.dialogue,
+          tone: dialogueResponse.dialogue_tone,
+          wasAI: dialogueResponse.was_ai_generated,
+          playerZone: combatEventDetails.player_zone,
+          enemyZone: combatEventDetails.enemy_zone,
+          playerAction: combatEventDetails.player_action,
+          generationTimeMs: dialogueResponse.generation_time_ms
+        });
       } catch (error) {
         if (error instanceof ExternalAPIError) {
           // Return 503 Service Unavailable for AI service failures

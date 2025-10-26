@@ -15,6 +15,7 @@ class CombatSessionBuilder {
     private var turnNumber = 1
     private var currentTurnOwner = "player"
     private var status = CombatStatus.active
+    private var location: CombatLocation? = nil
     private var enemy = CombatEnemy.testData()
     private var playerStats = CombatPlayerStats.testData()
     private var weaponConfig = WeaponConfig.testData()
@@ -53,6 +54,11 @@ class CombatSessionBuilder {
 
     func withStatus(_ status: CombatStatus) -> CombatSessionBuilder {
         self.status = status
+        return self
+    }
+
+    func withLocation(_ location: CombatLocation?) -> CombatSessionBuilder {
+        self.location = location
         return self
     }
 
@@ -209,6 +215,7 @@ class CombatSessionBuilder {
             playerId: playerId,
             enemyId: enemyId,
             status: status,
+            location: location,
             enemy: enemy,
             playerStats: playerStats,
             weaponConfig: weaponConfig,
@@ -552,6 +559,24 @@ extension Enemy {
             goldMin: goldMin,
             goldMax: goldMax,
             materialDropPool: materialDropPool
+        )
+    }
+}
+
+extension CombatLocation {
+    static func testData(
+        id: String = "location_123",
+        name: String? = "Mystic Forest",
+        locationType: String? = "forest",
+        backgroundImageUrl: String? = "https://example.com/forest-background.jpg",
+        imageUrl: String? = "https://example.com/forest-icon.jpg"
+    ) -> CombatLocation {
+        return CombatLocation(
+            id: id,
+            name: name,
+            locationType: locationType,
+            backgroundImageUrl: backgroundImageUrl,
+            imageUrl: imageUrl
         )
     }
 }

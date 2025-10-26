@@ -463,7 +463,7 @@ extension MaterialDrop {
             "material_id": "\(materialId)",
             "name": "\(name)",
             "style_id": "\(styleId)",
-            "style_name": "\(styleName)",
+            "display_name": "\(styleName)",
             "image_url": \(imageUrl != nil ? "\"\(imageUrl!)\"" : "null")
         }
         """

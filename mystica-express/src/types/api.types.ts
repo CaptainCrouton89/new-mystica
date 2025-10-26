@@ -5,6 +5,11 @@
  * These types are used across controllers, services, and database layers.
  */
 
+import { Database } from './database.types';
+
+// Helper types for database table access
+type Tables<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Row'];
+
 // ============================================================================
 // Core Domain Models
 // ============================================================================
@@ -34,102 +39,6 @@ export interface UserProfile {
   last_login: string;
 }
 
-/**
- * Player-owned item instance
- */
-export interface Item {
-  id: string;
-  user_id: string;
-  item_type_id: string;
-  level: number;
-  base_stats: Stats;
-  current_stats: Stats;
-  material_combo_hash?: string;
-  image_url?: string;
-  is_styled?: boolean;
-  materials?: AppliedMaterial[];
-  item_type?: ItemType;
-  name?: string | null;           // Custom instance name
-  description?: string | null;    // Custom instance description
-  created_at: string;
-  updated_at: string;
-}
-
-/**
- * Player item with equipment-specific fields for API responses
- */
-export interface PlayerItem {
-  id: string;
-  base_type: string;
-  item_type_id: string;
-  category: EquipmentSlot;
-  level: number;
-  rarity: Rarity;
-  applied_materials: AppliedMaterial[];
-  materials?: AppliedMaterial[]; // For compatibility with tests
-  computed_stats: Stats;
-  material_combo_hash: string | null;
-  generated_image_url: string;
-  image_generation_status: string | null;
-  craft_count: number;
-  is_styled: boolean;
-  is_equipped: boolean;
-  equipped_slot: string | null;
-  name?: string | null;           // Custom instance name
-  description?: string | null;    // Custom instance description
-}
-
-/**
- * Item template/blueprint from seed data
- */
-export interface ItemType {
-  id: string;
-  name: string;
-  category: 'weapon' | 'offhand' | 'head' | 'armor' | 'feet' | 'accessory' | 'pet';
-  equipment_slot: EquipmentSlot;
-  base_stats: Stats;
-  rarity: Rarity;
-  image_url?: string;
-  description?: string;
-}
-
-/**
- * Material template from seed data
- */
-export interface Material {
-  id: string;
-  name: string;
-  stat_modifiers: Stats;
-  base_drop_weight: number;
-  description?: string;
-  rarity?: Rarity;
-  image_url?: string; // R2 URL for material icon
-}
-
-/**
- * Applied material instance on an item
- */
-export interface AppliedMaterial {
-  id: string;
-  material_id: string;
-  style_id: string;
-  style_name?: string;
-  slot_index: number;
-  material: Material;
-}
-
-
-/**
- * Simplified material stack for inventory response
- */
-export interface MaterialStack {
-  material_id: string;
-  material_name: string;
-  style_id: string;
-  style_name: string;
-  quantity: number;
-  is_styled: boolean;
-}
 
 /**
  * Detailed material stack with full material data (used internally by MaterialService)
@@ -139,9 +48,59 @@ export interface MaterialStackDetailed {
   user_id: string;
   material_id: string;
   style_id: string;
-  style_name?: string;
+  display_name?: string; // Human-readable style display name
   quantity: number;
-  material: Material;
+  material: Tables<'materials'>;
+}
+
+/**
+ * Material stack for inventory display (simplified)
+ */
+export interface MaterialStack {
+  material_id: string;
+  material_name: string;
+  style_id: string;
+  display_name: string;
+  quantity: number;
+  is_styled: boolean;
+}
+
+/**
+ * Applied material on an item (simplified view)
+ */
+export interface AppliedMaterial {
+  id: string;
+  material_id: string;
+  name: string;
+  slot_index?: number;
+  stat_modifiers?: Stats;
+  style_id: string | null;
+}
+
+/**
+ * Item with details for API responses
+ */
+export interface Item {
+  id: string;
+  user_id: string;
+  item_type_id: string;
+  level: number;
+  base_stats: Stats;
+  material_combo_hash?: string;
+  image_url?: string;
+  is_styled?: boolean;
+  materials?: AppliedMaterial[];
+  item_type?: {
+    id: string;
+    name: string;
+    category: string;
+    equipment_slot: EquipmentSlot;
+    base_stats: Stats;
+    rarity: Rarity;
+    description?: string;
+  };
+  created_at: string;
+  updated_at: string;
 }
 
 
@@ -177,14 +136,14 @@ export type EquipmentSlot =
  * Complete equipment loadout (8 slots)
  */
 export interface EquipmentSlots {
-  weapon?: PlayerItem;
-  offhand?: PlayerItem;
-  head?: PlayerItem;
-  armor?: PlayerItem;
-  feet?: PlayerItem;
-  accessory_1?: PlayerItem;
-  accessory_2?: PlayerItem;
-  pet?: PlayerItem;
+  weapon?: Tables<'items'>;
+  offhand?: Tables<'items'>;
+  head?: Tables<'items'>;
+  armor?: Tables<'items'>;
+  feet?: Tables<'items'>;
+  accessory_1?: Tables<'items'>;
+  accessory_2?: Tables<'items'>;
+  pet?: Tables<'items'>;
 }
 
 /**
@@ -209,14 +168,7 @@ export type Rarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
 /**
  * Rarity definition from database
  */
-export interface RarityDefinition {
-  rarity: 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
-  stat_multiplier: number;
-  base_drop_rate: number;
-  display_name: string;
-  color_hex: string | null;
-  created_at: string;
-}
+export type RarityDefinition = Tables<'raritydefinitions'>;
 
 /**
  * API response for GET /rarities
@@ -245,8 +197,8 @@ export type LocationType = 'forest' | 'cave' | 'ruins' | 'tower' | 'dungeon';
  */
 export interface EquipResult {
   success: boolean;
-  unequipped_item?: PlayerItem;
-  equipped_item: PlayerItem;
+  unequipped_item?: Tables<'items'>;
+  equipped_item: Tables<'items'>;
   slot: EquipmentSlot;
   updated_player_stats: PlayerStats;
   message?: string;
@@ -257,7 +209,7 @@ export interface EquipResult {
  */
 export interface ApplyMaterialResult {
   success: boolean;
-  updated_item: PlayerItem;
+  updated_item: Tables<'items'>;
   is_first_craft: boolean;
   craft_count: number;
   image_url: string;
@@ -270,9 +222,9 @@ export interface ApplyMaterialResult {
  */
 export interface ReplaceMaterialResult {
   success: boolean;
-  updated_item: PlayerItem;
+  updated_item: Tables<'items'>;
   gold_spent: number;
-  replaced_material: AppliedMaterial;
+  replaced_material: Tables<'itemmaterials'>;
   refunded_material?: MaterialStackDetailed;
   message?: string;
 }
@@ -283,6 +235,7 @@ export interface ReplaceMaterialResult {
 export interface UpgradeResult {
   success: boolean;
   updated_item: Item;
+  computed_stats: Stats;
   gold_spent: number;
   new_gold_balance: number;
   new_vanity_level: number;
@@ -292,7 +245,7 @@ export interface UpgradeResult {
  * Inventory response
  */
 export interface InventoryResponse {
-  items: Item[];
+  items: Tables<'items'>[];
   total_items: number;
   total_materials: number;
   storage_capacity: {
@@ -317,6 +270,62 @@ export interface CombatSession {
   turn_count: number;
   started_at: string;
   completed_at?: string;
+  location?: {
+    id: string;
+    name: string | null;
+    location_type: string | null;
+    background_image_url: string | null;
+    image_url: string | null;
+  };
+}
+
+/**
+ * Combat initialization response from startCombat
+ * Includes full session, player, enemy, and location details
+ */
+export interface CombatStartResponse {
+  session_id: string;
+  player_id: string;
+  enemy_id: string;
+  status: 'active';
+  player_hp: number;
+  enemy_hp: number;
+  location: {
+    id: string;
+    name: string | null;
+    location_type: string | null;
+    background_image_url: string | null;
+    image_url: string | null;
+  };
+  enemy: {
+    id: string;
+    name: string;
+    image_url: string | null;
+    style_id: string;
+    atk_power: number;
+    atk_accuracy: number;
+    def_power: number;
+    def_accuracy: number;
+    hp: number;
+  };
+  player_stats: {
+    hp: number;
+    atkPower: number;
+    atkAccuracy: number;
+    defPower: number;
+    defAccuracy: number;
+  };
+  weapon_config: {
+    pattern: string;
+    spin_deg_per_s: number;
+    adjusted_bands: {
+      deg_injure: number;
+      deg_miss: number;
+      deg_graze: number;
+      deg_normal: number;
+      deg_crit: number;
+    };
+  };
 }
 
 /**
@@ -347,7 +356,7 @@ export interface CombatRewards {
     material_id: string;
     name: string;
     style_id: string;
-    style_name: string;
+    display_name: string;
   }>;
   /** Item drops from loot pools with full details (only present for victory) */
   items?: Array<{
@@ -357,7 +366,7 @@ export interface CombatRewards {
     category: string;
     rarity: string;
     style_id: string;
-    style_name: string;
+    display_name: string;
     generated_image_url: string | null;
   }>;
   /** Experience points earned from combat (only present for victory) */
@@ -552,9 +561,8 @@ export type PetChatterEventType =
  */
 export type EnemyChatterEventType =
   | 'combat_start'
-  | 'player_hit'
-  | 'player_miss'
-  | 'enemy_hit'
+  | 'player_attacks'
+  | 'enemy_attacks'
   | 'low_player_hp'
   | 'near_victory'
   | 'defeat'
@@ -704,11 +712,8 @@ export type TransactionSinkType =
  */
 export interface StyleDefinition {
   id: string;
-  style_name: string;
   display_name: string;
-  spawn_rate: number;
   description: string | null;
-  visual_modifier: string | null;
   created_at: string;
 }
 
@@ -752,13 +757,7 @@ export interface ExperienceAwardResult {
 /**
  * Level reward definition from LevelRewards table
  */
-export interface LevelReward {
-  level: number;
-  reward_type: 'gold' | 'feature_unlock' | 'cosmetic';
-  reward_description: string;
-  reward_value: number;
-  is_claimable: boolean;
-}
+export type LevelReward = Omit<Tables<'levelrewards'>, 'created_at'>;
 
 /**
  * Reward claim result
@@ -856,14 +855,7 @@ export interface EnemyRealizedStats {
  * Polymorphic enemy loot table entry
  * lootable_type discriminates between material and item_type drops
  */
-export interface EnemyLoot {
-  id: string;
-  enemy_type_id: string;
-  lootable_type: 'material' | 'item_type';
-  lootable_id: string;
-  drop_weight: number;
-  guaranteed: boolean;
-}
+export type EnemyLoot = Omit<Tables<'enemyloot'>, 'created_at'>;
 
 // ============================================================================
 // Combat Dialogue System (F-12)
@@ -874,9 +866,8 @@ export interface EnemyLoot {
  */
 export type CombatEventType =
   | 'combat_start'
-  | 'player_hit'
-  | 'player_miss'
-  | 'enemy_hit'
+  | 'player_attacks'
+  | 'enemy_attacks'
   | 'low_player_hp'
   | 'near_victory'
   | 'defeat'
@@ -892,6 +883,12 @@ export interface CombatEventDetails {
   turn_number: number;
   player_hp_pct: number;
   enemy_hp_pct: number;
+  /** Zone hit by player (1=best, 5=worst/self-injury) */
+  player_zone?: 1 | 2 | 3 | 4 | 5;
+  /** Zone hit by enemy */
+  enemy_zone?: 1 | 2 | 3 | 4 | 5;
+  /** Player's action this turn */
+  player_action?: 'attack' | 'defend';
 }
 
 /**

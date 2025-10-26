@@ -102,6 +102,11 @@ features:
     priority: "medium"
     status: "planned"
 
+  - id: "F-14"
+    description: "Environmental Photography & Location-Based Item Generation - Capture real-world environmental photos to generate contextual items/materials with location metadata (latitude/longitude), item history tracking with place-based collection log, camera permissions handling, and optional original image archival"
+    priority: "high"
+    status: "planned"
+
 core_systems:
   economy:
     currencies:

@@ -139,42 +139,6 @@ export class AnalyticsRepository extends BaseRepository<AnalyticsEvent> {
     return data;
   }
 
-  /**
-   * Get event counts grouped by time period
-   *
-   * Uses DATE_TRUNC for PostgreSQL time-series aggregation
-   *
-   * @param eventName - Event name to count
-   * @param groupBy - Time period grouping
-   * @returns Object mapping time periods to counts
-   * @throws DatabaseError on query failure
-   */
-  async getEventCounts(
-    eventName: string,
-    groupBy: "hour" | "day" | "week"
-  ): Promise<Record<string, number>> {
-    const { data, error } = await this.client.rpc("get_event_counts", {
-      p_event_name: eventName,
-      p_group_by: groupBy,
-    });
-
-    if (error) {
-      throw new DatabaseError(`Failed to get event counts: ${error.message}`);
-    }
-
-    if (!data) {
-      throw new DatabaseError("No event count data returned");
-    }
-
-    // Transform array of {period, count} to object
-    const result: Record<string, number> = {};
-    data.forEach((row: { period: string; count: number }) => {
-      result[row.period] = row.count;
-    });
-
-    return result;
-  }
-
   // =====================================
   // PET CHATTER LOGGING (F-11)
   // =====================================
@@ -312,7 +276,7 @@ export class AnalyticsRepository extends BaseRepository<AnalyticsEvent> {
    *
    * @param sessionId - Combat session ID
    * @param enemyTypeId - Enemy type ID
-   * @param eventType - Chatter event type (e.g., 'combat_start', 'player_miss')
+   * @param eventType - Chatter event type (e.g., 'combat_start', 'player_attacks', 'enemy_attacks')
    * @param dialogue - Generated dialogue text
    * @param playerContext - Player metadata for AI context (JSONB)
    * @param generationTimeMs - AI generation latency in milliseconds
@@ -465,38 +429,6 @@ export class AnalyticsRepository extends BaseRepository<AnalyticsEvent> {
     if (error) {
       throw new DatabaseError(
         `Failed to query events by property: ${error.message}`
-      );
-    }
-
-    if (!data) {
-      throw new DatabaseError("No data returned from query");
-    }
-    return data;
-  }
-
-  /**
-   * Get unique values for a JSONB property across events
-   *
-   * @param propertyPath - JSONB property path
-   * @param eventName - Optional event name filter
-   * @returns Array of unique property values
-   * @throws DatabaseError on query failure
-   */
-  async getUniquePropertyValues(
-    propertyPath: string,
-    eventName?: string
-  ): Promise<unknown[]> {
-    const { data, error } = await this.client.rpc(
-      "get_unique_property_values",
-      {
-        p_property_path: propertyPath,
-        p_event_name: eventName,
-      }
-    );
-
-    if (error) {
-      throw new DatabaseError(
-        `Failed to get unique property values: ${error.message}`
       );
     }
 

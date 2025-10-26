@@ -28,7 +28,8 @@ struct MaterialCard: View {
             SmallText(material.name.capitalized)
                 .foregroundColor(Color.textPrimary)
                 .multilineTextAlignment(.center)
-                .lineLimit(1)
+                .lineLimit(2)
+                .frame(height: 40)
         }
         .contentShape(Rectangle())
     }
@@ -175,7 +176,7 @@ struct TappableMaterialCard: View {
             statModifiers: StatModifier(atkPower: 1.1, atkAccuracy: 1.0, defPower: 1.05, defAccuracy: 1.0),
             imageUrl: mockMaterialDetail1.imageUrl,
             material: mockMaterialDetail1,
-            styleName: "Rustic"
+            displayName: "Rustic"
         ),
         MaterialInventoryStack(
             materialId: "crystal_002",
@@ -186,7 +187,7 @@ struct TappableMaterialCard: View {
             statModifiers: StatModifier(atkPower: 1.2, atkAccuracy: 1.1, defPower: 1.0, defAccuracy: 1.05),
             imageUrl: mockMaterialDetail2.imageUrl,
             material: mockMaterialDetail2,
-            styleName: "Holographic"
+            displayName: "Holographic"
         ),
         MaterialInventoryStack(
             materialId: "fabric_003",
@@ -197,7 +198,7 @@ struct TappableMaterialCard: View {
             statModifiers: StatModifier(atkPower: 1.0, atkAccuracy: 1.15, defPower: 1.1, defAccuracy: 1.1),
             imageUrl: mockMaterialDetail3.imageUrl,
             material: mockMaterialDetail3,
-            styleName: "Pixel Art"
+            displayName: "Pixel Art"
         )
     ]
 

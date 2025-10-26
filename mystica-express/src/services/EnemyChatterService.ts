@@ -9,8 +9,8 @@ import type {
   DialogueResponse,
   PlayerCombatContext
 } from '../types/api.types.js';
-import { DatabaseError, ExternalAPIError, NotFoundError } from '../utils/errors';
 import { Database } from '../types/database.types.js';
+import { DatabaseError, ExternalAPIError, NotFoundError } from '../utils/errors';
 
 const aiDialogueSchema = z.object({
   dialogue: z.string().describe('A single line of dialogue appropriate for the combat event'),
@@ -77,8 +77,8 @@ export class EnemyChatterService {
         dialogueTone = aiResult.dialogue_tone;
         wasAIGenerated = true;
       } catch (error) {
-        
-        dialogue = this.selectFallbackTaunt(enemyTypeData, eventType);
+
+        dialogue = this.selectFallbackTaunt(enemyTypeData, eventType, eventDetails);
         dialogueTone = this.getDefaultToneForEvent(eventType);
         wasAIGenerated = false;
       }
@@ -156,7 +156,7 @@ export class EnemyChatterService {
       throw new DatabaseError(`Enemy type ${enemyType.id} missing required dialogue_guidelines field`);
     }
 
-    const system = `You are a ${enemyType.name} in combat.
+    let systemContext = `You are a ${enemyType.name} in combat.
 
 Personality Traits:
 ${personalityDescription}
@@ -168,9 +168,45 @@ Generate a single line of dialogue appropriate for the current combat situation.
 - Reflect your personality and combat situation
 - Be contextually appropriate for the event type
 - Use 10 words or less
-- Show awareness of the combat situation (HP levels, turn progression, etc.)
+- Show awareness of the combat situation (HP levels, turn progression, zones hit, etc.)
+`;
+
+    if (eventType === 'player_attacks') {
+      systemContext += `
+SCENARIO: PLAYER ATTACKED YOU
+The player just launched an attack${eventDetails.damage ? (eventDetails.damage > 0 ? ' that hit you!' : ' but missed!') : ''}
+
+${eventDetails.damage === 0 ? `
+ATTACK RESULT: MISS
+The player's attack didn't connect.` : `
+ZONE RESPONSE GUIDANCE:
+- Player zone 1-2 (green): They landed a good/excellent strike! You should be worried, concerned, or show respect.
+- Player zone 3 (yellow): Neutral attack. Standard defensive banter.
+- Player zone 4 (orange): Poor attack that barely connected. Mock their weakness.
+- Player zone 5 (red): They hurt THEMSELVES attacking you! Maximum mockery - "Did you just hurt yourself?"`}`;
+    } else if (eventType === 'enemy_attacks') {
+      // Enemy's automatic attack during player's defense turn
+      systemContext += `
+SCENARIO: YOUR TURN - YOU ATTACK
+It's your turn to attack while the player defends. Their defense zone determines damage mitigation.
+
+THEIR DEFENSE ZONE GUIDANCE (determines damage mitigation):
+- Player zone 1-2 (green): Excellent defense! Show respect while remaining confident.
+- Player zone 3 (yellow): Neutral defense. Standard aggressive taunt.
+- Player zone 4 (orange): Weak defense! Mock their poor defensive effort.
+- Player zone 5 (red): Terrible defense - they injured themselves! Brutal mockery.
+
+YOUR ATTACK ZONE GUIDANCE (your attack power):
+- Your zone 1-2 (green): Powerful attack! Be very confident.
+- Your zone 3 (yellow): Standard attack. Neutral aggression.
+- Your zone 4 (orange): Weak attack. Less confident.`;
+    }
+
+    systemContext += `
 
 Consider the player's combat history when crafting your response - if they're experienced, you might be more respectful or challenging. If they're new, you might be more mocking or confident.`;
+
+    const system = systemContext;
 
     const eventContext = this.formatEventContext(eventType, eventDetails);
     const playerContextText = this.formatPlayerContext(playerContext);
@@ -207,28 +243,52 @@ Generate appropriate dialogue for this situation.`;
   }
 
   private formatEventContext(eventType: CombatEventType, eventDetails: CombatEventDetails): string {
-    const { damage, accuracy, is_critical, turn_number, player_hp_pct, enemy_hp_pct } = eventDetails;
+    const { damage, is_critical, turn_number, player_hp_pct, enemy_hp_pct, player_zone, enemy_zone } = eventDetails;
     const playerHpPercent = Math.round((player_hp_pct ?? 0) * 100);
     const enemyHpPercent = Math.round((enemy_hp_pct ?? 0) * 100);
+
+    // Zone descriptions for narrative context
+    const zoneNames = {
+      1: 'perfect green zone (best)',
+      2: 'good green zone',
+      3: 'neutral yellow zone',
+      4: 'poor orange zone',
+      5: 'disastrous red zone (self-injury)'
+    };
+
+    const playerZoneText = player_zone ? ` hitting ${zoneNames[player_zone]}` : '';
+    const enemyZoneText = enemy_zone ? ` with ${zoneNames[enemy_zone]}` : '';
 
     switch (eventType) {
       case 'combat_start':
         return `Turn ${turn_number}: Combat begins. Player HP: ${playerHpPercent}%, Enemy HP: ${enemyHpPercent}%`;
 
-      case 'player_hit':
-        return `Turn ${turn_number}: Player hit enemy for ${damage} damage${is_critical ? ' (CRITICAL!)' : ''}. Player HP: ${playerHpPercent}%, Enemy HP: ${enemyHpPercent}%`;
+      case 'player_attacks':
+        if (damage === 0) {
+          return `Turn ${turn_number}: Player attacked but missed completely${playerZoneText}. Player HP: ${playerHpPercent}%, Enemy HP: ${enemyHpPercent}%`;
+        } else if (player_zone === 5) {
+          return `Turn ${turn_number}: Player attacked and hit RED ZONE - they injured themselves for ${damage} damage! The enemy is unscathed. This is the ultimate humiliation${playerZoneText}. Player HP: ${playerHpPercent}%, Enemy HP: ${enemyHpPercent}%`;
+        } else if (player_zone === 1 || player_zone === 2) {
+          return `Turn ${turn_number}: Player hit enemy for ${damage} damage${is_critical ? ' (CRITICAL!)' : ''}. Player hit ${zoneNames[player_zone || 3]} - they're doing very well. Enemy should be concerned. Player HP: ${playerHpPercent}%, Enemy HP: ${enemyHpPercent}%`;
+        } else {
+          return `Turn ${turn_number}: Player hit enemy for ${damage} damage${is_critical ? ' (CRITICAL!)' : ''}${playerZoneText}. Player HP: ${playerHpPercent}%, Enemy HP: ${enemyHpPercent}%`;
+        }
 
-      case 'player_miss':
-        return `Turn ${turn_number}: Player missed their attack. Player HP: ${playerHpPercent}%, Enemy HP: ${enemyHpPercent}%`;
-
-      case 'enemy_hit':
-        return `Turn ${turn_number}: Enemy hit player for ${damage} damage${is_critical ? ' (CRITICAL!)' : ''}. Player HP: ${playerHpPercent}%, Enemy HP: ${enemyHpPercent}%`;
+      case 'enemy_attacks':
+        // Enemy attacks during defense phase - use both player's defense zone and enemy's attack zone
+        if (player_zone === 5) {
+          return `Turn ${turn_number}: Player tried to DEFEND but hit RED ZONE - catastrophic defense failure! Enemy struck${enemyZoneText} for ${damage} damage. Player HP: ${playerHpPercent}%, Enemy HP: ${enemyHpPercent}%`;
+        } else if (player_zone === 1 || player_zone === 2) {
+          return `Turn ${turn_number}: Player defended well (${zoneNames[player_zone || 3]}), but enemy still managed to strike${enemyZoneText} for ${damage} damage. Player HP: ${playerHpPercent}%, Enemy HP: ${enemyHpPercent}%`;
+        } else {
+          return `Turn ${turn_number}: Player tried to defend${playerZoneText}, but enemy struck${enemyZoneText} for ${damage} damage${is_critical ? ' (CRITICAL!)' : ''}. Player HP: ${playerHpPercent}%, Enemy HP: ${enemyHpPercent}%`;
+        }
 
       case 'low_player_hp':
-        return `Turn ${turn_number}: Player health is critically low (${playerHpPercent}%). Enemy HP: ${enemyHpPercent}%`;
+        return `Turn ${turn_number}: Player health is critically low (${playerHpPercent}%). Enemy HP: ${enemyHpPercent}%. Victory is near!`;
 
       case 'near_victory':
-        return `Turn ${turn_number}: Enemy health is critically low (${enemyHpPercent}%). Player HP: ${playerHpPercent}%`;
+        return `Turn ${turn_number}: Enemy health is critically low (${enemyHpPercent}%). Player HP: ${playerHpPercent}%. The player is winning!`;
 
       case 'defeat':
         return `Turn ${turn_number}: Player has been defeated. Final Enemy HP: ${enemyHpPercent}%`;
@@ -252,19 +312,17 @@ Generate appropriate dialogue for this situation.`;
 - Current streak: ${current_streak} ${current_streak >= 0 ? 'wins' : 'losses'}`;
   }
 
-  private selectFallbackTaunt(enemyType: EnemyType, eventType: CombatEventType): string {
-    return this.getGenericTaunt(eventType);
+  private selectFallbackTaunt(enemyType: EnemyType, eventType: CombatEventType, eventDetails?: CombatEventDetails): string {
+    return this.getGenericTaunt(eventType, eventDetails);
   }
 
   private getDefaultToneForEvent(eventType: CombatEventType): string {
     switch (eventType) {
       case 'combat_start':
         return 'confident';
-      case 'player_hit':
+      case 'player_attacks':
         return 'angry';
-      case 'player_miss':
-        return 'mocking';
-      case 'enemy_hit':
+      case 'enemy_attacks':
         return 'triumphant';
       case 'low_player_hp':
         return 'cruel';
@@ -279,12 +337,33 @@ Generate appropriate dialogue for this situation.`;
     }
   }
 
-  private getGenericTaunt(eventType: CombatEventType): string {
+  private getGenericTaunt(eventType: CombatEventType, eventDetails?: CombatEventDetails): string {
+    // Zone 5 self-injury gets special taunts (only for player_attacks)
+    if (eventType === 'player_attacks' && eventDetails?.player_zone === 5) {
+      const zone5Taunts = [
+        "Did you just hurt yourself? Hilarious!",
+        "You're your own worst enemy!",
+        "Keep it up, you're doing my job for me!",
+        "That's embarrassing...",
+        "Maybe try NOT hitting yourself?"
+      ];
+      return zone5Taunts[Math.floor(Math.random() * zone5Taunts.length)];
+    }
+
+    // Green zone (1-2) - player doing well, enemy concerned
+    if (eventDetails?.player_zone && eventDetails.player_zone <= 2) {
+      if (eventType === 'player_attacks') {
+        return "You're getting lucky...";
+      } else if (eventType === 'enemy_attacks') {
+        // Enemy's attack against strong defense
+        return "This changes nothing!";
+      }
+    }
+
     const genericTaunts = {
       combat_start: "You dare challenge me?",
-      player_hit: "Is that the best you can do?",
-      player_miss: "Pathetic! You can't even hit me!",
-      enemy_hit: "Feel my power!",
+      player_attacks: "Is that the best you can do?",
+      enemy_attacks: "Feel my power!",
       low_player_hp: "You're finished!",
       near_victory: "This cannot be!",
       defeat: "I... will... return...",

@@ -1,12 +1,16 @@
 import { NextFunction, Request, Response } from 'express';
 import { itemService } from '../services/ItemService';
 import { materialService } from '../services/MaterialService';
+import { StatsService } from '../services/StatsService.js';
+import type { ItemWithMaterials, MaterialInstanceWithTemplate } from '../types/repository.types.js';
+import type { Stats } from '../types/api.types.js';
 import type {
   AddPetChatterRequest,
   ApplyMaterialRequest,
-  AssignPetPersonalityBody,
-  ReplaceMaterialRequest
+  AssignPetPersonalityBody
 } from '../types/schemas.js';
+
+const statsService = new StatsService();
 
 /**
  * Item Controller
@@ -61,16 +65,16 @@ export class ItemController {
       // Transform Item to PlayerItem format for frontend compatibility
       const playerItem = {
         id: result.updated_item.id,
-        base_type: result.updated_item.name || result.updated_item.item_type?.name || 'Unknown',
-        description: result.updated_item.description || result.updated_item.item_type?.description || null,
-        name: result.updated_item.name || null,
+        base_type: result.updated_item.item_type?.name || 'Unknown',
+        description: result.updated_item.item_type?.description || null,
+        name: result.updated_item.item_type?.name || null,
         item_type_id: result.updated_item.item_type_id,
         category: result.updated_item.item_type?.category || 'misc',
         level: result.updated_item.level,
         rarity: result.updated_item.item_type?.rarity || 'common',
         applied_materials: result.updated_item.materials || [],
         materials: result.updated_item.materials || [],
-        computed_stats: result.updated_item.current_stats,
+        computed_stats: result.computed_stats,
         material_combo_hash: result.updated_item.material_combo_hash || null,
         generated_image_url: result.updated_item.image_url || null,
         image_generation_status: null,
@@ -211,19 +215,73 @@ export class ItemController {
     try {
       const userId = req.user!.id;
       const { item_id } = req.params;
-      const { material_id, style_id, slot_index } = (req.validated?.body || req.body) as ApplyMaterialRequest;
+      const { material_id, slot_index } = (req.validated?.body || req.body) as ApplyMaterialRequest;
 
       const result = await materialService.applyMaterial({
         userId,
         itemId: item_id,
         materialId: material_id,
-        styleId: style_id,
         slotIndex: slot_index
       });
 
+      // Type assertion: result.updated_item is ItemWithMaterials from repository
+      const itemWithMaterials = result.updated_item as ItemWithMaterials;
+
+      // Transform materials to include style_id and name at top level for Swift compatibility
+      const appliedMaterials = (itemWithMaterials.materials || []).map(m => {
+        if (!m.materials?.name) {
+          throw new Error(`Material missing name field for material_id: ${m.material_id}`);
+        }
+        if (!m.materials?.style_id) {
+          throw new Error(`Material missing style_id field for material_id: ${m.material_id}`);
+        }
+        return {
+          ...m,
+          name: m.materials.name,
+          style_id: m.materials.style_id
+        };
+      });
+
+      // Compute stats
+      const baseStats = itemWithMaterials.item_type.base_stats_normalized as Stats;
+      const materialsForStats: MaterialInstanceWithTemplate[] = itemWithMaterials.materials.map(m => ({
+        ...m,
+        material: {
+          ...m.materials,
+          stat_modifiers: m.materials.stat_modifiers as Stats
+        }
+      }));
+      const computedStats = statsService.computeItemStats(
+        baseStats,
+        itemWithMaterials.level,
+        materialsForStats
+      );
+
+      // Transform to PlayerItem format for frontend compatibility (match upgradeItem response structure)
+      const updatedItemWithBaseType = {
+        id: itemWithMaterials.id,
+        base_type: itemWithMaterials.item_type.name,
+        description: itemWithMaterials.item_type.description || null,
+        name: itemWithMaterials.item_type.name,
+        item_type_id: itemWithMaterials.item_type_id,
+        category: itemWithMaterials.item_type.category,
+        level: itemWithMaterials.level,
+        rarity: itemWithMaterials.rarity,
+        applied_materials: appliedMaterials,
+        materials: appliedMaterials,
+        computed_stats: computedStats,
+        material_combo_hash: itemWithMaterials.material_combo_hash || null,
+        generated_image_url: result.image_url || null,
+        image_generation_status: null,
+        craft_count: result.craft_count,
+        is_styled: appliedMaterials.some(m => m.style_id !== 'normal'),
+        is_equipped: false, // Equipment status not tracked in material application
+        equipped_slot: null
+      };
+
       res.json({
         success: true,
-        updated_item: result.updated_item,
+        updated_item: updatedItemWithBaseType,
         image_url: result.image_url,
         is_first_craft: result.is_first_craft,
         craft_count: result.craft_count,
@@ -242,40 +300,6 @@ export class ItemController {
   replaceMaterial = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       throw new Error('replaceMaterial not yet implemented');
-    } catch (error) {
-      next(error);
-    }
-  };
-
-  /**
-   * DELETE /items/:item_id/materials/:slot_index
-   * Remove material from item slot
-   */
-  removeMaterial = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try {
-      const userId = req.user!.id;
-      const { item_id, slot_index } = req.params;
-
-      // Parse slot_index to number and validate
-      const slotIndex = parseInt(slot_index, 10);
-      if (isNaN(slotIndex) || slotIndex < 0 || slotIndex > 2) {
-        res.status(400).json({
-          success: false,
-          error: 'Invalid slot_index. Must be between 0 and 2'
-        });
-        return;
-      }
-
-      const result = await itemService.removeMaterial(item_id, slotIndex, userId);
-
-      res.json({
-        item: result.item,
-        stats: result.stats,
-        image_url: result.image_url,
-        gold_spent: result.gold_spent,
-        returned_material: result.returned_material,
-        new_gold_balance: result.new_gold_balance
-      });
     } catch (error) {
       next(error);
     }

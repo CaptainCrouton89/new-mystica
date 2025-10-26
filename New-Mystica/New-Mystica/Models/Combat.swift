@@ -16,12 +16,30 @@ enum CombatStatus: String, Codable, CaseIterable {
     case abandoned = "abandoned"
 }
 
+// MARK: - Combat Location Model (matches backend location object in combat response)
+struct CombatLocation: APIModel {
+    let id: String
+    let name: String?
+    let locationType: String?
+    let backgroundImageUrl: String?
+    let imageUrl: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case name
+        case locationType = "location_type"
+        case backgroundImageUrl = "background_image_url"
+        case imageUrl = "image_url"
+    }
+}
+
 // MARK: - Combat Session Model (matches backend startCombat response)
 struct CombatSession: APIModel {
     let sessionId: String
     let playerId: String
     let enemyId: String
     let status: CombatStatus
+    let location: CombatLocation?
     let enemy: CombatEnemy
     let playerStats: CombatPlayerStats
     let weaponConfig: WeaponConfig
@@ -38,6 +56,7 @@ struct CombatSession: APIModel {
         case playerId = "player_id"
         case enemyId = "enemy_id"
         case status
+        case location
         case enemy
         case playerStats = "player_stats"
         case weaponConfig = "weapon_config"
@@ -244,7 +263,7 @@ struct ItemDrop: APIModel {
     let category: String
     let rarity: String
     let styleId: String
-    let styleName: String
+    let displayName: String
     let generatedImageUrl: String?
 
     enum CodingKeys: String, CodingKey {
@@ -254,7 +273,7 @@ struct ItemDrop: APIModel {
         case category
         case rarity
         case styleId = "style_id"
-        case styleName = "style_name"
+        case displayName = "display_name"
         case generatedImageUrl = "generated_image_url"
     }
 }
@@ -286,14 +305,14 @@ struct MaterialDrop: APIModel {
     let materialId: String
     let name: String
     let styleId: String
-    let styleName: String
+    let displayName: String
     let imageUrl: String?
 
     enum CodingKeys: String, CodingKey {
         case materialId = "material_id"
         case name
         case styleId = "style_id"
-        case styleName = "style_name"
+        case displayName = "display_name"
         case imageUrl = "image_url"
     }
 }
@@ -327,7 +346,6 @@ struct AttackResult: APIModel {
 
     // Legacy fields for backwards compatibility (deprecated)
     let hitZone: String?
-    let baseMultiplier: Double?
     let critBonusMultiplier: Double?
     let damageDealt: Double?
 
@@ -341,7 +359,6 @@ struct AttackResult: APIModel {
         case rewards
         // Legacy
         case hitZone = "hit_zone"
-        case baseMultiplier = "base_multiplier"
         case critBonusMultiplier = "crit_bonus_multiplier"
         case damageDealt = "damage_dealt"
     }

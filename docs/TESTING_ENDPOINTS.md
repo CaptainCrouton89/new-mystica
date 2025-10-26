@@ -10,7 +10,7 @@ For local testing, use the **dev bypass authentication** header to skip JWT toke
 ```bash
 curl -X GET http://localhost:3000/api/v1/inventory \
   -H "X-Dev-Token: a0527824305b2d74a9d4386fea1fae904dad4876c12329e72c7fcdba067f5920" \
-  -H "X-Dev-User-Id: 123e4567-e89b-12d3-a456-426614174000" \
+  -H "X-Dev-User-Id: 85EF3561-6C9E-4D6D-B02D-FE3FFD08658A" \
   -H "X-Dev-Email: admin@mystica.app"
 ```
 
@@ -18,8 +18,8 @@ curl -X GET http://localhost:3000/api/v1/inventory \
 ```bash
 curl -X GET http://localhost:3000/api/v1/inventory \
   -H "X-Dev-Token: a0527824305b2d74a9d4386fea1fae904dad4876c12329e72c7fcdba067f5920" \
-  -H "X-Dev-User-Id: a7f99fed-262b-43e2-a88c-a8c5e4720577" \
-  -H "X-Dev-Device-Id: EBC2A413-66A2-4566-9339-0B5B1DE4A788"
+  -H "X-Dev-User-Id: 85EF3561-6C9E-4D6D-B02D-FE3FFD08658A" \
+  -H "X-Dev-Device-Id: 85EF3561-6C9E-4D6D-B02D-FE3FFD08658A"
 ```
 
 **Requirements:**
@@ -37,7 +37,7 @@ Use these user IDs with the dev bypass:
 
 - **Admin (email):** `123e4567-e89b-12d3-a456-426614174000`
 - **Email User:** `550e8400-e29b-41d4-a716-446655440000`
-- **Anonymous (device):** `a7f99fed-262b-43e2-a88c-a8c5e4720577`
+- **Anonymous (device):** `85EF3561-6C9E-4D6D-B02D-FE3FFD08658A`
 
 ---
 
@@ -93,7 +93,7 @@ The `/api/v1/equipment` endpoint returns a **wrapped response**:
 # Test as admin user
 curl -s "http://localhost:3000/api/v1/equipment" \
   -H "X-Dev-Token: a0527824305b2d74a9d4386fea1fae904dad4876c12329e72c7fcdba067f5920" \
-  -H "X-Dev-User-Id: 123e4567-e89b-12d3-a456-426614174000" \
+  -H "X-Dev-User-Id: 47B46728-3DF4-49BA-83D3-8742D86DAD80" \
   -H "X-Dev-Email: admin@mystica.app" | python3 -m json.tool
 ```
 

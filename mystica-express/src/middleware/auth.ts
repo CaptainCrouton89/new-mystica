@@ -71,13 +71,6 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
 
     const authHeader = req.headers.authorization;
 
-    logger.info('🔒 [AUTH] Authenticating request', {
-      method: req.method,
-      path: req.path,
-      hasAuthHeader: !!authHeader,
-      authHeaderPrefix: authHeader?.substring(0, 20) + '...'
-    });
-
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       logger.warn('❌ [AUTH] Missing or invalid auth header');
       res.status(401).json({
@@ -102,14 +95,11 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
       return;
     }
 
-    logger.info('🔑 [AUTH] Token received (first 30 chars)', { tokenPrefix: token.substring(0, 30) + '...' });
-
     // Try to verify as anonymous token first (custom JWT)
-    logger.info('🔍 [AUTH] Attempting anonymous token verification...');
     const anonymousPayload = verifyAnonymousToken(token);
     if (anonymousPayload) {
       // Valid anonymous token
-      logger.info('✅ [AUTH] Valid anonymous token', {
+      logger.info('✅ [AUTH] Anonymous user authenticated', {
         userId: anonymousPayload.sub,
         deviceId: anonymousPayload.device_id
       });
@@ -122,8 +112,6 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
       next();
       return;
     }
-
-    logger.info('⚠️  [AUTH] Not an anonymous token, trying Supabase validation...');
 
     // Not an anonymous token, try Supabase JWT validation
     const { data, error } = await supabaseAuth.auth.getClaims(token);
@@ -159,7 +147,7 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
       return;
     }
 
-    logger.info('✅ [AUTH] Valid Supabase token', {
+    logger.info('✅ [AUTH] Email user authenticated', {
       userId: claims.sub,
       email: claims.email
     });

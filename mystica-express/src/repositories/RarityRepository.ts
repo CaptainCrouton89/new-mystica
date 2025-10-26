@@ -6,11 +6,11 @@
  * - Strength Tiers: ONLY for materials (derived from stat_modifiers abs_sum)
  */
 
-import { BaseRepository } from './BaseRepository.js';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { supabase } from '../config/supabase.js';
 import { Database } from '../types/database.types.js';
 import { DatabaseError, ValidationError } from '../utils/errors.js';
-import { supabase } from '../config/supabase.js';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { BaseRepository } from './BaseRepository.js';
 
 // Type aliases for cleaner code
 // Supabase-generated types for raritydefinitions table
@@ -281,7 +281,7 @@ export class RarityRepository extends BaseRepository<RarityDefinition> {
     // Count occurrences of each tier
     const distribution: Record<string, number> = {};
     for (const row of data) {
-      distribution[row.tier_name] = (distribution[row.tier_name] || 0) + 1;
+      distribution[row.tier_name!] = (distribution[row.tier_name!] || 0) + 1;
     }
 
     return distribution;

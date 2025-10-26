@@ -1,126 +1,56 @@
 # CLAUDE.md
 
-Middleware layer for Express request processing pipeline.
+Middleware layer for Express request processing.
 
-## Patterns & Conventions
+## Middleware Order (app.ts)
 
-### Middleware Responsibility Order
 ```
-CORS (app.ts:25)
-  ↓
-Body Parsing (app.ts:33-34)
-  ↓
-auth.ts - Validates JWT, attaches req.user
-  ↓
-validate.ts - Zod schema validation, attaches req.validated
-  ↓
-Route Handler
-  ↓
-Error Handler (app.ts)
+CORS → Body Parsing → Auth → Validation → Route Handler → Error Handler
 ```
 
-### Auth Middleware (auth.ts)
+## Auth Middleware (auth.ts)
 
-**Purpose:** Validate JWT tokens and populate `req.user`
+**Three functions:**
+- `authenticate` — Requires JWT (Supabase email OR custom anonymous token)
+- `optionalAuthenticate` — JWT optional; proceeds without user if missing/invalid
+- `authenticateInternal` — Service-to-service via `X-Internal-Service` header
 
-**Implementation:**
-- Extracts JWT from `Authorization: Bearer {token}` header
-- Decodes token to get user ID and metadata
-- Attaches user data to `req.user` (extends Express Request type)
-- Allows unauthenticated requests with optional auth flag
+**Token types:**
+- **Anonymous:** Custom JWT (see `verifyAnonymousToken()`) with `sub`, `device_id`, `iat`, `exp`
+- **Email:** Supabase JWT validated via `getClaims()` (fast local JWKS verification)
+- **Dev bypass:** `X-Dev-Token` + `X-Dev-User-Id` in development
 
-**Key Pattern:**
+**Attached to req.user:**
 ```typescript
-// In route: make auth optional
-router.get('/items', authenticate(false), itemController.getItems);
+{ id, email, device_id, account_type: 'anonymous' | 'email' }
+```
 
-// In route: require auth
+**Usage:**
+```typescript
 router.post('/items', authenticate, itemController.createItem);
+router.get('/items', optionalAuthenticate, itemController.getItems);
+router.post('/internal/compute', authenticateInternal, compute);
 ```
 
-**Error Handling:** Throws `UnauthorizedError` if token invalid or expired
+## Validation Middleware (validate.ts)
 
-### Validation Middleware (validate.ts)
-
-**Purpose:** Validate request body/query/params against Zod schemas
-
-**Implementation:**
-- Takes schema object with optional `body`, `query`, `params` properties
-- Validates incoming data against schemas
-- Attaches validated data to `req.validated` for controller access
-- Returns 400 Bad Request with detailed error messages on validation failure
-
-**Key Pattern:**
+Schema object with `body`, `query`, `params` (all optional):
 ```typescript
-// In route:
-router.post('/items',
-  authenticate,
-  validate({ body: CreateItemSchema }),
-  itemController.createItem
-);
-
-// In controller:
-const { name, rarity } = req.validated.body;
+validate({ body: CreateItemSchema })
 ```
 
-### Error Handling
+Attaches to `req.validated.body`, etc. Returns 400 on failure.
 
-Use custom error classes from `src/utils/errors.ts`:
-- `NotFoundError(entity, id)` → 404
-- `ValidationError(message)` → 400
-- `UnauthorizedError(message)` → 401
-- `ForbiddenError(message)` → 403
-- `ConflictError(message)` → 409
-- `InternalServerError(message)` → 500
+## Error Handling
 
-**Pattern:** Throw errors in services/controllers, error handler converts to JSON responses
+Throw custom errors from `src/utils/errors.ts`:
+- `NotFoundError`, `ValidationError`, `UnauthorizedError`, `ForbiddenError`, `ConflictError`, `InternalServerError`
 
-## Testing Middleware
-
-### Auth Middleware Tests
-```typescript
-it('should attach user to request', async () => {
-  const token = createTestToken(USER_ID);
-  const res = await request(app)
-    .get('/api/v1/items')
-    .set('Authorization', `Bearer ${token}`);
-
-  expect(res.status).toBe(200);
-});
-
-it('should throw UnauthorizedError for invalid token', async () => {
-  const res = await request(app)
-    .get('/api/v1/items')
-    .set('Authorization', 'Bearer invalid');
-
-  expect(res.status).toBe(401);
-});
-```
-
-### Validation Middleware Tests
-```typescript
-it('should validate body schema', async () => {
-  const res = await request(app)
-    .post('/api/v1/items')
-    .send({ name: '', rarity: 'invalid' }); // Missing required/invalid
-
-  expect(res.status).toBe(400);
-  expect(res.body.error).toBeDefined();
-});
-```
+Express error handler converts to JSON responses.
 
 ## Adding New Middleware
 
-1. Create file `src/middleware/newMiddleware.ts`
-2. Export as named export following pattern:
-   ```typescript
-   export function newMiddleware(options?: Options) {
-     return (req: Request, res: Response, next: NextFunction) => {
-       // Logic
-       next();
-     };
-   }
-   ```
-3. Apply in `src/app.ts` at appropriate position in pipeline
+1. Create `src/middleware/newMiddleware.ts`
+2. Export as function: `(req, res, next) => { ... next() }`
+3. Apply in `src/app.ts` at correct pipeline position
 4. Add tests in `tests/unit/middleware/`
-5. Document pattern and usage in this file

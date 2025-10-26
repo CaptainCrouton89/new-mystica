@@ -121,18 +121,23 @@ struct BattleView: View {
                 if case .loaded(let session) = viewModel.combatState {
                     combatContentView(session: session)
 
-                    // Enemy Dialogue Bubble Integration
+                    // Enemy Dialogue Bubble - positioned at top below header
                     if let dialogue = viewModel.currentDialogue {
-                        EnemyDialogueBubble(
-                            dialogue: dialogue,
-                            isVisible: $enemyDialogueVisible
-                        )
-                        .transition(.asymmetric(
-                            insertion: .scale(scale: 0.8).combined(with: .opacity),
-                            removal: .scale(scale: 0.95).combined(with: .opacity)
-                        ))
+                        VStack {
+                            EnemyDialogueBubble(
+                                dialogue: dialogue,
+                                isVisible: $enemyDialogueVisible
+                            )
+                            .transition(.asymmetric(
+                                insertion: .scale(scale: 0.8).combined(with: .opacity),
+                                removal: .scale(scale: 0.95).combined(with: .opacity)
+                            ))
+                            .padding(.top, 8)
+                            .padding(.horizontal, 20)
+
+                            Spacer()
+                        }
                         .zIndex(100)
-                        .offset(y: -150) // Position above enemy, adjust as needed
                     }
                 } else if case .error(let error) = viewModel.combatState {
                     // Error state
@@ -472,7 +477,7 @@ struct BattleView: View {
     /// Show visual feedback for attack actions
     func showAttackFeedback(action: CombatAction) {
         // Use new zone information if available, fallback to legacy
-        if let playerZone = action.playerDamage, let enemyZone = action.enemyDamage {
+        if let playerZone = action.playerDamage {
             // Show player's attack damage
             let playerColor = colorForZoneNumber(playerZone.zone)
             let playerText = textForZoneHit(playerZone)
@@ -489,9 +494,9 @@ struct BattleView: View {
             if playerZone.zone <= 3 {
                 triggerEnemyShake()
             }
-            
+
             // Trigger enemy animation based on damage
-            if enemyZone.finalDamage > 0 {
+            if playerZone.finalDamage > 0 {
                 Task {
                     if viewModel.enemyHP <= 0 {
                         await triggerEnemyAnimation(.death)
@@ -500,24 +505,9 @@ struct BattleView: View {
                     }
                 }
             }
-            
-            // Show enemy's counterattack damage (smaller, below)
-            if enemyZone.finalDamage > 0 {
-                let enemyColor = Color.red
-                floatingTextManager.showText(
-                    "-\(Int(enemyZone.finalDamage))",
-                    color: enemyColor,
-                    fontSize: 18,
-                    fontWeight: .regular,
-                    duration: 0.4,
-                    offsetY: 40 // Position below main damage text
-                )
 
-                // Player shake if hit hard
-                if enemyZone.zone <= 2 {
-                    triggerPlayerShake()
-                }
-            }
+            // NOTE: No enemy counterattack during attack phase - only during defense phase
+            // Enemy zone info is not used during attack
 
             // Trigger haptic and audio based on zone
             triggerHapticForZone(playerZone.zone)

@@ -1,24 +1,35 @@
 import type { ZoneDistribution } from '../types/api.types.js';
-import { AppliedMaterial, EquipmentSlot, PlayerStats, Stats } from '../types/api.types.js';
+import { EquipmentSlot, PlayerStats, Stats } from '../types/api.types.js';
 import { Database } from '../types/database.types.js';
+import { MaterialInstanceWithTemplate } from '../types/repository.types.js';
 import { ValidationError } from '../utils/errors.js';
 
 type EnemyType = Database['public']['Tables']['enemytypes']['Row'];
 type Tier = Database['public']['Tables']['tiers']['Row'];
 
 export class StatsService {
-  public computeItemStats(baseStats: Stats, level: number, materials: AppliedMaterial[] = []): Stats {
+  public computeItemStats(
+    baseStats: Stats,
+    level: number,
+    materials: MaterialInstanceWithTemplate[] = []
+  ): Stats {
     if (level < 1) {
-      throw new ValidationError('Level must be 1 or greater');
+      throw new ValidationError("Level must be 1 or greater");
     }
 
-    const baseStatsSum = baseStats.atkPower + baseStats.atkAccuracy + baseStats.defPower + baseStats.defAccuracy;
+    const baseStatsSum =
+      baseStats.atkPower +
+      baseStats.atkAccuracy +
+      baseStats.defPower +
+      baseStats.defAccuracy;
     if (Math.abs(baseStatsSum - 1.0) > 0.01) {
-      throw new ValidationError(`Base stats must sum to approximately 1.0, got ${baseStatsSum}`);
+      throw new ValidationError(
+        `Base stats must sum to approximately 1.0, got ${baseStatsSum}`
+      );
     }
 
     if (materials.length > 3) {
-      throw new ValidationError('Cannot apply more than 3 materials');
+      throw new ValidationError("Cannot apply more than 3 materials");
     }
 
     if (materials.length > 0) {
@@ -30,42 +41,53 @@ export class StatsService {
       atkPower: baseStats.atkPower * levelMultiplier,
       atkAccuracy: baseStats.atkAccuracy * levelMultiplier,
       defPower: baseStats.defPower * levelMultiplier,
-      defAccuracy: baseStats.defAccuracy * levelMultiplier
+      defAccuracy: baseStats.defAccuracy * levelMultiplier,
     };
 
-    const materialMods = materials.reduce((acc, material) => ({
-      atkPower: acc.atkPower + material.material.stat_modifiers.atkPower,
-      atkAccuracy: acc.atkAccuracy + material.material.stat_modifiers.atkAccuracy,
-      defPower: acc.defPower + material.material.stat_modifiers.defPower,
-      defAccuracy: acc.defAccuracy + material.material.stat_modifiers.defAccuracy
-    }), { atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0 });
+    const materialMods = materials.reduce(
+      (acc, material) => ({
+        atkPower: acc.atkPower + material.material.stat_modifiers.atkPower,
+        atkAccuracy:
+          acc.atkAccuracy + material.material.stat_modifiers.atkAccuracy,
+        defPower: acc.defPower + material.material.stat_modifiers.defPower,
+        defAccuracy:
+          acc.defAccuracy + material.material.stat_modifiers.defAccuracy,
+      }),
+      { atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0 }
+    );
 
     return {
       atkPower: levelScaled.atkPower + materialMods.atkPower,
       atkAccuracy: levelScaled.atkAccuracy + materialMods.atkAccuracy,
       defPower: levelScaled.defPower + materialMods.defPower,
-      defAccuracy: levelScaled.defAccuracy + materialMods.defAccuracy
+      defAccuracy: levelScaled.defAccuracy + materialMods.defAccuracy,
     };
   }
 
   public computeItemStatsForLevel(item: ItemWithType, level: number): Stats {
     if (level < 1) {
-      throw new ValidationError('Level must be 1 or greater');
+      throw new ValidationError("Level must be 1 or greater");
     }
 
     const baseStats = item.item_type.base_stats_normalized;
-    const baseStatsSum = baseStats.atkPower + baseStats.atkAccuracy + baseStats.defPower + baseStats.defAccuracy;
+    const baseStatsSum =
+      baseStats.atkPower +
+      baseStats.atkAccuracy +
+      baseStats.defPower +
+      baseStats.defAccuracy;
     if (Math.abs(baseStatsSum - 1.0) > 0.01) {
-      throw new ValidationError(`Base stats must sum to approximately 1.0, got ${baseStatsSum}`);
+      throw new ValidationError(
+        `Base stats must sum to approximately 1.0, got ${baseStatsSum}`
+      );
     }
 
-    const rarityMultiplier = this.getRarityMultiplier(item.item_type.rarity);
+    const rarityMultiplier = this.getRarityMultiplier(item.rarity);
 
     const rarityAdjustedBaseStats = {
       atkPower: baseStats.atkPower * rarityMultiplier,
       atkAccuracy: baseStats.atkAccuracy * rarityMultiplier,
       defPower: baseStats.defPower * rarityMultiplier,
-      defAccuracy: baseStats.defAccuracy * rarityMultiplier
+      defAccuracy: baseStats.defAccuracy * rarityMultiplier,
     };
 
     const levelMultiplier = this.getLevelMultiplier(level);
@@ -73,7 +95,7 @@ export class StatsService {
       atkPower: rarityAdjustedBaseStats.atkPower * levelMultiplier,
       atkAccuracy: rarityAdjustedBaseStats.atkAccuracy * levelMultiplier,
       defPower: rarityAdjustedBaseStats.defPower * levelMultiplier,
-      defAccuracy: rarityAdjustedBaseStats.defAccuracy * levelMultiplier
+      defAccuracy: rarityAdjustedBaseStats.defAccuracy * levelMultiplier,
     };
 
     return levelScaled;
@@ -81,27 +103,51 @@ export class StatsService {
 
   public computeEquipmentStats(equippedItems: ItemWithStats[]): PlayerStats {
     if (equippedItems.length > 8) {
-      throw new ValidationError('Cannot equip more than 8 items');
+      throw new ValidationError("Cannot equip more than 8 items");
     }
 
-    const slots = equippedItems.map(item => item.slot);
+    const slots = equippedItems.map((item) => item.slot);
     const uniqueSlots = new Set(slots);
     if (slots.length !== uniqueSlots.size) {
-      const duplicateSlot = slots.find((slot, index) => slots.indexOf(slot) !== index);
+      const duplicateSlot = slots.find(
+        (slot, index) => slots.indexOf(slot) !== index
+      );
       throw new ValidationError(`Duplicate equipment slot: ${duplicateSlot}`);
     }
 
-    const allSlots: EquipmentSlot[] = ['weapon', 'offhand', 'head', 'armor', 'feet', 'accessory_1', 'accessory_2', 'pet'];
-    const itemContributions: Record<EquipmentSlot, Stats> = {} as Record<EquipmentSlot, Stats>;
+    const allSlots: EquipmentSlot[] = [
+      "weapon",
+      "offhand",
+      "head",
+      "armor",
+      "feet",
+      "accessory_1",
+      "accessory_2",
+      "pet",
+    ];
+    const itemContributions: Record<EquipmentSlot, Stats> = {} as Record<
+      EquipmentSlot,
+      Stats
+    >;
 
-    allSlots.forEach(slot => {
-      itemContributions[slot] = { atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0 };
+    allSlots.forEach((slot) => {
+      itemContributions[slot] = {
+        atkPower: 0,
+        atkAccuracy: 0,
+        defPower: 0,
+        defAccuracy: 0,
+      };
     });
 
-    let totalStats: Stats = { atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0 };
+    let totalStats: Stats = {
+      atkPower: 0,
+      atkAccuracy: 0,
+      defPower: 0,
+      defAccuracy: 0,
+    };
     let totalItemLevel = 0;
 
-    equippedItems.forEach(item => {
+    equippedItems.forEach((item) => {
       itemContributions[item.slot] = item.computed_stats;
 
       totalStats.atkPower += item.computed_stats.atkPower;
@@ -116,16 +162,20 @@ export class StatsService {
       total_stats: totalStats,
       item_contributions: itemContributions,
       equipped_items_count: equippedItems.length,
-      total_item_level: totalItemLevel
+      total_item_level: totalItemLevel,
     };
   }
 
-  public validateMaterialModifiers(materials: AppliedMaterial[]): boolean {
+  public validateMaterialModifiers(materials: MaterialInstanceWithTemplate[]): boolean {
     const tolerance = 0.01;
 
     for (const material of materials) {
       const modifiers = material.material.stat_modifiers;
-      const sum = modifiers.atkPower + modifiers.atkAccuracy + modifiers.defPower + modifiers.defAccuracy;
+      const sum =
+        modifiers.atkPower +
+        modifiers.atkAccuracy +
+        modifiers.defPower +
+        modifiers.defAccuracy;
 
       if (Math.abs(sum) > tolerance) {
         throw new ValidationError(
@@ -134,14 +184,21 @@ export class StatsService {
       }
     }
 
-    const totalMods = materials.reduce((acc, mat) => ({
-      atkPower: acc.atkPower + mat.material.stat_modifiers.atkPower,
-      atkAccuracy: acc.atkAccuracy + mat.material.stat_modifiers.atkAccuracy,
-      defPower: acc.defPower + mat.material.stat_modifiers.defPower,
-      defAccuracy: acc.defAccuracy + mat.material.stat_modifiers.defAccuracy
-    }), { atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0 });
+    const totalMods = materials.reduce(
+      (acc, mat) => ({
+        atkPower: acc.atkPower + mat.material.stat_modifiers.atkPower,
+        atkAccuracy: acc.atkAccuracy + mat.material.stat_modifiers.atkAccuracy,
+        defPower: acc.defPower + mat.material.stat_modifiers.defPower,
+        defAccuracy: acc.defAccuracy + mat.material.stat_modifiers.defAccuracy,
+      }),
+      { atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0 }
+    );
 
-    const totalSum = totalMods.atkPower + totalMods.atkAccuracy + totalMods.defPower + totalMods.defAccuracy;
+    const totalSum =
+      totalMods.atkPower +
+      totalMods.atkAccuracy +
+      totalMods.defPower +
+      totalMods.defAccuracy;
 
     if (Math.abs(totalSum) > tolerance) {
       throw new ValidationError(
@@ -154,11 +211,11 @@ export class StatsService {
 
   private getRarityMultiplier(rarity: string): number {
     const multipliers: Record<string, number> = {
-      'common': 1.0,
-      'uncommon': 1.25,
-      'rare': 1.5,
-      'epic': 1.75,
-      'legendary': 2.0
+      common: 1.0,
+      uncommon: 1.25,
+      rare: 1.5,
+      epic: 1.75,
+      legendary: 2.0,
     };
 
     const multiplier = multipliers[rarity];
@@ -171,31 +228,31 @@ export class StatsService {
 
   private getLevelMultiplier(level: number): number {
     if (level < 1) {
-      throw new ValidationError('Level must be 1 or greater');
+      throw new ValidationError("Level must be 1 or greater");
     }
     return 1 + 0.05 * Math.pow(level - 1, 2);
   }
 
   public calculateZoneProbabilities(accuracy: number): ZoneDistribution {
     if (accuracy < 0 || accuracy > 1) {
-      throw new ValidationError('Accuracy must be between 0 and 1');
+      throw new ValidationError("Accuracy must be between 0 and 1");
     }
 
     const a = this.clamp01(accuracy);
 
     const p1 = this.curve(a, [
       { x: 0.05, y: 0.02 },
-      { x: 0.25, y: 0.20 },
-      { x: 0.50, y: 0.50 },
-      { x: 1.00, y: 0.95 },
+      { x: 0.25, y: 0.2 },
+      { x: 0.5, y: 0.5 },
+      { x: 1.0, y: 0.95 },
     ]);
 
     const p2 = this.curve(a, [
-      { x: 0.00, y: 0.45 },
-      { x: 0.05, y: 0.50 },
+      { x: 0.0, y: 0.45 },
+      { x: 0.05, y: 0.5 },
       { x: 0.25, y: 0.58 },
-      { x: 0.50, y: 0.45 },
-      { x: 1.00, y: 0.05 },
+      { x: 0.5, y: 0.45 },
+      { x: 1.0, y: 0.05 },
     ]);
 
     const remaining = Math.max(0, 1 - p1 - p2);
@@ -222,7 +279,9 @@ export class StatsService {
 
     const verifySum = Object.values(distribution).reduce((a, b) => a + b, 0);
     if (Math.abs(verifySum - 1.0) > 0.0001) {
-      throw new ValidationError(`Zone distribution must sum to 1.0, got ${verifySum}`);
+      throw new ValidationError(
+        `Zone distribution must sum to 1.0, got ${verifySum}`
+      );
     }
 
     return distribution;
@@ -234,7 +293,7 @@ export class StatsService {
     const randomVal = Math.random();
     let cumulativeProb = 0;
 
-    const zoneKeys = ['zone1', 'zone2', 'zone3', 'zone4', 'zone5'] as const;
+    const zoneKeys = ["zone1", "zone2", "zone3", "zone4", "zone5"] as const;
     for (let i = 0; i < zoneKeys.length; i++) {
       cumulativeProb += distribution[zoneKeys[i]];
       if (randomVal <= cumulativeProb) {
@@ -242,7 +301,9 @@ export class StatsService {
       }
     }
 
-    throw new ValidationError('Failed to select a zone - distribution does not sum to 1.0');
+    throw new ValidationError(
+      "Failed to select a zone - distribution does not sum to 1.0"
+    );
   }
 
   public getCritMultiplier(zone: 1 | 2 | 3 | 4 | 5): number {
@@ -269,24 +330,43 @@ export class StatsService {
     tier: Tier
   ) {
     if (combatLevel < 1) {
-      throw new ValidationError('Combat level must be 1 or greater');
+      throw new ValidationError("Combat level must be 1 or greater");
     }
 
-    const statsSum = enemyType.atk_power_normalized +
+    const statsSum =
+      enemyType.atk_power_normalized +
       enemyType.atk_accuracy_normalized +
       enemyType.def_power_normalized +
       enemyType.def_accuracy_normalized;
 
     if (Math.abs(statsSum - 1.0) > 0.01) {
-      throw new ValidationError(`Normalized enemy stats must sum to 1.0, got ${statsSum}`);
+      throw new ValidationError(
+        `Normalized enemy stats must sum to 1.0, got ${statsSum}`
+      );
     }
 
     const levelMultiplier = this.getLevelMultiplier(combatLevel);
     return {
-      atk_power: enemyType.atk_power_normalized * 8 * levelMultiplier * tier.difficulty_multiplier,
-      atk_accuracy: enemyType.atk_accuracy_normalized * 8 * levelMultiplier * tier.difficulty_multiplier,
-      def_power: enemyType.def_power_normalized * 8 * levelMultiplier * tier.difficulty_multiplier,
-      def_accuracy: enemyType.def_accuracy_normalized * 8 * levelMultiplier * tier.difficulty_multiplier
+      atk_power:
+        enemyType.atk_power_normalized *
+        8 *
+        levelMultiplier *
+        tier.difficulty_multiplier,
+      atk_accuracy:
+        enemyType.atk_accuracy_normalized *
+        8 *
+        levelMultiplier *
+        tier.difficulty_multiplier,
+      def_power:
+        enemyType.def_power_normalized *
+        8 *
+        levelMultiplier *
+        tier.difficulty_multiplier,
+      def_accuracy:
+        enemyType.def_accuracy_normalized *
+        8 *
+        levelMultiplier *
+        tier.difficulty_multiplier,
     };
   }
 
@@ -296,7 +376,15 @@ export class StatsService {
     critMultiplier: number
   ): number {
     const zoneMultipliers = [1.5, 1.25, 1.0, 0.75, 0.5];
-    return baseStat * zoneMultipliers[zone - 1] * critMultiplier;
+    const zoneMultiplier = zoneMultipliers[zone - 1];
+    const result = baseStat * zoneMultiplier * critMultiplier;
+    if (baseStat > 10) {
+      // Only log significant damage calculations
+      console.log(
+        `[StatsService.applyZoneModifiers] baseStat=${baseStat}, zone=${zone}, zoneMultiplier=${zoneMultiplier}, critMultiplier=${critMultiplier}, result=${result}`
+      );
+    }
+    return result;
   }
 
   private clamp01(x: number): number {
@@ -310,7 +398,7 @@ export class StatsService {
 
   private curve(x: number, anchors: { x: number; y: number }[]): number {
     if (anchors.length === 0) {
-      throw new ValidationError('Curve anchors array cannot be empty');
+      throw new ValidationError("Curve anchors array cannot be empty");
     }
 
     if (anchors.length === 1) {
@@ -337,16 +425,18 @@ export class StatsService {
       }
     }
 
-    throw new ValidationError(`Failed to find curve segment for x=${x} within anchors range`);
+    throw new ValidationError(
+      `Failed to find curve segment for x=${x} within anchors range`
+    );
   }
 }
 
 export const statsService = new StatsService();
 
 interface ItemWithType {
+  rarity: string;
   item_type: {
     base_stats_normalized: Stats;
-    rarity: string;
   };
 }
 

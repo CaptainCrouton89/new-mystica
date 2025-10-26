@@ -1,0 +1,424 @@
+title: Technical Specification - Environmental Photography & Location-Based Item Generation
+template: ~/.claude/file-templates/init-project/feature-spec/feature-title.yaml
+feature_id: F-14
+status: planned
+last_updated: 2025-01-27
+
+summary: "Users capture real-world environmental photos via device camera, which are processed by AI to generate contextual items or materials. Generated items are automatically saved to inventory with geolocation metadata (latitude/longitude), optional original image archival, and entry in location-based collection log. System handles iOS camera permissions gracefully with user-friendly prompts."
+
+functional_overview:
+  core_logic: "Camera capture flow → photo processing with optional compression → AI image-to-item generation (via Replicate/OpenAI) → item creation with location metadata (lat/long) → inventory storage with optional image backup → collection log entry. Users can browse their location-based collection showing items, associated photos, and places visited."
+  data_schema: "Items table extended with location_lat/location_long/original_image_url/generation_method fields. New LocationPhotoLog table tracks photo captures with user_id, item_id, original_photo_url, generated_at, latitude, longitude. Optional PhotoArchive table for high-res image storage (R2)."
+  api_endpoints:
+    - "POST /photos/capture (upload photo, returns signed R2 URL for storage)"
+    - "POST /items/from-photo (process photo, call AI generation, create item, return item_obj)"
+    - "GET /photos/location-log (retrieve collection log with photo history, filtered by location radius or date)"
+    - "GET /photos/location-log/{item_id} (get details about specific location capture including original photo)"
+  integration_points:
+    - "F-01 Geolocation (automatic lat/long capture via CoreLocation on photo capture)"
+    - "F-03 Base Items & Equipment (new items created with location metadata)"
+    - "F-04 Materials System (AI can generate materials as well as items)"
+    - "AI Image Generation Pipeline (existing scripts/Replicate integration to interpret environmental photo)"
+    - "R2 Storage (store original photos and generated item images)"
+
+detailed_design:
+  data_structures:
+    - name: "location_photo_log (tracks all photo-based item generations)"
+      columns:
+        - "id: UUID (PK)"
+        - "user_id: UUID (FK to Users)"
+        - "item_id: UUID (FK to Items, the generated item from this photo)"
+        - "original_photo_url: VARCHAR (S3/R2 URL to original captured photo)"
+        - "generated_at: TIMESTAMP (when photo was captured and processed)"
+        - "latitude: DECIMAL(10, 8) (capture location)"
+        - "longitude: DECIMAL(11, 8) (capture location)"
+        - "photo_metadata: JSONB (optional: exif data, device model, lighting conditions for future analysis)"
+        - "created_at: TIMESTAMP"
+        - "INDEX on (user_id, generated_at DESC) for location log queries"
+        - "INDEX on (user_id, latitude, longitude) for location-based queries"
+
+    - name: "items (extended fields for photo-generated items)"
+      columns:
+        - "existing columns: id, user_id, item_type_id, level, rarity, etc."
+        - "generation_method: VARCHAR (enum: 'photo', 'enemy_drop', 'craft', 'purchase' - nullable, default null for backward compat)"
+        - "location_lat: DECIMAL(10, 8) (nullable, set if generation_method = 'photo')"
+        - "location_long: DECIMAL(11, 8) (nullable, set if generation_method = 'photo')"
+        - "original_photo_url: VARCHAR (nullable, S3/R2 URL to original environmental photo)"
+        - "INDEX on (user_id, generation_method) for filtering photo-generated items"
+
+  apis:
+    - method: "POST"
+      endpoint: "/photos/capture"
+      description: "Upload photo from device camera, store in R2, return signed URL"
+      request:
+        multipart: "photo (image file, JPEG/PNG)"
+        headers: "Authorization Bearer token, Content-Type multipart/form-data"
+        body: "photo file binary, optional: compress_quality (0-100, default 80)"
+      response: "{success: true, photo_id: UUID, photo_url: string, signed_url: string, expires_in: int}"
+      note: "Signed URL is read-only, expires in 24 hours. Returns immediately after R2 upload (photo processing happens async)"
+      validation:
+        - "File size max 10MB"
+        - "Only JPEG/PNG accepted"
+        - "User must have camera permission granted"
+      side_effects:
+        - "Stores photo in R2 bucket (mystica-photos/user_id/photo_id.jpg)"
+        - "Creates placeholder entry in LocationPhotoLog (status='pending')"
+      errors:
+        - "400: File format not supported"
+        - "400: File too large (>10MB)"
+        - "401: Unauthorized"
+        - "403: Camera permission not granted"
+
+    - method: "POST"
+      endpoint: "/items/from-photo"
+      description: "Process photo to generate item/material, save with location metadata"
+      request:
+        headers: "Authorization Bearer token"
+        body: "{photo_url: string, latitude: float, longitude: float, item_type: 'item' | 'material', compress_original: boolean (default false)}"
+      response: "{success: true, item: item_obj, location_log_entry: {id, item_id, original_photo_url, latitude, longitude, generated_at}, generation_time_ms: int}"
+      note: "Calls AI image generation service (Replicate/OpenAI) synchronously. May take 5-30 seconds. On failure, returns error but original photo is retained."
+      validation:
+        - "Photo must be URL from /photos/capture endpoint or trusted R2 bucket"
+        - "Latitude/longitude must be valid (±90 lat, ±180 long)"
+        - "item_type must be 'item' or 'material'"
+      side_effects:
+        - "Calls Replicate/OpenAI API to interpret photo and generate item name/stats/rarity"
+        - "Creates new item in Items table with generation_method='photo', location_lat, location_long, original_photo_url"
+        - "Updates LocationPhotoLog entry with status='complete', item_id"
+        - "If compress_original=true, stores compressed version in R2, deletes full-res version (saves 80-90% storage)"
+        - "If compress_original=false, stores full original in PhotoArchive table and R2"
+        - "Calls POST /items to standard item creation endpoint with location metadata"
+      errors:
+        - "400: Invalid latitude/longitude"
+        - "400: AI generation failed (retry friendly message)"
+        - "401: Unauthorized"
+        - "404: Photo not found"
+        - "500: Replicate/OpenAI service error"
+
+    - method: "GET"
+      endpoint: "/photos/location-log"
+      description: "Retrieve location-based collection log of all photo-generated items"
+      request:
+        headers: "Authorization Bearer token"
+        query_params:
+          - "sort_by: 'date' | 'location' | 'rarity' (default 'date')"
+          - "sort_order: 'asc' | 'desc' (default 'desc')"
+          - "latitude: float (optional, center point for radius search)"
+          - "longitude: float (optional, center point for radius search)"
+          - "radius_km: float (optional, defaults to 10km if lat/long provided)"
+          - "date_from: ISO8601 (optional, filter captures after this date)"
+          - "date_to: ISO8601 (optional, filter captures before this date)"
+          - "page: int (default 1)"
+          - "limit: int (default 50, max 100)"
+      response: "{collection_log: [{id, item_id, item_name, item_rarity, original_photo_url, generated_at, latitude, longitude, distance_km}], total_count, has_more, user_total_locations_visited}"
+      errors:
+        - "401: Unauthorized"
+        - "400: Invalid latitude/longitude (if provided)"
+
+    - method: "GET"
+      endpoint: "/photos/location-log/{item_id}"
+      description: "Get detailed info about specific location capture"
+      request:
+        headers: "Authorization Bearer token"
+      response: "{item_id, item_obj, original_photo_url, generated_at, latitude, longitude, address (optional geocoded), photo_metadata: {device, lighting, exif (optional)}}"
+      note: "Optionally includes reverse-geocoded address using OpenStreetMap/Google Maps"
+      errors:
+        - "401: Unauthorized"
+        - "404: Item not found or not generated from photo"
+
+  diagrams: |
+    Photo-to-Item Generation Flow:
+    1. User taps Camera button on map or main menu
+    2. iOS camera opens with permission prompt (if not already granted)
+    3. User frames shot and captures photo
+    4. Photo uploaded to R2 via POST /photos/capture
+    5. User sees preview with "Generate Item" or "Generate Material" buttons
+    6. User taps Generate → POST /items/from-photo called with:
+       - photo_url (from step 4)
+       - latitude/longitude (from CoreLocation)
+       - item_type: 'item' or 'material'
+       - compress_original: true/false
+    7. Backend calls Replicate/OpenAI with photo to interpret and generate:
+       - Item name (contextual: "Glowing Crystal" from crystal photo, "Rustic Gear" from machinery, etc.)
+       - Stats (base_stats randomized based on rarity)
+       - Rarity (weighted: common 60%, uncommon 25%, rare 12%, epic 2%, legendary 1%)
+    8. Item created in Items table with generation_method='photo'
+    9. LocationPhotoLog entry created linking item_id to photo_url, lat/long
+    10. User sees new item in inventory with location tag
+    11. User can view full location log via map or dedicated Location History screen
+
+    Location-Based Collection Log UI:
+    1. User opens "Place Discoveries" or "Location Log" screen
+    2. Shows chronological list of photo-generated items (or map view with markers)
+    3. Each entry shows:
+       - Item icon/thumbnail from generated item image
+       - Item name and rarity badge
+       - Location (address if reverse-geocoded, or lat/long)
+       - Capture date/time
+       - Optional: distance from current location
+    4. User can tap entry to see:
+       - Full item details (name, stats, level, rarity)
+       - Original environmental photo
+       - Exact coordinates and address
+       - Option to view item in inventory
+
+    Camera Permission Handling:
+    1. User taps Camera button (first time)
+    2. If permission not granted, iOS shows standard permission prompt
+    3. User can:
+       - Tap "Allow" → permission granted, camera opens
+       - Tap "Don't Allow" → show friendly modal "Camera access needed to capture environmental photos"
+       - User can later enable via Settings
+    4. App checks permission status on camera button tap
+    5. If permission denied, show helpful modal with Settings link
+
+dependencies:
+  libraries:
+    - "Replicate SDK (existing image generation integration)"
+    - "OpenAI API client (for image interpretation)"
+    - "AWS SDK (R2 S3-compatible operations)"
+    - "CoreLocation (iOS, automatic lat/long capture)"
+  services:
+    - "R2 Storage (Cloudflare R2 for photo archival)"
+    - "Replicate/OpenAI services (image-to-item AI generation)"
+    - "Supabase PostgreSQL (LocationPhotoLog, extended Items schema)"
+  data_sources:
+    - "CoreLocation (device GPS coordinates)"
+    - "Device Camera (UIImagePickerController or Camera framework in SwiftUI)"
+    - "LocationPhotoLog table (photo-to-item tracking)"
+    - "Items table (extended with generation_method, location fields)"
+
+implementation_status:
+  progress: 0
+  completed_components: []
+  in_progress_components: []
+  blocked_items:
+    - "Swift Camera integration (need to build CameraView component)"
+    - "Location photo log backend endpoints"
+    - "AI image interpretation fine-tuning (ensuring contextual items)"
+  notes:
+    - "Feature is new, not yet started"
+    - "Depends on existing R2 storage and Replicate integration (already in codebase)"
+    - "Permission handling is critical for good UX"
+
+user_stories:
+  - US-401
+  - US-402
+  - US-403
+
+acceptance_criteria:
+  camera_capture:
+    - "AC-14-01: User can tap camera button and open device camera"
+    - "AC-14-02: Camera permission prompt appears on first use, stored in UserPermissions"
+    - "AC-14-03: User can capture photo and see preview before generating item"
+    - "AC-14-04: Captured photo is uploaded to R2 and returns signed URL"
+    - "AC-14-05: Photo upload is non-blocking (shows progress indicator)"
+
+  ai_generation:
+    - "AC-14-06: User can choose 'Generate Item' or 'Generate Material' from photo preview"
+    - "AC-14-07: Generated item has contextual name based on environmental photo"
+    - "AC-14-08: Generated item receives randomized stats and rarity (weighted distribution)"
+    - "AC-14-09: Generation completes within 30 seconds (UI shows loading spinner)"
+    - "AC-14-10: Failed generation shows user-friendly error with retry option"
+
+  location_metadata:
+    - "AC-14-11: Generated item automatically captures latitude/longitude from device GPS"
+    - "AC-14-12: Location data is stored with item in Items table"
+    - "AC-14-13: Items can be queried by location (radius search, date range filter)"
+
+  inventory_integration:
+    - "AC-14-14: Generated items appear in inventory marked with 'photo' generation method"
+    - "AC-14-15: Generated items can be equipped, crafted, upgraded, and sold like normal items"
+
+  location_log:
+    - "AC-14-16: User can view location log showing all photo-generated items chronologically"
+    - "AC-14-17: Location log shows item thumbnail, name, rarity, location, capture date"
+    - "AC-14-18: User can filter location log by date range"
+    - "AC-14-19: User can filter location log by proximity (show items within X km)"
+    - "AC-14-20: User can tap item in location log to view full details and original photo"
+
+  image_storage:
+    - "AC-14-21: Original photo is accessible from location log (view environmental context)"
+    - "AC-14-22: Optional compression preserves 80%+ of storage if enabled"
+    - "AC-14-23: Images are cached locally on device for fast viewing"
+
+ui_ux_requirements:
+  camera_flow:
+    layout: "Full-screen camera view with capture button (bottom center), torch toggle (top left), gallery button (top right)"
+    preview: "Post-capture preview showing photo with 'Retake' and 'Generate Item' buttons"
+    permissions: "Friendly modal if permission denied, with link to Settings"
+    feedback: "Shutter animation on capture, success vibration/haptic on generation complete"
+
+  location_log_screen:
+    layout: "Scrollable list or map view of photo-generated items with optional filter bar"
+    list_view: "Card layout showing item thumbnail, name, rarity, location, date (most recent first)"
+    map_view: "Map markers for each photo location, clustered if zoomed out"
+    filters: "Date range picker (Last Week / Month / Year / All Time), proximity filter (Current Location ±X km)"
+    detail_view: "Full item stats, original environmental photo, exact coordinates, address (geocoded)"
+    actions: "View in Inventory, View Item Stats, Delete from Log"
+
+  item_detail_view:
+    location_badge: "Shows location metadata: 'Captured at [Address/Coordinates]' with date"
+    photo_viewer: "Thumbnail of original environmental photo with full-screen view option"
+    generation_info: "Label 'Generated from photo' with timestamp"
+    map_preview: "Small map showing exact capture location and current location (distance indicator)"
+
+business_rules:
+  photo_generation:
+    - "Only authenticated users can capture and generate items from photos"
+    - "Camera permission must be explicitly granted by user (no silent access)"
+    - "Max 10 photo-based items per day per user (prevents spam; can be lifted in future)"
+    - "Generated items have same rarity/stat mechanics as other sources"
+
+  location_tracking:
+    - "Latitude/longitude captured automatically from device GPS (CoreLocation)"
+    - "Location accuracy threshold: 100m (discard if accuracy worse than 100m)"
+    - "Location log retained indefinitely (part of player's collection history)"
+
+  image_storage:
+    - "Original photos stored in R2 for minimum 30 days (allow deletion for storage management)"
+    - "User can opt to compress original photo (saves 80-90% storage, deletes high-res)"
+    - "Generated item images follow existing pipeline (stored in Items.generated_image_url)"
+
+  privacy_considerations:
+    - "Original photos may contain privacy-sensitive content (faces, home addresses, etc.)"
+    - "Provide option to delete specific photo from log (cascades delete from LocationPhotoLog and R2)"
+    - "Photos are never shared or used for training (kept private to user account)"
+    - "Location metadata is never exposed to other users"
+
+edge_cases:
+  camera_handling:
+    - "What if user denies camera permission? → Show friendly modal, link to Settings"
+    - "What if user revokes permission mid-capture? → Graceful error, offer to re-enable"
+    - "What if camera hardware unavailable? → Show error 'Camera not available on this device'"
+    - "What if GPS disabled? → Show warning 'Location services required for location-based features' but allow capture anyway (NULL lat/long)"
+
+  generation_failures:
+    - "What if Replicate service is down? → Retry up to 3 times, then show user-friendly error"
+    - "What if AI can't interpret photo (e.g., blurry, irrelevant)? → Return error, allow user to retake"
+    - "What if user exceeds daily photo limit? → Show modal 'You've generated 10 items today, come back tomorrow'"
+
+  location_privacy:
+    - "What if user captures photo at home (privacy sensitive)? → Photo is private, no option to share, but can view in own log"
+    - "What if user tries to view location log of another user? → 403 Forbidden"
+    - "What if user deletes item after generating from photo? → LocationPhotoLog entry remains (for history), but item is gone"
+
+implementation_notes:
+  frontend_considerations:
+    - "SwiftUI camera integration is tricky (UIViewControllerRepresentable wrapper needed for UIImagePickerController or use AVFoundation)"
+    - "CoreLocation requires user permission and Info.plist keys (NSLocationWhenInUseUsageDescription, NSCameraUsageDescription)"
+    - "Image compression: Consider using ImageIO with JPEGProperties for quality control"
+    - "Local caching: Store original photos locally after generation for fast viewing (DocumentsDirectory)"
+
+  backend_considerations:
+    - "LocationPhotoLog queries will be frequently hit (index on user_id, generated_at critical)"
+    - "R2 storage will grow quickly if users capture many photos (consider archival/cleanup policies)"
+    - "AI generation API calls are expensive (Replicate: ~$0.10-0.50 per image, OpenAI: ~$0.01-0.05)"
+    - "Rate limiting essential: 10 photo-generated items per user per day to prevent abuse"
+
+  ai_model_selection:
+    - "Replicate google/nano-banana or similar vision model for contextual interpretation"
+    - "OpenAI gpt-4.1 with vision capabilities for more sophisticated contextual analysis"
+    - "Fine-tuning may be needed to ensure 'Mystica-relevant' items (fantasy/RPG themed)"
+
+phases:
+  mvp:
+    - "Implement camera capture UI (SwiftUI CameraView wrapper)"
+    - "Build POST /photos/capture endpoint (R2 upload)"
+    - "Build POST /items/from-photo endpoint (AI generation, item creation)"
+    - "Extend Items schema with location_lat/long/original_photo_url/generation_method"
+    - "Create LocationPhotoLog table and basic GET /photos/location-log endpoint"
+    - "Implement location log UI (list view with filters)"
+    - "Add camera and location permissions handling"
+    - "Rate limiting: 10 photo items/day"
+
+  post_mvp:
+    - "Map view for location log (clustered markers)"
+    - "Reverse geocoding (show address, not just coordinates)"
+    - "Photo compression options in settings"
+    - "Advanced filters (rarity, item type, distance)"
+    - "Heatmap view showing 'hottest' item discovery locations"
+    - "Photo gallery/lightbox for viewing original environmental photos"
+    - "Analytics: track 'photos captured', 'items generated from photos', popular capture locations"
+    - "Social feature: share location history with friends (deferred)"
+
+related_features:
+  - "F-01: Geolocation (automatic lat/long capture, map context)"
+  - "F-03: Base Items & Equipment (new items with location metadata)"
+  - "F-04: Materials System (can generate materials from photos)"
+  - "F-09: Inventory Management (generated items appear in inventory)"
+  - "AI Image Generation Pipeline (existing Replicate integration)"
+
+events_to_track:
+  - event_name: "photo_captured"
+    trigger: "User captures photo from camera"
+    properties:
+      - "user_id: UUID"
+      - "latitude: float"
+      - "longitude: float"
+      - "photo_url: string (R2 URL)"
+      - "timestamp: datetime"
+
+  - event_name: "item_generated_from_photo"
+    trigger: "AI generates item from photo"
+    properties:
+      - "user_id: UUID"
+      - "photo_url: string"
+      - "item_id: UUID"
+      - "item_name: string"
+      - "item_rarity: string"
+      - "generation_time_ms: int"
+      - "ai_model: string (replicate/openai)"
+      - "latitude: float"
+      - "longitude: float"
+      - "timestamp: datetime"
+
+  - event_name: "location_log_viewed"
+    trigger: "User opens location-based collection log"
+    properties:
+      - "user_id: UUID"
+      - "filter_applied: string (nullable: date_range, proximity, etc.)"
+      - "total_items_in_log: int"
+      - "timestamp: datetime"
+
+  - event_name: "photo_generated_item_equipped"
+    trigger: "User equips item that was generated from photo"
+    properties:
+      - "user_id: UUID"
+      - "item_id: UUID"
+      - "photo_url: string"
+      - "capture_location: string"
+      - "timestamp: datetime"
+
+data_requirements:
+  new_tables:
+    - "LocationPhotoLog (tracks photo-to-item generation with location metadata)"
+    - "PhotoArchive (optional, stores high-res original photos metadata)"
+    - "UserPermissions (optional, tracks camera/location permission status)"
+
+  extended_tables:
+    - "Items: add generation_method, location_lat, location_long, original_photo_url"
+    - "Users: optionally add photo_generation_count (for daily rate limiting)"
+
+  migration_notes:
+    - "Backward compatible: generation_method=NULL for existing items"
+    - "Can add location fields as NULLable columns (non-breaking)"
+
+permissions_and_privacy:
+  user_permissions_required:
+    - "Camera (NSCameraUsageDescription in Info.plist)"
+    - "Location Services when in use (NSLocationWhenInUseUsageDescription in Info.plist)"
+    - "Photo Library access (optional, for future gallery integration)"
+
+  privacy_features:
+    - "Users can delete specific photos from location log (right to be forgotten)"
+    - "Original photos are private to user (never shared, never used for training)"
+    - "Location metadata is private (not exposed to other players)"
+    - "Prompt user to understand privacy implications of sharing location-based items"
+
+performance_notes:
+  - "R2 photo upload should be fast (<5 seconds for 5MB photo)"
+  - "AI generation API call is slowest step (5-30 seconds, show loading indicator)"
+  - "Location log queries need indexes on (user_id, generated_at) and (user_id, latitude, longitude)"
+  - "Consider pagination for location log (50 items/page) if users capture many photos"
+  - "Local image caching reduces network calls for thumbnail viewing"

@@ -5,16 +5,13 @@
  * Extends Items where category='weapon' with specialized timing gameplay features.
  */
 
-import { BaseRepository } from './BaseRepository.js';
-import { DatabaseError, ValidationError, NotFoundError } from '../utils/errors.js';
-import { Database } from '../types/database.types.js';
+import { Database, TablesUpdate } from '../types/database.types.js';
 import {
-  DegreeConfig,
   AdjustedBands,
-  CreateWeaponData,
-  UpdateWeaponData,
-  WeaponWithItem
+  DegreeConfig
 } from '../types/repository.types.js';
+import { DatabaseError, NotFoundError, ValidationError } from '../utils/errors.js';
+import { BaseRepository } from './BaseRepository.js';
 
 export type Weapon = Database['public']['Tables']['weapons']['Row'];
 export type WeaponInsert = Database['public']['Tables']['weapons']['Insert'];
@@ -25,7 +22,7 @@ export type WeaponUpdate = Database['public']['Tables']['weapons']['Update'];
  */
 export class WeaponRepository extends BaseRepository<Weapon> {
   constructor() {
-    super('weapons');
+    super("weapons");
   }
 
   // ============================================================================
@@ -41,47 +38,21 @@ export class WeaponRepository extends BaseRepository<Weapon> {
    */
   async findWeaponByItemId(itemId: string): Promise<Weapon | null> {
     const { data, error } = await this.client
-      .from('weapons')
-      .select('*')
-      .eq('item_id', itemId)
+      .from("weapons")
+      .select("*")
+      .eq("item_id", itemId)
       .single();
 
     if (error) {
-      if (error.code === 'PGRST116') {
+      if (error.code === "PGRST116") {
         return null;
       }
-      throw new DatabaseError('Failed to find weapon by item ID', error);
+      throw new DatabaseError("Failed to find weapon by item ID", error);
     }
 
     return data;
   }
 
-  /**
-   * Find weapon with item details
-   *
-   * @param itemId - Item ID
-   * @returns Weapon with related item data or null if not found
-   * @throws DatabaseError on query failure
-   */
-  async findWeaponWithItem(itemId: string): Promise<WeaponWithItem | null> {
-    const { data, error } = await this.client
-      .from('weapons')
-      .select(`
-        *,
-        item:items!inner(*)
-      `)
-      .eq('item_id', itemId)
-      .single();
-
-    if (error) {
-      if (error.code === 'PGRST116') {
-        return null;
-      }
-      throw new DatabaseError('Failed to find weapon with item details', error);
-    }
-
-    return data;
-  }
 
   /**
    * Create weapon with validation
@@ -91,45 +62,45 @@ export class WeaponRepository extends BaseRepository<Weapon> {
    * @throws ValidationError if degree sum exceeds 360 or spin speed invalid
    * @throws DatabaseError on creation failure
    */
-  async createWeapon(weaponData: CreateWeaponData): Promise<Weapon> {
+  async createWeapon(weaponData: WeaponInsert): Promise<Weapon> {
     // Validate degree configuration
     const degreeConfig: DegreeConfig = {
       deg_injure: weaponData.deg_injure ?? 5.0,
       deg_miss: weaponData.deg_miss ?? 45.0,
       deg_graze: weaponData.deg_graze ?? 60.0,
       deg_normal: weaponData.deg_normal ?? 200.0,
-      deg_crit: weaponData.deg_crit ?? 50.0
+      deg_crit: weaponData.deg_crit ?? 50.0,
     };
 
     if (!this.validateDegreeSum(degreeConfig)) {
-      throw new ValidationError('Total degree sum cannot exceed 360');
+      throw new ValidationError("Total degree sum cannot exceed 360");
     }
 
     const spinSpeed = weaponData.spin_deg_per_s ?? 360.0;
     if (!this.validateSpinSpeed(spinSpeed)) {
-      throw new ValidationError('Spin speed must be greater than 0');
+      throw new ValidationError("Spin speed must be greater than 0");
     }
 
     // MVP0 constraint: Only single_arc pattern allowed
-    if (weaponData.pattern !== 'single_arc') {
-      throw new ValidationError('MVP0 only supports single_arc pattern');
+    if (weaponData.pattern !== "single_arc") {
+      throw new ValidationError("MVP0 only supports single_arc pattern");
     }
 
     const insertData: WeaponInsert = {
       item_id: weaponData.item_id,
       pattern: weaponData.pattern,
       spin_deg_per_s: spinSpeed,
-      ...degreeConfig
+      ...degreeConfig,
     };
 
     const { data, error } = await this.client
-      .from('weapons')
+      .from("weapons")
       .insert(insertData)
       .select()
       .single();
 
     if (error) {
-      throw new DatabaseError('Failed to create weapon', error);
+      throw new DatabaseError("Failed to create weapon", error);
     }
 
     return data;
@@ -144,24 +115,27 @@ export class WeaponRepository extends BaseRepository<Weapon> {
    * @throws NotFoundError if weapon doesn't exist
    * @throws DatabaseError on update failure
    */
-  async updateWeaponPattern(itemId: string, pattern: Database['public']['Enums']['weapon_pattern']): Promise<void> {
+  async updateWeaponPattern(
+    itemId: string,
+    pattern: Database["public"]["Enums"]["weapon_pattern"]
+  ): Promise<void> {
     // MVP0 constraint: Only single_arc pattern allowed
-    if (pattern !== 'single_arc') {
-      throw new ValidationError('MVP0 only supports single_arc pattern');
+    if (pattern !== "single_arc") {
+      throw new ValidationError("MVP0 only supports single_arc pattern");
     }
 
     const { data, error } = await this.client
-      .from('weapons')
+      .from("weapons")
       .update({ pattern })
-      .eq('item_id', itemId)
+      .eq("item_id", itemId)
       .select()
       .single();
 
     if (error) {
-      if (error.code === 'PGRST116') {
-        throw new NotFoundError('weapon', itemId);
+      if (error.code === "PGRST116") {
+        throw new NotFoundError("weapon", itemId);
       }
-      throw new DatabaseError('Failed to update weapon pattern', error);
+      throw new DatabaseError("Failed to update weapon pattern", error);
     }
   }
 
@@ -176,21 +150,21 @@ export class WeaponRepository extends BaseRepository<Weapon> {
    */
   async updateHitBands(itemId: string, bands: DegreeConfig): Promise<void> {
     if (!this.validateDegreeSum(bands)) {
-      throw new ValidationError('Total degree sum cannot exceed 360');
+      throw new ValidationError("Total degree sum cannot exceed 360");
     }
 
     const { data, error } = await this.client
-      .from('weapons')
+      .from("weapons")
       .update(bands)
-      .eq('item_id', itemId)
+      .eq("item_id", itemId)
       .select()
       .single();
 
     if (error) {
-      if (error.code === 'PGRST116') {
-        throw new NotFoundError('weapon', itemId);
+      if (error.code === "PGRST116") {
+        throw new NotFoundError("weapon", itemId);
       }
-      throw new DatabaseError('Failed to update hit bands', error);
+      throw new DatabaseError("Failed to update hit bands", error);
     }
   }
 
@@ -204,26 +178,40 @@ export class WeaponRepository extends BaseRepository<Weapon> {
    * @throws NotFoundError if weapon doesn't exist
    * @throws DatabaseError on update failure
    */
-  async updateWeapon(itemId: string, updateData: UpdateWeaponData): Promise<Weapon> {
+  async updateWeapon(
+    itemId: string,
+    updateData: TablesUpdate<"weapons">
+  ): Promise<Weapon> {
     // Validate pattern if provided
-    if (updateData.pattern && updateData.pattern !== 'single_arc') {
-      throw new ValidationError('MVP0 only supports single_arc pattern');
+    if (updateData.pattern && updateData.pattern !== "single_arc") {
+      throw new ValidationError("MVP0 only supports single_arc pattern");
     }
 
     // Validate spin speed if provided
-    if (updateData.spin_deg_per_s !== undefined && !this.validateSpinSpeed(updateData.spin_deg_per_s)) {
-      throw new ValidationError('Spin speed must be greater than 0');
+    if (
+      updateData.spin_deg_per_s !== undefined &&
+      !this.validateSpinSpeed(updateData.spin_deg_per_s)
+    ) {
+      throw new ValidationError("Spin speed must be greater than 0");
     }
 
     // If any degree fields are provided, validate the complete configuration
-    const hasDegreeMods = ['deg_injure', 'deg_miss', 'deg_graze', 'deg_normal', 'deg_crit']
-      .some(field => updateData[field as keyof UpdateWeaponData] !== undefined);
+    const hasDegreeMods = [
+      "deg_injure",
+      "deg_miss",
+      "deg_graze",
+      "deg_normal",
+      "deg_crit",
+    ].some(
+      (field) =>
+        updateData[field as keyof TablesUpdate<"weapons">] !== undefined
+    );
 
     if (hasDegreeMods) {
       // Get current weapon to merge with updates
       const current = await this.findWeaponByItemId(itemId);
       if (!current) {
-        throw new NotFoundError('weapon', itemId);
+        throw new NotFoundError("weapon", itemId);
       }
 
       const mergedDegrees: DegreeConfig = {
@@ -231,26 +219,26 @@ export class WeaponRepository extends BaseRepository<Weapon> {
         deg_miss: updateData.deg_miss ?? current.deg_miss,
         deg_graze: updateData.deg_graze ?? current.deg_graze,
         deg_normal: updateData.deg_normal ?? current.deg_normal,
-        deg_crit: updateData.deg_crit ?? current.deg_crit
+        deg_crit: updateData.deg_crit ?? current.deg_crit,
       };
 
       if (!this.validateDegreeSum(mergedDegrees)) {
-        throw new ValidationError('Total degree sum cannot exceed 360');
+        throw new ValidationError("Total degree sum cannot exceed 360");
       }
     }
 
     const { data, error } = await this.client
-      .from('weapons')
+      .from("weapons")
       .update(updateData)
-      .eq('item_id', itemId)
+      .eq("item_id", itemId)
       .select()
       .single();
 
     if (error) {
-      if (error.code === 'PGRST116') {
-        throw new NotFoundError('weapon', itemId);
+      if (error.code === "PGRST116") {
+        throw new NotFoundError("weapon", itemId);
       }
-      throw new DatabaseError('Failed to update weapon', error);
+      throw new DatabaseError("Failed to update weapon", error);
     }
 
     return data;
@@ -269,17 +257,22 @@ export class WeaponRepository extends BaseRepository<Weapon> {
    * @throws NotFoundError if weapon doesn't exist
    * @throws DatabaseError on function call failure
    */
-  async getAdjustedBands(weaponId: string, playerAccuracy: number): Promise<AdjustedBands> {
+  async getAdjustedBands(
+    weaponId: string,
+    playerAccuracy: number
+  ): Promise<AdjustedBands> {
     try {
-      const result = await this.rpc<{
-        deg_injure: number;
-        deg_miss: number;
-        deg_graze: number;
-        deg_normal: number;
-        deg_crit: number;
-      }[]>('fn_weapon_bands_adjusted', {
+      const result = await this.rpc<
+        {
+          deg_injure: number;
+          deg_miss: number;
+          deg_graze: number;
+          deg_normal: number;
+          deg_crit: number;
+        }[]
+      >("fn_weapon_bands_adjusted", {
         w_id: weaponId,
-        player_acc: playerAccuracy
+        player_acc: playerAccuracy,
       });
 
       // PostgreSQL TABLE functions return arrays from Supabase RPC
@@ -287,7 +280,7 @@ export class WeaponRepository extends BaseRepository<Weapon> {
       const bandData = Array.isArray(result) ? result[0] : result;
 
       if (!bandData) {
-        throw new NotFoundError('weapon', weaponId);
+        throw new NotFoundError("weapon", weaponId);
       }
 
       const roundedBands = {
@@ -295,24 +288,34 @@ export class WeaponRepository extends BaseRepository<Weapon> {
         deg_miss: Math.round(bandData.deg_miss),
         deg_graze: Math.round(bandData.deg_graze),
         deg_normal: Math.round(bandData.deg_normal),
-        deg_crit: Math.round(bandData.deg_crit)
+        deg_crit: Math.round(bandData.deg_crit),
       };
 
-      const totalDegrees = roundedBands.deg_injure + roundedBands.deg_miss + roundedBands.deg_graze +
-                          roundedBands.deg_normal + roundedBands.deg_crit;
+      const totalDegrees =
+        roundedBands.deg_injure +
+        roundedBands.deg_miss +
+        roundedBands.deg_graze +
+        roundedBands.deg_normal +
+        roundedBands.deg_crit;
 
       return {
         ...roundedBands,
-        total_degrees: totalDegrees
+        total_degrees: totalDegrees,
       };
     } catch (error) {
       if (error instanceof NotFoundError) {
         throw error;
       }
-      if (error instanceof DatabaseError && error.message.includes('Weapon not found')) {
-        throw new NotFoundError('weapon', weaponId);
+      if (
+        error instanceof DatabaseError &&
+        error.message.includes("Weapon not found")
+      ) {
+        throw new NotFoundError("weapon", weaponId);
       }
-      throw new DatabaseError('Failed to calculate adjusted bands', error instanceof Error ? { message: error.message } : {});
+      throw new DatabaseError(
+        "Failed to calculate adjusted bands",
+        error instanceof Error ? { message: error.message } : {}
+      );
     }
   }
 
@@ -325,19 +328,28 @@ export class WeaponRepository extends BaseRepository<Weapon> {
    * @throws NotFoundError if weapon doesn't exist
    * @throws DatabaseError on function call failure
    */
-  async getExpectedDamageMultiplier(weaponId: string, playerAccuracy: number): Promise<number> {
+  async getExpectedDamageMultiplier(
+    weaponId: string,
+    playerAccuracy: number
+  ): Promise<number> {
     try {
-      const result = await this.rpc<number>('fn_expected_mul_quick', {
+      const result = await this.rpc<number>("fn_expected_mul_quick", {
         w_id: weaponId,
-        player_acc: playerAccuracy
+        player_acc: playerAccuracy,
       });
 
       return result;
     } catch (error) {
-      if (error instanceof DatabaseError && error.message.includes('Weapon not found')) {
-        throw new NotFoundError('weapon', weaponId);
+      if (
+        error instanceof DatabaseError &&
+        error.message.includes("Weapon not found")
+      ) {
+        throw new NotFoundError("weapon", weaponId);
       }
-      throw new DatabaseError('Failed to calculate expected damage multiplier', error instanceof Error ? { message: error.message } : {});
+      throw new DatabaseError(
+        "Failed to calculate expected damage multiplier",
+        error instanceof Error ? { message: error.message } : {}
+      );
     }
   }
 
@@ -352,8 +364,12 @@ export class WeaponRepository extends BaseRepository<Weapon> {
    * @returns true if valid, false if exceeds 360
    */
   validateDegreeSum(degrees: DegreeConfig): boolean {
-    const total = degrees.deg_injure + degrees.deg_miss + degrees.deg_graze +
-                  degrees.deg_normal + degrees.deg_crit;
+    const total =
+      degrees.deg_injure +
+      degrees.deg_miss +
+      degrees.deg_graze +
+      degrees.deg_normal +
+      degrees.deg_crit;
     return total <= 360.0;
   }
 
@@ -372,29 +388,6 @@ export class WeaponRepository extends BaseRepository<Weapon> {
   // ============================================================================
 
   /**
-   * Find all weapons for a user (via items join)
-   *
-   * @param userId - User ID
-   * @returns Array of weapons with item details
-   * @throws DatabaseError on query failure
-   */
-  async findUserWeapons(userId: string): Promise<WeaponWithItem[]> {
-    const { data, error } = await this.client
-      .from('weapons')
-      .select(`
-        *,
-        item:items!inner(*)
-      `)
-      .eq('item.user_id', userId);
-
-    if (error) {
-      throw new DatabaseError('Failed to find user weapons', error);
-    }
-
-    return data ?? [];
-  }
-
-  /**
    * Get weapon combat statistics
    *
    * @param weaponId - Weapon item ID
@@ -403,25 +396,28 @@ export class WeaponRepository extends BaseRepository<Weapon> {
    * @throws NotFoundError if weapon doesn't exist
    * @throws DatabaseError on calculation failure
    */
-  async getWeaponCombatStats(weaponId: string, playerAccuracy: number): Promise<{
+  async getWeaponCombatStats(
+    weaponId: string,
+    playerAccuracy: number
+  ): Promise<{
     weapon: Weapon;
     adjustedBands: AdjustedBands;
     expectedDamageMultiplier: number;
   }> {
     const weapon = await this.findWeaponByItemId(weaponId);
     if (!weapon) {
-      throw new NotFoundError('weapon', weaponId);
+      throw new NotFoundError("weapon", weaponId);
     }
 
     const [adjustedBands, expectedDamageMultiplier] = await Promise.all([
       this.getAdjustedBands(weaponId, playerAccuracy),
-      this.getExpectedDamageMultiplier(weaponId, playerAccuracy)
+      this.getExpectedDamageMultiplier(weaponId, playerAccuracy),
     ]);
 
     return {
       weapon,
       adjustedBands,
-      expectedDamageMultiplier
+      expectedDamageMultiplier,
     };
   }
 }

@@ -1,5 +1,5 @@
-import { Database } from '../../types/database.types.js';
 import { Stats } from '../../types/api.types.js';
+import { Database } from '../../types/database.types.js';
 import { AdjustedBands } from '../../types/repository.types.js';
 
 export type CombatResult = Database['public']['Enums']['combat_result'];
@@ -12,16 +12,16 @@ export type LootRewards = {
     material_id: string;
     name: string;
     style_id: string;
-    style_name: string;
+    display_name: string;
     image_url: string;
   }>;
   items: Array<{
     item_type_id: string;
     name: string;
     category: string;
-    rarity: string;
+    rarity: Database['public']['Enums']['rarity'];
     style_id: string;
-    style_name: string;
+    display_name: string;
   }>;
   experience: number;
 };
@@ -31,7 +31,6 @@ export type EnemyLootEntry = {
   item_type_id?: string;
   lootable_type: 'material' | 'item_type';
   drop_weight: number;
-  style_id?: string;
 };
 
 export type LootDetails = {
@@ -41,7 +40,7 @@ export type LootDetails = {
   category?: string;
   rarity?: string;
   style_id: string;
-  style_name: string;
+  display_name: string;
   image_url?: string;
 };
 
@@ -52,6 +51,13 @@ export interface CombatSession {
   status: 'active';
   player_hp: number;
   enemy_hp: number;
+  location: {
+    id: string;
+    name: string | null;
+    location_type: string | null;
+    background_image_url: string | null;
+    image_url: string | null;
+  };
   enemy: {
     id: string;
     type: string;
@@ -139,16 +145,16 @@ export interface CombatRewards {
     material_id: string;
     name: string;
     style_id: string;
-    style_name: string;
+    display_name: string;
   }>;
   items?: Array<{
     id: string;
     item_type_id: string;
     name: string;
     category: string;
-    rarity: string;
+    rarity: Database['public']['Enums']['rarity'];
     style_id: string;
-    style_name: string;
+    display_name: string;
     generated_image_url: string | null;
   }>;
   experience?: number;

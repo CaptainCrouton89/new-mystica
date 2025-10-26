@@ -3,26 +3,17 @@ import { generateText } from 'ai';
 import { AnalyticsRepository } from '../repositories/AnalyticsRepository.js';
 import { CombatRepository } from '../repositories/CombatRepository.js';
 import { EnemyRepository } from '../repositories/EnemyRepository.js';
-import { PetRepository } from '../repositories/PetRepository.js';
 import {
   ChatterMetadata,
-  ChatterResponse,
   CombatEventDetails,
   EnemyChatterEventType,
   EnemyChatterResponse,
   EnemyType,
-  PersonalityAssignmentResult,
-  PetChatterEventType,
-  PetPersonality,
   PlayerCombatHistory
 } from '../types/api.types.js';
 import {
   EnemyTypeNotFoundError,
   ExternalAPIError,
-  InvalidPersonalityError,
-  NoPetEquippedError,
-  PersonalityNotFoundError,
-  PetNotFoundError,
   SessionNotFoundError,
   ValidationError
 } from '../utils/errors.js';
@@ -47,87 +38,13 @@ interface CombatEvent {
 export class ChatterService {
   private readonly AI_TIMEOUT_MS = 2000; 
   private combatRepository: CombatRepository;
-  private petRepository: PetRepository;
   private enemyRepository: EnemyRepository;
   private analyticsRepository: AnalyticsRepository;
 
   constructor() {
     this.combatRepository = new CombatRepository();
-    this.petRepository = new PetRepository();
     this.enemyRepository = new EnemyRepository();
     this.analyticsRepository = new AnalyticsRepository();
-  }
-
-  async generatePetChatter(
-    sessionId: string,
-    eventType: PetChatterEventType,
-    eventDetails: CombatEventDetails
-  ): Promise<ChatterResponse> {
-    
-    const session = await this.combatRepository.getActiveSession(sessionId);
-    if (!session) {
-      throw new SessionNotFoundError(`Combat session ${sessionId} not found or expired`);
-    }
-
-    const pet = await this.getEquippedPet(session.userId);
-    if (!pet) {
-      throw new NoPetEquippedError('Player has no pet equipped for chatter generation');
-    }
-
-    if (!pet.personality_type) {
-      throw new PersonalityNotFoundError('Pet has no personality assigned');
-    }
-
-    const personality = await this.petRepository.findPersonalityByType(pet.personality_type);
-    if (!personality) {
-      throw new PersonalityNotFoundError(`Pet personality ${pet.personality_type} not found`);
-    }
-
-    const combatContext: CombatContext = {
-      turnNumber: eventDetails.turn_number,
-      playerHpPct: eventDetails.player_hp_pct,
-      enemyHpPct: eventDetails.enemy_hp_pct,
-      eventType,
-      damage: eventDetails.damage,
-      isCritical: eventDetails.is_critical
-    };
-
-    const personalityData = {
-      personality_type: personality.personality_type,
-      traits: Array.isArray(personality.traits) ? personality.traits as string[] : [],
-      verbosity: personality.verbosity as 'terse' | 'moderate' | 'verbose'
-    };
-
-    const prompt = await this.buildPetPrompt(personalityData, combatContext, eventDetails);
-
-    let dialogue: string;
-    let wasAIGenerated = true;
-    const startTime = Date.now();
-
-    try {
-      dialogue = await this.callAIService(prompt, this.AI_TIMEOUT_MS);
-    } catch (error) {
-      
-      dialogue = await this.getRandomFallbackPhrase(Array.isArray(personality.example_phrases) ? personality.example_phrases as string[] : []);
-      wasAIGenerated = false;
-    }
-
-    const generationTime = Date.now() - startTime;
-
-    await this.logChatterEvent(sessionId, dialogue, {
-      eventType,
-      personalityType: personality.personality_type,
-      wasAIGenerated,
-      generationTime,
-      fallbackReason: !wasAIGenerated ? 'ai_timeout' : undefined
-    });
-
-    return {
-      dialogue,
-      personality_type: personality.personality_type,
-      generation_time_ms: generationTime,
-      was_ai_generated: wasAIGenerated
-    };
   }
 
   async generateEnemyChatter(
@@ -242,50 +159,6 @@ export class ChatterService {
     };
   }
 
-  async getPetPersonalities(): Promise<PetPersonality[]> {
-    const personalities = await this.petRepository.getAllPersonalities();
-
-    return personalities.map(p => {
-      if (!p.personality_type || !p.display_name) {
-        throw new ValidationError('Pet personality missing required fields');
-      }
-      return {
-        personality_type: p.personality_type,
-        display_name: p.display_name,
-        description: p.description ?? '',
-        traits: Array.isArray(p.traits) ? p.traits.map(t => String(t)) : [],
-        example_phrases: Array.isArray(p.example_phrases) ? p.example_phrases.map(e => String(e)) : [],
-        verbosity: (p.verbosity as 'terse' | 'moderate' | 'verbose') ?? 'moderate'
-      };
-    });
-  }
-
-  async assignPetPersonality(
-    petId: string,
-    personalityType: string,
-    customName?: string
-  ): Promise<PersonalityAssignmentResult> {
-    
-    const pet = await this.petRepository.findById(petId);
-    if (!pet) {
-      throw new PetNotFoundError(`Pet ${petId} not found`);
-    }
-
-    const personality = await this.petRepository.findPersonalityByType(personalityType);
-    if (!personality) {
-      throw new InvalidPersonalityError(`Personality type ${personalityType} not found`);
-    }
-
-    await this.petRepository.updatePetPersonality(petId, personalityType, customName);
-
-    return {
-      success: true,
-      pet_id: petId,
-      personality_type: personalityType,
-      custom_name: customName
-    };
-  }
-
   async getEnemyTypes(): Promise<EnemyType[]> {
     const enemyTypes = await this.enemyRepository.findAllEnemyTypes();
 
@@ -302,44 +175,6 @@ export class ChatterService {
         
       };
     });
-  }
-
-  private async getEquippedPet(userId: string): Promise<{
-    item_id: string;
-    personality_id: string | null;
-    personality_type: string | null;
-    custom_name: string | null;
-  } | null> {
-    try {
-      const { EquipmentRepository } = await import('../repositories/EquipmentRepository.js');
-      const equipmentRepository = new EquipmentRepository();
-
-      const equippedPet = await equipmentRepository.findItemInSlot(userId, 'pet');
-      if (!equippedPet) {
-        return null;
-      }
-
-      const pet = await this.petRepository.findPetByItemId(equippedPet.id);
-      if (!pet) {
-        return null;
-      }
-
-      let personalityType: string | null = null;
-      if (pet.personality_id) {
-        const personality = await this.petRepository.findPersonalityById(pet.personality_id);
-        personalityType = personality?.personality_type ?? null;
-      }
-
-      return {
-        item_id: equippedPet.id,
-        personality_id: pet.personality_id,
-        personality_type: personalityType,
-        custom_name: pet.custom_name
-      };
-
-    } catch (error) {
-      throw new Error(`Failed to get equipped pet: ${error instanceof Error ? error.message : String(error)}`);
-    }
   }
 
   private async buildPetPrompt(
