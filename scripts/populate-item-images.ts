@@ -5,6 +5,9 @@
  * 1. For items with combo_hash (materials applied): Use items-crafted/{slug}/{hash}.png
  * 2. For base items: Check if specific image exists (items/{snake_case_name}.png)
  * 3. Fallback: Use category default (items/default_{category}.png)
+ *
+ * @deprecated This functionality has been integrated into sync-to-db.ts
+ * Please use: pnpm sync-to-db --type items --all
  */
 
 import { createClient } from '@supabase/supabase-js';

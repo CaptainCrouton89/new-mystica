@@ -29,6 +29,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import Replicate from 'replicate';
 import sharp from 'sharp';
+import { getStyle, getDefaultStyle, StyleName, hasStyle } from './styles/index.js';
 
 // Load environment variables from .env.local
 dotenv.config({ path: '../.env.local', override: true });
@@ -37,38 +38,7 @@ dotenv.config({ path: '../.env.local', override: true });
 const CONFIG = {
   aspectRatio: '1:1' as const,
   provider: 'gemini' as const,
-  model: 'google/nano-banana',
-  defaultReferenceImages: [
-<<<<<<< HEAD
-    'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/bubble-wrap-vest.png',
-    'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/fuzzy-slippers.png',
-    'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/gatling-gun.png',
-    'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/jar-of-jelly.png',
-    'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/poop-emoji.png',
-    'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/lava.png',
-    'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/metal-scraps.png',
-    'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/rainbow.png',
-    'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/slime.png',
-    'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/sword.png'
-  ],
-  // Cuphead-style reference images (1930s rubber hose animation style)
-  cupheadReferenceImages: [
-    'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/monsters/07ba5f91-662d-4820-8a99-eee4c301f2ca/base.png',
-    'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/monsters/ad4f9aa2-5938-40cc-949c-8b6263fa1444/base.png',
-    'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/monsters/b6052188-9f6f-4e17-b19b-4fef529ffd36/base.png'
-=======
-    `${process.env.R2_PUBLIC_URL}/image-refs/bubble-wrap-vest.png`,
-    `${process.env.R2_PUBLIC_URL}/image-refs/fuzzy-slippers.png`,
-    `${process.env.R2_PUBLIC_URL}/image-refs/gatling-gun.png`,
-    `${process.env.R2_PUBLIC_URL}/image-refs/jar-of-jelly.png`,
-    `${process.env.R2_PUBLIC_URL}/image-refs/poop-emoji.png`,
-    `${process.env.R2_PUBLIC_URL}/image-refs/lava.png`,
-    `${process.env.R2_PUBLIC_URL}/image-refs/metal-scraps.png`,
-    `${process.env.R2_PUBLIC_URL}/image-refs/rainbow.png`,
-    `${process.env.R2_PUBLIC_URL}/image-refs/slime.png`,
-    `${process.env.R2_PUBLIC_URL}/image-refs/sword.png`
->>>>>>> 136e52d7176c3457658f427cd8ca0991a9e5f814
-  ]
+  model: 'google/nano-banana'
 };
 
 const R2_CONFIG = {
@@ -109,81 +79,7 @@ interface GenerateArbitraryImageOptions {
   outputPath?: string;
   outputFormat?: 'jpg' | 'png';
   r2Path?: string;
-  cupheadMode?: boolean;
-}
-
-function buildPrompt(description: string, cupheadMode: boolean = false): string {
-  if (cupheadMode) {
-    return buildCupheadPrompt(description);
-  }
-  
-  return buildDefaultPrompt(description);
-}
-
-function buildCupheadPrompt(description: string): string {
-  return `Create a single, center-framed 1:1 game asset in the distinctive 1930s rubber hose animation style:
-
-"${description}"
-
-This illustration must capture the authentic Cuphead aesthetic with vintage Disney cartoon characteristics.
-
-Core Look (1930s Rubber Hose Style)
-    •    Color: Vintage color palette with muted, sepia-tinted tones; warm yellows, oranges, and browns. Avoid modern neon colors.
-    •    Lighting: Soft, diffused lighting with gentle shadows. No harsh contrasts or modern lighting effects.
-    •    Glow & Highlights: NO outer glow or modern effects. Use subtle highlights only where natural light would hit.
-    •    Border: Thick, bold black outlines around ALL elements—this is the defining characteristic of rubber hose animation.
-
-Line & Form (Rubber Hose Animation)
-    •    Outlines: Thick, uniform black lines (3-5px thick) around EVERY element. No thin lines or sketchy linework.
-    •    Proportions: Classic cartoon proportions—large heads, small bodies, exaggerated features. Think Mickey Mouse or Betty Boop.
-    •    Texture: Minimal texture detail. Focus on clean, simple shapes with smooth surfaces.
-    •    Simplicity: Keep designs simple and iconic. Avoid complex details or modern elements.
-
-Shading & Depth (Cel Animation Style)
-    •    Render Style: Pure cel shading with flat colors and sharp shadow transitions. NO gradients or soft shading.
-    •    Volume: Simple 2D appearance with minimal depth. Use basic shadow shapes for volume indication.
-    •    Shadows: Simple, geometric shadow shapes in darker versions of base colors.
-
-Composition & Background (Vintage Cartoon)
-    •    Framing: Single hero object, perfectly centered and clearly visible at optimal scale.
-    •    Background: Simple solid color background in vintage tones (cream, light yellow, or soft brown). NO patterns or textures.
-    •    Sparkles/Particles: NO modern particle effects. If sparkles are needed, use simple star shapes in vintage colors.
-    •    Shadow: Simple geometric shadow beneath object in darker tone of background color.
-    •    Restrictions: NO modern elements, NO gradients, NO complex lighting, NO realistic textures, NO environmental backgrounds, NO text, NO watermarks, NO logos.
-
-Style References: Think Cuphead, early Disney cartoons (1920s-1930s), Fleischer Studios, rubber hose animation era.`;
-}
-
-function buildDefaultPrompt(description: string): string {
-  return `Create a single, center-framed 1:1 game asset:
-
-"${description}"
-
-This illustration in a polished, high-detail "chibi"/super-deformed aesthetic typical of mobile RPGs and CCGs.
-
-Core Look
-    •    Color: Vivid, high-saturation palette; punchy local colors with clean hue separation. Keep values readable; avoid muddy midtones.
-    •    Lighting: Clear, consistent key light with crisp fill; controlled shadows for depth. Add a strong rim light to separate from the background.
-    •    Glow & Highlights: MINIMAL outer glow/halo (very subtle and sparse). Use tight, glossy specular highlights on hard materials; soft bloom on emissive parts only where essential.
-    •    Border: Bold black outline ONLY around the object itself—NOT around the image edge. This outline defines the subject's silhouette for strong separation.
-
-Line & Form
-    •    Outlines: Bold, uniform black border carving a strong silhouette around the SUBJECT ONLY; no sketchy linework. No frame or border around the image edge.
-    •    Proportions: Chunky, simplified, and slightly exaggerated shapes for instant readability and strong silhouette.
-    •    Texture: Suggestive, not photoreal—hint at materials (wood grain, brushed metal, facets) with tidy, deliberate marks. Avoid excessive texture detail.
-    •    Simplicity: Keep the object itself straightforward—no unnecessary gems, ornaments, extra decorative elements, or overly complex details. Stylized over realistic.
-
-Shading & Depth
-    •    Render Style: Hybrid cel + soft gradients; sharp edge transitions only where they improve clarity.
-    •    Volume: Strong sense of 3D mass via light, occlusion, and controlled contrast; default to a subtle 3/4 view for maximum silhouette clarity.
-
-Composition & Background
-    •    Framing: Single hero object, perfectly centered and clearly visible at optimal scale; crop to emphasize strong silhouette.
-    •    Background: SIMPLE solid color OR clean radial/linear gradient ONLY. Choose complementary colors that make the object pop. NO patterns, NO scenes, NO textures, NO environmental elements.
-    •    Sparkles/Particles: MINIMAL and SPARSE—if used at all, keep to 3-5 small white sparkles maximum. Avoid heavy particle effects.
-    •    Shadow: Soft contact shadow directly beneath object only (no complex shadow effects).
-    •    Border: Bold black outline around SUBJECT ONLY—absolutely NO border or frame around the image edge itself.
-    •    Restrictions: NO environmental backgrounds, NO busy backgrounds, NO props, NO decorative frames, NO black borders around image edge, NO text, NO watermarks, NO logos, NO excessive glow effects.`;
+  style?: StyleName;
 }
 
 async function generateImageWithReplicate(options: GenerateArbitraryImageOptions): Promise<string> {
@@ -195,23 +91,21 @@ async function generateImageWithReplicate(options: GenerateArbitraryImageOptions
 
   const replicate = new Replicate({ auth: apiToken });
 
-  const prompt = buildPrompt(options.prompt, options.cupheadMode);
-  
-  // Choose reference images based on mode
-  const referenceImages = options.cupheadMode 
-    ? CONFIG.cupheadReferenceImages 
-    : CONFIG.defaultReferenceImages;
-  
+  // Get style (use default if not specified)
+  const style = options.style ? getStyle(options.style) : getDefaultStyle();
+
+  // Build prompt using style's arbitrary prompt builder
+  const prompt = style.prompts.buildArbitraryPrompt(options.prompt);
+
   const input: Record<string, unknown> = {
     prompt,
     aspect_ratio: CONFIG.aspectRatio,
     output_format: options.outputFormat || 'png',
-    image_input: referenceImages
+    image_input: style.config.referenceImages
   };
 
-  const modeText = options.cupheadMode ? 'Cuphead-style (1930s rubber hose)' : 'Default (chibi/super-deformed)';
-  console.log(`🎨 Generating with ${CONFIG.model} in ${modeText} mode...`);
-  console.log(`📸 Using ${referenceImages.length} reference images from R2`);
+  console.log(`🎨 Generating with ${CONFIG.model} using ${style.config.displayName} style...`);
+  console.log(`📸 Using ${style.config.referenceImages.length} reference images from style`);
   console.log(`💬 Prompt: "${options.prompt}"`);
 
   // Run prediction
@@ -354,11 +248,13 @@ async function generateArbitraryImage(options: GenerateArbitraryImageOptions): P
       .replace(/[^a-z0-9_]/g, '')
       .substring(0, 50);
 
-    const modeSuffix = options.cupheadMode ? '-cuphead' : '';
+    // Get style for filename suffix (only if non-default)
+    const style = options.style ? getStyle(options.style) : getDefaultStyle();
+    const styleSuffix = options.style && options.style !== 'rubberhose' ? `-${style.config.name}` : '';
     const outputPath = options.outputPath || path.join(
       'output',
       'arbitrary',
-      `${sanitizedPrompt}${modeSuffix}-${timestamp}.${options.outputFormat || 'png'}`
+      `${sanitizedPrompt}${styleSuffix}-${timestamp}.${options.outputFormat || 'png'}`
     );
 
     // Ensure output directory exists
@@ -409,39 +305,43 @@ Arguments:
 Options:
   -o, --output PATH     Custom local output path (default: output/arbitrary/{prompt}-{timestamp}.png)
   -f, --format FMT      Output format: jpg or png (default: png)
+  -s, --style STYLE     Visual style: rubberhose, chibi, pixel-8bit (default: rubberhose)
   -r, --r2 R2_PATH      Upload to R2 at specified path (e.g. "items/my-item.png")
                         Will overwrite if file already exists at that path
-  --cuphead             Generate in Cuphead-style (1930s rubber hose animation aesthetic)
   -h, --help            Show this help message
 
 Configuration:
   Aspect Ratio:     1:1 (hardcoded)
   Provider:         Gemini (Nano Banana) (hardcoded)
-  Reference Images: 10 R2-hosted images (default) or 5 Cuphead-style images (--cuphead)
+  Reference Images: Style-specific reference images
   Background:       Automatically removed
-  Styles:           Default: chibi/super-deformed | Cuphead: 1930s rubber hose animation
+
+Styles:
+  rubberhose   1930s Rubber Hose animation (Cuphead-inspired) - thick outlines, vintage colors [DEFAULT]
+  chibi        Polished mobile RPG/CCG aesthetic - vivid colors, high detail
+  pixel-8bit   Retro 8-bit/16-bit pixel art - visible pixels, limited palette
 
 Examples:
-  # Simple generation (default chibi style)
+  # Simple generation (default rubberhose style)
   pnpm generate-arbitrary "a magical glowing orb"
   pnpm generate-arbitrary "cyberpunk samurai sword"
 
-  # Cuphead-style generation (1930s rubber hose animation)
-  pnpm generate-arbitrary "vintage cartoon character" --cuphead
-  pnpm generate-arbitrary "rubber hose style boss enemy" --cuphead
-  pnpm generate-arbitrary "1930s cartoon weapon" --cuphead
+  # Generate with different styles
+  pnpm generate-arbitrary "vintage cartoon character" --style rubberhose
+  pnpm generate-arbitrary "cute potion bottle" --style chibi
+  pnpm generate-arbitrary "retro game sword" --style pixel-8bit
 
   # Custom local output path
   pnpm generate-arbitrary "dragon egg" --output my-dragon-egg.png
-  pnpm generate-arbitrary "cuphead boss" --cuphead --output boss.png
+  pnpm generate-arbitrary "magic staff" --style chibi --output staff.png
 
   # Upload to R2 at custom path
   pnpm generate-arbitrary "fire sword" --r2 "items/fire-sword.png"
-  pnpm generate-arbitrary "cuphead character" --cuphead --r2 "characters/cuphead-hero.png"
+  pnpm generate-arbitrary "pixel shield" --style pixel-8bit --r2 "items/pixel-shield.png"
 
   # Both local and R2
   pnpm generate-arbitrary "magic orb" --output orb.png --r2 "items/orb.png"
-  pnpm generate-arbitrary "vintage enemy" --cuphead --output enemy.png --r2 "enemies/vintage-boss.png"
+  pnpm generate-arbitrary "vintage coin" --style rubberhose --output coin.png --r2 "items/coin.png"
 
 Environment Variables Required:
   REPLICATE_API_TOKEN      Get from https://replicate.com
@@ -483,10 +383,15 @@ Output:
         process.exit(1);
       }
       options.outputFormat = format;
+    } else if ((arg === '-s' || arg === '--style') && args[i + 1]) {
+      const style = args[++i] as StyleName;
+      if (!hasStyle(style)) {
+        console.error(`❌ Invalid style: ${style}. Available styles: rubberhose, chibi, pixel-8bit`);
+        process.exit(1);
+      }
+      options.style = style;
     } else if ((arg === '-r' || arg === '--r2') && args[i + 1]) {
       options.r2Path = args[++i];
-    } else if (arg === '--cuphead') {
-      options.cupheadMode = true;
     } else if (!arg.startsWith('-') && !promptSet) {
       options.prompt = arg;
       promptSet = true;

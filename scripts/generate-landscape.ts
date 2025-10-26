@@ -27,6 +27,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import Replicate from 'replicate';
 import sharp from 'sharp';
+import { getStyle, getDefaultStyle, StyleName, hasStyle } from './styles/index.js';
 
 // Load environment variables from .env.local
 dotenv.config({ path: '.env.local', override: true });
@@ -37,19 +38,7 @@ type AspectRatio = '1:1' | '2:3' | '3:2' | '3:4' | '4:3' | '4:5' | '5:4' | '9:16
 // Hardcoded configuration
 const CONFIG = {
   provider: 'gemini' as const,
-  model: 'google/nano-banana',
-  defaultReferenceImages: [
-    `${process.env.R2_PUBLIC_URL}/image-refs/bubble-wrap-vest.png`,
-    `${process.env.R2_PUBLIC_URL}/image-refs/fuzzy-slippers.png`,
-    `${process.env.R2_PUBLIC_URL}/image-refs/gatling-gun.png`,
-    `${process.env.R2_PUBLIC_URL}/image-refs/jar-of-jelly.png`,
-    `${process.env.R2_PUBLIC_URL}/image-refs/poop-emoji.png`,
-    `${process.env.R2_PUBLIC_URL}/image-refs/lava.png`,
-    `${process.env.R2_PUBLIC_URL}/image-refs/metal-scraps.png`,
-    `${process.env.R2_PUBLIC_URL}/image-refs/rainbow.png`,
-    `${process.env.R2_PUBLIC_URL}/image-refs/slime.png`,
-    `${process.env.R2_PUBLIC_URL}/image-refs/sword.png`
-  ]
+  model: 'google/nano-banana'
 };
 
 const R2_CONFIG = {
@@ -91,49 +80,7 @@ interface GenerateLandscapeOptions {
   outputPath?: string;
   outputFormat?: 'jpg' | 'png';
   r2Path?: string;
-}
-
-function buildPrompt(description: string, aspectRatio: AspectRatio): string {
-
-  return `Create a game background scene:
-
-"${description}"
-
-This illustration in a polished, high-detail "chibi"/super-deformed aesthetic typical of mobile RPGs and CCGs.
-
-Core Look
-    •    Color: Vivid, high-saturation palette; punchy local colors with clean hue separation. Keep values readable; avoid muddy midtones.
-    •    Lighting: Clear atmospheric lighting with natural sky gradients. Warm or cool color temperature appropriate to the scene.
-    •    Glow & Highlights: Atmospheric depth with subtle haze, fog, or distance fading. Controlled bloom on light sources (sun, magical effects).
-    •    Depth: Clear foreground, midground, and background layers. Use atmospheric perspective for distance.
-
-Line & Form
-    •    Outlines: Bold, uniform black borders around major elements and structures for strong silhouette separation.
-    •    Proportions: Slightly stylized, chunky architecture and terrain features for instant readability.
-    •    Texture: Suggestive environmental textures (stone, sand, wood, water) with tidy, deliberate marks. Avoid excessive detail.
-    •    Simplicity: Clear, readable landscape elements. Avoid clutter or overly complex details.
-
-Shading & Depth
-    •    Render Style: Hybrid cel + soft gradients; atmospheric blending for distance.
-    •    Volume: Strong sense of depth via layering, atmospheric perspective, and controlled contrast.
-    •    Environment: Natural or magical lighting appropriate to setting (daylight, dusk, moonlight, magical glow).
-
-Composition & Background
-    •    Framing: Full bleed edge-to-edge composition, clear horizon line or depth recession.
-    •    Background: Fully rendered environment scene - sky, terrain, structures, vegetation as appropriate.
-    •    Atmosphere: Use atmospheric effects (haze, fog, dust, particles) to enhance depth and mood.
-    •    Scale: Include environmental elements at varying scales to establish depth and grandeur.
-
-CRITICAL BORDER RULES:
-    •    Bold black outlines around MAJOR STRUCTURES AND OBJECTS ONLY (buildings, rocks, trees, etc.)
-    •    ABSOLUTELY NO BORDER, FRAME, OR BLACK LINE AROUND THE OUTER EDGE OF THE IMAGE
-    •    The image must extend fully to all edges without any surrounding border
-    •    Do NOT add any decorative frame or picture border
-    •    Full bleed composition only - content goes edge-to-edge
-
-Restrictions: NO text, NO watermarks, NO logos, NO UI elements, NO outer image border/frame, NO characters unless part of distant scenery.
-
-Style: Mobile RPG/CCG background art - vibrant, stylized, optimized for gameplay visibility with clear depth layers.`;
+  style?: StyleName;
 }
 
 async function generateImageWithReplicate(options: GenerateLandscapeOptions): Promise<string> {
@@ -145,18 +92,23 @@ async function generateImageWithReplicate(options: GenerateLandscapeOptions): Pr
 
   const replicate = new Replicate({ auth: apiToken });
 
+  // Get style (use default if not specified)
+  const style = options.style ? getStyle(options.style) : getDefaultStyle();
+
+  // Build prompt using style's landscape prompt builder
   const aspectRatio = options.aspectRatio || '16:9';
-  const prompt = buildPrompt(options.prompt, aspectRatio);
+  const prompt = style.prompts.buildLandscapePrompt(options.prompt, aspectRatio);
+
   const input: Record<string, unknown> = {
     prompt,
     aspect_ratio: aspectRatio,
     output_format: options.outputFormat || 'png',
-    image_input: CONFIG.defaultReferenceImages
+    image_input: style.config.referenceImages
   };
 
-  console.log(`🎨 Generating landscape with ${CONFIG.model}...`);
+  console.log(`🎨 Generating landscape with ${CONFIG.model} using ${style.config.displayName} style...`);
   console.log(`📐 Aspect ratio: ${aspectRatio}`);
-  console.log(`📸 Using ${CONFIG.defaultReferenceImages.length} reference images from R2`);
+  console.log(`📸 Using ${style.config.referenceImages.length} reference images from style`);
   console.log(`💬 Prompt: "${options.prompt}"`);
 
 
@@ -316,6 +268,7 @@ Arguments:
 Options:
   -a, --aspect RATIO    Aspect ratio (default: 16:9)
                         Available: 1:1, 2:3, 3:2, 3:4, 4:3, 4:5, 5:4, 9:16, 16:9, 21:9
+  -s, --style STYLE     Visual style: rubberhose, chibi, pixel-8bit (default: rubberhose)
   -o, --output PATH     Custom local output path (default: output/landscapes/{prompt}-{timestamp}.png)
   -f, --format FMT      Output format: jpg or png (default: png)
   -r, --r2 R2_PATH      Upload to R2 at specified path (e.g. "backgrounds/desert-temple.png")
@@ -324,17 +277,27 @@ Options:
 
 Configuration:
   Provider:         Gemini (Nano Banana) (hardcoded)
-  Reference Images: 10 R2-hosted images (hardcoded)
+  Reference Images: Style-specific reference images
   Background:       Kept (NOT removed)
   Max Resolution:   ~1 megapixel (varies by aspect ratio)
 
+Styles:
+  rubberhose   1930s Rubber Hose animation (Cuphead-inspired) - thick outlines, vintage colors [DEFAULT]
+  chibi        Polished mobile RPG/CCG aesthetic - vivid colors, high detail
+  pixel-8bit   Retro 8-bit/16-bit pixel art - visible pixels, limited palette
+
 Examples:
-  # Simple generation (16:9 landscape default)
+  # Simple generation (16:9 landscape default, rubberhose style)
   pnpm generate-landscape "mystical desert temple"
   pnpm generate-landscape "enchanted forest clearing"
 
+  # Generate with different styles
+  pnpm generate-landscape "vintage cartoon town" --style rubberhose
+  pnpm generate-landscape "vibrant magical kingdom" --style chibi
+  pnpm generate-landscape "retro pixel dungeon" --style pixel-8bit
+
   # Square format for icons or thumbnails
-  pnpm generate-landscape "magical portal" --aspect 1:1
+  pnpm generate-landscape "magical portal" --aspect 1:1 --style chibi
 
   # Portrait for mobile backgrounds
   pnpm generate-landscape "ancient tower" --aspect 9:16
@@ -347,7 +310,7 @@ Examples:
 
   # Upload to R2 at custom path
   pnpm generate-landscape "crystal cave" --aspect 16:9 --r2 "backgrounds/crystal-cave.png"
-  pnpm generate-landscape "ancient ruins" --r2 "environments/ruins.png"
+  pnpm generate-landscape "ancient ruins" --style pixel-8bit --r2 "environments/ruins.png"
 
   # Both local and R2
   pnpm generate-landscape "sky fortress" --output fortress.png --r2 "backgrounds/fortress.png"
@@ -392,6 +355,13 @@ Output:
         process.exit(1);
       }
       options.aspectRatio = aspect;
+    } else if ((arg === '-s' || arg === '--style') && args[i + 1]) {
+      const style = args[++i] as StyleName;
+      if (!hasStyle(style)) {
+        console.error(`❌ Invalid style: ${style}. Available styles: rubberhose, chibi, pixel-8bit`);
+        process.exit(1);
+      }
+      options.style = style;
     } else if ((arg === '-o' || arg === '--output') && args[i + 1]) {
       options.outputPath = args[++i];
     } else if ((arg === '-f' || arg === '--format') && args[i + 1]) {

@@ -915,6 +915,7 @@ export type Database = {
           id: string
           name: string
           rarity: Database["public"]["Enums"]["rarity"]
+          style_id: string | null
         }
         Insert: {
           base_image_url?: string
@@ -925,6 +926,7 @@ export type Database = {
           id?: string
           name: string
           rarity: Database["public"]["Enums"]["rarity"]
+          style_id?: string | null
         }
         Update: {
           base_image_url?: string
@@ -935,6 +937,7 @@ export type Database = {
           id?: string
           name?: string
           rarity?: Database["public"]["Enums"]["rarity"]
+          style_id?: string | null
         }
         Relationships: [
           {
@@ -943,6 +946,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "raritydefinitions"
             referencedColumns: ["rarity"]
+          },
+          {
+            foreignKeyName: "itemtypes_style_id_fkey"
+            columns: ["style_id"]
+            isOneToOne: false
+            referencedRelation: "styledefinitions"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1073,6 +1083,7 @@ export type Database = {
           location_type: string | null
           name: string | null
           state_code: string | null
+          style_id: string | null
         }
         Insert: {
           country_code?: string | null
@@ -1084,6 +1095,7 @@ export type Database = {
           location_type?: string | null
           name?: string | null
           state_code?: string | null
+          style_id?: string | null
         }
         Update: {
           country_code?: string | null
@@ -1095,8 +1107,17 @@ export type Database = {
           location_type?: string | null
           name?: string | null
           state_code?: string | null
+          style_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "locations_style_id_fkey"
+            columns: ["style_id"]
+            isOneToOne: false
+            referencedRelation: "styledefinitions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       materialinstances: {
         Row: {
@@ -1164,26 +1185,40 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          image_url: string | null
           name: string
           stat_modifiers: Json
+          style_id: string | null
         }
         Insert: {
           base_drop_weight?: number
           created_at?: string
           description?: string | null
           id?: string
+          image_url?: string | null
           name: string
           stat_modifiers: Json
+          style_id?: string | null
         }
         Update: {
           base_drop_weight?: number
           created_at?: string
           description?: string | null
           id?: string
+          image_url?: string | null
           name?: string
           stat_modifiers?: Json
+          style_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "materials_style_id_fkey"
+            columns: ["style_id"]
+            isOneToOne: false
+            referencedRelation: "styledefinitions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       materialstacks: {
         Row: {
@@ -1503,7 +1538,7 @@ export type Database = {
           display_name: string
           id: string
           spawn_rate: number
-          style_name: string
+          style_name: string | null
           visual_modifier: string | null
         }
         Insert: {
@@ -1512,7 +1547,7 @@ export type Database = {
           display_name: string
           id?: string
           spawn_rate: number
-          style_name: string
+          style_name?: string | null
           visual_modifier?: string | null
         }
         Update: {
@@ -1521,7 +1556,7 @@ export type Database = {
           display_name?: string
           id?: string
           spawn_rate?: number
-          style_name?: string
+          style_name?: string | null
           visual_modifier?: string | null
         }
         Relationships: []

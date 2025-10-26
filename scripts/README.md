@@ -4,7 +4,7 @@ TypeScript utilities for AI-powered asset generation in the Mystica game project
 
 ## Overview
 
-This directory contains standalone TypeScript scripts for generating game assets using AI image generation (Replicate) and AI text generation (OpenAI). All scripts follow a consistent architecture with shared R2 storage integration and standardized chibi/super-deformed art style.
+This directory contains standalone TypeScript scripts for generating game assets using AI image generation (Replicate) and AI text generation (OpenAI). All scripts follow a modular style system with shared R2 storage integration and support for multiple visual styles (rubberhose, chibi, pixel-8bit).
 
 ## Setup
 
@@ -15,19 +15,32 @@ pnpm install
 
 ## Core Scripts
 
-### Item/Material Crafting Pipeline
-- **generate-image.ts** - Full crafting pipeline with R2 dependency checking
-- **generate-raw-image.ts** - Standalone item/material generation with batch mode
+### Item/Material Generation Pipeline
+- **generate-image.ts** - Full crafting pipeline with R2 dependency checking (supports --style flag)
+- **generate-raw-image.ts** - Standalone item/material generation with batch mode (supports --style flag)
 - **generate-item-description.ts** - AI-generated item names and descriptions
+- **generate-ui-icon.ts** - UI icon generation for inventory, buttons, etc. (supports --style flag)
 
-### Monster Generation
-- **generate-raw-monster.ts** - Monster character generation with personality-based descriptions
+### Monster Pipeline
 - **import-monsters-from-animator.ts** - Import monsters from character-animator pipeline into database
 
+### Asset Management
+- **upload-to-r2.ts** - Batch upload local files to R2
+- **sync-to-db.ts** - Sync R2 asset URLs to database (items + materials, with smart URL resolution)
+- **manage-assets.ts** - Asset verification and management
+
 ### Utility Image Generation
-- **generate-arbitrary-image.ts** - Arbitrary objects with background removal
-- **generate-landscape.ts** - Environment/background scenes
+- **generate-arbitrary-image.ts** - Arbitrary objects with background removal (supports --style flag)
+- **generate-landscape.ts** - Environment/background scenes (supports --style flag)
 - **analyze-image.ts** - Multi-image analysis with Gemini
+- **identify-and-generate-from-image.ts** - Vision pipeline: analyze image → generate game asset
+
+### Style System
+- **styles/** - Modular style system (rubberhose, chibi, pixel-8bit)
+  - **types.ts** - Style interfaces and type definitions
+  - **rubberhose.ts** - 1930s rubber hose animation style (default)
+  - **chibi.ts** - Mobile RPG/CCG super-deformed aesthetic
+  - **pixel-8bit.ts** - Retro pixel art (8-bit/16-bit era)
 
 ### R2 Storage
 - **r2-service.ts** - Cloudflare R2 client wrapper (S3-compatible)
@@ -41,21 +54,28 @@ All image generation uses Replicate AI providers with standardized prompts.
 ```bash
 # Crafted item with materials (AI-generated name/description)
 pnpm generate-image --type "Magic Wand" --materials "wood,crystal"
+pnpm generate-image --type "Robot Dog" --materials "metal,screws,plastic" --style chibi
 
-# Standalone material (batch mode available)
+# Standalone item/material (batch mode available)
 pnpm generate-raw-image "Coffee" --type material --upload
+pnpm generate-raw-image "Sword" --type item --style pixel-8bit
 
-# Monster with personality (deprecated - use import-monsters for production)
-pnpm generate-raw-monster "Spray Paint Goblin"
+# UI icon generation
+pnpm generate-ui-icon "settings" --upload
+pnpm generate-ui-icon "inventory_slot" --style rubberhose
 
 # Import monsters from character-animator CSV
 pnpm import-monsters --batch
 
 # Arbitrary object with no background
-pnpm generate-arbitrary "magical glowing orb"
+pnpm generate-arbitrary "magical glowing orb" --style chibi
 
 # Landscape/environment
-pnpm generate-landscape "mystical desert temple" --aspect 16:9
+pnpm generate-landscape "mystical desert temple" --aspect 16:9 --style pixel-8bit
+
+# Sync assets to database
+pnpm sync-to-db --type items --all
+pnpm sync-to-db --type materials --batch "wood,crystal,metal"
 ```
 
 ### Providers
@@ -217,36 +237,85 @@ curl http://localhost:3000/api/v1/enemies?limit=50&offset=0
 
 ---
 
-### 3b. generate-raw-monster.ts - Monster Characters (DEPRECATED)
+### 4. upload-to-r2.ts - Batch Upload Tool
 
-⚠️ **Deprecated:** Use `import-monsters-from-animator.ts` for production. This script remains for manual one-off generations.
-
-Generate monster character images with personality-based AI descriptions.
+Upload local files to R2 storage with automatic path detection.
 
 ```bash
-# Single monster
-pnpm generate-raw-monster "Spray Paint Goblin"
-pnpm generate-raw-monster "Goopy Floating Eye"
+# Upload single file
+pnpm upload-to-r2 --file output/raw/materials/coffee.png --key materials/coffee.png
 
-# Multiple monsters
-pnpm generate-raw-monster "Dragon" "Slime" "Ghost"
+# Batch upload directory
+pnpm upload-to-r2 --dir output/raw/materials --prefix materials/
 
-# Batch from seed data
-pnpm generate-raw-monster --batch
-
-# Custom format
-pnpm generate-raw-monster "Feral Unicorn" --format jpg
+# Dry run to preview uploads
+pnpm upload-to-r2 --dir output/raw/items --prefix items/ --dry-run
 ```
 
 **Key Features:**
-- Reads personality traits and dialogue tone from seed data
-- AI description incorporates personality into visual details
-- Dynamic poses showing character personality
-- Chibi/super-deformed character aesthetic
-- Batch mode processes `docs/seed-data-monsters.json`
-- **Does NOT upload to database or use UUID-based R2 paths**
+- Automatic content-type detection
+- Batch directory uploads with prefix
+- Dry run mode for safety
+- Overwrites existing files by default
 
-### 4. generate-arbitrary-image.ts - Utility Objects
+---
+
+### 5. sync-to-db.ts - Database Sync Tool
+
+Sync R2 asset URLs to Supabase database for items and materials.
+
+```bash
+# Sync single item
+pnpm sync-to-db --type items --name "Fire Sword"
+
+# Sync batch of materials
+pnpm sync-to-db --type materials --batch "wood,crystal,metal"
+
+# Sync all items without image URLs
+pnpm sync-to-db --type items --all
+
+# Dry run to preview changes
+pnpm sync-to-db --type items --all --dry-run
+
+# Verify R2 assets exist before syncing
+pnpm sync-to-db --type materials --all --verify
+```
+
+**Key Features:**
+- **Smart URL resolution for items:**
+  - Priority 1: `items-crafted/{slug}/{combo_hash}.png` (combo items with materials)
+  - Priority 2: `items/{name}.png` (specific items)
+  - Priority 3: `items/default_{category}.png` (category defaults)
+- **Simple path for materials:** `materials/{name}.png`
+- Case-insensitive name matching
+- Skips records that already have URLs set
+- Detailed status reporting per record
+
+---
+
+### 6. manage-assets.ts - Asset Management
+
+Verify and manage R2 assets with database cross-reference.
+
+```bash
+# Verify all assets
+pnpm manage-assets --verify
+
+# List missing assets
+pnpm manage-assets --type items --missing
+
+# Check specific asset
+pnpm manage-assets --type materials --name "wood"
+```
+
+**Key Features:**
+- Cross-reference R2 storage with database
+- Identify missing assets
+- Bulk verification
+
+---
+
+### 7. generate-arbitrary-image.ts - Utility Objects
 
 Generate arbitrary game assets with automatic background removal and cropping.
 
@@ -269,7 +338,7 @@ pnpm generate-arbitrary "golden coin" --r2 "materials/gold-coin.png"
 - No AI description generation - uses prompt directly
 - Same style reference images as other generators
 
-### 5. generate-landscape.ts - Environments
+### 8. generate-landscape.ts - Environments
 
 Generate landscape and background images for game environments.
 
@@ -297,7 +366,7 @@ pnpm generate-landscape "crystal cave" --r2 "backgrounds/crystal-cave.png"
 - Landscape-optimized prompts with depth and atmosphere
 - Edge-to-edge composition without borders
 
-### 6. generate-item-description.ts - AI Descriptions
+### 9. generate-item-description.ts - AI Descriptions
 
 Standalone AI description generation for items (used by generate-image.ts).
 
@@ -321,7 +390,7 @@ pnpm generate-description "Amulet" "hello kitty,wizard hat,matcha powder"
 - Two-sentence physical descriptions only
 - Creative naming that reflects materials and item type
 
-### 7. analyze-image.ts - Image Analysis
+### 10. analyze-image.ts - Image Analysis
 
 Analyze images using Gemini 2.5 Flash for quality checks or descriptions.
 
@@ -385,24 +454,26 @@ const urls = await getMultipleAssetUrls(['coffee', 'slime'], 'material');
 mystica-assets/
 ├── items/{snake_case_name}.png
 ├── items/no-background/{snake_case_name}.png
+├── items/default_{category}.png          # Category defaults for items
+├── items-crafted/{slug}/{combo_hash}.png # Combo items with materials applied
 ├── materials/{snake_case_name}.png
 ├── materials/no-background/{snake_case_name}.png
-├── monsters/
-│   ├── cuphead/{snake_case_name}.png  # Legacy structure (deprecated)
-│   └── {uuid}/                        # NEW: UUID-based structure
-│       ├── base.png
-│       └── sprites/
-│           ├── idle_sample1.png
-│           ├── idle_sample1.json
-│           └── ...
-└── image-refs/{original_filename}.png (10 hardcoded references)
+├── monsters/{uuid}/                      # UUID-based structure
+│   ├── base.png
+│   └── sprites/
+│       ├── idle_sample1.png
+│       ├── idle_sample1.json
+│       └── ...
+└── image-refs/
+    ├── rubberhose/{filename}.png         # Rubberhose style references
+    ├── chibi/{filename}.png              # Chibi style references
+    └── pixel-8bit/{filename}.png         # Pixel 8-bit style references
 ```
 
 **Public URL:** `https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/{path}`
 
 **Monster Import Architecture:**
-- **Legacy:** `generate-raw-monster.ts` uses `monsters/cuphead/{name}.png`
-- **Production:** `import-monsters-from-animator.ts` uses `monsters/{uuid}/` with full sprite support
+- All monster imports use `import-monsters-from-animator.ts` with UUID-based paths (`monsters/{uuid}/`)
 
 ### Wrangler CLI (Alternative)
 
@@ -421,31 +492,61 @@ wrangler r2 object get mystica-assets/materials/coffee.png --file=./download.png
 
 ## Architecture & Patterns
 
-### Style Reference System
+### Modular Style System
 
-All generators use 10 hardcoded reference images from R2 for style consistency:
+All generators support multiple visual styles via the `--style` flag:
+
+**Available Styles:**
+- `rubberhose` (default) - 1930s rubber hose animation inspired by Cuphead, Fleischer Studios
+- `chibi` - Mobile RPG/CCG super-deformed aesthetic with vivid colors and bold outlines
+- `pixel-8bit` - Retro pixel art inspired by 8-bit/16-bit era games (SNES, Genesis, NES)
+
+**Style-Specific Reference Images:**
+Each style has its own set of reference images stored in R2 (`image-refs/{style}/`):
 
 ```typescript
-const CONFIG = {
-  defaultReferenceImages: [
-    'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/bubble-wrap-vest.png',
-    'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/fuzzy-slippers.png',
-    // ... 8 more
-  ]
-};
+// Example: Chibi style config
+{
+  name: 'chibi',
+  displayName: 'Chibi/Super-Deformed',
+  referenceImages: [
+    'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/chibi/sword.png',
+    'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/chibi/slime.png',
+    // ... more
+  ],
+  model: 'google/nano-banana',
+  params: { aspectRatio: '1:1', outputFormat: 'png' }
+}
 ```
 
-These references train Replicate models on the chibi/super-deformed aesthetic.
+**Usage:**
+```bash
+# Use default rubberhose style
+pnpm generate-raw-image "Sword" --type item
+
+# Specify style explicitly
+pnpm generate-raw-image "Sword" --type item --style chibi
+pnpm generate-raw-image "Potion" --type item --style pixel-8bit
+```
+
+These references train Replicate models on each style's unique aesthetic.
 
 ### Prompt Engineering
 
-All scripts use standardized prompt templates with:
-- **Core Look:** Vivid colors, clear lighting, minimal glow
-- **Line & Form:** Bold black outlines on objects (NOT image edges)
-- **Shading & Depth:** Hybrid cel + soft gradients
-- **Composition:** Center-framed, simple backgrounds, NO borders
+Each style has its own prompt templates via the `StylePromptBuilder` interface:
+- `buildItemPrompt(name, description)` - Item generation prompts
+- `buildMaterialPrompt(name, description)` - Material generation prompts
+- `buildLandscapePrompt(description, aspectRatio)` - Landscape/background prompts
+- `buildArbitraryPrompt(description)` - Arbitrary asset prompts
 
-Landscape prompts add depth layers and atmospheric perspective.
+**Common Elements Across Styles:**
+- **Composition:** Center-framed, clear silhouettes, NO image edge borders
+- **Background:** Simple solid colors or gradients (items/materials), full environments (landscapes)
+
+**Style-Specific Characteristics:**
+- **Rubberhose:** Thick black outlines, vintage color palette, cel shading, 1930s cartoon aesthetic
+- **Chibi:** Bold outlines on subject only, vivid colors, hybrid cel + soft gradients, mobile RPG aesthetic
+- **Pixel-8bit:** Visible pixels, limited color palette, dithering, NO anti-aliasing, retro game aesthetic
 
 ### Cost Optimization
 
@@ -459,7 +560,6 @@ Landscape prompts add depth layers and atmospheric perspective.
 **Batch Generation Estimates:**
 - 101 items/materials: ~$0.20-1.00 (images) + ~$0.01-0.05 (descriptions)
 - With background removal: ~$0.40-2.00 total
-- 5 monsters (generate-raw-monster): ~$0.01-0.05 (images) + ~$0.0005-0.0025 (descriptions)
 - 200 monsters (import-monsters): ~$0.03 (AI metadata only, sprites pre-generated)
 
 ### Error Handling

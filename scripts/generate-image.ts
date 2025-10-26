@@ -5,6 +5,7 @@ import Replicate from 'replicate';
 import { generateItemDescription } from './generate-item-description.js';
 import { generateRawImage } from './generate-raw-image.js';
 import { checkR2AssetExists, getR2AssetUrl, uploadToR2, getMultipleAssetUrls } from './r2-service.js';
+import { getStyle, getDefaultStyle, StyleName, hasStyle } from './styles/index.js';
 
 // Load environment variables from .env.local
 dotenv.config({ path: '.env.local', override: true });
@@ -23,33 +24,7 @@ interface GenerateImageOptions {
   aspectRatio?: AspectRatio;
   referenceImages?: string[];
   outputFormat?: 'jpg' | 'png';
-}
-
-function buildPrompt(itemName: string, itemDescription: string, aspectRatio: AspectRatio = '1:1'): string {
-  return `Create a single, center-framed ${aspectRatio} item:
-
-"${itemName}: ${itemDescription}"
-
-This illustration in a polished, high-detail "chibi"/super-deformed aesthetic typical of mobile RPGs and CCGs.
-
-Core Look
-    •    Color: Vivid, high-saturation palette; punchy local colors with clean hue separation. Keep values readable; avoid muddy midtones.
-    •    Lighting: Clear, soft key light with gentle fill; minimal deep shadow. Add a crisp rim light to separate from the background.
-    •    Glow & Highlights: Tasteful outer glow/halo to signal rarity or power. Use tight, glossy specular highlights on hard materials; soft bloom on emissive parts.
-
-Line & Form
-    •    Outlines: Bold, uniform, and clean to carve a strong silhouette; no sketchy linework.
-    •    Proportions: Chunky, simplified, and slightly exaggerated shapes for instant readability.
-    •    Texture: Suggestive, not photoreal—hint at materials (wood grain, brushed metal, facets) with tidy, deliberate marks.
-
-Shading & Depth
-    •    Render Style: Hybrid cel + soft gradients; sharp edge transitions only where they improve clarity.
-    •    Volume: Strong sense of 3D mass via light, occlusion, and controlled contrast; default to a subtle 3/4 view.
-
-Composition & Background
-    •    Framing: Single hero object, centered; crop to emphasize silhouette.
-    •    Background: Simple radial gradient or soft vignette; optional light particle specks. No props or scene unless specified.
-    •    Polish: Soft contact shadow beneath item; no text, watermarks, borders, or logos.`;
+  style?: StyleName;
 }
 
 async function generateImageWithReplicate(
@@ -69,7 +44,12 @@ async function generateImageWithReplicate(
     throw new Error('Name and description are required');
   }
 
-  const prompt = buildPrompt(options.itemName, options.itemDescription, options.aspectRatio);
+  // Get style (use default if not specified)
+  const style = options.style ? getStyle(options.style) : getDefaultStyle();
+  console.log(`🎨 Using style: ${style.config.displayName} (${style.config.name})`);
+
+  // Build prompt using style's item prompt builder
+  const prompt = style.prompts.buildItemPrompt(options.itemName, options.itemDescription);
   const input: Record<string, unknown> = { prompt };
 
   // Validate reference image URLs
@@ -97,9 +77,15 @@ async function generateImageWithReplicate(
 
     input.output_format = options.outputFormat || 'png';
 
-    // Add reference images if provided
-    if (options.referenceImages && options.referenceImages.length > 0) {
-      input.image_input = validateReferenceImages(options.referenceImages);
+    // Combine style reference images with item/material reference images
+    const allReferenceImages = [
+      ...style.config.referenceImages,
+      ...(options.referenceImages || [])
+    ];
+
+    // Add reference images if available
+    if (allReferenceImages.length > 0) {
+      input.image_input = validateReferenceImages(allReferenceImages);
     }
   } else if (model === 'seedream-4') {
     modelName = 'bytedance/seedream-4';
@@ -111,9 +97,15 @@ async function generateImageWithReplicate(
     input.max_images = 1;
     input.sequential_image_generation = 'disabled';
 
-    // Add reference images if provided
-    if (options.referenceImages && options.referenceImages.length > 0) {
-      input.image_input = validateReferenceImages(options.referenceImages);
+    // Combine style reference images with item/material reference images
+    const allReferenceImages = [
+      ...style.config.referenceImages,
+      ...(options.referenceImages || [])
+    ];
+
+    // Add reference images if available
+    if (allReferenceImages.length > 0) {
+      input.image_input = validateReferenceImages(allReferenceImages);
     }
   } else {
     throw new Error(`Unknown provider: ${model}. Use 'gemini' or 'seedream-4'`);
@@ -268,7 +260,8 @@ async function generateImage(options: GenerateImageOptions): Promise<void> {
         generateRawImage({
           name: options.itemType,
           type: 'item',
-          outputFormat: 'png'
+          outputFormat: 'png',
+          style: options.style
         }).then(async (path) => {
           const url = await uploadToR2(path, options.itemType!, 'item');
           return { name: options.itemType!, type: 'item' as const, path, url };
@@ -283,7 +276,8 @@ async function generateImage(options: GenerateImageOptions): Promise<void> {
           generateRawImage({
             name: material,
             type: 'material',
-            outputFormat: 'png'
+            outputFormat: 'png',
+            style: options.style
           }).then(async (path) => {
             const url = await uploadToR2(path, material, 'material');
             return { name: material, type: 'material' as const, path, url };
@@ -402,6 +396,7 @@ Usage (Manual):
 Options:
   -t, --type TYPE           Item type (e.g., "Magic Wand", "Robot Dog") - triggers AI generation
   -m, --materials MAT,...   1-3 materials (comma-separated) - required with --type
+  -s, --style STYLE         Visual style: rubberhose, chibi, pixel-8bit (default: rubberhose)
   -p, --provider PROVIDER   Single provider: gemini, seedream-4 (default: gemini)
   --providers PROVIDER,...  Multiple providers (comma-separated, runs in parallel)
   --all                     Use all providers (gemini, seedream-4)
@@ -410,6 +405,11 @@ Options:
   -a, --aspect-ratio RATIO  Aspect ratio: 1:1, 2:3, 3:2, 4:3, 9:16, 16:9 (default: 1:1)
   -f, --format FORMAT       Output format: jpg, png (default: png)
   -h, --help                Show this help message
+
+Styles:
+  rubberhose   1930s Rubber Hose animation (Cuphead-inspired) - thick outlines, vintage colors [DEFAULT]
+  chibi        Polished mobile RPG/CCG aesthetic - vivid colors, high detail
+  pixel-8bit   Retro 8-bit/16-bit pixel art - visible pixels, limited palette
 
 Providers:
   gemini       Google Nano Banana (Gemini 2.5 Flash) - Best for style reference & consistency
@@ -420,6 +420,11 @@ Examples:
   pnpm generate-image --type "Magic Wand" --materials "wood,crystal"
   pnpm generate-image --type "Robot Dog" --materials "metal,screws,plastic"
   pnpm generate-image --type "Amulet" --materials "hello kitty,wizard hat,matcha powder"
+
+  # Generate with different styles
+  pnpm generate-image --type "Fire Staff" --materials "wood,ruby" --style chibi
+  pnpm generate-image --type "Ice Shield" --materials "crystal,steel" --style pixel-8bit
+  pnpm generate-image --type "Health Potion" --materials "glass,herbs" --style rubberhose
 
   # Generate with manual name and description
   pnpm generate-image "Kitty Pepe Blade" "The sword has a sleek metal blade"
@@ -441,7 +446,7 @@ Cost Estimates:
   Image generation: Variable (Replicate per-second billing)
   AI description: ~$0.0001-0.0005 per generation (GPT-4.1-mini)
 
-Note: All images use the Mystica chibi/super-deformed item template
+Note: All images use the selected visual style (default: rubberhose). Change with --style flag.
 `);
     process.exit(0);
   }
@@ -472,6 +477,13 @@ Note: All images use the Mystica chibi/super-deformed item template
         console.error('❌ Materials must contain between 1 and 3 items');
         process.exit(1);
       }
+    } else if ((arg === '-s' || arg === '--style') && args[i + 1]) {
+      const style = args[++i] as StyleName;
+      if (!hasStyle(style)) {
+        console.error(`❌ Invalid style: ${style}. Available styles: rubberhose, chibi, pixel-8bit`);
+        process.exit(1);
+      }
+      options.style = style;
     } else if ((arg === '-p' || arg === '--provider') && args[i + 1]) {
       const provider = args[++i] as Provider;
       if (!['gemini', 'seedream-4'].includes(provider)) {
