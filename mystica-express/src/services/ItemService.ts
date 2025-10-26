@@ -344,9 +344,9 @@ export class ItemService {
         material_id: stack.material_id,
         material_name: stack.materials!.name,
         style_id: stack.style_id,
-        style_name: stack.styledefinitions!.style_name,
+        style_name: stack.styledefinitions!.display_name,
         quantity: stack.quantity,
-        is_styled: stack.styledefinitions!.style_name !== 'normal'
+        is_styled: stack.styledefinitions!.display_name !== 'normal'
       }));
     } catch (error) {
       throw new Error(`Failed to get material stacks: ${error instanceof Error ? error.message : String(error)}`);

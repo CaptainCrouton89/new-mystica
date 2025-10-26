@@ -240,7 +240,7 @@ export class ItemRepository extends BaseRepository<ItemRow> {
             ),
             styledefinitions (
               id,
-              style_name
+              display_name
             )
           )
         )
@@ -710,7 +710,7 @@ export class ItemRepository extends BaseRepository<ItemRow> {
           style_id: string;
           styledefinitions: {
             id: string;
-            style_name: string;
+            display_name: string;
           } | null;
         };
       }
@@ -719,7 +719,7 @@ export class ItemRepository extends BaseRepository<ItemRow> {
         id: im.id,
         material_id: im.materialinstances.material_id,
         style_id: im.materialinstances.style_id,
-        style_name: im.materialinstances.styledefinitions?.style_name || undefined,
+        style_name: im.materialinstances.styledefinitions?.display_name || undefined,
         slot_index: im.slot_index,
         material: {
           id: im.materialinstances.materials.id,

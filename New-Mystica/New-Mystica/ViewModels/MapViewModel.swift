@@ -35,9 +35,9 @@ final class MapViewModel: NSObject, CLLocationManagerDelegate {
     var isFollowingUser: Bool = false
 
     init(repository: LocationRepository = DefaultLocationRepository()) {
-        debugLog("Initializing with repository: \(type(of: repository))")
         self.repository = repository
         super.init()
+        debugLog("Initializing with repository: \(type(of: repository))")
         setupLocationManager()
         debugLog("Initialization complete - authorizationStatus: \(authorizationStatus)")
     }

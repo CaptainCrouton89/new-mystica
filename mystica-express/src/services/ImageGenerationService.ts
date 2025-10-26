@@ -155,7 +155,7 @@ export class ImageGenerationService {
       if (style.id === 'normal') {
         return baseDesc;
       } else {
-        return `${baseDesc} (rendered in ${style.style_name} style)`;
+        return `${baseDesc} (rendered in ${style.display_name} style)`;
       }
     }).join(', ');
 

@@ -59,7 +59,7 @@ export class MaterialService {
         user_id: userId,
         material_id: stack.material_id,
         style_id: stack.style_id,
-        style_name: stack.styledefinitions?.style_name,
+        style_name: stack.styledefinitions?.display_name,
         quantity: stack.quantity,
         material: {
           id: material.id,
@@ -310,7 +310,7 @@ export class MaterialService {
         const styleId = m.style_id;
 
         const style = await this.styleRepository.findById(styleId);
-        const styleName = style?.style_name;
+        const styleName = style?.display_name;
 
         return {
           id: m.id,

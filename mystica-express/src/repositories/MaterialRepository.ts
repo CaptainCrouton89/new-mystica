@@ -201,7 +201,7 @@ export class MaterialRepository extends BaseRepository<MaterialRow> {
     style_id: string;
     quantity: number;
     materials: { name: string } | null;
-    styledefinitions: { style_name: string } | null;
+    styledefinitions: { display_name: string } | null;
   }>> {
     const { data, error } = await this.client
       .from('materialstacks')
@@ -210,7 +210,7 @@ export class MaterialRepository extends BaseRepository<MaterialRow> {
         style_id,
         quantity,
         materials(name),
-        styledefinitions(style_name)
+        styledefinitions(display_name)
       `)
       .eq('user_id', userId)
       .gt('quantity', 0)
@@ -225,7 +225,7 @@ export class MaterialRepository extends BaseRepository<MaterialRow> {
       style_id: string;
       quantity: number;
       materials: { name: string } | null;
-      styledefinitions: { style_name: string } | null;
+      styledefinitions: { display_name: string } | null;
     }>;
   }
 
