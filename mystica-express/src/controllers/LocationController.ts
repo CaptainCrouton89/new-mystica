@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { locationService } from '../services/LocationService';
-import type { NearbyLocationsQuery, LocationParams, AutoGenerateLocationRequest } from '../types/schemas';
+import type { NearbyLocationsQuery, LocationParams } from '../types/schemas';
 
 /**
  * Location Controller
@@ -36,32 +36,6 @@ export class LocationController {
       const location = await locationService.getById(id);
 
       res.json(location);
-    } catch (error) {
-      next(error);
-    }
-  };
-
-  /**
-   * POST /locations/auto-generate
-   * Auto-generate "Goblin Den" at user location if no locations exist within 100m
-   */
-  autoGenerate = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try {
-      const { lat, lng, state_code, country_code } = req.body as AutoGenerateLocationRequest;
-
-      const location = await locationService.autoGenerate(lat, lng, state_code, country_code);
-
-      if (location) {
-        res.status(201).json({
-          success: true,
-          location
-        });
-      } else {
-        res.json({
-          success: false,
-          message: 'Location already exists within 100m'
-        });
-      }
     } catch (error) {
       next(error);
     }

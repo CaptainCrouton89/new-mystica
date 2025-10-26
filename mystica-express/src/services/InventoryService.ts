@@ -169,8 +169,7 @@ export class InventoryService {
   }
 
   private getDefaultImage(item: ItemWithDetails): string {
-    const baseUrl = process.env.R2_PUBLIC_URL;
-    return `${baseUrl}/items/default_${item.item_type.category}.png`;
+    return `https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/items/default_${item.item_type.category}.png`;
   }
 
   private applySlotFilter(items: ItemWithDetails[], slotType: string): ItemWithDetails[] {

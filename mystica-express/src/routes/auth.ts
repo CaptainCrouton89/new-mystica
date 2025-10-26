@@ -36,6 +36,5 @@ router.post('/resend-verification', AuthController.resendVerification);
 // Protected routes (require authentication)
 router.get('/me', authenticate, AuthController.getCurrentUser);
 router.post('/logout', AuthController.logout);
-router.post('/delete-account', authenticate, AuthController.deleteAccount);
 
 export default router;

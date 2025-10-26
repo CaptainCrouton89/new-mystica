@@ -113,7 +113,7 @@ export interface AppliedMaterial {
   id: string;
   material_id: string;
   style_id: string;
-  style_name?: string; // Human-readable style display name
+  style_name?: string;
   slot_index: number;
   material: Material;
 }
@@ -126,7 +126,7 @@ export interface MaterialStack {
   material_id: string;
   material_name: string;
   style_id: string;
-  style_name: string; // Human-readable style display name
+  style_name: string;
   quantity: number;
   is_styled: boolean;
 }
@@ -139,7 +139,7 @@ export interface MaterialStackDetailed {
   user_id: string;
   material_id: string;
   style_id: string;
-  style_name?: string; // Human-readable style display name
+  style_name?: string;
   quantity: number;
   material: Material;
 }

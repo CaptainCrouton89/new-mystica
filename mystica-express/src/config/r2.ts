@@ -47,7 +47,7 @@ export const r2Client = new S3Client(r2Config);
  */
 export const R2_CONFIG = {
   BUCKET_NAME: env.R2_BUCKET_NAME,
-  PUBLIC_URL: env.R2_PUBLIC_URL,
+  PUBLIC_URL: `https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev`,
   DIRECTORIES: {
     ITEMS: 'items',
     MATERIALS: 'materials',

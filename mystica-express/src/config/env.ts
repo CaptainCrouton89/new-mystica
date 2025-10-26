@@ -20,7 +20,6 @@ const EnvSchema = z.object({
   R2_ACCESS_KEY_ID: z.string().min(1, 'R2_ACCESS_KEY_ID is required'),
   R2_SECRET_ACCESS_KEY: z.string().min(1, 'R2_SECRET_ACCESS_KEY is required'),
   R2_BUCKET_NAME: z.string().default('mystica-assets'),
-  R2_PUBLIC_URL: z.string().url('R2_PUBLIC_URL must be a valid URL'),
 
   // AI Services Configuration
   REPLICATE_API_TOKEN: z.string().min(1, 'REPLICATE_API_TOKEN is required'),
