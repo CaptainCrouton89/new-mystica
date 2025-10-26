@@ -519,6 +519,7 @@ extension InventoryView {
                 appliedMaterials: [
                     ItemMaterialApplication(
                         materialId: "wood",
+                        name: "Wood",
                         styleId: "rustic",
                         slotIndex: 0,
                         appliedAt: "2025-10-23T06:00:00Z",
@@ -532,6 +533,7 @@ extension InventoryView {
                     ),
                     ItemMaterialApplication(
                         materialId: "crystal",
+                        name: "Crystal",
                         styleId: "ethereal",
                         slotIndex: 1,
                         appliedAt: "2025-10-23T06:00:00Z",
