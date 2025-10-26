@@ -223,11 +223,20 @@ export class ItemController {
       // Type assertion: result.updated_item is ItemWithMaterials from repository
       const itemWithMaterials = result.updated_item as ItemWithMaterials;
 
-      // Transform materials to include style_id at top level for Swift compatibility
-      const appliedMaterials = (itemWithMaterials.materials || []).map(m => ({
-        ...m,
-        style_id: m.materials?.style_id || null
-      }));
+      // Transform materials to include style_id and name at top level for Swift compatibility
+      const appliedMaterials = (itemWithMaterials.materials || []).map(m => {
+        if (!m.materials?.name) {
+          throw new Error(`Material missing name field for material_id: ${m.material_id}`);
+        }
+        if (!m.materials?.style_id) {
+          throw new Error(`Material missing style_id field for material_id: ${m.material_id}`);
+        }
+        return {
+          ...m,
+          name: m.materials.name,
+          style_id: m.materials.style_id
+        };
+      });
 
       // Add base_type, category, and applied_materials fields for Swift compatibility
       // These fields are nested in item_type but Swift expects them at the top level
