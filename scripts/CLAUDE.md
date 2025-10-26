@@ -8,6 +8,7 @@
 - **generate-landscape.ts** - Landscape/background images with auto-crop (keeps background)
 - **generate-raw-monster.ts** - Standalone monsters with AI descriptions (local output, manual R2 upload)
 - **generate-location-images.ts** - Location types + database updates via service role key
+- **identify-and-generate-from-image.ts** - Identify items/materials from real images (vision API) → generate game assets with original as reference (see IDENTIFY_AND_GENERATE_GUIDE.md)
 
 ## Asset & Utility Scripts
 

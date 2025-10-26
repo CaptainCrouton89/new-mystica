@@ -11,7 +11,8 @@
     "generate-landscape": "tsx generate-landscape.ts",
     "analyze-image": "tsx analyze-image.ts",
     "query-db": "NODE_OPTIONS='--dns-result-order=ipv4first' tsx query-db.ts",
-    "import-monsters": "tsx import-monsters-from-animator.ts"
+    "import-monsters": "tsx import-monsters-from-animator.ts",
+    "identify-and-generate": "tsx identify-and-generate-from-image.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^2.0.53",
