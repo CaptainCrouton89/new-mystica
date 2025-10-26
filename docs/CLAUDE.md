@@ -1,38 +1,24 @@
 # Project Documentation Guide
 
-YAML-based specs system with investigation and planning artifacts. Includes feature requirements documents.
+YAML-based specs system with investigation and planning artifacts.
 
 ## Directory Structure
 
 ```
 docs/
 ├── product-requirements.yaml         # Root PRD
-├── *-requirements.md                 # Feature requirement documents
 ├── feature-specs/                    # Feature breakdown (F-01, F-02, ...)
 ├── user-stories/                     # User stories (US-101, US-102, ...)
 ├── user-flows/                       # User journey flows
-├── system-design.yaml                # Architecture
-├── api-contracts.yaml                # API specifications
-├── data-plan.yaml                    # Data model
-├── design-spec.yaml                  # UI/UX specs
-├── investigations/                   # Investigation documents
-├── plans/                            # Implementation plans
-├── ai-docs/                          # Technology guides
+├── system-design.yaml, api-contracts.yaml, data-plan.yaml
+├── ai-docs/                          # Backend/frontend/AI pipeline guides
 ├── code-quality/                     # Code patterns & standards
+├── investigations/, plans/           # Research & implementation plans
+├── TESTING_ENDPOINTS.md              # Dev auth & endpoint testing
 └── external/                         # External library documentation
 ```
 
-## Core Workflow
-
-**Documentation Generation**: PRD → User Flows → User Stories → Feature Specs → System Design → API Contracts → Data Plan → Traceability
-
-**Investigation**: Use context-engineer agents; outputs go to `investigations/`
-
-**Planning**: Use planner agents; plans go to `plans/feature-name/plan.md`
-
-See parent CLAUDE.md for backend/frontend/AI pipeline guides.
-
-## Management Scripts
+## Scripts
 
 ```bash
 ./docs/check-project.sh -v           # Validate YAML + traceability
