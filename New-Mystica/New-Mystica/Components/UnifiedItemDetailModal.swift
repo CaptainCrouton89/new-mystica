@@ -55,7 +55,7 @@ extension EnhancedPlayerItem: ItemDetailDisplayable {
         appliedMaterials.map {
             MaterialDisplayInfo(
                 name: $0.material?.name ?? "Unknown Material",
-                styleName: $0.material?.styleName
+                styleName: $0.styleName
             )
         }
     }
@@ -131,6 +131,7 @@ struct UnifiedItemDetailModal<Item: ItemDetailDisplayable, ActionButtons: View>:
                 ToolbarItem(placement: .principal) {
                     TitleText(item.name, size: 20)
                         .lineLimit(1)
+                        .minimumScaleFactor(0.75)
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
@@ -543,8 +544,6 @@ private struct StatDetailRow: View {
                         id: "steel",
                         name: "Steel",
                         description: nil,
-                        styleId: "rustic",
-                        styleName: "Rustic",
                         statModifiers: StatModifier(atkPower: 5, atkAccuracy: 0, defPower: 0, defAccuracy: 0),
                         imageUrl: nil
                     )

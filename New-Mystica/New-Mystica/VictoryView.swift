@@ -340,20 +340,20 @@ private struct VictoryMaterialCard: View {
                         image
                             .resizable()
                             .scaledToFill()
-                            .frame(width: 40, height: 40)
+                            .frame(width: 80, height: 80)
                             .clipShape(Circle())
                     },
                     placeholder: {
                         ProgressView()
-                            .frame(width: 40, height: 40)
+                            .frame(width: 80, height: 80)
                             .progressViewStyle(CircularProgressViewStyle(tint: .accentSecondary))
                     }
                 )
             } else {
                 Image(systemName: "cube.fill")
-                    .font(.system(size: 24, weight: .medium))
+                    .font(.system(size: 32, weight: .medium))
                     .foregroundColor(.textPrimary)
-                    .frame(width: 40, height: 40)
+                    .frame(width: 80, height: 80)
                     .background(
                         Circle()
                             .fill(Color.accentSecondary.opacity(0.2))
@@ -379,15 +379,6 @@ private struct VictoryMaterialCard: View {
                         .fill(Color.accentSecondary.opacity(0.3))
                 )
         }
-        .padding(12)
-        .background(
-            RoundedRectangle(cornerRadius: .cornerRadiusSmall)
-                .fill(Color.backgroundCard)
-                .overlay(
-                    RoundedRectangle(cornerRadius: .cornerRadiusSmall)
-                        .stroke(Color.accentSecondary.opacity(0.6), lineWidth: 1)
-                )
-        )
     }
 }
 

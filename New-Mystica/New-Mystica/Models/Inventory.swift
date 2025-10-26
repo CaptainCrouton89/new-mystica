@@ -141,8 +141,6 @@ struct ItemMaterialApplication: APIModel, Hashable, Sendable {
         let id: String
         let name: String
         let description: String?
-        let styleId: String
-        let styleName: String?
         let statModifiers: StatModifier?
         let imageUrl: String?
 
@@ -150,8 +148,6 @@ struct ItemMaterialApplication: APIModel, Hashable, Sendable {
             case id
             case name
             case description
-            case styleId = "style_id"
-            case styleName = "style_name"
             case statModifiers = "stat_modifiers"
             case imageUrl = "image_url"
         }
@@ -159,6 +155,7 @@ struct ItemMaterialApplication: APIModel, Hashable, Sendable {
 
     let materialId: String
     let styleId: String
+    let styleName: String?
     let slotIndex: Int
     let appliedAt: String?
     let material: MaterialDetail?
@@ -166,6 +163,7 @@ struct ItemMaterialApplication: APIModel, Hashable, Sendable {
     enum CodingKeys: String, CodingKey {
         case materialId = "material_id"
         case styleId = "style_id"
+        case styleName = "style_name"
         case slotIndex = "slot_index"
         case appliedAt = "applied_at"
         case material
@@ -174,12 +172,14 @@ struct ItemMaterialApplication: APIModel, Hashable, Sendable {
     init(
         materialId: String,
         styleId: String,
+        styleName: String? = nil,
         slotIndex: Int,
         appliedAt: String? = nil,
         material: MaterialDetail? = nil
     ) {
         self.materialId = materialId
         self.styleId = styleId
+        self.styleName = styleName
         self.slotIndex = slotIndex
         self.appliedAt = appliedAt
         self.material = material
@@ -205,25 +205,16 @@ struct ItemMaterialApplication: APIModel, Hashable, Sendable {
             )
         }
 
-        if let explicitStyleId = try container.decodeIfPresent(String.self, forKey: .styleId) {
-            styleId = explicitStyleId
-        } else if let material {
-            styleId = material.styleId
-        } else {
-            throw DecodingError.keyNotFound(
-                CodingKeys.styleId,
-                DecodingError.Context(
-                    codingPath: container.codingPath,
-                    debugDescription: "Missing style identifier in ItemMaterialApplication payload"
-                )
-            )
-        }
+        // style_id and style_name must be at parent level (not in nested material object)
+        styleId = try container.decode(String.self, forKey: .styleId)
+        styleName = try container.decodeIfPresent(String.self, forKey: .styleName)
     }
 
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(materialId, forKey: .materialId)
         try container.encode(styleId, forKey: .styleId)
+        try container.encodeIfPresent(styleName, forKey: .styleName)
         try container.encode(slotIndex, forKey: .slotIndex)
         try container.encodeIfPresent(appliedAt, forKey: .appliedAt)
         try container.encodeIfPresent(material, forKey: .material)

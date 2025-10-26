@@ -27,17 +27,6 @@ struct GoldBalanceView: View {
                 .font(FontManager.body)
                 .foregroundColor(Color.textPrimary)
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(
-            RoundedRectangle(cornerRadius: .cornerRadiusMedium)
-                .fill(Color.backgroundCard)
-                .overlay(
-                    RoundedRectangle(cornerRadius: .cornerRadiusMedium)
-                        .stroke(Color.accentSecondary.opacity(0.3), lineWidth: 1.5)
-                )
-        )
-        .shadow(color: .black.opacity(0.2), radius: 3, x: 0, y: 1.5)
     }
 
     private var formattedAmount: String {

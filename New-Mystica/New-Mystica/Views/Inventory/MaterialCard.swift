@@ -13,10 +13,10 @@ struct MaterialCard: View {
         VStack(spacing: 8) {
             ZStack(alignment: .topTrailing) {
                 materialImageView
-                    .frame(width: 60, height: 60)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .frame(width: 80, height: 80)
+                    .clipShape(Circle())
                     .overlay(
-                        RoundedRectangle(cornerRadius: 12)
+                        Circle()
                             .stroke(getStyleBorderColor(), lineWidth: 2)
                     )
 
@@ -28,19 +28,8 @@ struct MaterialCard: View {
             SmallText(material.name.capitalized)
                 .foregroundColor(Color.textPrimary)
                 .multilineTextAlignment(.center)
-                .lineLimit(2)
-                .frame(minHeight: 32)
+                .lineLimit(1)
         }
-        .frame(width: 80)
-        .padding(8)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.backgroundCard)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.borderSubtle, lineWidth: 1)
-                )
-        )
         .contentShape(Rectangle())
     }
 
@@ -53,25 +42,21 @@ struct MaterialCard: View {
                     content: { image in
                         image
                             .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .frame(width: 60, height: 60)
-                            .clipped()
+                            .scaledToFill()
                     },
                     placeholder: {
                         ProgressView()
-                            .frame(width: 60, height: 60)
                             .progressViewStyle(CircularProgressViewStyle(tint: getStyleBorderColor()))
                     }
                 )
             } else {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 12)
+                    Circle()
                         .fill(Color.backgroundSecondary)
                     Image(systemName: getMaterialIcon())
-                        .font(.system(size: 28, weight: .medium))
+                        .font(.system(size: 32, weight: .medium))
                         .foregroundColor(getStyleBorderColor())
                 }
-                .frame(width: 60, height: 60)
             }
         }
     }
