@@ -20,7 +20,7 @@ export async function generateLoot(
     material_id: string;
     name: string;
     style_id: string;
-    style_name: string;
+    display_name: string;
     image_url: string;
   }>;
   items: Array<{
@@ -29,7 +29,7 @@ export async function generateLoot(
     category: string;
     rarity: string;
     style_id: string;
-    style_name: string;
+    display_name: string;
   }>;
   experience: number;
 }> {
@@ -82,7 +82,7 @@ export async function generateLoot(
       material_id: mat.material_id,
       name: material.name,
       style_id: mat.style_id,
-      style_name: styleName,
+      display_name: styleName,
       image_url: getMaterialImageUrl(material.name)
     };
   }));
@@ -110,7 +110,7 @@ export async function generateLoot(
       category: itemType.category,
       rarity: itemType.rarity,
       style_id: item.style_id,
-      style_name: styleName
+      display_name: styleName
     };
   }));
 

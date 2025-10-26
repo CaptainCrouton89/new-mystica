@@ -67,7 +67,8 @@ struct InventoryView: View {
                             },
                             onReturnToInventory: {
                                 viewModel.upgradeModalState = .none
-                            }
+                            },
+                            isLoadingNextCost: viewModel.isLoadingNextUpgradeCost
                         )
 
                     case .upgrading:
@@ -96,22 +97,35 @@ struct InventoryView: View {
     private var mainContentView: some View {
         BaseView(title: "Inventory") {
             ScrollView {
-                VStack(spacing: 20) {
-                    LoadableView(viewModel.items) { items in
-                        itemsSection(items: items)
-                    } retry: {
-                        Task { await viewModel.loadInventory() }
+                if case .loading = viewModel.items {
+                    // Show single loading indicator while page is loading
+                    VStack(spacing: 16) {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: Color.accent))
+                            .scaleEffect(1.2)
+
+                        NormalText("Loading...")
                     }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .padding(.top, 40)
+                } else {
+                    VStack(spacing: 20) {
+                        LoadableView(viewModel.items) { items in
+                            itemsSection(items: items)
+                        } retry: {
+                            Task { await viewModel.loadInventory() }
+                        }
 
 
-                    LoadableView(viewModel.materialInventory) { materials in
-                        materialsSection(materials: materials)
-                    } retry: {
-                        Task { await viewModel.loadInventory() }
+                        LoadableView(viewModel.materialInventory) { materials in
+                            materialsSection(materials: materials)
+                        } retry: {
+                            Task { await viewModel.loadInventory() }
+                        }
                     }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
                 }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
             }
         } trailingView: {
             if let goldBalance = appState.getCurrencyBalance(for: .gold) {
@@ -282,7 +296,7 @@ struct InventoryView: View {
     private func materialsSection(materials: [MaterialInventoryStack]) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                TitleText("All Materials", size: 20)
+                TitleText("Materials", size: 20)
                     .foregroundColor(Color.textPrimary)
 
                 Spacer()
@@ -512,8 +526,6 @@ extension InventoryView {
                             id: "wood",
                             name: "Wood",
                             description: nil,
-                            styleId: "rustic",
-                            styleName: "Rustic",
                             statModifiers: StatModifier(atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0),
                             imageUrl: nil
                         )
@@ -527,8 +539,6 @@ extension InventoryView {
                             id: "crystal",
                             name: "Crystal",
                             description: nil,
-                            styleId: "ethereal",
-                            styleName: "Ethereal",
                             statModifiers: StatModifier(atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0),
                             imageUrl: nil
                         )

@@ -13,10 +13,10 @@ struct MaterialCard: View {
         VStack(spacing: 8) {
             ZStack(alignment: .topTrailing) {
                 materialImageView
-                    .frame(width: 60, height: 60)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .frame(width: 80, height: 80)
+                    .clipShape(Circle())
                     .overlay(
-                        RoundedRectangle(cornerRadius: 12)
+                        Circle()
                             .stroke(getStyleBorderColor(), lineWidth: 2)
                     )
 
@@ -29,18 +29,8 @@ struct MaterialCard: View {
                 .foregroundColor(Color.textPrimary)
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
-                .frame(minHeight: 32)
+                .frame(height: 40)
         }
-        .frame(width: 80)
-        .padding(8)
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.backgroundCard)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.borderSubtle, lineWidth: 1)
-                )
-        )
         .contentShape(Rectangle())
     }
 
@@ -53,25 +43,21 @@ struct MaterialCard: View {
                     content: { image in
                         image
                             .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .frame(width: 60, height: 60)
-                            .clipped()
+                            .scaledToFill()
                     },
                     placeholder: {
                         ProgressView()
-                            .frame(width: 60, height: 60)
                             .progressViewStyle(CircularProgressViewStyle(tint: getStyleBorderColor()))
                     }
                 )
             } else {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 12)
+                    Circle()
                         .fill(Color.backgroundSecondary)
                     Image(systemName: getMaterialIcon())
-                        .font(.system(size: 28, weight: .medium))
+                        .font(.system(size: 32, weight: .medium))
                         .foregroundColor(getStyleBorderColor())
                 }
-                .frame(width: 60, height: 60)
             }
         }
     }
@@ -190,7 +176,7 @@ struct TappableMaterialCard: View {
             statModifiers: StatModifier(atkPower: 1.1, atkAccuracy: 1.0, defPower: 1.05, defAccuracy: 1.0),
             imageUrl: mockMaterialDetail1.imageUrl,
             material: mockMaterialDetail1,
-            styleName: "Rustic"
+            displayName: "Rustic"
         ),
         MaterialInventoryStack(
             materialId: "crystal_002",
@@ -201,7 +187,7 @@ struct TappableMaterialCard: View {
             statModifiers: StatModifier(atkPower: 1.2, atkAccuracy: 1.1, defPower: 1.0, defAccuracy: 1.05),
             imageUrl: mockMaterialDetail2.imageUrl,
             material: mockMaterialDetail2,
-            styleName: "Holographic"
+            displayName: "Holographic"
         ),
         MaterialInventoryStack(
             materialId: "fabric_003",
@@ -212,7 +198,7 @@ struct TappableMaterialCard: View {
             statModifiers: StatModifier(atkPower: 1.0, atkAccuracy: 1.15, defPower: 1.1, defAccuracy: 1.1),
             imageUrl: mockMaterialDetail3.imageUrl,
             material: mockMaterialDetail3,
-            styleName: "Pixel Art"
+            displayName: "Pixel Art"
         )
     ]
 

@@ -296,7 +296,12 @@ export class StatsService {
     critMultiplier: number
   ): number {
     const zoneMultipliers = [1.5, 1.25, 1.0, 0.75, 0.5];
-    return baseStat * zoneMultipliers[zone - 1] * critMultiplier;
+    const zoneMultiplier = zoneMultipliers[zone - 1];
+    const result = baseStat * zoneMultiplier * critMultiplier;
+    if (baseStat > 10) { // Only log significant damage calculations
+      console.log(`[StatsService.applyZoneModifiers] baseStat=${baseStat}, zone=${zone}, zoneMultiplier=${zoneMultiplier}, critMultiplier=${critMultiplier}, result=${result}`);
+    }
+    return result;
   }
 
   private clamp01(x: number): number {

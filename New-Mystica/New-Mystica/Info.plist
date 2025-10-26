@@ -11,6 +11,8 @@
 	</array>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Mystica needs access to your location to show nearby battle locations and adventures. Your location data is used only for gameplay and is not stored or shared.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Mystica needs access to your camera to capture items and materials for your collection.</string>
 	<key>APIBaseURL</key>
 	<string>$(API_BASE_URL)</string>
 	<key>CFBundleDisplayName</key>

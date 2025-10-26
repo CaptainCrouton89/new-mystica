@@ -10,13 +10,19 @@ import Observation
 
 @Observable
 final class MapViewModel: NSObject, CLLocationManagerDelegate {
+    #if DEBUG
+    private static let isDebugLoggingEnabled = true
+    #else
+    private static let isDebugLoggingEnabled = false
+    #endif
+
     let repository: LocationRepository
     let locationManager = CLLocationManager()
 
     var userLocation: CLLocationCoordinate2D?
     var nearbyLocations: Loadable<[Location]> = .idle {
         didSet {
-            print("🗺️ MapViewModel: nearbyLocations state changed to: \(nearbyLocations)")
+            debugLog("nearbyLocations state changed to: \(nearbyLocations)")
         }
     }
 
@@ -29,85 +35,91 @@ final class MapViewModel: NSObject, CLLocationManagerDelegate {
     var isFollowingUser: Bool = false
 
     init(repository: LocationRepository = DefaultLocationRepository()) {
-        print("🗺️ MapViewModel: Initializing with repository: \(type(of: repository))")
         self.repository = repository
         super.init()
+        debugLog("Initializing with repository: \(type(of: repository))")
         setupLocationManager()
-        print("🗺️ MapViewModel: Initialization complete - authorizationStatus: \(authorizationStatus)")
+        debugLog("Initialization complete - authorizationStatus: \(authorizationStatus)")
+    }
+
+    private func debugLog(_ message: String) {
+        if Self.isDebugLoggingEnabled {
+            print("🗺️ MapViewModel: \(message)")
+        }
     }
 
 
     private func setupLocationManager() {
-        print("🗺️ MapViewModel: Setting up location manager")
+        debugLog("Setting up location manager")
         locationManager.delegate = self
         locationManager.desiredAccuracy = kCLLocationAccuracyBest
         locationManager.distanceFilter = debounceRadius
         authorizationStatus = locationManager.authorizationStatus
-        print("🗺️ MapViewModel: Location manager setup complete - authorizationStatus: \(authorizationStatus)")
+        debugLog("Location manager setup complete - authorizationStatus: \(authorizationStatus)")
     }
 
 
     func requestLocationPermission() {
-        print("🗺️ MapViewModel: Requesting location permission")
+        debugLog("Requesting location permission")
         locationPermissionRequested = true
         locationManager.requestWhenInUseAuthorization()
     }
 
     func startLocationUpdates() {
-        print("🗺️ MapViewModel: Starting location updates - authorizationStatus: \(authorizationStatus)")
+        debugLog("Starting location updates - authorizationStatus: \(authorizationStatus)")
         guard authorizationStatus == .authorizedWhenInUse ||
               authorizationStatus == .authorizedAlways else {
-            print("🗺️ MapViewModel: Location permission not granted, requesting permission")
+            debugLog("Location permission not granted, requesting permission")
             requestLocationPermission()
             return
         }
 
-        print("🗺️ MapViewModel: Location permission granted, starting location updates")
+        debugLog("Location permission granted, starting location updates")
         locationManager.startUpdatingLocation()
     }
 
     func stopLocationUpdates() {
-        print("🗺️ MapViewModel: Stopping location updates")
+        debugLog("Stopping location updates")
         locationManager.stopUpdatingLocation()
     }
 
     func loadNearbyLocations() async {
-        print("🗺️ MapViewModel: Loading nearby locations")
+        debugLog("Loading nearby locations")
         guard let currentLocation = userLocation else {
-            print("🗺️ MapViewModel: No user location available, skipping nearby locations load")
+            debugLog("No user location available, skipping nearby locations load")
             return
         }
 
-        print("🗺️ MapViewModel: User location available: \(currentLocation.latitude), \(currentLocation.longitude)")
+        debugLog("User location available: \(currentLocation.latitude), \(currentLocation.longitude)")
         nearbyLocations = .loading
 
         do {
-            print("🗺️ MapViewModel: Fetching nearby locations from repository")
+            debugLog("Fetching nearby locations from repository")
             var locations = try await repository.fetchNearby(
                 userLocation: (latitude: currentLocation.latitude, longitude: currentLocation.longitude),
                 radiusKm: 5.0
             )
-            print("🗺️ MapViewModel: Successfully loaded \(locations.count) nearby locations")
+            debugLog("Successfully loaded \(locations.count) nearby locations")
 
             // Auto-generate if no locations exist within 100m
             if locations.isEmpty || !hasLocationWithin100m(locations: locations, userLocation: currentLocation) {
-                print("🗺️ MapViewModel: No locations within 100m, attempting auto-generate")
+                debugLog("No locations within 100m, attempting auto-generate")
                 if let newLocation = try await repository.autoGenerate(
                     userLocation: (latitude: currentLocation.latitude, longitude: currentLocation.longitude)
                 ) {
-                    print("🗺️ MapViewModel: Successfully auto-generated location: \(newLocation.name)")
+                    debugLog("Successfully auto-generated location: \(newLocation.name)")
                     locations.append(newLocation)
                 } else {
-                    print("🗺️ MapViewModel: Auto-generate returned nil (location already exists)")
+                    debugLog("Auto-generate returned nil (location already exists)")
                 }
             }
 
             nearbyLocations = .loaded(locations)
         } catch let error as AppError {
-            print("🗺️ MapViewModel: AppError loading nearby locations: \(error)")
+            debugLog("AppError loading nearby locations: \(error)")
             nearbyLocations = .error(error)
         } catch {
-            print("🗺️ MapViewModel: Unknown error loading nearby locations: \(error)")
+            debugLog("Unknown error loading nearby locations: \(error)")
             nearbyLocations = .error(.unknown(error))
         }
     }
@@ -123,45 +135,45 @@ final class MapViewModel: NSObject, CLLocationManagerDelegate {
     }
 
     func refreshNearbyLocations() async {
-        print("🗺️ MapViewModel: Refreshing nearby locations")
+        debugLog("Refreshing nearby locations")
         await loadNearbyLocations()
     }
 
 
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
-        print("🗺️ MapViewModel: Authorization status changed to: \(manager.authorizationStatus)")
+        debugLog("Authorization status changed to: \(manager.authorizationStatus)")
         authorizationStatus = manager.authorizationStatus
 
         switch manager.authorizationStatus {
         case .authorizedWhenInUse, .authorizedAlways:
-            print("🗺️ MapViewModel: Location permission granted, starting location updates")
+            debugLog("Location permission granted, starting location updates")
             startLocationUpdates()
         case .denied, .restricted:
-            print("🗺️ MapViewModel: Location permission denied or restricted")
+            debugLog("Location permission denied or restricted")
             nearbyLocations = .error(.unauthorized)
         case .notDetermined:
-            print("🗺️ MapViewModel: Location permission not determined")
+            debugLog("Location permission not determined")
             break
         @unknown default:
-            print("🗺️ MapViewModel: Unknown authorization status")
+            debugLog("Unknown authorization status")
             break
         }
     }
 
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        print("🗺️ MapViewModel: Received location update with \(locations.count) locations")
-        guard let newLocation = locations.last else { 
-            print("🗺️ MapViewModel: No valid location in update")
-            return 
+        debugLog("Received location update with \(locations.count) locations")
+        guard let newLocation = locations.last else {
+            debugLog("No valid location in update")
+            return
         }
 
         let coordinate = newLocation.coordinate
-        print("🗺️ MapViewModel: New location: \(coordinate.latitude), \(coordinate.longitude)")
+        debugLog("New location: \(coordinate.latitude), \(coordinate.longitude)")
         let shouldUpdate = shouldUpdateLocation(coordinate)
-        print("🗺️ MapViewModel: Should update location: \(shouldUpdate)")
+        debugLog("Should update location: \(shouldUpdate)")
 
         if shouldUpdate {
-            print("🗺️ MapViewModel: Updating user location and loading nearby locations")
+            debugLog("Updating user location and loading nearby locations")
             userLocation = coordinate
             lastUpdateTime = Date()
             significantLocationChange = true
@@ -170,32 +182,32 @@ final class MapViewModel: NSObject, CLLocationManagerDelegate {
                 await loadNearbyLocations()
             }
         } else {
-            print("🗺️ MapViewModel: Skipping location update (too recent or too close)")
+            debugLog("Skipping location update (too recent or too close)")
         }
     }
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        print("🗺️ MapViewModel: Location manager failed with error: \(error)")
+        debugLog("Location manager failed with error: \(error)")
         if let clError = error as? CLError {
-            print("🗺️ MapViewModel: CLError code: \(clError.code)")
+            debugLog("CLError code: \(clError.code)")
             switch clError.code {
             case .denied:
-                print("🗺️ MapViewModel: Location access denied")
+                debugLog("Location access denied")
                 nearbyLocations = .error(.unauthorized)
             case .network:
-                print("🗺️ MapViewModel: Network error")
+                debugLog("Network error")
                 nearbyLocations = .error(.networkError(NSError(domain: "LocationService", code: -1, userInfo: [NSLocalizedDescriptionKey: "Location service network error"])))
             case .locationUnknown:
-                print("🗺️ MapViewModel: Location unknown (likely simulator without location set)")
+                debugLog("Location unknown (likely simulator without location set)")
                 // Don't set error state immediately - wait for valid location
                 // Simulator often sends this error before getting actual location
                 break
             default:
-                print("🗺️ MapViewModel: Other CLError: \(clError)")
+                debugLog("Other CLError: \(clError)")
                 nearbyLocations = .error(.unknown(error))
             }
         } else {
-            print("🗺️ MapViewModel: Non-CLError: \(error)")
+            debugLog("Non-CLError: \(error)")
             nearbyLocations = .error(.unknown(error))
         }
     }

@@ -1,3 +1,47 @@
+/**
+ * COMBAT SYSTEM OVERVIEW
+ *
+ * Combat in New Mystica operates on a two-phase turn-based system:
+ *
+ * PHASE 1: PLAYER ATTACKS, ENEMY DEFENDS
+ * - Player taps a position (0-360 degrees) to attack
+ * - System determines player's hit zone (1-5) based on tap position and weapon accuracy
+ *   → Zone 1 = Critical hit (best)
+ *   → Zone 2 = Strong hit
+ *   → Zone 3 = Normal hit
+ *   → Zone 4 = Weak hit
+ *   → Zone 5 = Miss/graze (worst—results in self injury)
+ * - System simulates enemy's defense zone (1-5) based on enemy defense accuracy
+ *   → Zone 1 = Perfect defense (best)
+ *   → Zone 5 = Failed defense (worst)
+ * - Damage is calculated from:
+ *   → Player attack power × player hit zone multiplier × crit multiplier
+ *   → Minus enemy defense power × enemy defense zone multiplier
+ * - Enemy takes damage; player takes NO counter damage
+ * - Player may only injure themselves on critical misses (zone 5)
+ *
+ * PHASE 2: ENEMY ATTACKS, PLAYER DEFENDS
+ * - Player taps a position (0-360 degrees) to defend
+ * - System simulates enemy's attack zone (1-5) based on enemy attack accuracy
+ *   → Zone 1 = Critical attack (worst for player)
+ *   → Zone 5 = Missed attack (best for player)
+ * - System determines player's defense zone (1-5) based on tap position and defense accuracy
+ *   → Zone 1 = Perfect block (best)
+ *   → Zone 5 = Failed block (worst)
+ * - Damage is calculated from:
+ *   → Enemy attack power × enemy attack zone multiplier × crit multiplier
+ *   → Minus player defense power × player defense zone multiplier
+ * - Player takes damage (or blocks it with good defense)
+ * - Enemy does NOT take damage during defense phase
+ *
+ * IMPORTANT: Each phase is completely distinct with no cross-phase damage:
+ * - Attack phase: Player damages enemy only (based on enemy defense zone)
+ * - Defense phase: Enemy damages player only (based on player defense zone)
+ *
+ * Victory occurs when enemy HP reaches 0.
+ * Defeat occurs when player HP reaches 0.
+ */
+
 import { CombatRepository, CombatSessionData } from '../repositories/CombatRepository.js';
 import { EnemyRepository } from '../repositories/EnemyRepository.js';
 import { EquipmentRepository } from '../repositories/EquipmentRepository.js';
@@ -12,45 +56,38 @@ import { locationService } from './LocationService.js';
 import { statsService } from './StatsService.js';
 
 import {
-  CombatSession,
-  AttackResult,
-  DefenseResult,
-  CombatRewards,
-  PlayerStats,
-  EnemyStats,
-  HitBand,
-} from './combat/types.js';
-import { ZONE_MULTIPLIERS, MIN_DAMAGE } from './combat/constants.js';
-import {
-  hitBandToZone,
-  determineHitZone,
-  calculateDamage,
-  calculateEnemyStats,
+  calculateEnemyStats
 } from './combat/calculations.js';
-import { generateLoot } from './combat/loot.js';
-import {
-  selectEnemy,
-  getWeaponConfig,
-  captureEquipmentSnapshot,
-  calculatePlayerStats,
-  calculateSessionExpiry,
-} from './combat/session.js';
-import { applyRewards } from './combat/rewards.js';
 import {
   CombatLogEntry,
-  getCurrentHP,
   createAttackLogEntry,
   createDefenseLogEntry,
+  getCurrentHP,
   getNextTurnNumber,
 } from './combat/combat-log.js';
+import { generateLoot } from './combat/loot.js';
+import { applyRewards } from './combat/rewards.js';
+import {
+  buildBasicSessionData,
+  buildSessionRecoveryData,
+} from './combat/session-recovery.js';
+import {
+  calculatePlayerStats,
+  captureEquipmentSnapshot,
+  getWeaponConfig,
+  selectEnemy
+} from './combat/session.js';
 import {
   executeAttackTurn,
   executeDefenseTurn,
 } from './combat/turn-execution.js';
 import {
-  buildSessionRecoveryData,
-  buildBasicSessionData,
-} from './combat/session-recovery.js';
+  AttackResult,
+  CombatRewards,
+  CombatSession,
+  DefenseResult,
+  LootRewards
+} from './combat/types.js';
 
 let combatRepository = new CombatRepository();
 let enemyRepository = new EnemyRepository();
@@ -139,6 +176,12 @@ export class CombatService {
     }
 
     const enemyHP = Math.floor(enemyWithTier.enemyType.base_hp * enemyWithTier.tier.difficulty_multiplier);
+
+    console.log(`[CombatService.startCombat] ENEMY STATS CALCULATION:
+      enemyType.id=${enemy.id}, enemyType.name=${enemyWithTier.enemyType.name}
+      combatLevel=${selectedLevel}, tier.difficulty_multiplier=${enemyWithTier.tier.difficulty_multiplier}
+      REALIZED STATS: atk_power=${realizedEnemyStats.atk_power}, def_power=${realizedEnemyStats.def_power}
+      BASE HP=${enemyWithTier.enemyType.base_hp}, calculated enemyHP=${enemyHP}`);
 
     const sessionData: Omit<CombatSessionData, 'id' | 'createdAt' | 'updatedAt'> = {
       userId,
@@ -232,6 +275,11 @@ export class CombatService {
       currentEnemyHP
     );
 
+    console.log(`[CombatService.executeAttack] TURN SUMMARY:
+      Player: ${currentPlayerHP} HP → ${turnResult.newPlayerHP} HP (took ${currentPlayerHP - turnResult.newPlayerHP} damage)
+      Enemy: ${currentEnemyHP} HP → ${turnResult.newEnemyHP} HP (took ${currentEnemyHP - turnResult.newEnemyHP} damage)
+      Status: ${turnResult.combatStatus}`);
+
     if (turnResult.combatStatus === 'victory') {
       logger.info('🎉 Combat victory!', { sessionId, finalDamage: turnResult.damageDealt, hitZone: turnResult.hitZone });
     } else if (turnResult.combatStatus === 'defeat') {
@@ -267,16 +315,16 @@ export class CombatService {
       actor: 'player',
       eventType: 'attack',
       payload: { hitZone: turnResult.hitZone, damageDealt: turnResult.damageDealt, tapPositionDegrees },
-      valueI: turnResult.damageDealt,
+      valueI: Math.round(turnResult.damageDealt),
     });
 
     let rewards: CombatRewards | null = null;
     if (turnResult.combatStatus === 'victory' || turnResult.combatStatus === 'defeat') {
       logger.info('💰 Generating and applying rewards', { sessionId, result: turnResult.combatStatus });
 
-      rewards = await this.completeCombatInternal(sessionId, turnResult.combatStatus, session);
+      const completionResult = await this.completeCombatInternal(sessionId, turnResult.combatStatus, session);
 
-      await this.applyRewardsTransaction(session.userId, sessionId, rewards);
+      rewards = await this.applyRewardsTransaction(session.userId, sessionId, completionResult.rewards, session.combatLevel, completionResult.baseRewards);
 
       logger.info('✅ Session cleanup complete', { sessionId });
     }
@@ -342,6 +390,11 @@ export class CombatService {
       currentEnemyHP
     );
 
+    console.log(`[CombatService.executeDefense] TURN SUMMARY:
+      Player: ${currentPlayerHP} HP → ${turnResult.newPlayerHP} HP (took ${currentPlayerHP - turnResult.newPlayerHP} damage)
+      Enemy: ${currentEnemyHP} HP → ${turnResult.currentEnemyHP} HP (no change - defending doesn't damage)
+      Status: ${turnResult.combatStatus}`);
+
     const turnNumber = getNextTurnNumber(currentLog);
     const newLogEntry = createDefenseLogEntry(
       turnNumber,
@@ -363,16 +416,16 @@ export class CombatService {
       actor: 'player',
       eventType: 'defend',
       payload: { hitZone: turnResult.hitZone, damageBlocked: turnResult.damageBlocked, damageActuallyTaken: turnResult.damageActuallyTaken, tapPositionDegrees },
-      valueI: turnResult.damageActuallyTaken,
+      valueI: Math.round(turnResult.damageActuallyTaken),
     });
 
     let rewards: CombatRewards | null = null;
     if (turnResult.combatStatus === 'defeat') {
       logger.info('💰 Generating and applying rewards', { sessionId, result: turnResult.combatStatus });
 
-      rewards = await this.completeCombatInternal(sessionId, turnResult.combatStatus, session);
+      const completionResult = await this.completeCombatInternal(sessionId, turnResult.combatStatus, session);
 
-      await this.applyRewardsTransaction(session.userId, sessionId, rewards);
+      rewards = await this.applyRewardsTransaction(session.userId, sessionId, completionResult.rewards, session.combatLevel, completionResult.baseRewards);
 
       logger.info('✅ Session cleanup complete', { sessionId });
     }
@@ -396,10 +449,17 @@ export class CombatService {
       throw new NotFoundError('Combat session', sessionId);
     }
 
-    return this.completeCombatInternal(sessionId, result, session);
+    const completionResult = await this.completeCombatInternal(sessionId, result, session);
+
+    // Apply rewards only if victory (defeat doesn't apply any rewards)
+    if (result === 'victory') {
+      return await this.applyRewardsTransaction(session.userId, sessionId, completionResult.rewards, session.combatLevel, completionResult.baseRewards);
+    }
+
+    return completionResult.rewards;
   }
 
-  private async completeCombatInternal(sessionId: string, result: 'victory' | 'defeat', session: CombatSessionData): Promise<CombatRewards> {
+  private async completeCombatInternal(sessionId: string, result: 'victory' | 'defeat', session: CombatSessionData): Promise<{ rewards: CombatRewards; baseRewards?: LootRewards }> {
     logger.info('📊 Completing combat session (internal)', { sessionId, result });
 
     if (result !== 'victory' && result !== 'defeat') {
@@ -431,84 +491,28 @@ export class CombatService {
         session.enemyStyleId
       );
 
-      for (const material of baseRewards.materials) {
-        try {
-          await this.materialRepository.createStack(
-            session.userId,
-            material.material_id,
-            1, 
-            material.style_id
-          );
-          logger.info('✅ Material awarded', {
-            userId: session.userId,
-            materialId: material.material_id,
-            styleName: material.style_name,
-          });
-        } catch (error) {
-          logger.warn('Failed to award material', {
-            userId: session.userId,
-            materialId: material.material_id,
-            error: error instanceof Error ? error.message : String(error),
-          });
-        }
-      }
-
-      const createdItems = [];
-      for (const item of baseRewards.items) {
-        try {
-          const createdItem = await this.itemRepository.create({
-            user_id: session.userId,
-            item_type_id: item.item_type_id,
-            level: session.combatLevel,
-          });
-          createdItems.push({
-            id: createdItem.id,
-            item_type_id: createdItem.item_type_id,
-            name: item.name,
-            category: item.category,
-            rarity: item.rarity,
-            style_id: item.style_id,
-            style_name: item.style_name,
-            generated_image_url: createdItem.generated_image_url,
-          });
-          logger.info('✅ Item awarded', {
-            userId: session.userId,
-            itemId: createdItem.id,
-            itemTypeId: item.item_type_id,
-            itemName: item.name,
-            styleName: item.style_name,
-            imageUrl: createdItem.generated_image_url,
-          });
-        } catch (error) {
-          logger.warn('Failed to award item', {
-            userId: session.userId,
-            itemTypeId: item.item_type_id,
-            error: error instanceof Error ? error.message : String(error),
-          });
-        }
-      }
-
-      const victoryRewards = {
-        result,
-        currencies: baseRewards.currencies,
-        materials: baseRewards.materials,
-        items: createdItems,
-        experience: baseRewards.experience,
-        combat_history: combatHistory,
-      };
-      logger.info('🎉 Victory rewards prepared for return', {
+      logger.info('🎉 Victory rewards generated (DB writes deferred to applyRewards)', {
         sessionId,
         result,
         goldAmount: baseRewards.currencies.gold,
         materialsCount: baseRewards.materials.length,
         itemsCount: baseRewards.items.length,
         experience: baseRewards.experience,
-        combatHistoryStats: { victories: combatHistory.victories, defeats: combatHistory.defeats }
       });
-      return victoryRewards;
+
+      // Return rewards with items as empty - they will be created in applyRewards() and merged by applyRewardsTransaction()
+      const victoryRewards: CombatRewards = {
+        result,
+        currencies: baseRewards.currencies,
+        materials: baseRewards.materials,
+        items: [], // Will be populated by applyRewardsTransaction
+        experience: baseRewards.experience,
+        combat_history: combatHistory,
+      };
+      return { rewards: victoryRewards, baseRewards };
     }
 
-    const defeatRewards = {
+    const defeatRewards: CombatRewards = {
       result,
       currencies: {
         gold: 0,
@@ -519,7 +523,7 @@ export class CombatService {
       sessionId,
       combatHistoryStats: { victories: combatHistory.victories, defeats: combatHistory.defeats }
     });
-    return defeatRewards;
+    return { rewards: defeatRewards };
   }
 
   async abandonCombat(sessionId: string): Promise<void> {
@@ -669,21 +673,38 @@ export class CombatService {
   private async applyRewardsTransaction(
     userId: string,
     sessionId: string,
-    rewards: CombatRewards
-  ): Promise<void> {
-    
-    await applyRewards(
+    rewards: CombatRewards,
+    combatLevel: number,
+    baseRewards?: LootRewards
+  ): Promise<CombatRewards> {
+
+    // Use baseRewards items if provided - they will be created by applyRewards
+    const rewardsForApplication = baseRewards ? {
+      ...rewards,
+      items: baseRewards.items as unknown as CombatRewards['items'],
+    } : rewards;
+
+    const appliedResult = await applyRewards(
       this.itemRepository,
       this.materialRepository,
       this.profileRepository,
       userId,
       sessionId,
-      rewards
+      rewardsForApplication,
+      combatLevel
     );
+
+    // Merge created items back into rewards for response
+    const finalRewards: CombatRewards = {
+      ...rewards,
+      items: appliedResult.createdItems,
+    };
 
     logger.info('🗑️ Deleting combat session', { sessionId, userId });
     await this.combatRepository.deleteSession(sessionId);
     logger.info('✅ Combat session deleted successfully', { sessionId });
+
+    return finalRewards;
   }
 }
 

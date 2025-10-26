@@ -124,7 +124,7 @@ export const CombatStatusSchema = z.enum(['ongoing', 'victory', 'defeat']);
 
 export const EnemyChatterSchema = z.object({
   session_id: UUIDSchema,
-  event_type: z.enum(['combat_start', 'player_hit', 'player_miss', 'enemy_hit', 'low_player_hp', 'near_victory', 'defeat', 'victory']),
+  event_type: z.enum(['combat_start', 'player_attacks', 'enemy_attacks', 'low_player_hp', 'near_victory', 'defeat', 'victory']),
   event_details: z.object({
     damage: z.number().optional(),
     accuracy: z.number().min(0).max(1).optional(),
@@ -183,7 +183,7 @@ export const PetChatterSchema = z.object({
 export const EnemyChatterRequestSchema = z.object({
   session_id: UUIDSchema,
   event_type: z.enum([
-    'combat_start', 'player_hit', 'player_miss', 'enemy_hit',
+    'combat_start', 'player_attacks', 'enemy_attacks',
     'low_player_hp', 'near_victory', 'defeat', 'victory'
   ]),
   event_details: z.object({
@@ -192,7 +192,10 @@ export const EnemyChatterRequestSchema = z.object({
     is_critical: z.boolean().optional(),
     turn_number: z.number().int().positive('Turn number must be positive'),
     player_hp_pct: z.number().min(0.0, 'Player HP percentage must be between 0.0 and 1.0').max(1.0, 'Player HP percentage must be between 0.0 and 1.0'),
-    enemy_hp_pct: z.number().min(0.0, 'Enemy HP percentage must be between 0.0 and 1.0').max(1.0, 'Enemy HP percentage must be between 0.0 and 1.0')
+    enemy_hp_pct: z.number().min(0.0, 'Enemy HP percentage must be between 0.0 and 1.0').max(1.0, 'Enemy HP percentage must be between 0.0 and 1.0'),
+    player_zone: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)]).optional(),
+    enemy_zone: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(5)]).optional(),
+    player_action: z.enum(['attack', 'defend']).optional()
   })
 });
 

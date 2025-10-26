@@ -16,6 +16,10 @@ enum NavigationDestination: Hashable {
         preselectedMaterial: MaterialInventoryStack? = nil
     )
     case upgradePreview
+    case addItemCamera
+    case addItemPreview(image: UIImage)
+    case addItemLoading
+    case addItemResult
 
     static func == (lhs: NavigationDestination, rhs: NavigationDestination) -> Bool {
         switch (lhs, rhs) {
@@ -29,7 +33,11 @@ enum NavigationDestination: Hashable {
              (.victory, .victory),
              (.defeat, .defeat),
              (.crafting, .crafting),
-             (.upgradePreview, .upgradePreview):
+             (.upgradePreview, .upgradePreview),
+             (.addItemCamera, .addItemCamera),
+             (.addItemPreview, .addItemPreview),
+             (.addItemLoading, .addItemLoading),
+             (.addItemResult, .addItemResult):
             return true
         default:
             return false
@@ -60,6 +68,14 @@ enum NavigationDestination: Hashable {
             hasher.combine("crafting")
         case .upgradePreview:
             hasher.combine("upgradePreview")
+        case .addItemCamera:
+            hasher.combine("addItemCamera")
+        case .addItemPreview:
+            hasher.combine("addItemPreview")
+        case .addItemLoading:
+            hasher.combine("addItemLoading")
+        case .addItemResult:
+            hasher.combine("addItemResult")
         }
     }
 
@@ -87,6 +103,14 @@ enum NavigationDestination: Hashable {
             return "Crafting"
         case .upgradePreview:
             return "Upgrade Item"
+        case .addItemCamera:
+            return "Camera"
+        case .addItemPreview:
+            return "Preview"
+        case .addItemLoading:
+            return "Processing"
+        case .addItemResult:
+            return "Result"
         }
     }
 }

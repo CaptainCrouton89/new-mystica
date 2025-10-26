@@ -344,9 +344,9 @@ export class ItemService {
         material_id: stack.material_id,
         material_name: stack.materials!.name,
         style_id: stack.style_id,
-        style_name: stack.styledefinitions!.style_name,
+        display_name: stack.styledefinitions!.display_name,
         quantity: stack.quantity,
-        is_styled: stack.styledefinitions!.style_name !== 'normal'
+        is_styled: stack.styledefinitions!.display_name !== 'normal'
       }));
     } catch (error) {
       throw new Error(`Failed to get material stacks: ${error instanceof Error ? error.message : String(error)}`);
@@ -956,7 +956,7 @@ export class ItemService {
 
       // Create material stacks for each selected material (quantity: 1)
       for (const material of selectedMaterials) {
-        await this.materialRepository.createStack(userId, material.id, 1, 'normal');
+        await this.materialRepository.incrementStack(userId, material.id, 1, 'normal');
       }
     } catch (error) {
       if (error instanceof BusinessLogicError) {

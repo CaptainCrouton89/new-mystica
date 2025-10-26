@@ -1,53 +1,58 @@
 # CLAUDE.md
 
-Controllers orchestrate service calls and handle HTTP concerns. All controllers use arrow function methods with middleware-delegated error handling, except `AuthController` which uses static methods with explicit error responses.
+Controllers orchestrate HTTP concerns and delegate business logic to services. Two patterns coexist:
 
-## Core Pattern (Arrow Functions)
+## Arrow Function Pattern (Middleware Delegation)
+
+Used by most controllers (LocationController, etc.). Propagate errors via `next(error)`.
 
 ```typescript
 export class LocationController {
   getById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const userId = req.user!.id;
       const { id } = req.params as unknown as LocationParams;
-      const body = (req.validated?.body || req.body) as SchemaType;
-
       const result = await locationService.getById(id);
-      res.json({ success: true, ...result });
+      res.json(result);
     } catch (error) {
-      next(error);  // Middleware handles
+      next(error);  // Middleware handles error mapping
     }
   };
 }
 ```
 
-## Key Responsibilities
+## Static Method Pattern (Explicit Error Handling)
 
-- **Extract:** userId from `req.user!.id`, params/query/body from typed schemas
-- **Delegate:** Call service layer for business logic only
+Used by AuthController. Catches specific error types, maps to HTTP codes explicitly.
+
+```typescript
+static async register(req: Request, res: Response): Promise<void> {
+  try {
+    const result = await authService.register(req.body);
+    res.status(201).json(result);
+  } catch (error) {
+    if (error instanceof ValidationError) {
+      res.status(400).json({ error: { code: 'CODE', message: error.message } });
+    }
+  }
+}
+```
+
+## Key Patterns
+
+- **Extract:** userId from `req.user!.id`, params/query/body with type casting
+- **Delegate:** All business logic to services
 - **Respond:** Use `res.json()` or `res.status(code).json()`
-- **Handle errors:** Throw custom errors, let middleware catch via `next(error)`
+- **Errors:** Throw custom errors from `src/utils/errors.ts`; middleware catches (arrow functions) or handle explicitly (static methods)
 
 ## Type Safety
 
 - `req.user!.id` — Always exists after auth middleware
-- `req.validated?.body || req.body` — Cast to schema: `as SchemaType`
 - `req.params / req.query` — Cast: `as unknown as LocationParams`
 - Import types from `src/types/schemas.ts`
 
-## Never Do
+## Never
 
-- Database queries directly (use services/repositories)
-- Business logic (calculations, stat operations)
+- Database queries directly
+- Business logic calculations
 - Manual response serialization
 - Mix error handling styles within same controller
-
-## Response Format
-
-- Success: `res.json({ success: true, ...data })`
-- Created: `res.status(201).json({ success: true, ...data })`
-- Errors: Throw custom error types from `src/utils/errors.ts`, middleware handles
-
-## AuthController Exception
-
-Uses **static methods** with explicit error handling (catches error types, returns `res.status(code)` instead of `next(error)`). Follow that pattern only for auth endpoints.

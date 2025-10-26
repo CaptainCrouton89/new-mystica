@@ -45,6 +45,14 @@ struct ContentView: View {
                 }
         case .upgradePreview:
             EmptyView()
+        case .addItemCamera:
+            AddItemCameraView()
+        case .addItemPreview(let image):
+            AddItemPreviewView(image: image)
+        case .addItemLoading:
+            AddItemLoadingView()
+        case .addItemResult:
+            AddItemResultView()
         }
     }
 }

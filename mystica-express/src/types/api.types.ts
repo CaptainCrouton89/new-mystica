@@ -113,7 +113,7 @@ export interface AppliedMaterial {
   id: string;
   material_id: string;
   style_id: string;
-  style_name?: string;
+  display_name?: string; // Human-readable style display name
   slot_index: number;
   material: Material;
 }
@@ -126,7 +126,7 @@ export interface MaterialStack {
   material_id: string;
   material_name: string;
   style_id: string;
-  style_name: string;
+  display_name: string; // Human-readable style display name
   quantity: number;
   is_styled: boolean;
 }
@@ -139,7 +139,7 @@ export interface MaterialStackDetailed {
   user_id: string;
   material_id: string;
   style_id: string;
-  style_name?: string;
+  display_name?: string; // Human-readable style display name
   quantity: number;
   material: Material;
 }
@@ -347,7 +347,7 @@ export interface CombatRewards {
     material_id: string;
     name: string;
     style_id: string;
-    style_name: string;
+    display_name: string;
   }>;
   /** Item drops from loot pools with full details (only present for victory) */
   items?: Array<{
@@ -357,7 +357,7 @@ export interface CombatRewards {
     category: string;
     rarity: string;
     style_id: string;
-    style_name: string;
+    display_name: string;
     generated_image_url: string | null;
   }>;
   /** Experience points earned from combat (only present for victory) */
@@ -552,9 +552,8 @@ export type PetChatterEventType =
  */
 export type EnemyChatterEventType =
   | 'combat_start'
-  | 'player_hit'
-  | 'player_miss'
-  | 'enemy_hit'
+  | 'player_attacks'
+  | 'enemy_attacks'
   | 'low_player_hp'
   | 'near_victory'
   | 'defeat'
@@ -704,7 +703,6 @@ export type TransactionSinkType =
  */
 export interface StyleDefinition {
   id: string;
-  style_name: string;
   display_name: string;
   spawn_rate: number;
   description: string | null;
@@ -874,9 +872,8 @@ export interface EnemyLoot {
  */
 export type CombatEventType =
   | 'combat_start'
-  | 'player_hit'
-  | 'player_miss'
-  | 'enemy_hit'
+  | 'player_attacks'
+  | 'enemy_attacks'
   | 'low_player_hp'
   | 'near_victory'
   | 'defeat'
@@ -892,6 +889,12 @@ export interface CombatEventDetails {
   turn_number: number;
   player_hp_pct: number;
   enemy_hp_pct: number;
+  /** Zone hit by player (1=best, 5=worst/self-injury) */
+  player_zone?: 1 | 2 | 3 | 4 | 5;
+  /** Zone hit by enemy */
+  enemy_zone?: 1 | 2 | 3 | 4 | 5;
+  /** Player's action this turn */
+  player_action?: 'attack' | 'defend';
 }
 
 /**

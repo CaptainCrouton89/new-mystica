@@ -127,8 +127,8 @@ struct ItemRow: View {
                     // Styling Status
                     HStack {
                         if item.isStyled, let firstMaterial = item.appliedMaterials.first {
-                            let styleName = firstMaterial.material?.styleName ?? formatStyleName(firstMaterial.styleId)
-                            SmallText(styleName)
+                            let displayName = firstMaterial.displayName ?? formatStyleName(firstMaterial.styleId)
+                            SmallText(displayName)
                                 .foregroundColor(Color.accent)
                         } else {
                             SmallText("Normal")
@@ -293,8 +293,6 @@ private let mockItemStyled = EnhancedPlayerItem(
                 id: "wood",
                 name: "Wood",
                 description: nil,
-                styleId: "rustic",
-                styleName: "Rustic",
                 statModifiers: StatModifier(atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0),
                 imageUrl: nil
             )

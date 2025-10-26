@@ -267,7 +267,8 @@ struct EquipmentView: View {
                         onReturnToInventory: {
                             viewModel.inventoryViewModel.upgradeModalState = .none
                             viewModel.showingItemDetailModal = false
-                        }
+                        },
+                        isLoadingNextCost: viewModel.inventoryViewModel.isLoadingNextUpgradeCost
                     )
 
                 case .upgrading:

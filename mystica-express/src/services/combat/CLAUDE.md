@@ -1,68 +1,37 @@
 # Combat Services CLAUDE.md
 
-This directory contains the modular combat system for New Mystica. Each file handles a specific aspect of combat lifecycle, from initialization to rewards.
+Modular combat system handling lifecycle from initialization through rewards.
 
-## File Organization
+## Files
 
-**Core Combat Flow:**
-- `types.ts` - Shared TypeScript interfaces and enums
-- `constants.ts` - Combat configuration (damage scaling, base values)
-- `session.ts` - Session initialization and turn management
+- `types.ts` - CombatSession, AttackResult, CombatRewards, PlayerStats, EnemyStats
+- `constants.ts` - Combat config (damage scaling, base values)
+- `session.ts` - Initialize & turn management
 - `turn-execution.ts` - Attack/defense mechanics, accuracy calculations
-- `calculations.ts` - Damage, stat normalization, and zone-based accuracy
-
-**Supporting Modules:**
-- `session-recovery.ts` - Resume abandoned combat sessions
-- `loot.ts` - Enemy loot pool selection and generation
-- `rewards.ts` - Gold, XP, materials, and item rewards
-- `combat-log.ts` - Turn history and event logging
-
-## Import Patterns
-
-All files use relative imports with `.js` extensions:
-
-```typescript
-import { CombatSession, AttackResult } from './types.js';
-import { BASE_DAMAGE_MULTIPLIER } from './constants.js';
-```
-
-Never remove `.js` extensions—they're required for Jest module resolution.
+- `calculations.ts` - Damage, stat normalization, zone accuracy
+- `session-recovery.ts` - Resume abandoned sessions
+- `loot.ts` - Enemy loot pool selection
+- `rewards.ts` - Apply gold, XP, materials, items to profile
+- `combat-log.ts` - Turn history & events
 
 ## Key Patterns
 
-**1. Session State Management**
-- Sessions stored in `CombatSessions` table with atomic RPC transactions
-- `session.ts` handles initialization; `session-recovery.ts` resumes interrupted sessions
-- Zone accuracy applied during turn execution in `turn-execution.ts`
+**Imports:** Use relative imports with `.js` extensions (required for Jest)
 
-**2. Combat Calculations**
-- Damage formula: `base_damage × level_multiplier × stat_scaling × zone_multiplier`
-- Stat normalization via `normalizeStats()` in `calculations.ts`
-- Zone-based accuracy in `calculateZoneAccuracy()` (perfect/great/good/poor/miss)
+**Session State:** Atomic RPC to `CombatSessions` table. `session.ts` initializes, `session-recovery.ts` resumes.
 
-**3. Reward Pipeline**
-- `loot.ts` - Selects from enemy loot pool (100% drop rate MVP0)
-- `rewards.ts` - Applies gold, XP, materials, items
-- All stored in `CombatSessions` reward field as JSON
+**Damage Formula:** `base × level_multiplier × stat_scaling × zone_multiplier`
 
-**4. Error Handling**
-- All errors thrown are custom types (ValidationError, NotFoundError, ExternalAPIError)
-- No silent fallbacks; early validation in session initialization
-- Middleware catches and formats responses
+**Zone Accuracy:** Applied in `turn-execution.ts` via `calculateZoneAccuracy()` (perfect/great/good/poor/miss).
+
+**Reward Pipeline:** `loot.ts` selects items/materials → `rewards.ts` applies to profile (gold/XP/materials/items as JSON in CombatSessions).
+
+**Error Handling:** Custom types (ValidationError, NotFoundError, ExternalAPIError). No silent fallbacks. Middleware catches & formats.
 
 ## Type Safety
 
-All combat types defined in `types.ts`:
-- `CombatSession`, `TurnLog`, `AttackResult`, `RewardResult`
-- Enums: `rarity`, `weapon_pattern`, `hit_band`, `actor`
-- Never use `any` type; if needed type lookup in database.types.ts
+All types in `types.ts`. Never use `any`—lookup in database.types.ts.
 
-## Testing
+## Dependencies
 
-Unit tests mock repositories; integration tests use seeded combat data from `CombatSessionBuilder`.
-
-## Module Dependencies
-
-- Repositories: `EnemyRepository`, `ItemRepository`, `LocationRepository`
-- External: OpenAI for enemy chatter (timeout 2s)
-- Analytics: `AnalyticsRepository` for combat event logging
+Repositories: EnemyRepository, ItemRepository, LocationRepository. External: OpenAI (chatter, 2s timeout). Analytics: AnalyticsRepository for logging.

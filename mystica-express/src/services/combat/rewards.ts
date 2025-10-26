@@ -4,16 +4,32 @@ import { MaterialRepository } from '../../repositories/MaterialRepository.js';
 import { ProfileRepository } from '../../repositories/ProfileRepository.js';
 import { logger } from '../../utils/logger.js';
 
+export interface AppliedRewardsResult {
+  createdItems: Array<{
+    id: string;
+    item_type_id: string;
+    name: string;
+    category: string;
+    rarity: string;
+    style_id: string;
+    display_name: string;
+    generated_image_url: string | null;
+  }>;
+}
+
 export async function applyRewards(
   itemRepository: ItemRepository,
   materialRepository: MaterialRepository,
   profileRepository: ProfileRepository,
   userId: string,
   sessionId: string,
-  rewards: CombatRewards
-): Promise<void> {
+  rewards: CombatRewards,
+  combatLevel?: number
+): Promise<AppliedRewardsResult> {
+  const createdItems: AppliedRewardsResult['createdItems'] = [];
+
   if (rewards.result === 'victory' && rewards.currencies) {
-    logger.info('Applying victory rewards atomically', {
+    logger.info('Applying victory rewards (all DB mutations)', {
       userId,
       sessionId,
       gold: rewards.currencies.gold,
@@ -22,6 +38,7 @@ export async function applyRewards(
       experience: rewards.experience ?? 0
     });
 
+    // Apply gold currency
     if (rewards.currencies.gold > 0) {
       await profileRepository.addCurrency(
         userId,
@@ -31,42 +48,85 @@ export async function applyRewards(
         sessionId,
         { sessionId, combatType: 'victory' }
       );
+      logger.debug('✅ Gold awarded', {
+        userId,
+        amount: rewards.currencies.gold,
+      });
     }
 
+    // Create material stacks
     if (rewards.materials) {
       for (const material of rewards.materials) {
-        await materialRepository.incrementStack(
-          userId,
-          material.material_id,
-          1, 
-          material.style_id
-        );
+        try {
+          await materialRepository.incrementStack(
+            userId,
+            material.material_id,
+            1,
+            material.style_id
+          );
+          logger.debug('✅ Material awarded', {
+            userId,
+            materialId: material.material_id,
+            displayName: material.display_name,
+          });
+        } catch (error) {
+          logger.warn('Failed to award material', {
+            userId,
+            materialId: material.material_id,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
       }
     }
 
+    // Create items
     if (rewards.items) {
       for (const item of rewards.items) {
-        
-        await itemRepository.create({
-          user_id: userId,
-          item_type_id: item.item_type_id,
-          level: 1, 
-        });
-
-        logger.debug('Item created without unlocking ItemType', {
-          userId,
-          itemTypeId: item.item_type_id
-        });
+        try {
+          const createdItem = await itemRepository.create({
+            user_id: userId,
+            item_type_id: item.item_type_id,
+            level: combatLevel ?? 1,
+          });
+          createdItems.push({
+            id: createdItem.id,
+            item_type_id: createdItem.item_type_id,
+            name: item.name,
+            category: item.category,
+            rarity: item.rarity,
+            style_id: item.style_id,
+            display_name: item.display_name,
+            generated_image_url: createdItem.generated_image_url,
+          });
+          logger.debug('✅ Item created', {
+            userId,
+            itemId: createdItem.id,
+            itemTypeId: item.item_type_id,
+            itemName: item.name,
+          });
+        } catch (error) {
+          logger.warn('Failed to award item', {
+            userId,
+            itemTypeId: item.item_type_id,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
       }
     }
 
+    // Apply experience
     if (rewards.experience && rewards.experience > 0) {
       await profileRepository.addXP(userId, rewards.experience);
+      logger.debug('✅ XP awarded', {
+        userId,
+        amount: rewards.experience,
+      });
     }
 
-    logger.info('Victory rewards applied successfully', { userId, sessionId });
+    logger.info('✅ Victory rewards applied successfully', { userId, sessionId, createdItemCount: createdItems.length });
   } else if (rewards.result === 'defeat') {
     logger.info('Defeat - no rewards to apply', { userId, sessionId });
-    
   }
+
+  return { createdItems };
 }
