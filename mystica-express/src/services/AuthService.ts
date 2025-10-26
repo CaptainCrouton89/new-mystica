@@ -3,6 +3,7 @@ import { env } from '../config/env.js';
 import { supabase as supabaseAdmin } from '../config/supabase.js';
 import { ProfileRepository } from '../repositories/ProfileRepository.js';
 import { EquipmentRepository } from '../repositories/EquipmentRepository.js';
+import { ItemService } from './ItemService.js';
 import { generateAnonymousToken } from '../utils/jwt.js';
 import { v4 as uuidv4 } from 'uuid';
 import {
@@ -83,10 +84,12 @@ const supabaseAuth = createClient(
 export class AuthService {
   private profileRepository: ProfileRepository;
   private equipmentRepository: EquipmentRepository;
+  private itemService: ItemService;
 
   constructor() {
     this.profileRepository = new ProfileRepository();
     this.equipmentRepository = new EquipmentRepository();
+    this.itemService = new ItemService();
   }
 
   async registerDevice(request: DeviceRegistrationRequest): Promise<DeviceAuthResponse> {
@@ -209,6 +212,8 @@ export class AuthService {
 
           await this.initializeCurrencyBalance(userId);
           await this.equipmentRepository.initializeUserSlots(userId);
+          await this.itemService.initializeStarterItems(userId);
+          await this.itemService.initializeStarterMaterials(userId);
 
           userProfile = {
             id: userId,
@@ -454,7 +459,7 @@ export class AuthService {
         email: userProfile.email,
         device_id: userProfile.device_id,
         account_type: userProfile.email ? 'email' : 'anonymous',
-        username: null, 
+        username: null,
         vanity_level: userProfile.vanity_level,
         avg_item_level: userProfile.avg_item_level || 0,
         gold: balances.GOLD,
@@ -474,6 +479,45 @@ export class AuthService {
       return { user: profile };
     } catch (error) {
       if (error instanceof NotFoundError || error instanceof ValidationError) {
+        throw error;
+      }
+      throw mapSupabaseError(error);
+    }
+  }
+
+  /**
+   * Delete a user account and all associated data
+   *
+   * POST /auth/delete-account
+   * Headers: Authorization: Bearer <access_token>
+   *
+   * Response: { message: 'Account deleted successfully' }
+   */
+  async deleteAccount(userId: string): Promise<{ message: string }> {
+    try {
+      if (!userId) {
+        throw new ValidationError('User ID is required');
+      }
+
+      // Verify user exists before deletion
+      const userProfile = await this.profileRepository.findUserById(userId);
+      if (!userProfile) {
+        throw new NotFoundError('User not found');
+      }
+
+      // Delete user from database (cascading deletes handle all related data)
+      const { error: deleteError } = await supabaseAdmin
+        .from('users')
+        .delete()
+        .eq('id', userId);
+
+      if (deleteError) {
+        throw mapSupabaseError(deleteError);
+      }
+
+      return { message: 'Account deleted successfully' };
+    } catch (error) {
+      if (error instanceof ValidationError || error instanceof NotFoundError) {
         throw error;
       }
       throw mapSupabaseError(error);
@@ -546,10 +590,12 @@ export class AuthService {
 
         await this.initializeCurrencyBalance(userId);
         await this.equipmentRepository.initializeUserSlots(userId);
+        await this.itemService.initializeStarterItems(userId);
+        await this.itemService.initializeStarterMaterials(userId);
       }
     } catch (error) {
       console.error('Email user profile creation error:', error);
-      
+
     }
   }
 }

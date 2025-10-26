@@ -222,6 +222,7 @@ export class ItemRepository extends BaseRepository<ItemRow> {
           description
         ),
         itemmaterials (
+          id,
           slot_index,
           applied_at,
           material_instance_id,
@@ -234,9 +235,10 @@ export class ItemRepository extends BaseRepository<ItemRow> {
               id,
               name,
               description,
+              base_drop_weight,
               stat_modifiers
             ),
-            styledefinitions:style_id (
+            styledefinitions (
               id,
               display_name
             )
@@ -691,16 +693,19 @@ export class ItemRepository extends BaseRepository<ItemRow> {
     // Transform materials if included and available
     if (includeMaterials && data.itemmaterials) {
       interface ItemMaterialRow {
+        id: string;
         slot_index: number;
         applied_at: string;
+        material_instance_id: string;
         materialinstances: {
+          id: string;
+          material_id: string;
           materials: {
             id: string;
             name: string;
             description: string | null;
-            rarity: string | null;
+            base_drop_weight: number;
             stat_modifiers: Record<string, number>;
-            image_url: string | null;
           };
           style_id: string;
           styledefinitions: {
@@ -711,17 +716,18 @@ export class ItemRepository extends BaseRepository<ItemRow> {
       }
 
       item.materials = data.itemmaterials.map((im: ItemMaterialRow) => ({
+        id: im.id,
+        material_id: im.materialinstances.material_id,
+        style_id: im.materialinstances.style_id,
+        style_name: im.materialinstances.styledefinitions?.display_name || undefined,
         slot_index: im.slot_index,
-        applied_at: im.applied_at,
         material: {
           id: im.materialinstances.materials.id,
           name: im.materialinstances.materials.name,
           description: im.materialinstances.materials.description,
-          rarity: im.materialinstances.materials.rarity,
-          style_id: im.materialinstances.style_id,
-          style_name: im.materialinstances.styledefinitions?.display_name || null,
+          base_drop_weight: im.materialinstances.materials.base_drop_weight,
           stat_modifiers: im.materialinstances.materials.stat_modifiers,
-          image_url: im.materialinstances.materials.image_url
+          style_id: im.materialinstances.style_id
         }
       }));
     }

@@ -344,9 +344,9 @@ export class ItemService {
         material_id: stack.material_id,
         material_name: stack.materials!.name,
         style_id: stack.style_id,
-        style_name: stack.styledefinitions!.style_name,
+        style_name: stack.styledefinitions!.display_name,
         quantity: stack.quantity,
-        is_styled: stack.styledefinitions!.style_name !== 'normal'
+        is_styled: stack.styledefinitions!.display_name !== 'normal'
       }));
     } catch (error) {
       throw new Error(`Failed to get material stacks: ${error instanceof Error ? error.message : String(error)}`);
@@ -898,7 +898,7 @@ export class ItemService {
 
   async initializeStarterInventory(userId: string): Promise<ItemWithDetails> {
     try {
-      
+
       const selectedItemType = await this.itemTypeRepository.getRandomByRarity('common');
 
       if (!selectedItemType) {
@@ -906,6 +906,58 @@ export class ItemService {
       }
 
       return await this.createItem(userId, selectedItemType.id, 1);
+    } catch (error) {
+      if (error instanceof BusinessLogicError) {
+        throw error;
+      }
+      throw mapSupabaseError(error);
+    }
+  }
+
+  async initializeStarterItems(userId: string): Promise<ItemWithDetails[]> {
+    try {
+      const createdItems: ItemWithDetails[] = [];
+
+      // Create 3 random common items
+      for (let i = 0; i < 3; i++) {
+        const selectedItemType = await this.itemTypeRepository.getRandomByRarity('common');
+
+        if (!selectedItemType) {
+          throw new BusinessLogicError('No common item types available for starter inventory');
+        }
+
+        const item = await this.createItem(userId, selectedItemType.id, 1);
+        createdItems.push(item);
+      }
+
+      return createdItems;
+    } catch (error) {
+      if (error instanceof BusinessLogicError) {
+        throw error;
+      }
+      throw mapSupabaseError(error);
+    }
+  }
+
+  async initializeStarterMaterials(userId: string): Promise<void> {
+    try {
+      const allMaterials = await this.materialRepository.findAllMaterials();
+
+      if (allMaterials.length === 0) {
+        throw new BusinessLogicError('No materials available for starter inventory');
+      }
+
+      // Select 3 random materials
+      const selectedMaterials: typeof allMaterials = [];
+      for (let i = 0; i < 3; i++) {
+        const randomIndex = Math.floor(Math.random() * allMaterials.length);
+        selectedMaterials.push(allMaterials[randomIndex]);
+      }
+
+      // Create material stacks for each selected material (quantity: 1)
+      for (const material of selectedMaterials) {
+        await this.materialRepository.incrementStack(userId, material.id, 1, 'normal');
+      }
     } catch (error) {
       if (error instanceof BusinessLogicError) {
         throw error;

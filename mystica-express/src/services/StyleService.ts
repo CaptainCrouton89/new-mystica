@@ -64,7 +64,6 @@ export class StyleService {
   getFallbackStyle(): StyleDefinition {
     return {
       id: '00000000-0000-0000-0000-000000000000',
-      style_name: 'normal',
       display_name: 'Normal',
       spawn_rate: 1.0,
       description: 'Standard appearance with no special visual effects',

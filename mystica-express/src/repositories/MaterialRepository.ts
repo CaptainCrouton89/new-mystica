@@ -201,7 +201,7 @@ export class MaterialRepository extends BaseRepository<MaterialRow> {
     style_id: string;
     quantity: number;
     materials: { name: string } | null;
-    styledefinitions: { style_name: string } | null;
+    styledefinitions: { display_name: string } | null;
   }>> {
     const { data, error } = await this.client
       .from('materialstacks')
@@ -210,7 +210,7 @@ export class MaterialRepository extends BaseRepository<MaterialRow> {
         style_id,
         quantity,
         materials(name),
-        styledefinitions(style_name)
+        styledefinitions(display_name)
       `)
       .eq('user_id', userId)
       .gt('quantity', 0)
@@ -225,7 +225,7 @@ export class MaterialRepository extends BaseRepository<MaterialRow> {
       style_id: string;
       quantity: number;
       materials: { name: string } | null;
-      styledefinitions: { style_name: string } | null;
+      styledefinitions: { display_name: string } | null;
     }>;
   }
 
@@ -265,7 +265,29 @@ export class MaterialRepository extends BaseRepository<MaterialRow> {
         quantity: existing.quantity + quantity
       });
     } else {
-      return this.createStack(userId, materialId, quantity, validStyleId);
+      // Directly inline createStack() logic
+      if (quantity <= 0) {
+        throw new BusinessLogicError('Initial stack quantity must be positive');
+      }
+
+      const stackData: MaterialStackInsert = {
+        user_id: userId,
+        material_id: materialId,
+        style_id: validStyleId,
+        quantity
+      };
+
+      const { data, error } = await this.client.from('materialstacks').insert(stackData).select().single();
+
+      if (error) {
+        throw mapSupabaseError(error);
+      }
+
+      if (!data) {
+        throw new DatabaseError('Failed to create material stack: no data returned from insert');
+      }
+
+      return data as MaterialStackRow;
     }
   }
 
@@ -304,58 +326,6 @@ export class MaterialRepository extends BaseRepository<MaterialRow> {
     }
   }
 
-  /**
-   * Create new material stack
-   * Ensures style_id is always set (defaults to 'normal')
-   *
-   * @param userId - Owner of the material stack
-   * @param materialId - Material template ID
-   * @param quantity - Starting quantity (must be positive)
-   * @param styleId - Style variant (defaults to 'normal')
-   * @returns Created material stack row
-   * @throws BusinessLogicError if quantity <= 0
-   * @throws DatabaseError if insert fails
-   *
-   * Auto-populated fields:
-   * - updated_at: server timestamp
-   *
-   * Composite Primary Key: (user_id, material_id, style_id)
-   */
-  async createStack(
-    userId: string,
-    materialId: string,
-    quantity: number,
-    styleId: string = 'normal'
-  ): Promise<MaterialStackRow> {
-    if (quantity <= 0) {
-      throw new BusinessLogicError('Initial stack quantity must be positive');
-    }
-
-    const validStyleId = this.validateStyleId(styleId);
-
-    // Use strongly-typed MaterialStackInsert from Supabase schema
-    const stackData: MaterialStackInsert = {
-      user_id: userId,
-      material_id: materialId,
-      style_id: validStyleId,
-      quantity
-    };
-
-    const insertBuilder = this.client.from('materialstacks').insert(stackData);
-
-    // Execute insert with .select().single() to get the created row
-    const { data, error } = await insertBuilder.select().single();
-
-    if (error) {
-      throw mapSupabaseError(error);
-    }
-
-    if (!data) {
-      throw new DatabaseError('Failed to create material stack: no data returned from insert');
-    }
-
-    return data as MaterialStackRow;
-  }
 
   /**
    * Delete material stack if quantity reaches zero
@@ -634,41 +604,38 @@ export class MaterialRepository extends BaseRepository<MaterialRow> {
    * @throws DatabaseError on query failure
    */
   async findMaterialsByItem(itemId: string): Promise<AppliedMaterial[]> {
+    interface MaterialInstanceWithTemplate {
+      id: string;
+      user_id: string;
+      material_id: string;
+      style_id: string;
+      created_at: string;
+      materials: {
+        id: string;
+        name: string;
+        description: string | null;
+        base_drop_weight: number;
+        stat_modifiers: Record<string, number>;
+      } | null;
+    }
+
     interface ItemMaterialWithJoins {
       id: string;
       item_id: string;
       material_instance_id: string;
       slot_index: number;
       applied_at: string;
-      material_instance: {
-        id: string;
-        user_id: string;
-        material_id: string;
-        style_id: string;
-        created_at: string;
-      } | null;
-      material: Array<{
-        id: string;
-        user_id: string;
-        material_id: string;
-        style_id: string;
-        created_at: string;
-        material: {
-          id: string;
-          name: string;
-          description: string | null;
-          base_drop_weight: number;
-          stat_modifiers: Record<string, number>;
-        } | null;
-      }> | null;
+      material_instance: MaterialInstanceWithTemplate | null;
     }
 
     const { data, error } = await this.client
       .from('itemmaterials')
       .select(`
         *,
-        material_instance:materialinstances(*),
-        material:materialinstances(material:materials(*))
+        material_instance:materialinstances(
+          *,
+          materials(*)
+        )
       `)
       .eq('item_id', itemId)
       .order('slot_index');
@@ -687,7 +654,7 @@ export class MaterialRepository extends BaseRepository<MaterialRow> {
         throw new DatabaseError(`Material instance not found for applied material: ${item.id}`);
       }
 
-      const materialData = item.material?.[0]?.material;
+      const materialData = item.material_instance.materials;
       if (!materialData) {
         throw new DatabaseError(`Material template not found for instance: ${item.material_instance_id}`);
       }

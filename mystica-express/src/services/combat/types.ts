@@ -6,6 +6,26 @@ export type CombatResult = Database['public']['Enums']['combat_result'];
 export type HitBand = Database['public']['Enums']['hit_band'];
 export type WeaponPattern = Database['public']['Enums']['weapon_pattern'];
 
+export type LootRewards = {
+  currencies: { gold: number };
+  materials: Array<{
+    material_id: string;
+    name: string;
+    style_id: string;
+    style_name: string;
+    image_url: string;
+  }>;
+  items: Array<{
+    item_type_id: string;
+    name: string;
+    category: string;
+    rarity: string;
+    style_id: string;
+    style_name: string;
+  }>;
+  experience: number;
+};
+
 export type EnemyLootEntry = {
   material_id?: string;
   item_type_id?: string;

@@ -1503,7 +1503,6 @@ export type Database = {
           display_name: string
           id: string
           spawn_rate: number
-          style_name: string
           visual_modifier: string | null
         }
         Insert: {
@@ -1512,7 +1511,6 @@ export type Database = {
           display_name: string
           id?: string
           spawn_rate: number
-          style_name: string
           visual_modifier?: string | null
         }
         Update: {
@@ -1521,7 +1519,6 @@ export type Database = {
           display_name?: string
           id?: string
           spawn_rate?: number
-          style_name?: string
           visual_modifier?: string | null
         }
         Relationships: []

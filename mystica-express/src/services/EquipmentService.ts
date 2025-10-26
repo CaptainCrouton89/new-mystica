@@ -1,7 +1,7 @@
-import { EquipmentSlots, EquipResult, Stats, Item, ItemType, PlayerStats, EquipmentSlot, PlayerItem } from '../types/api.types';
-import { NotImplementedError, ValidationError, mapSupabaseError } from '../utils/errors';
 import { EquipmentRepository, ItemWithBasicDetails } from '../repositories/EquipmentRepository.js';
 import { ItemRepository } from '../repositories/ItemRepository.js';
+import { EquipmentSlot, EquipmentSlots, EquipResult, PlayerItem, PlayerStats, Stats } from '../types/api.types';
+import { mapSupabaseError } from '../utils/errors';
 import { statsService } from './StatsService.js';
 
 export class EquipmentService {
@@ -252,9 +252,10 @@ export class EquipmentService {
     const computedStats = statsService.computeItemStatsForLevel(itemWithType, repositoryItem.level);
 
     // Determine the image URL
+    const baseUrl = process.env.R2_PUBLIC_URL;
     const generatedImageUrl = repositoryItem.generated_image_url
       ? repositoryItem.generated_image_url
-      : `https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/items/default_${repositoryItem.item_type.category}.png`;
+      : `${baseUrl}/items/default_${repositoryItem.item_type.category}.png`;
 
     return {
       id: repositoryItem.id,

@@ -2,33 +2,44 @@ import { openai } from '@ai-sdk/openai';
 import { generateObject } from 'ai';
 import { z } from 'zod';
 import { ChatterLogEntry, CombatRepository } from '../repositories/CombatRepository.js';
+import { EnemyRepository } from '../repositories/EnemyRepository.js';
 import type {
   CombatEventDetails,
   CombatEventType,
   DialogueResponse,
   PlayerCombatContext
 } from '../types/api.types.js';
-import { DatabaseError, ExternalAPIError } from '../utils/errors';
+import { DatabaseError, ExternalAPIError, NotFoundError } from '../utils/errors';
+import { Database } from '../types/database.types.js';
 
 const aiDialogueSchema = z.object({
   dialogue: z.string().describe('A single line of dialogue appropriate for the combat event'),
   dialogue_tone: z.string().describe('The emotional tone of the dialogue (aggressive, mocking, desperate, etc.)'),
 });
 
-interface EnemyType {
-  id: string;
-  name: string;
-  dialogue_guidelines: string;
-  personality_traits: string[];
-  combat_style: string;
+// Type alias for enemy type from database
+type EnemyType = Database['public']['Tables']['enemytypes']['Row'];
+
+// Personality traits shape for AI dialogue generation
+interface PersonalityTraits {
+  aggression?: number;
+  intelligence?: number;
+  cunning?: number;
+  hostility?: number;
+  [key: string]: number | undefined;
 }
 
 export class EnemyChatterService {
-  private readonly AI_TIMEOUT_MS = 2000; 
+  private readonly AI_TIMEOUT_MS = 2000;
   private readonly combatRepository: CombatRepository;
+  private readonly enemyRepository: EnemyRepository;
 
-  constructor() {
-    this.combatRepository = new CombatRepository();
+  constructor(
+    combatRepository: CombatRepository = new CombatRepository(),
+    enemyRepository: EnemyRepository = new EnemyRepository()
+  ) {
+    this.combatRepository = combatRepository;
+    this.enemyRepository = enemyRepository;
   }
 
   async generateDialogue(
@@ -137,16 +148,24 @@ export class EnemyChatterService {
     eventDetails: CombatEventDetails,
     playerContext: PlayerCombatContext
   ): { system: string; user: string } {
-    const personalityTraits = enemyType.personality_traits.join(', ');
+    // Extract personality traits from database JSON field
+    const personalityDescription = this.formatPersonalityTraits(enemyType.ai_personality_traits);
 
-    const system = `You are a ${enemyType.name} with these personality traits: ${personalityTraits}.
-Your combat style is: ${enemyType.combat_style}.
+    // Dialogue guidelines are required for prompt generation
+    if (!enemyType.dialogue_guidelines) {
+      throw new DatabaseError(`Enemy type ${enemyType.id} missing required dialogue_guidelines field`);
+    }
+
+    const system = `You are a ${enemyType.name} in combat.
+
+Personality Traits:
+${personalityDescription}
 
 Dialogue Guidelines:
 ${enemyType.dialogue_guidelines}
 
 Generate a single line of dialogue appropriate for the current combat situation. The dialogue should:
-- Reflect your personality and combat style
+- Reflect your personality and combat situation
 - Be contextually appropriate for the event type
 - Use 10 words or less
 - Show awareness of the combat situation (HP levels, turn progression, etc.)
@@ -165,6 +184,26 @@ ${playerContextText}
 Generate appropriate dialogue for this situation.`;
 
     return { system, user };
+  }
+
+  private formatPersonalityTraits(traits: unknown): string {
+    // Personality traits must be defined and be an object
+    if (!traits || typeof traits !== 'object') {
+      throw new DatabaseError('Enemy type missing required ai_personality_traits field');
+    }
+
+    const personalityTraits = traits as PersonalityTraits;
+    const traitList = Object.entries(personalityTraits)
+      .filter(([, value]) => value !== undefined && value !== null)
+      .map(([key, value]) => `${key}: ${value}`)
+      .join(', ');
+
+    // At least some traits must be present
+    if (!traitList) {
+      throw new DatabaseError('Enemy type ai_personality_traits is empty');
+    }
+
+    return traitList;
   }
 
   private formatEventContext(eventType: CombatEventType, eventDetails: CombatEventDetails): string {
@@ -265,50 +304,13 @@ Generate appropriate dialogue for this situation.`;
   }
 
   private async getEnemyTypeFromSession(sessionId: string): Promise<EnemyType> {
-    
     const session = await this.getCombatSession(sessionId);
 
-    const enemyTypes: Record<string, EnemyType> = {
-      'd9e715fb-5de0-4639-96f8-3b4f03476314': {
-        id: 'd9e715fb-5de0-4639-96f8-3b4f03476314',
-        name: 'Spray Paint Goblin',
-        dialogue_guidelines: 'You are a mischievous urban creature that loves to tag buildings.',
-        personality_traits: ['mischievous', 'artistic', 'rebellious'],
-        combat_style: 'hit-and-run'
-      },
-      '4637f636-0b6a-4825-b1aa-492cf8d9d1bb': {
-        id: '4637f636-0b6a-4825-b1aa-492cf8d9d1bb',
-        name: 'Goopy Floating Eye',
-        dialogue_guidelines: 'You are an unsettling floating eyeball that observes everything.',
-        personality_traits: ['observant', 'creepy', 'mysterious'],
-        combat_style: 'ranged-harassment'
-      },
-      '63d218fc-5cd9-4404-9090-fb72537da205': {
-        id: '63d218fc-5cd9-4404-9090-fb72537da205',
-        name: 'Feral Unicorn',
-        dialogue_guidelines: 'You are a once-majestic unicorn corrupted by urban pollution.',
-        personality_traits: ['corrupted', 'majestic', 'angry'],
-        combat_style: 'charging-attacks'
-      },
-      '19cd32dc-e874-4836-a3e9-851431262cc8': {
-        id: '19cd32dc-e874-4836-a3e9-851431262cc8',
-        name: 'Bipedal Deer',
-        dialogue_guidelines: 'You are a deer that learned to walk upright and became aggressive.',
-        personality_traits: ['evolved', 'aggressive', 'prideful'],
-        combat_style: 'aggressive-melee'
-      },
-      'beb6ea68-597a-4052-92f6-ad73d0fd02b3': {
-        id: 'beb6ea68-597a-4052-92f6-ad73d0fd02b3',
-        name: 'Politician',
-        dialogue_guidelines: 'You are a cunning politician who uses words as weapons.',
-        personality_traits: ['cunning', 'verbose', 'manipulative'],
-        combat_style: 'bureaucratic-warfare'
-      }
-    };
+    // Fetch enemy type from database instead of hardcoded list
+    const enemyType = await this.enemyRepository.findEnemyTypeById(session.enemy_type_id);
 
-    const enemyType = enemyTypes[session.enemy_type_id];
     if (!enemyType) {
-      throw new DatabaseError(`Unknown enemy type: ${session.enemy_type_id}`);
+      throw new NotFoundError('enemy_type', session.enemy_type_id);
     }
 
     return enemyType;

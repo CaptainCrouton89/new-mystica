@@ -1,17 +1,16 @@
-import { S3Client, HeadObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
+import { HeadObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import Replicate from 'replicate';
 import { env } from '../config/env.js';
-import {
-  NotImplementedError,
-  ValidationError,
-  NotFoundError,
-  ExternalServiceError,
-  ConfigurationError
-} from '../utils/errors.js';
-import { computeComboHashWithStyles } from '../utils/hash.js';
 import { ItemRepository } from '../repositories/ItemRepository.js';
 import { MaterialRepository } from '../repositories/MaterialRepository.js';
 import { StyleRepository } from '../repositories/StyleRepository.js';
+import {
+  ConfigurationError,
+  ExternalServiceError,
+  NotFoundError,
+  ValidationError
+} from '../utils/errors.js';
+import { computeComboHashWithStyles } from '../utils/hash.js';
 
 export interface GenerateComboImageRequest {
   itemTypeId: string;
@@ -30,7 +29,7 @@ interface ReplicateGenerationOptions {
 
 export class ImageGenerationService {
   private readonly R2_BUCKET_NAME = env.R2_BUCKET_NAME;
-  private readonly R2_PUBLIC_URL = 'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev';
+  private readonly R2_PUBLIC_URL = process.env.R2_PUBLIC_URL;
   private readonly R2_ACCOUNT_ID = env.CLOUDFLARE_ACCOUNT_ID;
   private readonly R2_ACCESS_KEY_ID = env.R2_ACCESS_KEY_ID;
   private readonly R2_SECRET_ACCESS_KEY = env.R2_SECRET_ACCESS_KEY;
@@ -156,7 +155,7 @@ export class ImageGenerationService {
       if (style.id === 'normal') {
         return baseDesc;
       } else {
-        return `${baseDesc} (rendered in ${style.style_name} style)`;
+        return `${baseDesc} (rendered in ${style.display_name} style)`;
       }
     }).join(', ');
 
@@ -225,16 +224,16 @@ Composition & Background
     const referenceUrls: string[] = [];
 
     const baseReferences = [
-      'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/fantasy-weapon-1.png',
-      'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/magic-crystal-2.png',
-      'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/wooden-staff-3.png',
-      'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/metal-armor-4.png',
-      'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/gem-accessory-5.png',
-      'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/leather-boots-6.png',
-      'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/cloth-robes-7.png',
-      'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/potion-bottle-8.png',
-      'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/scroll-paper-9.png',
-      'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/monster-claw-10.png'
+      `${process.env.R2_PUBLIC_URL}/image-refs/fantasy-weapon-1.png`,
+      `${process.env.R2_PUBLIC_URL}/image-refs/magic-crystal-2.png`,
+      `${process.env.R2_PUBLIC_URL}/image-refs/wooden-staff-3.png`,
+      `${process.env.R2_PUBLIC_URL}/image-refs/metal-armor-4.png`,
+      `${process.env.R2_PUBLIC_URL}/image-refs/gem-accessory-5.png`,
+      `${process.env.R2_PUBLIC_URL}/image-refs/leather-boots-6.png`,
+      `${process.env.R2_PUBLIC_URL}/image-refs/cloth-robes-7.png`,
+      `${process.env.R2_PUBLIC_URL}/image-refs/potion-bottle-8.png`,
+      `${process.env.R2_PUBLIC_URL}/image-refs/scroll-paper-9.png`,
+      `${process.env.R2_PUBLIC_URL}/image-refs/monster-claw-10.png`
     ];
 
     referenceUrls.push(...baseReferences);

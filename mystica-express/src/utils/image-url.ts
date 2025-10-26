@@ -2,7 +2,7 @@
  * Image URL generation utilities for R2 storage
  */
 
-const R2_PUBLIC_URL = 'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev';
+const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL;
 
 /**
  * Generate R2 URL for material image using snake_case naming convention
