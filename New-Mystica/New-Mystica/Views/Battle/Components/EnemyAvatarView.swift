@@ -51,6 +51,7 @@ struct EnemyAvatarView: View {
                         height: frameData.height / Self.animationScaleFactor
                     )
                     .clipped()
+                    .opacity(1.0)
             )
         } else {
             // Fallback to static image
@@ -60,6 +61,7 @@ struct EnemyAvatarView: View {
                     .resizable()
                     .aspectRatio(contentMode: .fit)
                     .frame(width: 150, height: 150)
+                    .opacity(1.0)
             )
         }
     }

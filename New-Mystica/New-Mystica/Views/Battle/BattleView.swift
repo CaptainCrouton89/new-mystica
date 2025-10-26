@@ -121,18 +121,23 @@ struct BattleView: View {
                 if case .loaded(let session) = viewModel.combatState {
                     combatContentView(session: session)
 
-                    // Enemy Dialogue Bubble Integration
+                    // Enemy Dialogue Bubble - positioned at top below header
                     if let dialogue = viewModel.currentDialogue {
-                        EnemyDialogueBubble(
-                            dialogue: dialogue,
-                            isVisible: $enemyDialogueVisible
-                        )
-                        .transition(.asymmetric(
-                            insertion: .scale(scale: 0.8).combined(with: .opacity),
-                            removal: .scale(scale: 0.95).combined(with: .opacity)
-                        ))
+                        VStack {
+                            EnemyDialogueBubble(
+                                dialogue: dialogue,
+                                isVisible: $enemyDialogueVisible
+                            )
+                            .transition(.asymmetric(
+                                insertion: .scale(scale: 0.8).combined(with: .opacity),
+                                removal: .scale(scale: 0.95).combined(with: .opacity)
+                            ))
+                            .padding(.top, 8)
+                            .padding(.horizontal, 20)
+
+                            Spacer()
+                        }
                         .zIndex(100)
-                        .offset(y: -80) // Position above enemy, adjust as needed
                     }
                 } else if case .error(let error) = viewModel.combatState {
                     // Error state

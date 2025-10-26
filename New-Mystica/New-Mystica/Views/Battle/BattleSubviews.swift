@@ -5,9 +5,10 @@ import SwiftUI
 extension BattleView {
 
     // MARK: - Combat Content View
+    // Background layer - location backdrop with dark overlay
+    // Combat content layer with enemy, player, and controls
     func combatContentView(session: CombatSession) -> some View {
         ZStack {
-            // Background layer - location backdrop
             if let backgroundURLString = viewModel.backgroundImageURL,
                let backgroundURL = URL(string: backgroundURLString) {
                 AsyncImage(url: backgroundURL) { phase in
@@ -43,6 +44,9 @@ extension BattleView {
 
             // Combat content layer
             VStack(spacing: 0) {
+                // Top spacer to push enemy lower on screen
+                Spacer(minLength: 80)
+
                 // Enemy Section - Health bar and name above sprite
                 VStack(spacing: 12) {
                     HealthBarView(
@@ -64,10 +68,10 @@ extension BattleView {
                     .animation(.easeInOut(duration: 0.5), value: enemyGlowing)
                     .animation(.easeInOut(duration: 0.2), value: enemyOffset)
                 }
-                .frame(maxHeight: 260)
+                .frame(maxHeight: 300)
                 .padding(.horizontal, 20)
 
-                Spacer(minLength: 60)
+                Spacer(minLength: 40)
 
                 // Player Section - Health bar only
                 playerSection(session: session)
