@@ -1,8 +1,7 @@
-import { HitBand, PlayerStats, EnemyStats, WeaponConfig } from './types.js';
-import { ZONE_MULTIPLIERS, MIN_DAMAGE } from './constants.js';
-import { hitBandToZone, determineHitZone } from './calculations.js';
 import { statsService } from '../StatsService.js';
-import { logger } from '../../utils/logger.js';
+import { determineHitZone, hitBandToZone } from './calculations.js';
+import { MIN_DAMAGE, ZONE_MULTIPLIERS } from './constants.js';
+import { EnemyStats, HitBand, PlayerStats, WeaponConfig } from './types.js';
 
 export interface ZoneHitInfo {
   zone: 1 | 2 | 3 | 4 | 5;
@@ -38,61 +37,51 @@ export interface DefenseTurnResult {
 }
 
 export function calculateEnemyAttack(
-  enemyStats: EnemyStats,
-  playerDefPower: number
-): { damage: number; zoneHitInfo: ZoneHitInfo } {
+  enemyStats: EnemyStats
+): { modifiedAtkPower: number; zoneHitInfo: ZoneHitInfo } {
   const enemyZone = statsService.simulateEnemyZoneHit(enemyStats.atk_accuracy_normalized);
   const enemyCritMultiplier = statsService.getCritMultiplier(enemyZone);
-  const enemyBaseDamage = Math.max(MIN_DAMAGE, enemyStats.atk_power - playerDefPower);
-  const enemyDamage = Math.floor(
-    statsService.applyZoneModifiers(enemyBaseDamage, enemyZone, enemyCritMultiplier)
-  );
+  const zoneMultiplier = ZONE_MULTIPLIERS[enemyZone];
+  const modifiedAtkPower = enemyStats.atk_power * zoneMultiplier * enemyCritMultiplier;
 
   console.log(`[calculateEnemyAttack] zone=${enemyZone}
-    atkPower=${enemyStats.atk_power} - defPower=${playerDefPower} = baseDamage=${enemyBaseDamage}
-    zoneMultiplier=${ZONE_MULTIPLIERS[enemyZone]}, critMultiplier=${enemyCritMultiplier}
-    finalDamage=${enemyDamage}`);
+    atkPower=${enemyStats.atk_power} × zoneMultiplier=${zoneMultiplier} × critMultiplier=${enemyCritMultiplier}
+    modifiedAtkPower=${modifiedAtkPower}`);
 
   return {
-    damage: enemyDamage,
+    modifiedAtkPower,
     zoneHitInfo: {
       zone: enemyZone,
-      zone_multiplier: ZONE_MULTIPLIERS[enemyZone],
+      zone_multiplier: zoneMultiplier,
       crit_occurred: enemyCritMultiplier > 1.0,
       crit_multiplier: enemyCritMultiplier > 1.0 ? enemyCritMultiplier : null,
-      final_damage: enemyDamage,
+      final_damage: modifiedAtkPower,
     },
   };
 }
 
 export function calculatePlayerAttack(
   hitZone: HitBand,
-  playerStats: PlayerStats,
-  enemyDefPower: number
-): { damage: number; zoneHitInfo: ZoneHitInfo } {
+  playerStats: PlayerStats
+): { modifiedAtkPower: number; zoneHitInfo: ZoneHitInfo } {
   const playerZone = hitBandToZone(hitZone);
   const playerCritMultiplier = statsService.getCritMultiplier(playerZone);
-  const baseDamage = Math.max(MIN_DAMAGE, playerStats.atkPower - enemyDefPower);
-  const playerDamage = Math.floor(
-    statsService.applyZoneModifiers(baseDamage, playerZone, playerCritMultiplier)
-  );
-
   const playerZoneMultiplier = ZONE_MULTIPLIERS[playerZone];
+  const modifiedAtkPower = playerStats.atkPower * playerZoneMultiplier * playerCritMultiplier;
   const playerCritOccurred = playerCritMultiplier > 1.0;
 
   console.log(`[calculatePlayerAttack] hitZone=${hitZone}, zone=${playerZone}
-    atkPower=${playerStats.atkPower} - defPower=${enemyDefPower} = baseDamage=${baseDamage}
-    zoneMultiplier=${playerZoneMultiplier}, critMultiplier=${playerCritMultiplier}
-    finalDamage=${playerDamage}`);
+    atkPower=${playerStats.atkPower} × zoneMultiplier=${playerZoneMultiplier} × critMultiplier=${playerCritMultiplier}
+    modifiedAtkPower=${modifiedAtkPower}`);
 
   return {
-    damage: playerDamage,
+    modifiedAtkPower,
     zoneHitInfo: {
       zone: playerZone,
       zone_multiplier: playerZoneMultiplier,
       crit_occurred: playerCritOccurred,
       crit_multiplier: playerCritOccurred ? playerCritMultiplier : null,
-      final_damage: playerDamage,
+      final_damage: modifiedAtkPower,
     },
   };
 }
@@ -108,28 +97,30 @@ export function executeAttackTurn(
 
   const hitZone = determineHitZone(tapPositionDegrees, weaponConfig.adjusted_bands);
 
-  const playerAttack = calculatePlayerAttack(hitZone, playerStats, enemyStats.def_power);
-  const damageDealt = playerAttack.damage;
+  const playerAttack = calculatePlayerAttack(hitZone, playerStats);
+  const modifiedAtkPower = playerAttack.modifiedAtkPower;
 
   // Enemy simulates defensive zone using their def_accuracy_normalized
   const enemyDefenseZone = statsService.simulateEnemyZoneHit(enemyStats.def_accuracy_normalized);
   const enemyDefenseZoneMultiplier = ZONE_MULTIPLIERS[enemyDefenseZone];
-  const enemyDefense = enemyStats.def_power * enemyDefenseZoneMultiplier;
-  const enemyDamageBlocked = enemyDefense;
-  const enemyActualDamageTaken = Math.max(MIN_DAMAGE, damageDealt - enemyDefense);
+  const effectiveDefense = enemyStats.def_power * enemyDefenseZoneMultiplier;
+
+  // Ratio-based damage: atkPower / (.5 + defPower / atkPower)
+  const damageRatio = modifiedAtkPower / (.5 + effectiveDefense / modifiedAtkPower);
+  const enemyActualDamageTaken = Math.max(MIN_DAMAGE, Math.floor(damageRatio));
 
   console.log(`[executeAttackTurn] PLAYER ATTACK:
-    hitZone=${hitZone}, playerZone=${hitZone}, baseDamage=${playerAttack.zoneHitInfo.final_damage}
+    hitZone=${hitZone}, modifiedAtkPower=${modifiedAtkPower}
     playerStats.atkPower=${playerStats.atkPower}, enemyStats.def_power=${enemyStats.def_power}
     ENEMY DEFENSE: zone=${enemyDefenseZone}, multiplier=${enemyDefenseZoneMultiplier}
-    enemyDefense=${enemyDefense}, actualDamageTaken=${enemyActualDamageTaken}`);
+    effectiveDefense=${effectiveDefense}, ratio=${damageRatio.toFixed(2)}, actualDamageTaken=${enemyActualDamageTaken}`);
 
   const enemyDefenseZoneHitInfo: ZoneHitInfo = {
     zone: enemyDefenseZone,
     zone_multiplier: enemyDefenseZoneMultiplier,
     crit_occurred: false,
     crit_multiplier: null,
-    final_damage: enemyDamageBlocked,
+    final_damage: enemyActualDamageTaken,
   };
 
   // During attack phase, enemy does NOT counter-attack or take damage from defense
@@ -141,7 +132,7 @@ export function executeAttackTurn(
 
   if (hitZone === 'injure') {
     // On 'injure', player hurts themselves instead of the enemy
-    newPlayerHP = Math.max(0, currentPlayerHP - damageDealt);
+    newPlayerHP = Math.max(0, currentPlayerHP - enemyActualDamageTaken);
     newEnemyHP = currentEnemyHP; // Enemy takes no damage
   } else {
     // On successful attack, player damages enemy and takes NO damage
@@ -167,9 +158,9 @@ export function executeAttackTurn(
 
   return {
     hitZone,
-    damageDealt,
+    damageDealt: enemyActualDamageTaken,
     enemyDefenseZoneHitInfo,
-    enemyDamageBlocked,
+    enemyDamageBlocked: effectiveDefense,
     enemyActualDamageTaken,
     enemyDamage,
     newPlayerHP,
@@ -191,19 +182,21 @@ export function executeDefenseTurn(
 
   const hitZone = determineHitZone(tapPositionDegrees, weaponConfig.adjusted_bands);
 
-  const enemyAttack = calculateEnemyAttack(enemyStats, playerStats.defPower);
-  const enemyDamage = enemyAttack.damage;
+  const enemyAttack = calculateEnemyAttack(enemyStats);
+  const modifiedAtkPower = enemyAttack.modifiedAtkPower;
 
   const playerDefenseZone = hitBandToZone(hitZone);
   const playerDefenseZoneMultiplier = ZONE_MULTIPLIERS[playerDefenseZone];
-  const playerDefense = playerStats.defPower * playerDefenseZoneMultiplier;
-  const damageBlocked = playerDefense;
-  const damageActuallyTaken = Math.max(MIN_DAMAGE, enemyDamage - damageBlocked);
+  const effectiveDefense = playerStats.defPower * playerDefenseZoneMultiplier;
+
+  // Ratio-based damage: atkPower / (.5 + defPower / atkPower)
+  const damageRatio = modifiedAtkPower / (.5 + effectiveDefense / modifiedAtkPower);
+  const damageActuallyTaken = Math.max(MIN_DAMAGE, Math.floor(damageRatio));
 
   console.log(`[executeDefenseTurn] ENEMY ATTACK:
-    enemyDamage=${enemyDamage}, enemyStats.atk_power=${enemyStats.atk_power}, playerStats.defPower=${playerStats.defPower}
+    modifiedAtkPower=${modifiedAtkPower}, enemyStats.atk_power=${enemyStats.atk_power}, playerStats.defPower=${playerStats.defPower}
     PLAYER DEFENSE: tapZone=${hitZone}, zone=${playerDefenseZone}, multiplier=${playerDefenseZoneMultiplier}
-    playerDefense=${playerDefense}, damageBlocked=${damageBlocked}
+    effectiveDefense=${effectiveDefense}, ratio=${damageRatio.toFixed(2)}
     damageActuallyTaken=${damageActuallyTaken} (MIN_DAMAGE forced if lower)`);
 
   const playerDefenseZoneHitInfo: ZoneHitInfo = {
@@ -211,9 +204,8 @@ export function executeDefenseTurn(
     zone_multiplier: playerDefenseZoneMultiplier,
     crit_occurred: false,
     crit_multiplier: null,
-    final_damage: damageBlocked,
+    final_damage: damageActuallyTaken,
   };
-
 
   const newPlayerHP = Math.max(0, currentPlayerHP - damageActuallyTaken);
 
@@ -224,7 +216,7 @@ export function executeDefenseTurn(
 
   return {
     hitZone,
-    damageBlocked,
+    damageBlocked: effectiveDefense,
     damageActuallyTaken,
     newPlayerHP,
     currentEnemyHP,

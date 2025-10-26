@@ -317,6 +317,62 @@ export interface CombatSession {
   turn_count: number;
   started_at: string;
   completed_at?: string;
+  location?: {
+    id: string;
+    name: string | null;
+    location_type: string | null;
+    background_image_url: string | null;
+    image_url: string | null;
+  };
+}
+
+/**
+ * Combat initialization response from startCombat
+ * Includes full session, player, enemy, and location details
+ */
+export interface CombatStartResponse {
+  session_id: string;
+  player_id: string;
+  enemy_id: string;
+  status: 'active';
+  player_hp: number;
+  enemy_hp: number;
+  location: {
+    id: string;
+    name: string | null;
+    location_type: string | null;
+    background_image_url: string | null;
+    image_url: string | null;
+  };
+  enemy: {
+    id: string;
+    name: string;
+    image_url: string | null;
+    style_id: string;
+    atk_power: number;
+    atk_accuracy: number;
+    def_power: number;
+    def_accuracy: number;
+    hp: number;
+  };
+  player_stats: {
+    hp: number;
+    atkPower: number;
+    atkAccuracy: number;
+    defPower: number;
+    defAccuracy: number;
+  };
+  weapon_config: {
+    pattern: string;
+    spin_deg_per_s: number;
+    adjusted_bands: {
+      deg_injure: number;
+      deg_miss: number;
+      deg_graze: number;
+      deg_normal: number;
+      deg_crit: number;
+    };
+  };
 }
 
 /**
