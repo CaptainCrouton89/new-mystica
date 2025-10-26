@@ -22,11 +22,11 @@ Business logic services for the New Mystica backend. Each service encapsulates d
 
 **InventoryService** - Player items w/ pagination, filtering (slot/rarity/level), sorting
 
-**StatsService** - Quadratic formula (1 + 0.05 * (level - 1)²), material modifiers, equipment aggregation, zone probability/crits
-
 **MaterialService** - Apply to items (max 3), combo hash, image generation + caching, name/description AI, style tracking
 
 **ImageGenerationService** - Replicate + R2 integration, prompt building, retry logic (2s exponential backoff), reference images, cache checking
+
+**StyleService** - Style definitions (getAllStyles, getStyleByName, getStyleById), in-memory caching (24h TTL)
 
 **LoadoutService** - CRUD + validation
 
@@ -37,6 +37,12 @@ Business logic services for the New Mystica backend. Each service encapsulates d
 **EnemyChatterService** - Combat dialogue (generateObject + Zod, 2s timeout, context-aware)
 
 **NameDescriptionService** - AI names/descriptions, exponential backoff
+
+## Supporting Services
+
+**StatsService** - Quadratic formula (1 + 0.05 * (level - 1)²), material modifiers, equipment aggregation, zone probability/crits
+
+**ProfileService**, **PetService**, **ProgressionService**, **EconomyService**, **RarityService**, **AnalyticsService** - Domain-specific utilities
 
 ## Notes
 
