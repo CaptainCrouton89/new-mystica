@@ -20,11 +20,25 @@ export class ItemRepository extends BaseRepository<ItemRow> {
 
 **Composite Keys:** MaterialStack uses (user_id, material_id, style_id). Use manual WHERE clauses—Supabase lacks multi-column PK.
 
-**N+1 Prevention:** Nested Supabase selects. ItemRepository joins item→itemtypes→itemmaterials→materialinstances→materials in single query.
+**N+1 Prevention:** Nested Supabase selects via specialized query methods: `findWithMaterials()` (full join), `findWithItemType()` (lightweight), `findManyWithDetails()` (batch).
 
 **RPC Transactions:** Atomic ops via `this.rpc()`. Examples: `process_item_upgrade`, `apply_material_to_item`, `remove_material_from_item`, `equip_item`, `unequip_item`.
 
 **Errors:** Use `src/utils/errors.ts` classes (NotFoundError, ValidationError, DatabaseError, BusinessLogicError, UnauthorizedError).
+
+## ItemRepository API
+
+**CRUD:** `findById(itemId, userId?)`, `findByUser(userId)`, `create(itemData)`, `updateItem(itemId, userId, data)`, `deleteItem(itemId, userId)`
+
+**Complex Queries:** `findWithMaterials(itemId, userId?)`, `findWithItemType(itemId, userId?)`, `findEquippedByUser(userId)`, `findByType(userId, itemTypeId)`, `findManyWithDetails(itemIds, userId?)`, `findByUserWithPagination(userId, limit, offset)`
+
+**Level & Stats:** `updateLevel(itemId, userId, newLevel)`, `updateImageData(itemId, userId, comboHash, imageUrl, status)`, `updateItemNameDescription(itemId, userId, name, description)`
+
+**History Tracking:** `addHistoryEvent(itemId, userId, eventType, eventData?)` — audit trail with auto-serialized JSON event_data
+
+**Item Types:** `findItemTypeById(itemTypeId)`, `findItemTypesByRarity(rarity)`
+
+**Transactions:** `processUpgrade(userId, itemId, goldCost, newLevel)` via RPC
 
 ## Repositories
 
