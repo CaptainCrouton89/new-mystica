@@ -257,17 +257,26 @@ export class ItemController {
         materialsForStats
       );
 
-      // Add base_type, category, applied_materials, materials, computed_stats, craft_count, and is_styled fields for Swift compatibility
-      // These fields are nested in item_type but Swift expects them at the top level
+      // Transform to PlayerItem format for frontend compatibility (match upgradeItem response structure)
       const updatedItemWithBaseType = {
-        ...result.updated_item,
+        id: itemWithMaterials.id,
         base_type: itemWithMaterials.item_type.name,
+        description: itemWithMaterials.item_type.description || null,
+        name: itemWithMaterials.item_type.name,
+        item_type_id: itemWithMaterials.item_type_id,
         category: itemWithMaterials.item_type.category,
+        level: itemWithMaterials.level,
+        rarity: itemWithMaterials.rarity,
         applied_materials: appliedMaterials,
         materials: appliedMaterials,
         computed_stats: computedStats,
+        material_combo_hash: itemWithMaterials.material_combo_hash || null,
+        generated_image_url: result.image_url || null,
+        image_generation_status: null,
         craft_count: result.craft_count,
-        is_styled: appliedMaterials.some(m => m.style_id !== 'normal')
+        is_styled: appliedMaterials.some(m => m.style_id !== 'normal'),
+        is_equipped: false, // Equipment status not tracked in material application
+        equipped_slot: null
       };
 
       res.json({

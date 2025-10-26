@@ -206,8 +206,7 @@ struct UnifiedItemDetailModal<Item: ItemDetailDisplayable, ActionButtons: View>:
                     HStack {
                         Spacer()
 
-                        SmallText("EQUIPPED", size: 11)
-                            .foregroundColor(.white)
+                        SmallText("EQUIPPED", size: 11, color: .white)
                             .bold()
                             .padding(.horizontal, 10)
                             .padding(.vertical, 6)
