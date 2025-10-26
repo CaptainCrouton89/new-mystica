@@ -45,11 +45,8 @@ export class CombatController {
 
       const attackResult = await combatService.executeAttack(session_id, tap_position_degrees);
 
-      // Determine chatter event type based on result
-      let chatterEventType = 'player_hit';
-      if (attackResult.player_damage.final_damage === 0) {
-        chatterEventType = 'player_miss';
-      }
+      // Event type is always 'player_attacks' - hit/miss is determined by damage value
+      const chatterEventType = 'player_attacks';
 
       logger.info('⚔️  Attack executed', {
         sessionId: session_id,
@@ -160,7 +157,7 @@ export class CombatController {
 
       logger.info('🛡️  Defense executed', {
         sessionId: session_id,
-        chatterEvent: 'enemy_hit', // Enemy's automatic attack while player defends; defense zone mitigates damage
+        chatterEvent: 'enemy_attacks', // Enemy's automatic attack while player defends
         damageReceived: defenseResult.enemy_damage.final_damage,
         playerHPRemaining: defenseResult.player_hp_remaining,
         enemyHPRemaining: defenseResult.enemy_hp_remaining,

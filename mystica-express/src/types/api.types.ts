@@ -552,9 +552,8 @@ export type PetChatterEventType =
  */
 export type EnemyChatterEventType =
   | 'combat_start'
-  | 'player_hit'
-  | 'player_miss'
-  | 'enemy_hit'
+  | 'player_attacks'
+  | 'enemy_attacks'
   | 'low_player_hp'
   | 'near_victory'
   | 'defeat'
@@ -873,9 +872,8 @@ export interface EnemyLoot {
  */
 export type CombatEventType =
   | 'combat_start'
-  | 'player_hit'
-  | 'player_miss'
-  | 'enemy_hit'
+  | 'player_attacks'
+  | 'enemy_attacks'
   | 'low_player_hp'
   | 'near_victory'
   | 'defeat'

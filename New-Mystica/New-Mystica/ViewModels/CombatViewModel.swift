@@ -334,8 +334,10 @@ final class CombatViewModel {
             }
         }
 
-        // Default to player_hit for any successful action
-        return .playerHit
+        // Determine based on action type
+        // During attack phase: player attacks
+        // During defense phase: enemy attacks while player defends
+        return action.type == .attack ? .playerAttacks : .enemyAttacks
     }
 
     /// Build event details from the most recent combat action

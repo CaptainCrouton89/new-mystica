@@ -124,8 +124,7 @@ export const CombatStatusSchema = z.enum(['ongoing', 'victory', 'defeat']);
 
 export const EnemyChatterSchema = z.object({
   session_id: UUIDSchema,
-  // 'enemy_hit' = enemy's automatic attack during player's defense turn
-  event_type: z.enum(['combat_start', 'player_hit', 'player_miss', 'enemy_hit', 'low_player_hp', 'near_victory', 'defeat', 'victory']),
+  event_type: z.enum(['combat_start', 'player_attacks', 'enemy_attacks', 'low_player_hp', 'near_victory', 'defeat', 'victory']),
   event_details: z.object({
     damage: z.number().optional(),
     accuracy: z.number().min(0).max(1).optional(),
@@ -181,11 +180,10 @@ export const PetChatterSchema = z.object({
 });
 
 // Enemy chatter endpoints (F-12)
-// Note: 'enemy_hit' = enemy's automatic attack during player defense; defense zone reduces damage
 export const EnemyChatterRequestSchema = z.object({
   session_id: UUIDSchema,
   event_type: z.enum([
-    'combat_start', 'player_hit', 'player_miss', 'enemy_hit',
+    'combat_start', 'player_attacks', 'enemy_attacks',
     'low_player_hp', 'near_victory', 'defeat', 'victory'
   ]),
   event_details: z.object({

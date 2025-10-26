@@ -312,7 +312,7 @@ export class AnalyticsRepository extends BaseRepository<AnalyticsEvent> {
    *
    * @param sessionId - Combat session ID
    * @param enemyTypeId - Enemy type ID
-   * @param eventType - Chatter event type (e.g., 'combat_start', 'player_miss')
+   * @param eventType - Chatter event type (e.g., 'combat_start', 'player_attacks', 'enemy_attacks')
    * @param dialogue - Generated dialogue text
    * @param playerContext - Player metadata for AI context (JSONB)
    * @param generationTimeMs - AI generation latency in milliseconds
