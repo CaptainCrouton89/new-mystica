@@ -4,31 +4,32 @@ Express route definitions for New Mystica API. See parent [CLAUDE.md](../CLAUDE.
 
 ## Route Patterns
 
-**Structure:** Compose middleware with route handlers:
+Compose middleware directly in route definition (no try/catch wrapper):
 ```typescript
 router.get(
   '/endpoint',
   authenticate,
   validate({ query: QuerySchema }),
-  controllerHandler
+  controllerMethod
 );
 ```
 
-**Middleware:** `authenticate` → `validate()` (body/query/params) → handler
+**Middleware order:** `authenticate` → `validate()` → handler
 
 ## Conventions
 
-- **File naming:** kebab-case (`locations.ts`, `equipment.ts`)
+- **File naming:** kebab-case (`auth.ts`, `locations.ts`)
 - **Validation:** `validate({ query/body/params: Schema })` with Zod schemas from `../types/schemas.ts`
-- **Error handling:** Controllers throw; middleware catches via `next(error)`
-- **Types:** Database types auto-generated via `pnpm supabase:types`
+- **Error handling:** Controllers throw custom errors; global error handler in `app.ts` catches
+- **Controller calls:** Direct method calls (no `new` keyword) — e.g., `AuthController.register`
+- **Imports:** Use `.js` extensions (ESM-ready)
 
 ## Registration
 
 Routes registered in `app.ts`:
 ```typescript
+app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/locations', locationsRoutes);
-app.use('/api/v1/equipment', equipmentRoutes);
 ```
 
-See: Controllers `../controllers/` | Services `../services/` | Middleware `../middleware/`
+See: Controllers `../controllers/` | Services `../services/` | Types `../types/schemas.ts`
