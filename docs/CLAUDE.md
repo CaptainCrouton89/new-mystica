@@ -1,24 +1,25 @@
 # Project Documentation Guide
 
-YAML-based specs system with investigation and planning artifacts. See parent CLAUDE.md for backend/frontend/AI pipeline guides.
+YAML-based specs system with investigation and planning artifacts. Includes feature requirements documents.
 
 ## Directory Structure
 
 ```
 docs/
-├── product-requirements.yaml    # Root PRD
-├── feature-specs/               # Feature breakdown (F-01, F-02, ...)
-├── user-stories/                # User stories (US-101, US-102, ...)
-├── user-flows/                  # User journey flows
-├── system-design.yaml           # Architecture
-├── api-contracts.yaml           # API specifications
-├── data-plan.yaml               # Data model
-├── design-spec.yaml             # UI/UX specs
-├── investigations/              # Investigation documents
-├── plans/                       # Implementation plans (feature-specific)
-├── ai-docs/                     # Technology guides
-├── code-quality/                # Code patterns & standards
-└── external/                    # External library documentation
+├── product-requirements.yaml         # Root PRD
+├── *-requirements.md                 # Feature requirement documents
+├── feature-specs/                    # Feature breakdown (F-01, F-02, ...)
+├── user-stories/                     # User stories (US-101, US-102, ...)
+├── user-flows/                       # User journey flows
+├── system-design.yaml                # Architecture
+├── api-contracts.yaml                # API specifications
+├── data-plan.yaml                    # Data model
+├── design-spec.yaml                  # UI/UX specs
+├── investigations/                   # Investigation documents
+├── plans/                            # Implementation plans
+├── ai-docs/                          # Technology guides
+├── code-quality/                     # Code patterns & standards
+└── external/                         # External library documentation
 ```
 
 ## Core Workflow
@@ -29,16 +30,16 @@ docs/
 
 **Planning**: Use planner agents; plans go to `plans/feature-name/plan.md`
 
+See parent CLAUDE.md for backend/frontend/AI pipeline guides.
+
 ## Management Scripts
 
 ```bash
-./docs/check-project.sh -v                    # Validate YAML + traceability
-./docs/feature-specs/list-features.sh         # Feature stats
-./docs/user-stories/list-stories.sh --feature F-04
-./docs/list-apis.sh --format curl
+./docs/check-project.sh -v           # Validate YAML + traceability
+./docs/feature-specs/list-features.sh    # Feature stats
+./docs/user-stories/list-stories.sh      # User story queries
+./docs/list-apis.sh --format curl        # API overview
 ```
-
-All scripts support `--help` for filtering options.
 
 ## ID Conventions & YAML Requirements
 
