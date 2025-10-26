@@ -19,8 +19,8 @@ enum CombatStatus: String, Codable, CaseIterable {
 // MARK: - Combat Location Model (matches backend location object in combat response)
 struct CombatLocation: APIModel {
     let id: String
-    let name: String
-    let locationType: String
+    let name: String?
+    let locationType: String?
     let backgroundImageUrl: String?
     let imageUrl: String?
 

@@ -566,8 +566,8 @@ extension Enemy {
 extension CombatLocation {
     static func testData(
         id: String = "location_123",
-        name: String = "Mystic Forest",
-        locationType: String = "forest",
+        name: String? = "Mystic Forest",
+        locationType: String? = "forest",
         backgroundImageUrl: String? = "https://example.com/forest-background.jpg",
         imageUrl: String? = "https://example.com/forest-icon.jpg"
     ) -> CombatLocation {
