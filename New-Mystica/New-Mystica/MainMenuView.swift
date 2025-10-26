@@ -35,7 +35,7 @@ struct MainMenuView: View {
                         }
                         .buttonStyle(PlainButtonStyle())
                         .fadeIn(delay: 0.0)
-                        
+
                         Button {
                             audioManager.playMenuButtonClick()
                             navigationManager.navigateTo(.collection)
@@ -48,7 +48,7 @@ struct MainMenuView: View {
                         }
                         .buttonStyle(PlainButtonStyle())
                         .fadeIn(delay: 0.2)
-                        
+
                         Button {
                             audioManager.playMenuButtonClick()
                             navigationManager.navigateTo(.equipment)
@@ -61,6 +61,19 @@ struct MainMenuView: View {
                         }
                         .buttonStyle(PlainButtonStyle())
                         .fadeIn(delay: 0.4)
+
+                        Button {
+                            audioManager.playMenuButtonClick()
+                            navigationManager.navigateTo(.addItemCamera)
+                        } label: {
+                            MenuOptionView(
+                                title: "Add Item/Material",
+                                icon: "camera.fill",
+                                gradientColors: [Color.accentInteractive, Color.accentSecondary]
+                            )
+                        }
+                        .buttonStyle(PlainButtonStyle())
+                        .fadeIn(delay: 0.6)
                     }
                     .padding(.horizontal, 32)
                     
