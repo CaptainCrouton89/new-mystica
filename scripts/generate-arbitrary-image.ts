@@ -39,7 +39,6 @@ const CONFIG = {
   provider: 'gemini' as const,
   model: 'google/nano-banana',
   defaultReferenceImages: [
-<<<<<<< HEAD
     'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/bubble-wrap-vest.png',
     'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/fuzzy-slippers.png',
     'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/image-refs/gatling-gun.png',
@@ -56,18 +55,6 @@ const CONFIG = {
     'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/monsters/07ba5f91-662d-4820-8a99-eee4c301f2ca/base.png',
     'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/monsters/ad4f9aa2-5938-40cc-949c-8b6263fa1444/base.png',
     'https://pub-1f07f440a8204e199f8ad01009c67cf5.r2.dev/monsters/b6052188-9f6f-4e17-b19b-4fef529ffd36/base.png'
-=======
-    `${process.env.R2_PUBLIC_URL}/image-refs/bubble-wrap-vest.png`,
-    `${process.env.R2_PUBLIC_URL}/image-refs/fuzzy-slippers.png`,
-    `${process.env.R2_PUBLIC_URL}/image-refs/gatling-gun.png`,
-    `${process.env.R2_PUBLIC_URL}/image-refs/jar-of-jelly.png`,
-    `${process.env.R2_PUBLIC_URL}/image-refs/poop-emoji.png`,
-    `${process.env.R2_PUBLIC_URL}/image-refs/lava.png`,
-    `${process.env.R2_PUBLIC_URL}/image-refs/metal-scraps.png`,
-    `${process.env.R2_PUBLIC_URL}/image-refs/rainbow.png`,
-    `${process.env.R2_PUBLIC_URL}/image-refs/slime.png`,
-    `${process.env.R2_PUBLIC_URL}/image-refs/sword.png`
->>>>>>> 136e52d7176c3457658f427cd8ca0991a9e5f814
   ]
 };
 
