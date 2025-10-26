@@ -1,0 +1,17 @@
+[
+  {
+    "name": "Flame Sword",
+    "description": "A blade wreathed in eternal orange and red flames, with a ruby-encrusted hilt",
+    "category": "weapon"
+  },
+  {
+    "name": "Shadow Cloak",
+    "description": "A dark flowing cloak that seems to absorb light, with wisps of darkness trailing from its edges",
+    "category": "armor"
+  },
+  {
+    "name": "Lightning Boots",
+    "description": "Golden boots with electric blue lightning bolts running along the sides",
+    "category": "feet"
+  }
+]

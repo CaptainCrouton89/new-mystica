@@ -15,7 +15,9 @@
     "identify-and-generate": "tsx identify-and-generate-from-image.ts",
     "upload-to-r2": "tsx upload-to-r2.ts",
     "sync-to-db": "tsx sync-to-db.ts",
-    "manage-assets": "tsx manage-assets.ts"
+    "manage-assets": "tsx manage-assets.ts",
+    "seed:generate": "tsx seed-generate.ts",
+    "seed:upload": "tsx seed-upload.ts"
   },
   "dependencies": {
     "@ai-sdk/openai": "^2.0.53",
