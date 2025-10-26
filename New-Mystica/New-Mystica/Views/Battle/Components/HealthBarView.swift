@@ -15,29 +15,29 @@ struct HealthBarView: View {
     let isPlayer: Bool
 
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 4) {
             // Health Label
-            NormalText(label, size: 16)
+            NormalText(label, size: 12)
                 .foregroundColor(Color.textPrimary)
 
             // Health Bar Container
             ZStack(alignment: .leading) {
                 // Background
-                RoundedRectangle(cornerRadius: 8)
+                RoundedRectangle(cornerRadius: 4)
                     .fill(Color.backgroundCard)
-                    .frame(height: 20)
+                    .frame(height: 8)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color.borderSubtle, lineWidth: 1)
+                        RoundedRectangle(cornerRadius: 4)
+                            .stroke(Color.borderSubtle, lineWidth: 0.5)
                     )
 
                 // Health Fill
-                RoundedRectangle(cornerRadius: 8)
+                RoundedRectangle(cornerRadius: 4)
                     .fill(healthBarColor)
-                    .frame(width: max(0, healthBarWidth), height: 20)
+                    .frame(width: max(0, healthBarWidth), height: 8)
                     .animation(.easeInOut(duration: 0.3), value: currentHealth)
             }
-            .frame(width: 200)
+            .frame(width: 150)
         }
     }
 
@@ -57,7 +57,7 @@ struct HealthBarView: View {
 
     private var healthBarWidth: CGFloat {
         let healthPercentage = max(0, min(1, currentHealth / maxHealth))
-        return 200 * healthPercentage
+        return 150 * healthPercentage
     }
 }
 

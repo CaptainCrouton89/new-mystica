@@ -14,10 +14,14 @@ struct EnemyAvatarView: View {
     let animationLoader: MonsterAnimationLoader?
     let currentFrame: Int
 
+    // Scale factor for 50% bigger (dividing by 3.33 instead of 5)
+    private static let animationScaleFactor: CGFloat = 3.33
+
     var body: some View {
         // Enemy Animation (animated sprite or fallback to static image)
+        // Keep consistent size regardless of sprite loading state
         enemyAnimationView
-            .frame(width: 80, height: 80)
+            .frame(width: 150, height: 150)
             .scaleEffect(scale)
     }
 
@@ -27,24 +31,24 @@ struct EnemyAvatarView: View {
            let animationData = loader.animationData,
            let spriteImage = loader.spriteImage,
            currentFrame < animationData.frames.count {
-            
+
             let frameData = animationData.frames[currentFrame]
-            
+
             return AnyView(
                 Image(uiImage: spriteImage)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
                     .frame(
-                        width: animationData.meta.size.w / 5,
-                        height: animationData.meta.size.h / 5
+                        width: animationData.meta.size.w / Self.animationScaleFactor,
+                        height: animationData.meta.size.h / Self.animationScaleFactor
                     )
                     .offset(
-                        x: -(frameData.x - (2 * animationData.meta.frameSize.w)) / 5,
-                        y: -(frameData.y - (2 * animationData.meta.frameSize.h)) / 5
+                        x: -(frameData.x - (2 * animationData.meta.frameSize.w)) / Self.animationScaleFactor,
+                        y: -(frameData.y - (2 * animationData.meta.frameSize.h)) / Self.animationScaleFactor
                     )
                     .frame(
-                        width: frameData.width / 5,
-                        height: frameData.height / 5
+                        width: frameData.width / Self.animationScaleFactor,
+                        height: frameData.height / Self.animationScaleFactor
                     )
                     .clipped()
             )
@@ -55,7 +59,7 @@ struct EnemyAvatarView: View {
                 Image(imageName)
                     .resizable()
                     .aspectRatio(contentMode: .fit)
-                    .frame(width: 80, height: 80)
+                    .frame(width: 150, height: 150)
             )
         }
     }

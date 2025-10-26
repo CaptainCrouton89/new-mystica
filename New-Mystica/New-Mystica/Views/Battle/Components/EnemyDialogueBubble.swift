@@ -5,32 +5,20 @@ struct EnemyDialogueBubble: View {
     let dialogue: DialogueData
     @Binding var isVisible: Bool
 
-    // Compute tone color, defaulting to white if tone doesn't match
-    private func toneColor() -> Color {
-        switch dialogue.tone.lowercased() {
-        case "confident": return .blue.opacity(0.8)
-        case "angry": return .red.opacity(0.8)
-        case "mocking": return .yellow.opacity(0.8)
-        case "desperate": return .orange.opacity(0.8)
-        case "victorious": return .green.opacity(0.8)
-        default: return .white.opacity(0.8)
-        }
-    }
-
     var body: some View {
         Group {
             if isVisible {
                 VStack(alignment: .center, spacing: 4) {
                     Text(dialogue.text)
                         .font(FontManager.body)
-                        .foregroundColor(.white)
+                        .foregroundColor(.primary)
                         .lineLimit(3)
                         .multilineTextAlignment(.center)
                 }
                 .padding(12)
                 .background(
                     RoundedRectangle(cornerRadius: 12)
-                        .fill(toneColor())
+                        .fill(Color.tertiary)
                 )
                 .transition(.asymmetric(
                     insertion: .scale(scale: 0.8).combined(with: .opacity).animation(.easeIn(duration: 0.3)),
