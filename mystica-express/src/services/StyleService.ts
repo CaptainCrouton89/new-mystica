@@ -1,6 +1,6 @@
 import { styleRepository } from '../repositories/StyleRepository.js';
-import { ValidationError } from '../utils/errors.js';
 import type { Database } from '../types/database.types.js';
+import { ValidationError } from '../utils/errors.js';
 
 type StyleDefinition = Database['public']['Tables']['styledefinitions']['Row'];
 
@@ -64,10 +64,8 @@ export class StyleService {
   getFallbackStyle(): StyleDefinition {
     return {
       id: '00000000-0000-0000-0000-000000000000',
-      display_name: 'Normal',
-      spawn_rate: 1.0,
+      display_name: 'Normal', 
       description: 'Standard appearance with no special visual effects',
-      visual_modifier: 'none',
       created_at: new Date().toISOString()
     };
   }

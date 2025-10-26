@@ -7,9 +7,9 @@
 
 import { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from '../config/supabase.js';
-import { DatabaseError, NotFoundError, mapSupabaseError } from '../utils/errors.js';
-import { QueryFilter, PaginationParams, SortParams } from '../types/repository.types.js';
 import { Database } from '../types/database.types.js';
+import { PaginationParams, QueryFilter, SortParams } from '../types/repository.types.js';
+import { DatabaseError, NotFoundError, mapSupabaseError } from '../utils/errors.js';
 
 /**
  * Base repository with generic CRUD operations
@@ -17,10 +17,10 @@ import { Database } from '../types/database.types.js';
  * @template T - The entity type this repository manages
  */
 export abstract class BaseRepository<T> {
-  protected client: SupabaseClient;
-  protected tableName: string;
+  protected client: SupabaseClient<Database>;
+  protected tableName: keyof Database['public']['Tables'];
 
-  constructor(tableName: string, client: any = supabase) {
+  constructor(tableName: keyof Database['public']['Tables'], client: SupabaseClient<Database> = supabase) {
     this.tableName = tableName;
     this.client = client;
   }
@@ -244,7 +244,7 @@ export abstract class BaseRepository<T> {
    * @returns Query result
    * @throws DatabaseError on RPC failure
    */
-  protected async rpc<R = any>(functionName: string, params?: Record<string, any>): Promise<R> {
+  protected async rpc<R = any>(functionName: keyof Database['public']['Functions'], params?: Record<string, any>): Promise<R> {
     const { data, error } = await this.client.rpc(functionName, params);
 
     if (error) {

@@ -1,10 +1,9 @@
-import { Request, Response, NextFunction } from 'express';
+import { NextFunction, Request, Response } from 'express';
 import { combatService } from '../services/CombatService.js';
 import { enemyChatterService } from '../services/EnemyChatterService.js';
-import { chatterService } from '../services/ChatterService.js';
-import { ValidationError, NotFoundError, ExternalAPIError, NotImplementedError } from '../utils/errors.js';
-import type { EnemyChatterRequest, StartCombatRequest, AttackRequest, CompleteCombatRequest, DefenseRequest, PetChatterRequest, AbandonCombatRequest } from '../types/schemas.js';
 import type { CombatEventDetails } from '../types/api.types.js';
+import type { AbandonCombatRequest, AttackRequest, CompleteCombatRequest, DefenseRequest, EnemyChatterRequest, StartCombatRequest } from '../types/schemas.js';
+import { ExternalAPIError, NotFoundError, ValidationError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
 
 /**
@@ -171,51 +170,6 @@ export class CombatController {
     }
   };
 
-  /**
-   * POST /combat/pet-chatter
-   * Generate AI-powered pet dialogue for combat events
-   */
-  generatePetChatter = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try {
-      const { session_id, event_type, event_details } = req.body as PetChatterRequest;
-
-      // Convert request format to internal CombatEventDetails format
-      const combatEventDetails = {
-        turn_number: event_details?.turn_number ?? 1,
-        player_hp_pct: 1.0, // Default values since pet chatter schema doesn't require these
-        enemy_hp_pct: 1.0,
-        damage: event_details?.damage,
-        accuracy: event_details?.accuracy,
-        is_critical: event_details?.is_critical
-      };
-
-      const dialogueResponse = await chatterService.generatePetChatter(
-        session_id,
-        event_type,
-        combatEventDetails
-      );
-
-      res.json({
-        success: true,
-        dialogue_response: dialogueResponse,
-        cached: false // Always false for real-time generation per spec
-      });
-
-    } catch (error) {
-      if (error instanceof ExternalAPIError) {
-        // Return 503 Service Unavailable for AI service failures
-        res.status(503).json({
-          error: {
-            code: 'AI_SERVICE_UNAVAILABLE',
-            message: 'AI service temporarily unavailable (fallback to canned phrases)',
-            details: error.message
-          }
-        });
-        return;
-      }
-      next(error);
-    }
-  };
   /**
    * POST /combat/enemy-chatter
    * Generate AI-powered enemy dialogue for combat events

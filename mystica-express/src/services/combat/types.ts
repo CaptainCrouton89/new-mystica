@@ -1,5 +1,5 @@
-import { Database } from '../../types/database.types.js';
 import { Stats } from '../../types/api.types.js';
+import { Database } from '../../types/database.types.js';
 import { AdjustedBands } from '../../types/repository.types.js';
 
 export type CombatResult = Database['public']['Enums']['combat_result'];
@@ -19,7 +19,7 @@ export type LootRewards = {
     item_type_id: string;
     name: string;
     category: string;
-    rarity: string;
+    rarity: Database['public']['Enums']['rarity'];
     style_id: string;
     display_name: string;
   }>;
@@ -31,7 +31,6 @@ export type EnemyLootEntry = {
   item_type_id?: string;
   lootable_type: 'material' | 'item_type';
   drop_weight: number;
-  style_id?: string;
 };
 
 export type LootDetails = {
@@ -153,7 +152,7 @@ export interface CombatRewards {
     item_type_id: string;
     name: string;
     category: string;
-    rarity: string;
+    rarity: Database['public']['Enums']['rarity'];
     style_id: string;
     display_name: string;
     generated_image_url: string | null;

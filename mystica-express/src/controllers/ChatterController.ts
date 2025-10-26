@@ -1,11 +1,9 @@
-import { Request, Response, NextFunction } from 'express';
+import { NextFunction, Request, Response } from 'express';
 import { chatterService } from '../services/ChatterService.js';
-import { logger } from '../utils/logger.js';
 import type {
-  PetChatterRequest,
-  EnemyChatterRequest,
-  AssignPetPersonalityRequest
+  EnemyChatterRequest
 } from '../types/schemas.js';
+import { logger } from '../utils/logger.js';
 
 /**
  * ChatterController - AI-powered dialogue generation endpoints
@@ -17,32 +15,6 @@ import type {
  * - Enemy type information
  */
 export class ChatterController {
-  /**
-   * POST /api/v1/combat/pet-chatter
-   * Generate AI-powered pet dialogue for combat events (F-11)
-   */
-  generatePetChatter = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try {
-      const { session_id, event_type, event_details } = req.body as PetChatterRequest;
-
-      const result = await chatterService.generatePetChatter(
-        session_id,
-        event_type,
-        {
-          turn_number: event_details?.turn_number ?? 1,
-          player_hp_pct: 1.0,
-          enemy_hp_pct: 1.0,
-          damage: event_details?.damage,
-          accuracy: event_details?.accuracy,
-          is_critical: event_details?.is_critical
-        }
-      );
-
-      res.json(result);
-    } catch (error) {
-      next(error);
-    }
-  };
 
   /**
    * POST /api/v1/combat/enemy-chatter
@@ -90,43 +62,6 @@ export class ChatterController {
         eventType: req.body?.event_type,
         error: error instanceof Error ? error.message : String(error)
       });
-      next(error);
-    }
-  };
-
-  /**
-   * GET /api/v1/pets/personalities
-   * Get available pet personality types (F-11)
-   */
-  getPetPersonalities = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try {
-      const personalities = await chatterService.getPetPersonalities();
-
-      res.json({
-        personalities
-      });
-    } catch (error) {
-      next(error);
-    }
-  };
-
-  /**
-   * PUT /api/v1/pets/:pet_id/personality
-   * Assign personality to player's pet (F-11)
-   */
-  assignPetPersonality = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try {
-      const { pet_id } = req.params;
-      const { personality_type, custom_name } = req.body as AssignPetPersonalityRequest;
-
-      const result = await chatterService.assignPetPersonality(
-        pet_id,
-        personality_type,
-        custom_name
-      );
-
-      res.json(result);
-    } catch (error) {
       next(error);
     }
   };

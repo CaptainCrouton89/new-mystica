@@ -38,7 +38,8 @@ export class ProfileService {
       const starterItem = await this.itemRepository.create({
         user_id: userId,
         item_type_id: randomItemType.id,
-        level: 1
+        level: 1,
+        rarity: 'common'
       });
 
       await this.profileRepository.updateProgression(userId, {

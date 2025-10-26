@@ -54,7 +54,7 @@ extension EnhancedPlayerItem: ItemDetailDisplayable {
     var formattedMaterials: [MaterialDisplayInfo] {
         appliedMaterials.map {
             MaterialDisplayInfo(
-                name: $0.material?.name ?? "Unknown Material",
+                name: $0.name,
                 displayName: $0.displayName
             )
         }
@@ -537,6 +537,7 @@ private struct StatDetailRow: View {
             appliedMaterials: [
                 ItemMaterialApplication(
                     materialId: "steel",
+                    name: "Steel",
                     styleId: "rustic",
                     slotIndex: 0,
                     appliedAt: "2025-10-23T06:00:00Z",

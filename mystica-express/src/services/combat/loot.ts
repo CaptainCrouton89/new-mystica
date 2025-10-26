@@ -1,15 +1,22 @@
-import { EnemyLootEntry } from './types.js';
 import { EnemyRepository } from '../../repositories/EnemyRepository.js';
 import { ItemTypeRepository } from '../../repositories/ItemTypeRepository.js';
 import { MaterialRepository } from '../../repositories/MaterialRepository.js';
+import { RarityRepository } from '../../repositories/RarityRepository.js';
+import { StyleRepository } from '../../repositories/StyleRepository.js';
+import type { Database } from '../../types/database.types.js';
 import { NotFoundError, ValidationError } from '../../utils/errors.js';
-import { locationService } from '../LocationService.js';
 import { getMaterialImageUrl } from '../../utils/image-url.js';
+import { EnemyLootEntry } from './types.js';
+
+type RarityDefinition = Database['public']['Tables']['raritydefinitions']['Row'];
+type RarityEnum = Database['public']['Enums']['rarity'];
 
 export async function generateLoot(
   enemyRepository: EnemyRepository,
   itemTypeRepository: ItemTypeRepository,
   materialRepository: MaterialRepository,
+  rarityRepository: RarityRepository,
+  styleRepository: StyleRepository,
   locationId: string,
   combatLevel: number,
   enemyTypeId: string,
@@ -27,7 +34,7 @@ export async function generateLoot(
     item_type_id: string;
     name: string;
     category: string;
-    rarity: string;
+    rarity: RarityEnum;
     style_id: string;
     display_name: string;
   }>;
@@ -49,12 +56,22 @@ export async function generateLoot(
     throw new ValidationError('No loot entries found for enemy type');
   }
 
-  const materialLootEntries: EnemyLootEntry[] = enemyLootEntries.filter(
-    entry => entry.lootable_type === 'material' && 'material_id' in entry && entry.material_id
-  );
-  const itemLootEntries: EnemyLootEntry[] = enemyLootEntries.filter(
-    entry => entry.lootable_type === 'item_type' && 'item_type_id' in entry && entry.item_type_id
-  );
+  // Convert database loot entries (with string lootable_type) to typed EnemyLootEntry
+  const materialLootEntries: EnemyLootEntry[] = enemyLootEntries
+    .filter(entry => entry.lootable_type === 'material' && entry.material_id)
+    .map(entry => ({
+      material_id: entry.material_id,
+      lootable_type: 'material' as const,
+      drop_weight: entry.drop_weight
+    }));
+
+  const itemLootEntries: EnemyLootEntry[] = enemyLootEntries
+    .filter(entry => entry.lootable_type === 'item_type' && entry.item_type_id)
+    .map(entry => ({
+      item_type_id: entry.item_type_id,
+      lootable_type: 'item_type' as const,
+      drop_weight: entry.drop_weight
+    }));
 
   const selectedMaterialLoots = selectRandomLoot(materialLootEntries, selectedEnemyStyleId);
   const selectedItemLoots = itemLootEntries.length > 0
@@ -70,19 +87,21 @@ export async function generateLoot(
       throw new NotFoundError('Material', mat.material_id);
     }
 
-    if (!mat.style_id) {
-      throw new ValidationError('Missing style_id for material');
+    // Materials have their own style_id from the materials table
+    if (!material.style_id) {
+      throw new ValidationError('Material missing style_id');
     }
-    const styleName = await locationService.getStyleName(mat.style_id);
-    if (!styleName) {
-      throw new NotFoundError('Style name', mat.style_id);
+
+    const style = await styleRepository.findById(material.style_id);
+    if (!style) {
+      throw new NotFoundError('Style', material.style_id);
     }
 
     return {
       material_id: mat.material_id,
       name: material.name,
-      style_id: mat.style_id,
-      display_name: styleName,
+      style_id: material.style_id,
+      display_name: style.display_name,
       image_url: getMaterialImageUrl(material.name)
     };
   }));
@@ -96,21 +115,22 @@ export async function generateLoot(
       throw new NotFoundError('ItemType', item.item_type_id);
     }
 
-    if (!item.style_id) {
-      throw new ValidationError('Missing style_id for item');
+    // Items inherit the enemy's style
+    const style = await styleRepository.findById(selectedEnemyStyleId);
+    if (!style) {
+      throw new NotFoundError('Style', selectedEnemyStyleId);
     }
-    const styleName = await locationService.getStyleName(item.style_id);
-    if (!styleName) {
-      throw new NotFoundError('Style name', item.style_id);
-    }
+
+    // Select rarity based on combat level and drop rates
+    const selectedRarity = await selectRarity(rarityRepository, combatLevel);
 
     return {
       item_type_id: item.item_type_id,
       name: itemType.name,
       category: itemType.category,
-      rarity: itemType.rarity,
-      style_id: item.style_id,
-      display_name: styleName
+      rarity: selectedRarity,
+      style_id: selectedEnemyStyleId,
+      display_name: style.display_name
     };
   }));
 
@@ -151,14 +171,72 @@ export function selectRandomLoot(lootEntries: EnemyLootEntry[], inheritedStyleId
     for (const entry of lootEntries) {
       cumulativeWeight += entry.drop_weight;
       if (randomVal <= cumulativeWeight) {
-        selectedLoots.push({
-          ...entry,
-          style_id: inheritedStyleId !== 'normal' ? inheritedStyleId : (entry.style_id ? entry.style_id : 'normal')
-        });
+        // EnemyLootEntry doesn't have style_id - style comes from material/enemy
+        selectedLoots.push({ ...entry });
         break;
       }
     }
   }
 
   return selectedLoots;
+}
+
+/**
+ * Select a rarity for dropped items using weighted random selection
+ *
+ * Uses base_drop_rate from rarity definitions and scales by combat level.
+ * Higher combat levels have better chances for higher rarities.
+ *
+ * Algorithm:
+ * 1. Get all rarity definitions with their base_drop_rates
+ * 2. Weight each rarity: base_drop_rate * (1 + combatLevel * 0.05)
+ * 3. Use cumulative weight selection to choose one
+ *
+ * @param rarityRepository - Repository instance for rarity lookups
+ * @param combatLevel - Current combat level (affects rarity scaling)
+ * @returns Selected rarity enum value
+ * @throws ValidationError if no rarities found
+ */
+export async function selectRarity(
+  rarityRepository: RarityRepository,
+  combatLevel: number
+): Promise<RarityEnum> {
+  const rarities = await rarityRepository.getAllRarities();
+
+  if (rarities.length === 0) {
+    throw new ValidationError('No rarity definitions found');
+  }
+
+  // Scale drop rates by combat level
+  // Higher levels increase chance of rare drops
+  const combatMultiplier = 1 + (combatLevel * 0.05);
+
+  // Calculate weighted values for each rarity
+  const weightedRarities = rarities.map(rarity => ({
+    rarity: rarity.rarity as RarityEnum,
+    weight: rarity.base_drop_rate * combatMultiplier
+  }));
+
+  // Calculate total weight
+  const totalWeight = weightedRarities.reduce((sum, r) => sum + r.weight, 0);
+
+  if (totalWeight <= 0) {
+    throw new ValidationError('Invalid rarity weights: total weight must be positive');
+  }
+
+  // Select using cumulative weight
+  const randomVal = Math.random() * totalWeight;
+  let cumulativeWeight = 0;
+
+  for (const { rarity, weight } of weightedRarities) {
+    cumulativeWeight += weight;
+    if (randomVal <= cumulativeWeight) {
+      return rarity;
+    }
+  }
+
+  // Should never reach here - indicates algorithm error
+  throw new ValidationError(
+    `Failed to select rarity: randomVal=${randomVal}, totalWeight=${totalWeight}, cumulativeWeight=${cumulativeWeight}`
+  );
 }

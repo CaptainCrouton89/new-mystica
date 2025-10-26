@@ -7,13 +7,11 @@
 
 import { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from '../config/supabase.js';
-import { DatabaseError, mapSupabaseError } from '../utils/errors.js';
 import type { Database } from '../types/database.types.js';
+import { DatabaseError, mapSupabaseError } from '../utils/errors.js';
 
 // Type aliases from database schema
 type StyleDefinition = Database['public']['Tables']['styledefinitions']['Row'];
-type StyleDefinitionInsert = Database['public']['Tables']['styledefinitions']['Insert'];
-type StyleDefinitionUpdate = Database['public']['Tables']['styledefinitions']['Update'];
 
 /**
  * StyleRepository handles style-related database operations

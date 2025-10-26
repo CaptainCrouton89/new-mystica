@@ -8,6 +8,7 @@ import { NotFoundError, ValidationError } from '../../utils/errors.js';
 import { locationService } from '../LocationService.js';
 import { Stats } from '../../types/api.types.js';
 import { logger } from '../../utils/logger.js';
+import { statsService } from '../StatsService.js';
 
 export async function selectEnemy(
   enemyRepository: EnemyRepository,
@@ -98,7 +99,7 @@ export async function captureEquipmentSnapshot(
   equipmentRepository: EquipmentRepository,
   userId: string
 ): Promise<EquipmentSnapshot> {
-  
+
   const totalStats = await equipmentRepository.getPlayerEquippedStats(userId);
 
   const equippedItems = await equipmentRepository.findEquippedByUser(userId);
@@ -113,12 +114,23 @@ export async function captureEquipmentSnapshot(
 
   for (const [slotName, item] of Object.entries(equippedItems)) {
     if (item) {
+      // Compute current_stats using StatsService
+      const computedStats = statsService.computeItemStatsForLevel(
+        {
+          rarity: item.rarity,
+          item_type: {
+            base_stats_normalized: item.item_type.base_stats_normalized
+          }
+        },
+        item.level
+      );
+
       itemsSnapshot[slotName] = {
         item_id: item.id,
         item_type_id: item.item_type.id,
         level: item.level,
-        current_stats: item.current_stats ? item.current_stats : { atkPower: 0, atkAccuracy: 0, defPower: 0, defAccuracy: 0 },
-        
+        current_stats: computedStats,
+
       };
     }
   }
@@ -129,7 +141,7 @@ export async function captureEquipmentSnapshot(
       atkAccuracy: totalStats.atkAccuracy,
       defPower: totalStats.defPower,
       defAccuracy: totalStats.defAccuracy,
-      hp: 100, 
+      hp: 100,
     },
     equipped_items: itemsSnapshot,
     snapshot_timestamp: new Date().toISOString(),

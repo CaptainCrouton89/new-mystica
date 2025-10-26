@@ -1,15 +1,14 @@
 import { Router } from 'express';
-import { validate } from '../middleware/validate.js';
-import { authenticate } from '../middleware/auth.js';
 import { combatController } from '../controllers/CombatController.js';
+import { authenticate } from '../middleware/auth.js';
+import { validate } from '../middleware/validate.js';
 import {
-  EnemyChatterRequestSchema,
-  PetChatterSchema,
-  StartCombatSchema,
+  AbandonCombatSchema,
   AttackSchema,
-  DefenseSchema,
   CompleteCombatSchema,
-  AbandonCombatSchema
+  DefenseSchema,
+  EnemyChatterRequestSchema,
+  StartCombatSchema
 } from '../types/schemas.js';
 
 const router = Router();
@@ -80,14 +79,6 @@ router.get(
   '/session/:session_id',
   authenticate,
   combatController.getCombatSession
-);
-
-// Generate pet dialogue for combat events
-router.post(
-  '/pet-chatter',
-  authenticate,
-  validate({ body: PetChatterSchema }),
-  combatController.generatePetChatter
 );
 
 // Generate enemy dialogue for combat events
