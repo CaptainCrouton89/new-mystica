@@ -18,7 +18,7 @@ Modular combat system handling lifecycle from initialization through rewards.
 
 **Imports:** Use relative imports with `.js` extensions (required for Jest)
 
-**Session State:** Atomic RPC to `CombatSessions` table. `session.ts` initializes, `session-recovery.ts` resumes.
+**Session State:** Atomic RPC to `CombatSessions` table. `session.ts` initializes, `session-recovery.ts` resumes with full context (location, weapon config, stats, enemy data).
 
 **Damage Formula:** `base × level_multiplier × stat_scaling × zone_multiplier`
 
