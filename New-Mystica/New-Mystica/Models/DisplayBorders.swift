@@ -21,9 +21,9 @@ enum RarityBorder: String, CaseIterable {
         case .common:
             return .textSecondary        // Light Gray (B0B0B0)
         case .rare:
-            return .accentSecondary      // Neon Blue (00BFFF)
+            return .accentSecondary      // Faded Yellow (C9A961)
         case .epic:
-            return .accent               // Neon Pink (FF1493)
+            return .accent               // Teal (00CED1)
         case .legendary:
             return Color(hex: "FF8C00")  // Dark Orange for legendary items
         }

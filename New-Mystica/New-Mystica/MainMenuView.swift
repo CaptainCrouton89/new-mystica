@@ -9,10 +9,10 @@ struct MainMenuView: View {
         // Change background style: .aurora, .floatingOrbs, .starfield, .image(backgroundImageManager), or .imageWithOrbs(backgroundImageManager)
         MysticaBackground(.imageWithOrbs(backgroundImageManager)) {
             ZStack {
-                VStack(spacing: 20) {
+                VStack(spacing: 10) {
                     Spacer()
                     
-                    VStack(spacing: 8) {
+                    VStack() {
                         Image("mystica_logo")
                             .resizable()
                             .aspectRatio(contentMode: .fit)
@@ -22,7 +22,7 @@ struct MainMenuView: View {
                     
                     Spacer()
                     
-                    VStack(spacing: 24) {
+                    VStack(spacing: 16) {
                         Button {
                             audioManager.playMenuButtonClick()
                             navigationManager.navigateTo(.map)

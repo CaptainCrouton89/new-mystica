@@ -7,21 +7,21 @@ extension Color {
     static let secondary = Color(hex: "2F2F2F")            // Secondary backgrounds
     static let tertiary = Color(hex: "E5E5E5")             // Primary text
     
-    // Accent Colors - Neon Theme
-    static let accent = Color(hex: "FF1493")               // Primary accent (Neon Pink)
-    static let accentSecondary = Color(hex: "00BFFF")       // Secondary accent (Neon Blue)
-    static let accentInteractive = Color(hex: "FF69B4")    // Interactive states (Bright Pink)
-    static let accentSecondaryInteractive = Color(hex: "1E90FF") // Secondary interactive states (Bright Blue)
+    // Accent Colors - Teal & Faded Yellow Theme
+    static let accent = Color(hex: "00CED1")               // Primary accent (Teal)
+    static let accentSecondary = Color(hex: "C9A961")       // Secondary accent (Faded Yellow)
+    static let accentInteractive = Color(hex: "00E5E6")    // Interactive states (Bright Teal)
+    static let accentSecondaryInteractive = Color(hex: "D4AF6A") // Secondary interactive states (Brighter Yellow)
     
     // Text Colors
     static let textPrimary = Color(hex: "FFFFFF")          // Primary text (White)
     static let textSecondary = Color(hex: "B0B0B0")        // Secondary text (Light Gray)
     
     // Semantic Colors
-    static let alert = Color(hex: "FF1493")                // Alert/Error states (Neon Pink)
-    static let success = Color(hex: "00BFFF")               // Success states (Neon Blue)
-    static let warning = Color(hex: "FF69B4")              // Warning states (Bright Pink)
-    static let info = Color(hex: "1E90FF")                 // Info states (Bright Blue)
+    static let alert = Color(hex: "00CED1")                // Alert/Error states (Teal)
+    static let success = Color(hex: "C9A961")               // Success states (Faded Yellow)
+    static let warning = Color(hex: "00E5E6")              // Warning states (Bright Teal)
+    static let info = Color(hex: "D4AF6A")                 // Info states (Brighter Yellow)
     
     // Background Colors
     static let backgroundPrimary = Color(hex: "1A1A1A")     // Primary background
@@ -29,8 +29,8 @@ extension Color {
     static let backgroundCard = Color(hex: "2F2F2F")        // Card backgrounds
     
     // Border Colors
-    static let borderPrimary = Color(hex: "FF1493")        // Primary borders (Neon Pink)
-    static let borderSecondary = Color(hex: "00BFFF")      // Secondary borders (Neon Blue)
+    static let borderPrimary = Color(hex: "00CED1")        // Primary borders (Teal)
+    static let borderSecondary = Color(hex: "C9A961")      // Secondary borders (Faded Yellow)
     static let borderSubtle = Color(hex: "B0B0B0")         // Subtle borders
 
     // Rarity Background Colors (pre-calculated for 0.05 opacity on #2F2F2F dark gray)
