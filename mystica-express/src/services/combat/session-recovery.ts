@@ -11,6 +11,13 @@ export interface SessionRecoveryData {
   status: 'active';
   player_hp: number;
   enemy_hp: number;
+  location?: {
+    id: string;
+    name: string | null;
+    location_type: string | null;
+    background_image_url: string | null;
+    image_url: string | null;
+  };
   player_stats: {
     atkPower: number;
     atkAccuracy: number;
@@ -75,7 +82,14 @@ export function buildSessionRecoveryData(
     dialogue_tone: string;
     ai_personality_traits?: Record<string, unknown>;
   },
-  sessionCreatedAt: Date
+  sessionCreatedAt: Date,
+  location?: {
+    id: string;
+    name: string | null;
+    location_type: string | null;
+    background_image_url: string | null;
+    image_url: string | null;
+  }
 ): SessionRecoveryData {
   const { playerHP, enemyHP } = getCurrentHP(combatLog, playerStats.hp, enemyStats.hp);
   const expiresAt = calculateSessionExpiry(sessionCreatedAt);
@@ -85,10 +99,11 @@ export function buildSessionRecoveryData(
     player_id: userId,
     enemy_id: enemyTypeId,
     turn_number: combatLog.length,
-    current_turn_owner: 'player', 
+    current_turn_owner: 'player',
     status: 'active' as const,
     player_hp: playerHP,
     enemy_hp: enemyHP,
+    location,
     player_stats: {
       atkPower: playerStats.atkPower,
       atkAccuracy: playerStats.atkAccuracy,

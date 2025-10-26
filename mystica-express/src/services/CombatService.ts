@@ -590,6 +590,13 @@ export class CombatService {
     status: 'active';
     player_hp: number;
     enemy_hp: number;
+    location?: {
+      id: string;
+      name: string | null;
+      location_type: string | null;
+      background_image_url: string | null;
+      image_url: string | null;
+    };
     player_stats: {
       atkPower: number;
       atkAccuracy: number;
@@ -657,6 +664,16 @@ export class CombatService {
       throw new Error(`Enemy type ${session.enemyTypeId} missing required dialogue_tone`);
     }
 
+    // Fetch location for background image support
+    const location = await locationService.getById(session.locationId);
+    const locationData = location ? {
+      id: location.id,
+      name: location.name,
+      location_type: location.location_type,
+      background_image_url: location.background_image_url,
+      image_url: location.image_url,
+    } : undefined;
+
     const currentLog = (session.combatLog || []) as CombatLogEntry[];
     return buildSessionRecoveryData(
       sessionId,
@@ -673,7 +690,8 @@ export class CombatService {
         dialogue_tone: enemyType.dialogue_tone,
         ai_personality_traits: enemyType.ai_personality_traits as Record<string, unknown> | undefined,
       },
-      session.createdAt
+      session.createdAt,
+      locationData
     );
   }
 
