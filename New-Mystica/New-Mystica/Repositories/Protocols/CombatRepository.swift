@@ -118,4 +118,9 @@ protocol CombatRepository {
     ///   - eventDetails: Detailed information about the combat event
     /// - Returns: Enemy dialogue response for the given event
     func fetchEnemyChatter(sessionId: String, eventType: String, eventDetails: CombatEventDetails) async throws -> EnemyDialogueResponse
+    
+    /// Collect instant loot from a location without combat
+    /// - Parameter locationId: Location ID to collect loot from
+    /// - Returns: Combat rewards (gold, XP, materials, items) without combat session
+    func collectInstantLoot(locationId: String) async throws -> CombatRewards
 }

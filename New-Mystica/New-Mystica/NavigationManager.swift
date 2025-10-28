@@ -10,6 +10,7 @@ enum NavigationDestination: Hashable {
     case profile
     case battle
     case victory
+    case lootBox
     case defeat
     case crafting(
         preselectedItem: EnhancedPlayerItem? = nil,
@@ -31,6 +32,7 @@ enum NavigationDestination: Hashable {
              (.profile, .profile),
              (.battle, .battle),
              (.victory, .victory),
+             (.lootBox, .lootBox),
              (.defeat, .defeat),
              (.crafting, .crafting),
              (.upgradePreview, .upgradePreview),
@@ -62,6 +64,8 @@ enum NavigationDestination: Hashable {
             hasher.combine("battle")
         case .victory:
             hasher.combine("victory")
+        case .lootBox:
+            hasher.combine("lootBox")
         case .defeat:
             hasher.combine("defeat")
         case .crafting:
@@ -97,6 +101,8 @@ enum NavigationDestination: Hashable {
             return "Battle"
         case .victory:
             return "Victory"
+        case .lootBox:
+            return "Loot Box"
         case .defeat:
             return "Defeat"
         case .crafting:

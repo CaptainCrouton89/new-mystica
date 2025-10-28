@@ -36,6 +36,8 @@ struct ContentView: View {
             BattleView(locationId: navigationManager.currentBattleLocation, selectedLevel: navigationManager.selectedCombatLevel)
         case .victory:
             VictoryView()
+        case .lootBox:
+            LootBoxView()
         case .defeat:
             DefeatView()
         case .crafting(let preselectedItem, let preselectedMaterial):

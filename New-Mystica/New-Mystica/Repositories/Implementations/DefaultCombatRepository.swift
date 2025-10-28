@@ -260,4 +260,25 @@ final class DefaultCombatRepository: CombatRepository {
 
         return response.dialogueResponse
     }
+    
+    // MARK: - Loot Collection
+    
+    func collectInstantLoot(locationId: String) async throws -> CombatRewards {
+        struct InstantLootRequest: Encodable {
+            let locationId: String
+            
+            enum CodingKeys: String, CodingKey {
+                case locationId = "location_id"
+            }
+        }
+        
+        let request = InstantLootRequest(locationId: locationId)
+        
+        let response: CombatRewards = try await apiClient.post(
+            endpoint: "/loot/instant",
+            body: request
+        )
+        
+        return response
+    }
 }

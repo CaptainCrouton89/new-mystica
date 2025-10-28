@@ -93,6 +93,11 @@ export const LocationQuerySchema = z.object({
   radius: z.coerce.number().int().min(100).max(50000).default(5000)
 });
 
+// Loot endpoints
+export const InstantLootSchema = z.object({
+  location_id: UUIDSchema
+});
+
 // Combat endpoints (for future implementation)
 export const StartCombatSchema = z.object({
   location_id: UUIDSchema,
@@ -207,6 +212,7 @@ export type ReplaceMaterialRequest = z.infer<typeof ReplaceMaterialSchema>;
 export type ItemParams = z.infer<typeof ItemParamsSchema>;
 export type ItemIdSlotParams = z.infer<typeof ItemIdSlotParamsSchema>;
 export type LocationQuery = z.infer<typeof LocationQuerySchema>;
+export type InstantLootRequest = z.infer<typeof InstantLootSchema>;
 export type StartCombatRequest = z.infer<typeof StartCombatSchema>;
 export type AttackRequest = z.infer<typeof AttackSchema>;
 export type DefenseRequest = z.infer<typeof DefenseSchema>;

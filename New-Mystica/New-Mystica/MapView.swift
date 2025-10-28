@@ -11,8 +11,8 @@ struct MapView: View, NavigableView {
     @State private var position: MapCameraPosition = .automatic
     @State private var showLocationPopup = false
     @State private var selectedLocation: Location?
-    @State private var showLevelSelection = false
-    @State private var selectedLocationForCombat: Location?
+    @State private var isCollectingLoot = false
+    @State private var lootError: String?
 
     var navigationTitle: String { "Map" }
     
@@ -79,22 +79,6 @@ struct MapView: View, NavigableView {
             Group {
                 if showLocationPopup, let location = selectedLocation {
                     locationDetailPopup(location: location)
-                } else if showLevelSelection, let location = selectedLocationForCombat {
-                    let recommendedLevel = max(1, min(10, appState.userProfile.value?.vanityLevel ?? 1))
-
-                    CombatLevelSelectionView(
-                        locationId: location.id,
-                        recommendedLevel: recommendedLevel,
-                        onDismiss: {
-                            showLevelSelection = false
-                            selectedLocationForCombat = nil
-                        },
-                        onLevelSelected: { level in
-                            showLevelSelection = false
-                            navigationManager.navigateToBattle(with: location.name, locationId: location.id, selectedLevel: level)
-                            selectedLocationForCombat = nil
-                        }
-                    )
                 }
             }
         )
@@ -240,15 +224,30 @@ struct MapView: View, NavigableView {
 
                 VStack(spacing: 12) {
                     if viewModel.isWithinRange(location: location) {
-                        TextButton("Start Battle") {
-                            audioManager.playMenuButtonClick()
-                            showLocationPopup = false
-                            selectedLocation = nil
-                            selectedLocationForCombat = location
-                            showLevelSelection = true
+                        if isCollectingLoot {
+                            HStack {
+                                ProgressView()
+                                    .progressViewStyle(CircularProgressViewStyle(tint: .accent))
+                                NormalText("Collecting loot...")
+                                    .foregroundColor(Color.textSecondary)
+                            }
+                            .padding()
+                        } else {
+                            TextButton("Collect Loot") {
+                                audioManager.playMenuButtonClick()
+                                Task {
+                                    await collectInstantLoot(from: location)
+                                }
+                            }
+                        }
+                        
+                        if let error = lootError {
+                            SmallText(error)
+                                .foregroundColor(.alert)
+                                .multilineTextAlignment(.center)
                         }
                     } else {
-                        NormalText("Move closer to battle")
+                        NormalText("Move closer to collect loot")
                             .foregroundColor(Color.textSecondary)
                             .italic()
                     }
@@ -287,6 +286,34 @@ struct MapView: View, NavigableView {
             )
             .padding(.horizontal, 40)
         }
+    }
+    
+    // MARK: - Instant Loot Collection
+    
+    private func collectInstantLoot(from location: Location) async {
+        isCollectingLoot = true
+        lootError = nil
+        
+        do {
+            let repository = DefaultCombatRepository()
+            let rewards = try await repository.collectInstantLoot(locationId: location.id)
+            
+            // Store rewards in AppState
+            appState.setCombatRewards(rewards)
+            
+            // Close popup
+            showLocationPopup = false
+            selectedLocation = nil
+            
+            // Navigate to loot box view (alternate victory scene for instant loot)
+            navigationManager.navigateTo(.lootBox)
+            
+        } catch {
+            lootError = "Unable to collect loot. Please try again."
+            print("❌ Failed to collect instant loot: \(error)")
+        }
+        
+        isCollectingLoot = false
     }
 }
 
